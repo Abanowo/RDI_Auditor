@@ -100,6 +100,9 @@ public function handle()
                 'cargo_edc' => (float) str_replace(',', '', $matchCargo[0]),
                 'cliente_id' => 1, // Placeholder
                 'sede_id' => 1,    // Placeholder
+                'ruta_pdf' => config('reportes.rutas.bbva_edc'),
+                'updated_at' => now(),
+
             ];
         })->all(); // ->all() lo convierte de nuevo a un array simple
 
@@ -108,7 +111,7 @@ public function handle()
             Operacion::upsert(
                 $datosParaGuardar,
                 ['pedimento'], // Columna(s) única(s) para la comparación
-                ['fecha_operacion', 'cargo_edc', 'cliente_id', 'sede_id'] // Columnas a actualizar si ya existe
+                ['fecha_operacion', 'cargo_edc', 'cliente_id', 'sede_id', 'ruta_pdf', 'updated_at'] // Columnas a actualizar si ya existe
             );
             $this->info('¡Guardado con éxito!');
         }

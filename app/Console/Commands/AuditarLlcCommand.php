@@ -19,13 +19,13 @@ class AuditarLlcCommand extends Command
         // --- FASE 1: Construir Índices en Memoria ---
         $this->info('Construyendo índice de Facturas SC...');
         $indiceSC = $this->construirIndiceSCparaLLC();
-
+        $this->info("LOG: Se encontraron ".count($indiceSC)." operaciones SC.");
         $this->info('Construyendo índice de facturas LLC...');
         $indiceLLC = $this->construirIndiceLLC();
 
         // --- FASE 2: Auditar Operaciones ---
         $operaciones = Operacion::whereIn('pedimento', array_keys($indiceLLC))
-                                //->whereDoesntHave('llc')
+                                ->whereDoesntHave('llc')
                                 ->get();
 
         $this->info("Se encontraron {$operaciones->count()} operaciones pendientes de auditoría de LLC.");
@@ -43,9 +43,11 @@ class AuditarLlcCommand extends Command
             $datosSC = $indiceSC[$operacion->pedimento] ?? null;
             $rutaTxtLlc = $indiceLLC[$operacion->pedimento] ?? null;
 
-            if (!$datosSC || !$rutaTxtLlc) {
+            if (!$datosSC && !$rutaTxtLlc) {
                 $bar->advance();
                 continue;
+            } elseif ($rutaTxtLlc){
+                //Aqui es cuando hay LLC pero no existe SC para esta factura.\\
             }
 
             // --- FASE 3: Parsear el TXT de la LLC ---
@@ -54,20 +56,22 @@ class AuditarLlcCommand extends Command
                 $bar->advance();
                 continue;
             }
-
+            $datosLlc['monto_total_llc_mxn'] = $datosLlc['monto_total'] * $datosSC['tipo_cambio'];
+            $datosSC['monto_esperado_mxn'] = $datosSC['moneda'] == "USD" ? $datosSC['monto_esperado_llc'] * $datosSC['tipo_cambio'] : $datosSC['monto_esperado_llc'];
             // --- FASE 4: Comparar y Preparar Datos ---
-            $estado = $this->compararMontos($datosSC['monto_esperado_llc'], $datosLlc['monto_total']);
+            $estado = $this->compararMontos($datosSC['monto_esperado_mxn'], $datosLlc['monto_total_llc_mxn']);
 
             $llcsParaGuardar[] = [
                 'operacion_id'      => $operacion->id,
                 'folio_llc'         => $datosLlc['folio'],
                 'fecha_llc'         => $datosLlc['fecha'],
-                'tipo_cambio'       => $datosSC['tipo_cambio'],
                 'ruta_txt'          => $datosLlc['ruta_txt'],
                 'ruta_pdf'          => $datosLlc['ruta_pdf'],
                 'monto_total_llc'   => $datosLlc['monto_total'],
+                'monto_total_llc_mxn' => $datosLlc['monto_total_llc_mxn'],
                 'monto_esperado_sc' => $datosSC['monto_esperado_llc'],
-                'monto_esperado_mxn'=> $datosSC['monto_esperado_llc'] * $datosSC['tipo_cambio'], // Aplicamos TC
+                'monto_esperado_mxn'=> $datosSC['monto_esperado_mxn'], // Aplicamos TC
+                'moneda_sc'            => $datosSC['moneda'],
                 'estado'            => $estado,
                 'updated_at'        => now(),
             ];
@@ -79,7 +83,7 @@ class AuditarLlcCommand extends Command
         // --- FASE 5: Guardado Masivo ---
         if (!empty($llcsParaGuardar)) {
             $this->info("\nGuardando/Actualizando " . count($llcsParaGuardar) . " registros de LLC...");
-            Llc::upsert($llcsParaGuardar, ['operacion_id'], ['folio_llc', 'fecha_llc', 'tipo_cambio', 'ruta_txt', 'ruta_pdf', 'monto_total_llc', 'monto_esperado_sc', 'monto_esperado_mxn', 'estado', 'updated_at']);
+            Llc::upsert($llcsParaGuardar, ['operacion_id'], ['folio_llc', 'fecha_llc', 'ruta_txt', 'ruta_pdf', 'monto_total_llc', 'monto_total_llc_mxn','monto_esperado_sc', 'monto_esperado_mxn', 'moneda_sc', 'estado', 'updated_at']);
             $this->info("¡Guardado con éxito!");
         }
 
@@ -153,8 +157,8 @@ class AuditarLlcCommand extends Command
         foreach ($finder as $file) {
             $contenido = $file->getContents();
             // Buscamos el pedimento en el campo de notas
-            if (preg_match('/(\[encPdfRemarksNote3\])*(\b\d{7}\b)/', $contenido, $matchPedimento)) {
-                $pedimento = trim($matchPedimento[0]);
+            if (preg_match('/(?<=\[encPdfRemarksNote3\])(.*)(\b\d{7}\b)/', $contenido, $matchPedimento)) { //SI NO FUNCIONA CAMBIALO POR d+
+                $pedimento = trim($matchPedimento[2]);
                 $indice[$pedimento] = $file->getRealPath();
             }
         }
@@ -177,28 +181,40 @@ class AuditarLlcCommand extends Command
         $indice = [];
         foreach ($finder as $file) {
             $contenido = $file->getContents();
-            if (preg_match('/\[encOBSERVACION\][^\r\n]*(\d{7})/', $contenido, $matchPedimento)) {
-                $pedimento = trim($matchPedimento[1]);
+            if (preg_match('/(?<=\[encOBSERVACION\])(\d*\-*)(\d{7})/', $contenido, $matchPedimento)) {
+                $pedimento = trim($matchPedimento[2]);
 
                 // Extraemos el monto esperado de [encTEXTOEXTRA3]
                 preg_match('/\[encTEXTOEXTRA3\]([^\r\n]*)/', $contenido, $matchMonto);
-                // Extraemos el tipo de cambio de [encTIPOCAMBIO]
-                preg_match('/\[encTIPOCAMBIO\]([^\r\n]*)/', $contenido, $matchTC);
+                preg_match('/\[cteCODMONEDA\](.*?)(\r|\n)/', $contenido, $matchMoneda);
+                // Extraemos el tipo de cambio de [encTIPOCAMBIO] y en [cteIMPORTEEXTRA1]
+                $matchMonedaCount = preg_match('/\[cteIMPORTEEXTRA1\]([^\r\n]*)/', $contenido, $matchTC);
+                    if($matchMonedaCount == 0){
+                        preg_match('/\[encTIPOCAMBIO\]([^\r\n]*)/', $contenido, $matchTC);
+                    } elseif(($matchTC[1] == "1" && $matchMoneda[1] == "2")){
+                        preg_match('/\[encTIPOCAMBIO\]([^\r\n]*)/', $contenido, $matchTC);
+                    }
 
                 $indice[$pedimento] = [
                     'monto_esperado_llc' => isset($matchMonto[1]) ? (float)trim($matchMonto[1]) : 0.0,
                     'tipo_cambio'        => isset($matchTC[1]) ? (float)trim($matchTC[1]) : 1.0,
+                    'moneda'             => isset($matchMoneda[1]) && $matchMoneda[1] == "1" ? "MXN" : "USD",
                 ];
             }
         }
         return $indice;
     }
     /**
-     * Compara dos montos y devuelve el estado.
+     * Compara dos montos y devuelve el estado de la auditoría.
      */
-     private function compararMontos(float $esperado, float $real): string
+    private function compararMontos(float $esperado, float $real): string
     {
-        if (abs($esperado - $real) < 0.01) return 'Coinciden!';
-        return ($esperado < $real) ? 'Pago de mas!' : 'Pago de menos!';
+        // Usamos una pequeña tolerancia (epsilon) para comparar números flotantes
+        // y evitar problemas de precisión.
+        if (abs($esperado - $real) < 0.001) {
+            return 'Coinciden!';
+        }
+
+        return ($esperado > $real) ? 'Pago de mas!' : 'Pago de menos!';
     }
 }

@@ -9,11 +9,17 @@
     "license": "MIT",
     "require": {
         "php": "^7.3",
+        "doctrine/dbal": "2.*",
         "fideloper/proxy": "^4.2",
         "fruitcake/laravel-cors": "^2.0",
         "guzzlehttp/guzzle": "^7.0.1",
         "initred/laravel-tabula": "^3.0",
         "laravel/framework": "^8.0",
+        "laravel/tinker": "^2.0",
+        "laravel/ui": "^3.2",
+        "smalot/pdfparser": "^2.12",
+        "spatie/pdf-to-text": "^1.4",
+        "spatie/regex": "^1.4",
         "symfony/console": "^5.1",
         "symfony/error-handler": "^5.1",
         "symfony/finder": "^5.1",
@@ -22,10 +28,7 @@
         "symfony/mime": "^5.1",
         "symfony/process": "^5.1",
         "symfony/routing": "^5.1",
-        "symfony/var-dumper": "^5.1",
-        "laravel/tinker": "^2.0",
-        "smalot/pdfparser": "^2.12",
-        "spatie/pdf-to-text": "^1.4"
+        "symfony/var-dumper": "^5.1"
     },
     "require-dev": {
         "facade/ignition": "^2.3.6",

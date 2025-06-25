@@ -13,7 +13,7 @@ class Flete extends Model
      * El nombre de la tabla asociada con el modelo.
      * @var string
      */
-    protected $table = 'fletes';
+    protected $table = 'auditorias_fletes';
 
     /**
      * Los atributos que no están protegidos contra la asignación masiva.

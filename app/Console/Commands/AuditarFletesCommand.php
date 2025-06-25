@@ -31,13 +31,12 @@ class AuditarFletesCommand extends Command
         $this->info('Paso 1/4: Construyendo índice de archivos de Facturas SC...');
         $indiceSC = $this->construirIndiceSC();
         $operacionesSC = Operacion::whereIn('pedimento', array_keys($indiceSC))->get();
-
+        $this->info("Paso 1/4 LOG: Se encontraron {$operacionesSC->count()} operaciones SC.");
         $this->info('Paso 2/4: Construyendo índice de archivos de Fletes...');
         $indiceFletes = $this->construirIndiceFletes();
-
         // --- FASE 2: Auditar Operaciones Pendientes ---
-        $operaciones = Operacion::whereIn('pedimento', array_keys($indiceFletes))->get();
-        //$operaciones = Operacion::whereIn('pedimento', array_keys($indiceFletes))->whereDoesntHave('flete')->get();
+        //$operaciones = Operacion::whereIn('pedimento', array_keys($indiceFletes))->get();
+        $operaciones = Operacion::whereIn('pedimento', array_keys($indiceFletes))->whereDoesntHave('flete')->get();
         $this->info("Paso 3/4: Se encontraron {$operaciones->count()} operaciones pendientes de auditoría.");
 
         $bar = $this->output->createProgressBar($operaciones->count());
@@ -72,8 +71,9 @@ class AuditarFletesCommand extends Command
                 $bar->advance();
                 continue;
             }
+            $datosSC['monto_esperado_mxn'] = $datosSC['moneda'] == "USD" ? $datosSC['monto_esperado_flete'] * $datosSC['tipo_cambio'] : $datosSC['monto_esperado_flete'];
              // --- FASE 4: Comparar y Preparar Datos para Guardar ---
-            $estado = $this->compararMontos($datosSC['monto_esperado_flete'], $datosFlete['total']);
+            $estado = $this->compararMontos($datosSC['monto_esperado_mxn'], $datosFlete['total']);
 
 
              // Añadimos el resultado al array para el upsert masivo
@@ -130,10 +130,10 @@ class AuditarFletesCommand extends Command
         foreach ($finder as $file) {
             $contenido = $file->getContents();
             // Refinamiento: Regex más preciso para el pedimento en la observación.
-            if (preg_match('/\[encOBSERVACION\][^\d]*(\d{7})/', $contenido, $matches)) {
+            if (preg_match('/(?<=\[encOBSERVACION\])(\d*\-*)(\d{7})/', $contenido, $matches)) {
                 preg_match('/\[cteTEXTOEXTRA3\](.*?)(\r|\n)/', $contenido, $matchFecha);
                 preg_match('/\[encFOLIOVENTA\](.*?)(\r|\n)/', $contenido, $matchFolio);
-                $pedimento = $matches[1];
+                $pedimento = $matches[2];
                 $indice[$pedimento] = [
                     'folio' => isset($matchFolio[1]) ? trim($matchFolio[1]) : null,
                     'path_txt_tr' => $file->getRealPath(),
@@ -162,8 +162,8 @@ class AuditarFletesCommand extends Command
         foreach ($finder as $file) {
             $contenido = $file->getContents();
             // Extraemos el pedimento de la observación para usarlo como llave.
-            if (preg_match('/\[encOBSERVACION\][^\d]*(\d{7})/', $contenido, $matchPedimento)) {
-                $pedimento = $matchPedimento[1];
+            if (preg_match('/(?<=\[encOBSERVACION\])(\d*\-*)(\d{7})/', $contenido, $matchPedimento)) {
+                $pedimento = $matchPedimento[2];
 
                 // Extraemos el monto esperado del flete.
                 preg_match('/\[cteTEXTOEXTRA2\](.*?)(\r|\n)/', $contenido, $matchMonto);
@@ -172,11 +172,21 @@ class AuditarFletesCommand extends Command
                 // **** ¡AQUÍ NECESITAMOS EL CAMPO CORRECTO! ****
                 preg_match('/\[encFOLIOVENTA\](.*?)(\r|\n)/', $contenido, $matchFolio);
 
+                preg_match('/\[cteCODMONEDA\](.*?)(\r|\n)/', $contenido, $matchMoneda);
+                    // Extraemos el tipo de cambio de [encTIPOCAMBIO] y en [cteIMPORTEEXTRA1]
+                    $matchTCCount = preg_match('/\[cteIMPORTEEXTRA1\]([^\r\n]*)/', $contenido, $matchTC);
+                    if($matchTCCount == 0){
+                        preg_match('/\[encTIPOCAMBIO\]([^\r\n]*)/', $contenido, $matchTC);
+                    } elseif(($matchTC[1] == "1" && $matchMoneda[1] == "2")){
+                        preg_match('/\[encTIPOCAMBIO\]([^\r\n]*)/', $contenido, $matchTC);
+                    }
+
                 $indice[$pedimento] = [
                     'pedimento' => $pedimento,
                     'monto_esperado_flete' => isset($matchMonto[1]) ? (float)trim($matchMonto[1]) : 0.0,
                     'folio' => isset($matchFolio[1]) ? trim($matchFolio[1]) : null,
-                    'path_txt_sc' => $file->getRealPath()
+                    'path_txt_sc' => $file->getRealPath(),
+                    'moneda' => isset($matchMoneda[1]) && $matchMoneda[1] == "1" ? "MXN" : "USD",
                 ];
             }
         }
