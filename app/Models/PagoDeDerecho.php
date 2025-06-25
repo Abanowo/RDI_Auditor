@@ -10,7 +10,7 @@ class PagoDeDerecho extends Model
     use HasFactory;
 
     // Definimos la tabla explícitamente (buena práctica)
-    protected $table = 'auditoria_pdd';
+    protected $table = 'auditorias_pdd';
 
     // Campos que permitimos llenar masivamente
     protected $fillable = [

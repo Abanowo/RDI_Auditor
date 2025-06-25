@@ -18,6 +18,7 @@ class AuditarScCommand extends Command
 
         // 1. Obtenemos las operaciones que tienen un cargo del banco pero aún no han sido auditadas.
         $indiceSC = $this->construirIndiceSC();
+         $this->info("LOG: Se encontraron ".count($indiceSC)." facturas SC.");
         $operacionesSC =  Operacion::whereIn('pedimento', array_keys($indiceSC))
                                     ->whereDoesntHave('auditoriaSc')
                                     ->get();

@@ -19,10 +19,10 @@ class AuditarLlcCommand extends Command
         // --- FASE 1: Construir Índices en Memoria ---
         $this->info('Construyendo índice de Facturas SC...');
         $indiceSC = $this->construirIndiceSCparaLLC();
-        $this->info("LOG: Se encontraron ".count($indiceSC)." operaciones SC.");
+        $this->info("LOG: Se encontraron ".count($indiceSC)." facturas SC.");
         $this->info('Construyendo índice de facturas LLC...');
         $indiceLLC = $this->construirIndiceLLC();
-
+        $this->info("LOG: Se encontraron ".count($indiceSC)." facturas LLC.");
         // --- FASE 2: Auditar Operaciones ---
         $operaciones = Operacion::whereIn('pedimento', array_keys($indiceLLC))
                                 ->whereDoesntHave('llc')
@@ -46,8 +46,13 @@ class AuditarLlcCommand extends Command
             if (!$datosSC && !$rutaTxtLlc) {
                 $bar->advance();
                 continue;
-            } elseif ($rutaTxtLlc){
+            } elseif (!$datosSC && $rutaTxtLlc){
                 //Aqui es cuando hay LLC pero no existe SC para esta factura.\\
+                $datosSC = [
+                    'monto_esperado_llc' => -1,
+                    'tipo_cambio'        => -1,
+                    'moneda'             => 'n/a',
+                ];
             }
 
             // --- FASE 3: Parsear el TXT de la LLC ---

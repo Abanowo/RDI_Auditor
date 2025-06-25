@@ -30,15 +30,22 @@ class AuditarFletesCommand extends Command
         // --- FASE 1: Construir Índices en Memoria para Búsquedas Rápidas ---
         $this->info('Paso 1/4: Construyendo índice de archivos de Facturas SC...');
         $indiceSC = $this->construirIndiceSC();
+        $this->info("LOG: Se encontraron ".count($indiceSC)." facturas SC.");
+
         $operacionesSC = Operacion::whereIn('pedimento', array_keys($indiceSC))->get();
-        $this->info("Paso 1/4 LOG: Se encontraron {$operacionesSC->count()} operaciones SC.");
+        $this->info("LOG: Se encontraron {$operacionesSC->count()} operaciones SC.");
+
         $this->info('Paso 2/4: Construyendo índice de archivos de Fletes...');
         $indiceFletes = $this->construirIndiceFletes();
+        $this->info("LOG: Se encontraron ".count($indiceFletes)." facturas de Transportactics.");
         // --- FASE 2: Auditar Operaciones Pendientes ---
         //$operaciones = Operacion::whereIn('pedimento', array_keys($indiceFletes))->get();
         $operaciones = Operacion::whereIn('pedimento', array_keys($indiceFletes))->whereDoesntHave('flete')->get();
         $this->info("Paso 3/4: Se encontraron {$operaciones->count()} operaciones pendientes de auditoría.");
-
+         if ($operaciones->count() == 0) {
+            $this->info('No hay facturas Transportactics nuevas que auditar.');
+            return 0;
+        }
         $bar = $this->output->createProgressBar($operaciones->count());
         $bar->start();
         $fletesParaGuardar = [];
