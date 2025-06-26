@@ -5,6 +5,7 @@ use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 use App\Models\Operacion; // No olvides importar el modelo
+use App\Models\Auditoria; // No olvides importar el modelo
 use Illuminate\Support\Facades\Config; // Otra forma de acceder
 
 
@@ -91,28 +92,93 @@ public function handle()
         // ... (después del ->filter() que nos da $operacionesLimpias)
 
         // Preparamos un array con TODOS los registros que vamos a guardar/actualizar
-        $datosParaGuardar = $operacionesLimpias->map(function ($op) {
+        $datosParaOperaciones = $operacionesLimpias->map(function ($op) {
             // ... (tu lógica para limpiar cargo_str y obtener Ids) ...
             preg_match('/[^$\s\r\n].*/', $op['cargo_str'], $matchCargo);
             return [
                 'pedimento' => $op['pedimento'],
                 'fecha_operacion' => \Carbon\Carbon::createFromFormat('d-m', $op['fecha_str'])->format('Y-m-d'),
-                'cargo_edc' => (float) str_replace(',', '', $matchCargo[0]),
                 'cliente_id' => 1, // Placeholder
                 'sede_id' => 1,    // Placeholder
-                'ruta_pdf' => config('reportes.rutas.bbva_edc'),
+                'created_at' => now(),
                 'updated_at' => now(),
-
             ];
         })->all(); // ->all() lo convierte de nuevo a un array simple
 
+
         // --- Llamamos a upsert UNA SOLA VEZ con todos los datos ---
-        if (!empty($datosParaGuardar)) {
+        if (!empty($datosParaOperaciones)) {
+            // PASO 1: Asegurarte de que todas las operaciones existen en la base de datos.
+            // Esta parte de tu código está perfecta.
             Operacion::upsert(
-                $datosParaGuardar,
+                $datosParaOperaciones,
                 ['pedimento'], // Columna(s) única(s) para la comparación
-                ['fecha_operacion', 'cargo_edc', 'cliente_id', 'sede_id', 'ruta_pdf', 'updated_at'] // Columnas a actualizar si ya existe
+                ['fecha_operacion', 'cliente_id', 'sede_id', 'updated_at'] // Columnas a actualizar si ya existe
             );
+
+            // --- COMIENZA LA NUEVA LÓGICA EFICIENTE ---
+
+            // PASO 2: Obtener todos los pedimentos que acabamos de procesar en un array simple.
+            // Usamos el método `pluck` de las colecciones de Laravel, que es perfecto para esto.
+            $pedimentos = $operacionesLimpias->pluck('pedimento');
+
+            // PASO 3: Hacer UNA SOLA consulta para traer todas las operaciones de la DB.
+            // Esto es muchísimo más rápido que buscar una por una dentro de un bucle.
+            $operaciones = Operacion::whereIn('pedimento', $pedimentos)->get();
+
+            // PASO 4: Crear un "mapa" para una búsqueda instantánea.
+            // Convertimos la colección de operaciones en un array asociativo donde la CLAVE es el 'pedimento'.
+            // Ahora podemos acceder a una operación así: $operacionMap['PEDIMENTO_123']
+            $operacionMap = $operaciones->keyBy('pedimento');
+
+
+            // PASO 5: Construir el array para las auditorías, usando nuestro mapa.
+            // Pasamos el mapa a la clausula `use` para que esté disponible dentro del `map`.
+            $datosParaAuditorias = $operacionesLimpias->map(function ($op) use ($operacionMap) {
+
+                $pedimento = $op['pedimento'];
+
+                // Verificación de seguridad: si por alguna razón la operación no se encontró, omitimos este registro.
+                if (!isset($operacionMap[$pedimento])) {
+                    return null;
+                }
+
+                // ¡LA MAGIA! Obtenemos el ID de la operación desde nuestro mapa, sin consultar la DB.
+                $operacionId = $operacionMap[$pedimento]->id;
+
+                preg_match('/[^$\s\r\n].*/', $op['cargo_str'], $matchCargo);
+
+                // Devolvemos el array completo, AHORA con el `operacion_id` correcto.
+                return [
+                    'operacion_id' => $operacionId, // ¡Aquí está la vinculación!
+                    'tipo_documento' => 'edc',
+                    'fecha_documento' => \Carbon\Carbon::createFromFormat('d-m', $op['fecha_str'])->format('Y-m-d'),
+                    'monto_total' => (float) str_replace(',', '', $matchCargo[0] ?? '0'),
+                    'monto_total_mxn' => (float) str_replace(',', '', $matchCargo[0] ?? '0'),
+                    'moneda_documento' => 'MXN',
+                    'ruta_pdf' => config('reportes.rutas.bbva_edc'),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            })->filter()->all(); // ->filter() elimina cualquier valor `null` que hayamos retornado en la verificación de seguridad.
+
+
+            // PASO 6: Hacer el upsert a la tabla de auditorías.
+            // Este código ya estaba casi perfecto, solo ajustamos los nombres de las columnas a actualizar.
+            if (!empty($datosParaAuditorias)) {
+                Auditoria::upsert(
+                    $datosParaAuditorias,
+                    ['operacion_id', 'tipo_documento'], // La llave única correcta
+                    [
+                        'fecha_documento',
+                        'monto_total', // Asegúrate que estos nombres coincidan con tu migración
+                        'monto_total_mxn',
+                        'moneda_documento',
+                        'ruta_pdf',
+                        'updated_at'
+                    ]
+                );
+            }
             $this->info('¡Guardado con éxito!');
         }
         $this->info('¡Base de datos de operaciones actualizada con éxito!');

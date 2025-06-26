@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 use DateTime;
 use Illuminate\Console\Command;
 use App\Models\Operacion;
-use App\Models\Flete;
+use App\Models\Auditoria;
 use Symfony\Component\Finder\Finder;
 
 class AuditarFletesCommand extends Command
@@ -28,74 +28,105 @@ class AuditarFletesCommand extends Command
         $this->info('Iniciando la auditoría de Fletes (Transportactics)...');
 
         // --- FASE 1: Construir Índices en Memoria para Búsquedas Rápidas ---
-        $this->info('Paso 1/4: Construyendo índice de archivos de Facturas SC...');
-        $indiceSC = $this->construirIndiceSC();
-        $this->info("LOG: Se encontraron ".count($indiceSC)." facturas SC.");
 
-        $operacionesSC = Operacion::whereIn('pedimento', array_keys($indiceSC))->get();
-        $this->info("LOG: Se encontraron {$operacionesSC->count()} operaciones SC.");
-
-        $this->info('Paso 2/4: Construyendo índice de archivos de Fletes...');
+        $this->info('Paso 1/3: Construyendo índice de archivos de Fletes...');
         $indiceFletes = $this->construirIndiceFletes();
         $this->info("LOG: Se encontraron ".count($indiceFletes)." facturas de Transportactics.");
         // --- FASE 2: Auditar Operaciones Pendientes ---
+        //--ESTE DE ABAJO ES PARA ACTUALIZAR TODA LA TABLA CON LOS FLETES RECIENTES, EN CASO DE QUE SE HAYA HECHO UN CAMBIO
         //$operaciones = Operacion::whereIn('pedimento', array_keys($indiceFletes))->get();
-        $operaciones = Operacion::whereIn('pedimento', array_keys($indiceFletes))->whereDoesntHave('flete')->get();
-        $this->info("Paso 3/4: Se encontraron {$operaciones->count()} operaciones pendientes de auditoría.");
+
+         //--Y ESTE ES PARA UNICAMENTE CREAR REGISTROS PARA LOS FLETES NUEVOS
+        $operaciones =  Operacion::query()
+            // 1. Filtramos para considerar solo las operaciones que nos interesan (opcional pero recomendado).
+            ->whereIn('pedimento', array_keys($indiceFletes))
+
+            // 2. Aquí está la magia. Buscamos operaciones que no tengan una auditoría
+            //    que cumpla con la condición que definimos dentro de la función.
+            ->whereDoesntHave('auditorias', function ($query) {
+                // 3. La condición: el tipo_documento debe ser 'sc'.
+                // Esta sub-consulta se ejecuta sobre la tabla 'auditorias'.
+                $query->where('tipo_documento', 'flete');
+            })
+            ->get();
+
+        $auditoriasSC = Auditoria::query()
+            //->with(['operacion'])
+            // Unimos con la tabla de operaciones para poder filtrar por pedimento
+            ->join('operaciones', 'auditorias.operacion_id', '=', 'operaciones.id')
+            // Nos interesan únicamente las auditorías de tipo 'sc'
+            ->where('auditorias.tipo_documento', 'sc')
+            // Filtramos para traer solo las que coinciden con los pedimentos de nuestros fletes
+            ->whereIn('operaciones.pedimento', array_keys($indiceFletes))
+            // Seleccionamos solo los campos que realmente necesitamos para ser eficientes
+            ->select('operaciones.pedimento', 'auditorias.desglose_conceptos')
+            ->get();
+
+        $this->info("Paso 2/3: Se encontraron {$operaciones->count()} operaciones pendientes de auditoría.");
          if ($operaciones->count() == 0) {
             $this->info('No hay facturas Transportactics nuevas que auditar.');
             return 0;
         }
+
+        // Aquí es donde extraemos el tipo de cambio del JSON.
+        $indiceSC = [];
+        foreach ($auditoriasSC as $auditoria) {
+            // Laravel ya ha convertido el `desglose_conceptos` en un array gracias a la propiedad `$casts`.
+            $desglose = $auditoria->desglose_conceptos;
+
+            // Creamos la entrada en nuestro mapa.
+            $indiceSC[$auditoria->pedimento] = [
+                'monto_flete_sc' => (float)$desglose['montos']['flete'],
+                'moneda' => $desglose['moneda'],
+                 // Accedemos al tipo de cambio. Usamos el 'null coalescing operator' (??)
+                 // para asignar un valor por defecto (ej. 1) si no se encuentra.
+                'tipo_cambio' => (float)$desglose['tipo_cambio'] ?? 1.0,
+            ];
+        }
+
         $bar = $this->output->createProgressBar($operaciones->count());
         $bar->start();
         $fletesParaGuardar = [];
         foreach ($operaciones as $operacion) {
             // Buscamos en nuestros índices en memoria (búsqueda instantánea)
-            $datosSC = $indiceSC[$operacion->pedimento] ?? null;
             $datosFlete = $indiceFletes[$operacion->pedimento] ?? null;
-
-            if (!$datosSC || !$datosFlete/* || $datosSC['monto_esperado_flete'] == 0 */) {
+            $datosSC = $indiceSC[$operacion->pedimento] ?? null;
+            if (!$datosFlete/* || $datosSC['monto_esperado_flete'] == 0 */) {
                 $bar->advance();
                 continue; // Si no tenemos todos los datos, saltamos a la siguiente operación.
             }
 
             // --- FASE 3: Procesar los archivos encontrados ---
-            $folioFlete = $datosFlete['folio'] ?? null;
-            if (!$folioFlete) {
-                $this->warn("\nNo se pudo extraer el folio del archivo: {$datosFlete['path_txt_tr']}");
-                $bar->advance();
-                continue;
-            }
+
             //En un futuro donde ya tengas implementadas las Sedes y series, cambia la linea de abajo, tanto de este comando
             //como el de los demas que sigan esta logica, por esta nueva:
             // $rutaXmlFlete = config('reportes.rutas.tr_pdf_filepath') . DIRECTORY_SEPARATOR . $operacion->sede->serie . $datosFleteTxt['folio'] . '.xml';
-            $rutaXmlFlete = config('reportes.rutas.tr_pdf_filepath') . DIRECTORY_SEPARATOR . 'NOG' . $folioFlete . '.xml';
-            $rutaPdfFlete = config('reportes.rutas.tr_pdf_filepath') . DIRECTORY_SEPARATOR . 'NOG' . $folioFlete . '.pdf';
-            $datosFlete = array_merge($datosFlete, $this->parsearXmlFlete($rutaXmlFlete) ?? [0, 'n/a']);
+            $rutaXmlFlete = config('reportes.rutas.tr_pdf_filepath') . DIRECTORY_SEPARATOR . 'NOG' . $datosFlete['folio'] . '.xml';
+            $rutaXmlFlete = file_exists($rutaXmlFlete) ? $rutaXmlFlete : 'No encontrado!';
 
-            if (!$datosFlete || $datosFlete['moneda'] == 'n/a') {
-                $this->error("\nNo se pudo leer el XML del Flete: {$rutaXmlFlete}");
-                $bar->advance();
-                continue;
-            }
-            $datosSC['monto_esperado_mxn'] = $datosSC['moneda'] == "USD" ? $datosSC['monto_esperado_flete'] * $datosSC['tipo_cambio'] : $datosSC['monto_esperado_flete'];
-             // --- FASE 4: Comparar y Preparar Datos para Guardar ---
-            $estado = $this->compararMontos($datosSC['monto_esperado_mxn'], $datosFlete['total']);
+            $rutaPdfFlete = config('reportes.rutas.tr_pdf_filepath') . DIRECTORY_SEPARATOR . 'NOG' . $datosFlete['folio'] . '.pdf';
+            $rutaPdfFlete = file_exists($rutaPdfFlete) ? $rutaPdfFlete : 'No encontrado!';
 
+            $datosFlete = array_merge($datosFlete, $this->parsearXmlFlete($rutaXmlFlete) ?? [-1, 'n/a']);
 
-             // Añadimos el resultado al array para el upsert masivo
+            $montoFleteMXN = ($datosFlete['moneda'] == "USD" && $datosFlete['total'] != -1) ? $datosFlete['total'] * $datosSC[$operacion->pedimento] : $datosFlete['total'];
+            $montoSCMXN = ($datosSC['moneda'] == "USD" && $datosSC['monto_flete_sc'] != -1) ? $datosSC['monto_flete_sc'] * $datosSC['tipo_cambio'] : $datosSC['monto_flete_sc'];
+            $estado = $this->compararMontos($montoSCMXN, $montoFleteMXN);
+
+            // Añadimos el resultado al array para el upsert masivo
             $fletesParaGuardar[] = [
                 'operacion_id' => $operacion->id,
+                'tipo_documento' => 'flete',
                 'folio' => $datosFlete['folio'],
-                'fecha' => date('Y-m-d', date_timestamp_get(DateTime::createFromFormat('d/m/Y', $datosFlete['fecha']))),
+                'fecha_documento' => date('Y-m-d', date_timestamp_get(DateTime::createFromFormat('d/m/Y', $datosFlete['fecha']))),
                 'monto_total' => $datosFlete['total'],
-                'moneda' => $datosFlete['moneda'],
+                'monto_total_mxn' => $montoFleteMXN,
+                'moneda_documento' => $datosFlete['moneda'],
+                'estado' => $estado,
                 'ruta_xml' => $rutaXmlFlete,
                 'ruta_txt' => $datosFlete['path_txt_tr'],
-                'ruta_pdf' => file_exists($rutaPdfFlete) ? $rutaPdfFlete : null,
-                'monto_esperado_sc' => $datosSC['monto_esperado_flete'],
-                'monto_esperado_mxn' => $datosSC['monto_esperado_flete'], // Asumiendo MXN por ahora
-                'estado' => $estado,
+                'ruta_pdf' => $rutaPdfFlete,
+                'created_at' => now(),
                 'updated_at' => now(),
             ];
 
@@ -105,12 +136,12 @@ class AuditarFletesCommand extends Command
 
          // --- FASE 5: Guardado Masivo en Base de Datos ---
         if (!empty($fletesParaGuardar)) {
-            $this->info("\nGuardando/Actualizando " . count($fletesParaGuardar) . " registros de fletes...");
+            $this->info("\nPaso 3/3: Guardando/Actualizando " . count($fletesParaGuardar) . " registros de fletes...");
 
-            Flete::upsert(
+            Auditoria::upsert(
                 $fletesParaGuardar,
-                ['operacion_id'], // Columna única para identificar si debe actualizar o insertar
-                ['folio', 'fecha', 'monto_total', 'moneda', 'ruta_xml', 'ruta_txt', 'ruta_pdf', 'monto_esperado_sc', 'monto_esperado_mxn', 'estado', 'updated_at']
+                ['operacion_id', 'tipo_documento'], // Columna única para identificar si debe actualizar o insertar
+                ['folio', 'fecha_documento', 'monto_total', 'monto_total_mxn', 'moneda_documento', 'estado', 'ruta_xml', 'ruta_txt', 'ruta_pdf', 'updated_at']
             );
 
             $this->info("¡Guardado con éxito!");
@@ -155,7 +186,7 @@ class AuditarFletesCommand extends Command
     /**
      * Lee todos los TXT de SC recientes y crea un mapa [pedimento => [datos_de_la_sc]].
      */
-    private function construirIndiceSC(): array
+    /* private function construirIndiceSC(): array
     {
         $directorio = config('reportes.rutas.sc_txt_filepath');
         $finder = new Finder();
@@ -198,7 +229,7 @@ class AuditarFletesCommand extends Command
             }
         }
         return $indice;
-    }
+    } */
 
 
    // Dentro de la clase AuditarFletesCommand
@@ -211,7 +242,7 @@ class AuditarFletesCommand extends Command
         if (!file_exists($rutaXml)) {
             $this->error("XML no encontrado en: {$rutaXml}");
             return [
-                'total'  => 0,
+                'total'  => -1,
                 'moneda' => 'n/a',
             ];
         }
@@ -239,12 +270,14 @@ class AuditarFletesCommand extends Command
      */
     private function compararMontos(float $esperado, float $real): string
     {
+        if($esperado == -1){ return 'Sin SC!'; }
+        if($real == -1){ return 'Sin Flete!'; }
         // Usamos una pequeña tolerancia (epsilon) para comparar números flotantes
         // y evitar problemas de precisión.
         if (abs($esperado - $real) < 0.001) {
             return 'Coinciden!';
         }
-
+        //LA SC SIEMPRE DEBE DE TENER MAS CANTIDAD, SI TIENE MENOS, SIGNIFICA PERDIDA
         return ($esperado > $real) ? 'Pago de mas!' : 'Pago de menos!';
     }
 }

@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Models\Operacion;
-use App\Models\AuditoriaSc; // Importamos el nuevo modelo
+use App\Models\Auditoria; // Importamos el nuevo modelo
 use Symfony\Component\Finder\Finder;
 use Spatie\Regex\Regex;
 class AuditarScCommand extends Command
@@ -18,11 +18,23 @@ class AuditarScCommand extends Command
 
         // 1. Obtenemos las operaciones que tienen un cargo del banco pero aún no han sido auditadas.
         $indiceSC = $this->construirIndiceSC();
-         $this->info("LOG: Se encontraron ".count($indiceSC)." facturas SC.");
-        $operacionesSC =  Operacion::whereIn('pedimento', array_keys($indiceSC))
-                                    ->whereDoesntHave('auditoriaSc')
-                                    ->get();
+        $this->info("LOG: Se encontraron ".count($indiceSC)." facturas SC.");
+        //--ESTE DE ABAJO ES PARA ACTUALIZAR TODA LA TABLA CON LOS SC RECIENTES, EN CASO DE QUE SE HAYA HECHO UN CAMBIO
+        //$operacionesSC = Operacion::whereIn('pedimento', array_keys($indiceSC))->get();
 
+        //--Y ESTE ES PARA UNICAMENTE CREAR REGISTROS PARA LAS SC NUEVAS
+        $operacionesSC =  Operacion::query()
+            // 1. Filtramos para considerar solo las operaciones que nos interesan (opcional pero recomendado).
+            ->whereIn('pedimento', array_keys($indiceSC))
+
+            // 2. Aquí está la magia. Buscamos operaciones que no tengan una auditoría
+            //    que cumpla con la condición que definimos dentro de la función.
+            ->whereDoesntHave('auditorias', function ($query) {
+                // 3. La condición: el tipo_documento debe ser 'sc'.
+                // Esta sub-consulta se ejecuta sobre la tabla 'auditorias'.
+                $query->where('tipo_documento', 'sc');
+            })
+            ->get();
 
 
         $this->info("Se encontraron {$operacionesSC->count()} operaciones pendientes de auditoría de SC.");
@@ -45,23 +57,37 @@ class AuditarScCommand extends Command
                 continue;
             }
 
-            $datosSC['monto_esperado_mxn'] = $datosSC['moneda'] == "USD" ? $datosSC['monto_impuestos'] *  $datosSC['tipo_cambio'] : $datosSC['monto_impuestos'];
-            // 4. Realizar la comparación.
-            $estado = $this->compararMontos((float)$operacion->cargo_edc, (float)$datosSC['monto_esperado_mxn']);
-             $datosSC['monto_esperado_mxn'] = $datosSC['monto_impuestos'] < 0 ? $operacion->cargo_edc : $datosSC['monto_esperado_mxn'];
-              $datosSC['monto_impuestos'] = $datosSC['monto_impuestos'] < 0 ? $operacion->cargo_edc : $datosSC['monto_impuestos'];
+            $desgloseSC = [
+                 // --- Metadatos del desglose ---
+                'moneda' => $datosSC['moneda'], // La moneda para TODOS los montos de abajo
+                'tipo_cambio'      => $datosSC['tipo_cambio'],
+
+                // --- Lista de conceptos y sus montos ---
+                'montos' => [
+                    'impuestos' => $datosSC['monto_impuestos'],
+                    'pago_derecho' => $datosSC['monto_total_pdd'],
+                    'llc'       => $datosSC['monto_llc'],
+                    'flete'     => $datosSC['monto_flete'],
+                    'maniobras' => $datosSC['monto_maniobras'],
+                    'muestras'  => $datosSC['monto_muestras'],
+                    'termo'     => $datosSC['monto_termo'],
+                    'rojos'     => $datosSC['monto_rojos'],
+                ]
+            ];
+            $montoSCMXN = ($datosSC['moneda'] == "USD" && $datosSC['monto_total_sc'] != -1) ? $datosSC['monto_total_sc'] * $datosSC['tipo_cambio'] : $datosSC['monto_total_sc'];
             $auditoriasParaGuardar[] = [
                 'operacion_id'       => $operacion->id,
-                'fecha_sc'           => $datosSC['fecha_sc'],
-                'folio_sc'           => $datosSC['folio_sc'],
+                'tipo_documento'               => 'sc',
+                'folio'           => $datosSC['folio_sc'],
+                'fecha_documento'           => $datosSC['fecha_sc'],
+                'monto_total' => $datosSC['monto_total_sc'],
+                'monto_total_mxn' => $montoSCMXN,
+                'moneda_documento' => $datosSC['moneda'],
+                'estado' => $datosSC['monto_total_sc'] != -1 ? "Saldo encontrado" : "Saldo no encontrado",
+                'desglose_conceptos' => json_encode($desgloseSC),
                 'ruta_txt'           => $datosSC['ruta_txt'],
                 'ruta_pdf'           => $datosSC['ruta_pdf'],
-                'cargo_edc'          => $operacion->cargo_edc,
-                'moneda'             => $datosSC['moneda'],
-                'tipo_cambio'        => $datosSC['tipo_cambio'],
-                'monto_impuestos_sc' => $datosSC['monto_impuestos'],
-                'monto_impuestos_mxn' => $datosSC['monto_esperado_mxn'],
-                'estado'             => $estado,
+                'created_at'         => now(),
                 'updated_at'         => now(),
             ];
 
@@ -72,10 +98,10 @@ class AuditarScCommand extends Command
         // Guardamos todos los resultados en una sola consulta para máximo rendimiento.
         if (!empty($auditoriasParaGuardar)) {
             $this->info("\nGuardando/Actualizando " . count($auditoriasParaGuardar) . " resultados de auditoría...");
-            AuditoriaSc::upsert(
+            Auditoria::upsert(
                 $auditoriasParaGuardar,
-                ['operacion_id'], // Columna única para identificar
-                ['fecha_sc', 'folio_sc', 'ruta_txt', 'ruta_pdf', 'cargo_edc', 'moneda', 'tipo_cambio', 'monto_impuestos_mxn', 'monto_impuestos_sc',  'estado', 'updated_at'] // Columnas a actualizar
+                ['operacion_id', 'tipo_documento'], // Columna única para identificar
+                ['folio', 'fecha_documento','monto_total', 'monto_total_mxn', 'moneda_documento', 'estado', 'desglose_conceptos', 'ruta_txt', 'ruta_pdf', 'updated_at'] // Columnas a actualizar
             );
             $this->info('¡Guardado con éxito!');
         }
@@ -105,10 +131,27 @@ class AuditarScCommand extends Command
                 if (preg_match('/(?<=\[encOBSERVACION\])(\d*\-*)(\d{7})/', $contenido, $matchesPedimento)) {
 
                     $pedimento = trim($matchesPedimento[2]);
-                    preg_match('/\[encTEXTOEXTRA1\](.*?)(\r|\n)/', $contenido, $matchMonto);
+                    //[encTEXTOEXTRA1] = IMPUESTOS (EDC - SC)
+                    preg_match('/\[encTEXTOEXTRA1\](.*?)(\r|\n)/', $contenido, $matchM_Impuesto);
+                    //[encTEXTOEXTRA2] = EMISION DE CERTIFICADO INTERNACIONAL (PAGOS DE DERECHO - SADER)
+                    preg_match('/\[encTEXTOEXTRA2\](.*?)(\r|\n)/', $contenido, $matchM_PDD);
+                    //[encTEXTOEXTRA3] = GASTOS GENERADOS EN ESTADOS UNIDOS (LLC)
+                    preg_match('/\[encTEXTOEXTRA3\](.*?)(\r|\n)/', $contenido, $matchM_LLC);
+                    //[cteTEXTOEXTRA2] = FLETE (TRANSPORTACTICS)
+                    preg_match('/\[cteTEXTOEXTRA2\](.*?)(\r|\n)/', $contenido, $matchM_Tr);
+                    //[cteTEXTOEXTRA3] = MANIOBRAS
+                    preg_match('/\[cteTEXTOEXTRA3\](.*?)(\r|\n)/', $contenido, $matchM_Man);
+                    //[cteCTAMENSAJERIA] = MUESTRAS
+                    preg_match('/\[cteCTAMENSAJERIA\](.*?)(\r|\n)/', $contenido, $matchM_Mue);
+                    //[encFECHA] = FECHA (REALMENTE NO EXISTE EN LA SC)
                     preg_match('/\[encFECHA\](.*?)(\r|\n)/', $contenido, $matchFecha);
+                    //[encFOLIOVENTA] = FOLIO
                     preg_match('/\[encFOLIOVENTA\](.*?)(\r|\n)/', $contenido, $matchFolio);
+                    //[cteCODMONEDA] = MONEDA
                     preg_match('/\[cteCODMONEDA\](.*?)(\r|\n)/', $contenido, $matchMoneda);
+                     //[encIMPORTEEXTRA4] = TOTAL FACTURA SC (ESTE NO LO USO, PERO LO AGREGO)
+                    preg_match('/\[encIMPORTEEXTRA4\](.*?)(\r|\n)/', $contenido, $matchTotalSC);
+
                     // Extraemos el tipo de cambio de [encTIPOCAMBIO] y en [cteIMPORTEEXTRA1]
                     $matchTCCount = preg_match('/\[cteIMPORTEEXTRA1\]([^\r\n]*)/', $contenido, $matchTC);
                     if($matchTCCount == 0){
@@ -116,20 +159,33 @@ class AuditarScCommand extends Command
                     } elseif(($matchTC[1] == "1" && $matchMoneda[1] == "2")){
                         preg_match('/\[encTIPOCAMBIO\]([^\r\n]*)/', $contenido, $matchTC);
                     }
+
                     // Construimos la ruta al PDF
                     $rutaPdf = config('reportes.rutas.sc_pdf_filepath') . DIRECTORY_SEPARATOR . $file->getBasename();
                     $rutaPdf = str_replace('.txt', '.pdf', $rutaPdf);
 
                     $indice[$pedimento] = [
-                        'monto_impuestos' => isset($matchMonto[1]) && strlen($matchMonto[1]) > 0 ? (float)trim($matchMonto[1]) : -1,
+                        'monto_impuestos' => isset($matchM_Impuesto[1]) && strlen($matchM_Impuesto[1]) > 0 ? (float)trim($matchM_Impuesto[1]) : -1,
+                        'monto_flete' => isset($matchM_Tr[1]) && strlen($matchM_Tr[1]) > 0 ? (float)trim($matchM_Tr[1]) : -1,
+                        'monto_llc' => isset($matchM_LLC[1]) && strlen($matchM_LLC[1]) > 0 ? (float)trim($matchM_LLC[1]) : -1,
+                        'monto_total_pdd' => isset($matchM_PDD[1]) && strlen($matchM_PDD[1]) > 0 ? (float)trim($matchM_PDD[1]) : -1,
+                        'monto_maniobras' => isset($matchM_Man[1]) && strlen($matchM_Man[1]) > 0 ? (float)trim($matchM_Man[1]) : -1,
+                        'monto_muestras' => isset($matchM_Mue[1]) && strlen($matchM_Mue[1]) > 0 ? (float)trim($matchM_Mue[1]) : -1,
+
                         'folio_sc' => isset($matchFolio[1]) ? trim($matchFolio[1]) : null,
                         'fecha_sc'  => isset($matchFecha[2]) ? \Carbon\Carbon::parse(trim($matchFecha[1]))->format('Y-m-d') : now(), //ESTO PUEDES DECIRLE QUE TE LO IGUAL A NULL, NO HAY FECHA DENTRO DE LA SC
                         'ruta_txt' => $file->getRealPath(),
                         'ruta_pdf' => file_exists($rutaPdf) ? $rutaPdf : null,
                         'moneda' => isset($matchMoneda[1]) && $matchMoneda[1] == "1" ? "MXN" : "USD",
                         'tipo_cambio' => isset($matchTC[1]) ? (float)trim($matchTC[1]) : 1.0,
+                        'monto_total_sc' => isset($matchTotalSC[1]) && strlen($matchTotalSC[1]) > 0 ? (float)trim($matchTotalSC[1]) : -1,
                     ];
-
+                    $aux = $this->extraerMultiplesConceptos($contenido);
+                    if($aux['monto_maniobras_2'] > $indice[$pedimento]['monto_maniobras']){
+                        $indice[$pedimento]['monto_maniobras'] = $aux['monto_maniobras_2'];
+                    }
+                    unset($aux['monto_maniobras_2']);
+                    $indice[$pedimento] = array_merge($indice[$pedimento], $aux);
                 }
             }
         } catch (\Exception $e) {
@@ -144,4 +200,67 @@ class AuditarScCommand extends Command
         if (abs($montoBanco - $montoSC) < 0.01) return 'Coinciden!';
         return ($montoBanco > $montoSC) ? 'Pago de menos!' : 'Pago de más!';
     }
+
+/**
+ * Extrae múltiples conceptos y sus respectivos precios de un texto con formato específico.
+ *
+ * @param string $contenidoTxt El contenido completo del archivo de texto.
+ * @param array $conceptosBuscados Un array con los nombres de los productos a buscar.
+ * @return array Un array asociativo donde cada clave es el nombre de un concepto encontrado
+ * y su valor es un array con 'nombre' y 'precio'.
+ */
+ private function extraerMultiplesConceptos(string $contenidoTxt): array
+{
+    // Un array con todos los conceptos que nos interesan.
+    $conceptosBuscados = [
+        'monto_maniobras_2' => 'MANIOBRAS EN ALMACEN FISCALIZADO',
+        'monto_termo' => 'CONTROLADOR DE TEMPERATURA (TERMOGRAFO)',
+        'monto_rojos' => 'RECONOCIMIENTO ADUANERO (ROJO)',
+        // Puedes agregar aquí todos los que necesites
+    ];
+    $resultados = [
+        'monto_maniobras_2' => -1,
+        'monto_termo' => -1,
+        'monto_rojos' => -1,
+    ];
+    // Hacemos una copia de los conceptos a buscar para poder modificarla.
+    $conceptosPendientes = $conceptosBuscados;
+
+    // 1. Dividimos el texto en bloques de "movimiento" o producto.
+    $bloques = preg_split('/(?=\[movTIPOPRODUCTO\])/', $contenidoTxt, -1, PREG_SPLIT_NO_EMPTY);
+
+    // 2. Iteramos sobre cada bloque de producto encontrado.
+    foreach ($bloques as $bloque) {
+        // Si ya encontramos todos los conceptos, no tiene caso seguir recorriendo bloques.
+        if (empty($conceptosPendientes)) {
+            break;
+        }
+
+        // 3. Dentro de cada bloque, iteramos sobre los conceptos que aún nos faltan por encontrar.
+        foreach ($conceptosPendientes as $index => $concepto) {
+            $lineaNombreBuscada = '[movPRODUCTONOMBRE]' . $concepto;
+
+            // 4. Verificamos si el concepto actual está en este bloque.
+            if (str_contains($bloque, $lineaNombreBuscada)) {
+                // ¡Encontrado! Ahora extraemos su precio.
+                if (preg_match('/\[movPRODUCTOPRECIO\](.*)/', $bloque, $matches)) {
+                    $precio = trim($matches[1]);
+
+                    // 5. Guardamos el resultado usando el nombre del concepto como clave.
+                    $resultados[$index] = (float)$precio;
+
+                    // 6. Eliminamos el concepto de la lista de pendientes para ser más eficientes.
+                    unset($conceptosPendientes[$index]);
+
+                    // Como un bloque solo puede tener un producto, rompemos el bucle interior
+                    // para pasar al siguiente bloque.
+                    break;
+                }
+            }
+        }
+    }
+
+    return $resultados;
+}
+
 }
