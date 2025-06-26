@@ -66,4 +66,9 @@ class Operacion extends Model
     {
         return $this->hasMany(PagoDeDerecho::class, 'operacion_id');
     }
+
+    public function auditorias()
+    {
+        return $this->hasMany(Auditoria::class, 'operacion_id');
+    }
 }
