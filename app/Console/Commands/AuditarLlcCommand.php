@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Models\Operacion;
-use App\Models\Llc; // ¡Importamos nuestro nuevo modelo!
+use App\Models\Auditoria; // ¡Importamos nuestro nuevo modelo!
 use Symfony\Component\Finder\Finder;
 
 class AuditarLlcCommand extends Command
@@ -17,21 +17,60 @@ class AuditarLlcCommand extends Command
         $this->info('Iniciando la auditoría de facturas LLC...');
 
         // --- FASE 1: Construir Índices en Memoria ---
-        $this->info('Construyendo índice de Facturas SC...');
-        $indiceSC = $this->construirIndiceSCparaLLC();
-        $this->info("LOG: Se encontraron ".count($indiceSC)." facturas SC.");
         $this->info('Construyendo índice de facturas LLC...');
         $indiceLLC = $this->construirIndiceLLC();
-        $this->info("LOG: Se encontraron ".count($indiceSC)." facturas LLC.");
-        // --- FASE 2: Auditar Operaciones ---
-        $operaciones = Operacion::whereIn('pedimento', array_keys($indiceLLC))
-                                ->whereDoesntHave('llc')
-                                ->get();
+        $this->info("LOG: Se encontraron ".count($indiceLLC)." facturas LLC.");
+
+        //--ESTE DE ABAJO ES PARA ACTUALIZAR TODA LA TABLA CON LOS LLCs RECIENTES, EN CASO DE QUE SE HAYA HECHO UN CAMBIO
+        //$operaciones = Operacion::whereIn('pedimento', array_keys($indiceLLC))->get();
+
+         //--Y ESTE ES PARA UNICAMENTE CREAR REGISTROS PARA LOS LLCs NUEVOS
+        $operaciones =  Operacion::query()
+            // 1. Filtramos para considerar solo las operaciones que nos interesan (opcional pero recomendado).
+            ->whereIn('pedimento', array_keys($indiceLLC))
+
+            // 2. Aquí está la magia. Buscamos operaciones que no tengan una auditoría
+            //    que cumpla con la condición que definimos dentro de la función.
+            ->whereDoesntHave('auditorias', function ($query) {
+                // 3. La condición: el tipo_documento debe ser 'sc'.
+                // Esta sub-consulta se ejecuta sobre la tabla 'auditorias'.
+                $query->where('tipo_documento', 'llc');
+            })
+            ->get();
+
+        $auditoriasSC = Auditoria::query()
+            //->with(['operacion'])
+            // Unimos con la tabla de operaciones para poder filtrar por pedimento
+            ->join('operaciones', 'auditorias.operacion_id', '=', 'operaciones.id')
+            // Nos interesan únicamente las auditorías de tipo 'sc'
+            ->where('auditorias.tipo_documento', 'sc')
+            // Filtramos para traer solo las que coinciden con los pedimentos de nuestros fletes
+            ->whereIn('operaciones.pedimento', array_keys($indiceLLC))
+            // Seleccionamos solo los campos que realmente necesitamos para ser eficientes
+            ->select('operaciones.pedimento', 'auditorias.desglose_conceptos')
+            ->get();
+
 
         $this->info("Se encontraron {$operaciones->count()} operaciones pendientes de auditoría de LLC.");
         if ($operaciones->count() == 0) {
             $this->info('No hay facturas LLC nuevas que auditar.');
             return 0;
+        }
+
+         // Aquí es donde extraemos el tipo de cambio del JSON.
+        $indiceSC = [];
+        foreach ($auditoriasSC as $auditoria) {
+            // Laravel ya ha convertido el `desglose_conceptos` en un array gracias a la propiedad `$casts`.
+            $desglose = $auditoria->desglose_conceptos;
+
+            // Creamos la entrada en nuestro mapa.
+            $indiceSC[$auditoria->pedimento] = [
+                'monto_llc_sc' => (float)$desglose['montos']['llc'],
+                'moneda' => $desglose['moneda'],
+                 // Accedemos al tipo de cambio. Usamos el 'null coalescing operator' (??)
+                 // para asignar un valor por defecto (ej. 1) si no se encuentra.
+                'tipo_cambio' => (float)$desglose['tipo_cambio'] ?? 1.0,
+            ];
         }
 
         $bar = $this->output->createProgressBar($operaciones->count());
@@ -49,9 +88,9 @@ class AuditarLlcCommand extends Command
             } elseif (!$datosSC && $rutaTxtLlc){
                 //Aqui es cuando hay LLC pero no existe SC para esta factura.\\
                 $datosSC = [
-                    'monto_esperado_llc' => -1,
+                    'monto_llc_sc' => -1,
                     'tipo_cambio'        => -1,
-                    'moneda'             => 'n/a',
+                    'moneda'             => 'N/A',
                 ];
             }
 
@@ -61,23 +100,23 @@ class AuditarLlcCommand extends Command
                 $bar->advance();
                 continue;
             }
-            $datosLlc['monto_total_llc_mxn'] = $datosLlc['monto_total'] * $datosSC['tipo_cambio'];
-            $datosSC['monto_esperado_mxn'] = $datosSC['moneda'] == "USD" ? $datosSC['monto_esperado_llc'] * $datosSC['tipo_cambio'] : $datosSC['monto_esperado_llc'];
+            $montoLLCMXN = $datosSC['monto_llc_sc'] != -1 ? $datosLlc['monto_total'] * $datosSC['tipo_cambio'] : -1;
+            $montoSCMXN = ($datosSC['moneda'] == "USD" && $datosSC['monto_llc_sc'] != -1) ? $datosSC['monto_llc_sc'] * $datosSC['tipo_cambio'] : $datosSC['monto_llc_sc'];
             // --- FASE 4: Comparar y Preparar Datos ---
-            $estado = $this->compararMontos($datosSC['monto_esperado_mxn'], $datosLlc['monto_total_llc_mxn']);
+            $estado = $this->compararMontos($montoSCMXN, $montoLLCMXN);
 
             $llcsParaGuardar[] = [
                 'operacion_id'      => $operacion->id,
-                'folio_llc'         => $datosLlc['folio'],
-                'fecha_llc'         => $datosLlc['fecha'],
+                'tipo_documento'    => 'llc',
+                'folio'             => $datosLlc['folio'],
+                'fecha_documento'   => $datosLlc['fecha'],
+                'monto_total'       => $datosLlc['monto_total'],
+                'monto_total_mxn'   => $montoLLCMXN,
+                'moneda_documento'  => 'USD',
+                'estado'            => $estado,
                 'ruta_txt'          => $datosLlc['ruta_txt'],
                 'ruta_pdf'          => $datosLlc['ruta_pdf'],
-                'monto_total_llc'   => $datosLlc['monto_total'],
-                'monto_total_llc_mxn' => $datosLlc['monto_total_llc_mxn'],
-                'monto_esperado_sc' => $datosSC['monto_esperado_llc'],
-                'monto_esperado_mxn'=> $datosSC['monto_esperado_mxn'], // Aplicamos TC
-                'moneda_sc'            => $datosSC['moneda'],
-                'estado'            => $estado,
+                'created_at'        => now(),
                 'updated_at'        => now(),
             ];
 
@@ -88,7 +127,10 @@ class AuditarLlcCommand extends Command
         // --- FASE 5: Guardado Masivo ---
         if (!empty($llcsParaGuardar)) {
             $this->info("\nGuardando/Actualizando " . count($llcsParaGuardar) . " registros de LLC...");
-            Llc::upsert($llcsParaGuardar, ['operacion_id'], ['folio_llc', 'fecha_llc', 'ruta_txt', 'ruta_pdf', 'monto_total_llc', 'monto_total_llc_mxn','monto_esperado_sc', 'monto_esperado_mxn', 'moneda_sc', 'estado', 'updated_at']);
+            Auditoria::upsert($llcsParaGuardar,
+            ['operacion_id', 'tipo_documento'], // Columna única para identificar si debe actualizar o insertar
+            ['folio', 'fecha_documento', 'monto_total', 'monto_total_mxn', 'moneda_documento', 'estado', 'ruta_txt', 'ruta_pdf', 'updated_at']
+            );
             $this->info("¡Guardado con éxito!");
         }
 
@@ -173,7 +215,7 @@ class AuditarLlcCommand extends Command
     /**
      * Construye un índice de las SC para obtener el monto esperado y TC para las LLC.
      */
-    private function construirIndiceSCparaLLC(): array
+    /* private function construirIndiceSCparaLLC(): array
     {
         $directorio = config('reportes.rutas.sc_txt_filepath');
         $finder = new Finder();
@@ -208,18 +250,20 @@ class AuditarLlcCommand extends Command
             }
         }
         return $indice;
-    }
+    } */
     /**
      * Compara dos montos y devuelve el estado de la auditoría.
      */
     private function compararMontos(float $esperado, float $real): string
     {
+        if($esperado == -1){ return 'Sin SC!'; }
+        if($real == -1){ return 'Sin LLC!'; }
         // Usamos una pequeña tolerancia (epsilon) para comparar números flotantes
         // y evitar problemas de precisión.
         if (abs($esperado - $real) < 0.001) {
             return 'Coinciden!';
         }
-
+        //LA SC SIEMPRE DEBE DE TENER MAS CANTIDAD, SI TIENE MENOS, SIGNIFICA PERDIDA
         return ($esperado > $real) ? 'Pago de mas!' : 'Pago de menos!';
     }
 }

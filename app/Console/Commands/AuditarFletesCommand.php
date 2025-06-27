@@ -107,7 +107,7 @@ class AuditarFletesCommand extends Command
             $rutaPdfFlete = config('reportes.rutas.tr_pdf_filepath') . DIRECTORY_SEPARATOR . 'NOG' . $datosFlete['folio'] . '.pdf';
             $rutaPdfFlete = file_exists($rutaPdfFlete) ? $rutaPdfFlete : 'No encontrado!';
 
-            $datosFlete = array_merge($datosFlete, $this->parsearXmlFlete($rutaXmlFlete) ?? [-1, 'n/a']);
+            $datosFlete = array_merge($datosFlete, $this->parsearXmlFlete($rutaXmlFlete) ?? [-1, 'N/A']);
 
             $montoFleteMXN = ($datosFlete['moneda'] == "USD" && $datosFlete['total'] != -1) ? $datosFlete['total'] * $datosSC[$operacion->pedimento] : $datosFlete['total'];
             $montoSCMXN = ($datosSC['moneda'] == "USD" && $datosSC['monto_flete_sc'] != -1) ? $datosSC['monto_flete_sc'] * $datosSC['tipo_cambio'] : $datosSC['monto_flete_sc'];
@@ -243,7 +243,7 @@ class AuditarFletesCommand extends Command
             $this->error("XML no encontrado en: {$rutaXml}");
             return [
                 'total'  => -1,
-                'moneda' => 'n/a',
+                'moneda' => 'N/A',
             ];
         }
 
@@ -259,8 +259,8 @@ class AuditarFletesCommand extends Command
         } catch (\Exception $e) {
             $this->error("Error al parsear el XML {$rutaXml}: " . $e->getMessage());
             return [
-                'total'  => 0,
-                'moneda' => 'n/a',
+                'total'  => -1,
+                'moneda' => 'N/A',
             ];
         }
     }

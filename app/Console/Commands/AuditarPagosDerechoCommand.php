@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Models\Operacion;
-use App\Models\PagoDeDerecho;
+use App\Models\Auditoria;
 use Symfony\Component\Finder\Finder;
 use Spatie\PdfToText\Pdf;
 
@@ -23,9 +23,35 @@ class AuditarPagosDerechoCommand extends Command
         $this->info("Índice construido. Se encontraron facturas para " . count($indicePagosDerecho) . " pedimentos.");
 
         // 2. Obtenemos solo las operaciones que están en nuestro índice y que no han sido auditadas.
-        $operaciones = Operacion::whereIn('pedimento', array_keys($indicePagosDerecho))
-                                ->whereDoesntHave('pagosDeDerecho')
-                                ->get();
+        //--ESTE DE ABAJO ES PARA ACTUALIZAR TODA LA TABLA CON LOS PAGOS DE DERECHO RECIENTES, EN CASO DE QUE SE HAYA HECHO UN CAMBIO
+        //$operaciones = Operacion::whereIn('pedimento', array_keys($indicePagosDerecho))->get();
+
+         //--Y ESTE ES PARA UNICAMENTE CREAR REGISTROS PARA LOS PAGOS DE DERECHO NUEVOS
+        $operaciones =  Operacion::query()
+            // 1. Filtramos para considerar solo las operaciones que nos interesan (opcional pero recomendado).
+            ->whereIn('pedimento', array_keys($indicePagosDerecho))
+
+            // 2. Aquí está la magia. Buscamos operaciones que no tengan una auditoría
+            //    que cumpla con la condición que definimos dentro de la función.
+            ->whereDoesntHave('auditorias', function ($query) {
+                // 3. La condición: el tipo_documento debe ser 'sc'.
+                // Esta sub-consulta se ejecuta sobre la tabla 'auditorias'.
+                $query->where('tipo_documento', 'pago_derecho');
+            })
+            ->get();
+
+        $auditoriasSC = Auditoria::query()
+            //->with(['operacion'])
+            // Unimos con la tabla de operaciones para poder filtrar por pedimento
+            ->join('operaciones', 'auditorias.operacion_id', '=', 'operaciones.id')
+            // Nos interesan únicamente las auditorías de tipo 'sc'
+            ->where('auditorias.tipo_documento', 'sc')
+            // Filtramos para traer solo las que coinciden con los pedimentos de nuestros fletes
+            ->whereIn('operaciones.pedimento', array_keys($indicePagosDerecho))
+            // Seleccionamos solo los campos que realmente necesitamos para ser eficientes
+            ->select('operaciones.pedimento', 'auditorias.desglose_conceptos')
+            ->get();
+
 
         $this->info("Se encontraron {$operaciones->count()} operaciones nuevas para auditar.");
         if ($operaciones->count() === 0) return 0;
@@ -44,15 +70,20 @@ class AuditarPagosDerechoCommand extends Command
                 $datosPago = $this->parsearPdfPagoDeDerecho($rutaPdf);
 
                 if ($datosPago) {
+
                     // 4. Si obtuvimos datos, los acumulamos para el guardado masivo.
                     $pagosParaGuardar[] = [
                         'operacion_id'       => $operacion->id,
-                        'llave_pago'         => $datosPago['llave_pago'],
-                        'numero_operacion'   => $datosPago['numero_operacion'],
+                        'tipo_documento'     => 'pago_derecho',
+                        'fecha_documento'    => $datosPago['fecha_pago'],
                         'monto_total'        => $datosPago['monto_total'],
-                        'fecha_pago'         => $datosPago['fecha_pago'],
+                        'monto_total_mxn'    => $datosPago['monto_total'],
+                        'moneda_documento'   => 'MXN',
+                        'estado'             => $datosPago['tipo'],
+                        'llave_pago_pdd'     => $datosPago['llave_pago'],
+                        'num_operacion_pdd'  => $datosPago['numero_operacion'],
                         'ruta_pdf'           => $rutaPdf,
-                        'tipo'               => $datosPago['tipo'],
+                        'created_at'         => now(),
                         'updated_at'         => now(),
                     ];
                 }
@@ -66,7 +97,12 @@ class AuditarPagosDerechoCommand extends Command
         if (!empty($pagosParaGuardar)) {
             $this->info("\nGuardando/Actualizando " . count($pagosParaGuardar) . " registros de Pagos de Derecho...");
             // Usamos la llave de pago como identificador único para el upsert.
-            PagoDeDerecho::upsert($pagosParaGuardar, ['llave_pago'], ['operacion_id', 'monto_total', 'fecha_pago', 'ruta_pdf', 'tipo', 'updated_at']);
+
+           Auditoria::upsert(
+                $pagosParaGuardar,
+                ['operacion_id', 'tipo_documento'], // Columna única para identificar si debe actualizar o insertar
+                ['fecha_documento', 'monto_total', 'monto_total_mxn', 'moneda_documento', 'estado', 'llave_pago_pdd', 'num_operacion_pdd', 'ruta_pdf', 'updated_at']
+            );
             $this->info("¡Guardado con éxito!");
         }
 
