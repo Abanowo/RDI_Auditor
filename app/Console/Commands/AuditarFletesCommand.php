@@ -5,6 +5,7 @@ use DateTime;
 use Illuminate\Console\Command;
 use App\Models\Operacion;
 use App\Models\Auditoria;
+use App\Models\AuditoriaTotalSC;
 use Symfony\Component\Finder\Finder;
 
 class AuditarFletesCommand extends Command
@@ -34,10 +35,10 @@ class AuditarFletesCommand extends Command
         $this->info("LOG: Se encontraron ".count($indiceFletes)." facturas de Transportactics.");
         // --- FASE 2: Auditar Operaciones Pendientes ---
         //--ESTE DE ABAJO ES PARA ACTUALIZAR TODA LA TABLA CON LOS FLETES RECIENTES, EN CASO DE QUE SE HAYA HECHO UN CAMBIO
-        //$operaciones = Operacion::whereIn('pedimento', array_keys($indiceFletes))->get();
+        $operaciones = Operacion::whereIn('pedimento', array_keys($indiceFletes))->get();
 
          //--Y ESTE ES PARA UNICAMENTE CREAR REGISTROS PARA LOS FLETES NUEVOS
-        $operaciones =  Operacion::query()
+       /*  $operaciones =  Operacion::query()
             // 1. Filtramos para considerar solo las operaciones que nos interesan (opcional pero recomendado).
             ->whereIn('pedimento', array_keys($indiceFletes))
 
@@ -48,18 +49,16 @@ class AuditarFletesCommand extends Command
                 // Esta sub-consulta se ejecuta sobre la tabla 'auditorias'.
                 $query->where('tipo_documento', 'flete');
             })
-            ->get();
+            ->get(); */
 
-        $auditoriasSC = Auditoria::query()
+        $auditoriasSC = AuditoriaTotalSC::query()
             //->with(['operacion'])
             // Unimos con la tabla de operaciones para poder filtrar por pedimento
-            ->join('operaciones', 'auditorias.operacion_id', '=', 'operaciones.id')
-            // Nos interesan únicamente las auditorías de tipo 'sc'
-            ->where('auditorias.tipo_documento', 'sc')
+            ->join('operaciones', 'auditorias_totales_sc.operacion_id', '=', 'operaciones.id')
             // Filtramos para traer solo las que coinciden con los pedimentos de nuestros fletes
             ->whereIn('operaciones.pedimento', array_keys($indiceFletes))
             // Seleccionamos solo los campos que realmente necesitamos para ser eficientes
-            ->select('operaciones.pedimento', 'auditorias.desglose_conceptos')
+            ->select('operaciones.pedimento', 'auditorias_totales_sc.desglose_conceptos')
             ->get();
 
         $this->info("Paso 2/3: Se encontraron {$operaciones->count()} operaciones pendientes de auditoría.");
@@ -77,6 +76,7 @@ class AuditarFletesCommand extends Command
             // Creamos la entrada en nuestro mapa.
             $indiceSC[$auditoria->pedimento] = [
                 'monto_flete_sc' => (float)$desglose['montos']['flete'],
+                'monto_flete_sc_mxn' => (float)$desglose['montos']['flete_mxn'],
                 'moneda' => $desglose['moneda'],
                  // Accedemos al tipo de cambio. Usamos el 'null coalescing operator' (??)
                  // para asignar un valor por defecto (ej. 1) si no se encuentra.
@@ -95,7 +95,15 @@ class AuditarFletesCommand extends Command
                 $bar->advance();
                 continue; // Si no tenemos todos los datos, saltamos a la siguiente operación.
             }
-
+            if (!$datosSC){
+                //Aqui es cuando hay LLC pero no existe SC para esta factura.\\
+                $datosSC = [
+                    'monto_llc_sc' => -1,
+                    'monto_llc_sc_mxn' => -1,
+                    'tipo_cambio'        => -1,
+                    'moneda'             => 'N/A',
+                ];
+            }
             // --- FASE 3: Procesar los archivos encontrados ---
 
             //En un futuro donde ya tengas implementadas las Sedes y series, cambia la linea de abajo, tanto de este comando
@@ -109,25 +117,27 @@ class AuditarFletesCommand extends Command
 
             $datosFlete = array_merge($datosFlete, $this->parsearXmlFlete($rutaXmlFlete) ?? [-1, 'N/A']);
 
-            $montoFleteMXN = ($datosFlete['moneda'] == "USD" && $datosFlete['total'] != -1) ? $datosFlete['total'] * $datosSC[$operacion->pedimento] : $datosFlete['total'];
-            $montoSCMXN = ($datosSC['moneda'] == "USD" && $datosSC['monto_flete_sc'] != -1) ? $datosSC['monto_flete_sc'] * $datosSC['tipo_cambio'] : $datosSC['monto_flete_sc'];
+
+            $montoFleteMXN = (($datosFlete['moneda'] == "USD" && $datosFlete['total'] != -1) && $datosSC['tipo_cambio'] != -1) ? round($datosFlete['total'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosFlete['total'];
+            $montoSCMXN = $datosSC['monto_flete_sc_mxn'];
             $estado = $this->compararMontos($montoSCMXN, $montoFleteMXN);
 
             // Añadimos el resultado al array para el upsert masivo
             $fletesParaGuardar[] = [
-                'operacion_id' => $operacion->id,
-                'tipo_documento' => 'flete',
-                'folio' => $datosFlete['folio'],
-                'fecha_documento' => date('Y-m-d', date_timestamp_get(DateTime::createFromFormat('d/m/Y', $datosFlete['fecha']))),
-                'monto_total' => $datosFlete['total'],
-                'monto_total_mxn' => $montoFleteMXN,
-                'moneda_documento' => $datosFlete['moneda'],
-                'estado' => $estado,
-                'ruta_xml' => $rutaXmlFlete,
-                'ruta_txt' => $datosFlete['path_txt_tr'],
-                'ruta_pdf' => $rutaPdfFlete,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'operacion_id'      => $operacion->id,
+                'tipo_documento'    => 'flete',
+                'concepto_llave'    => 'principal',
+                'folio'             => $datosFlete['folio'],
+                'fecha_documento'   => date('Y-m-d', date_timestamp_get(DateTime::createFromFormat('d/m/Y', $datosFlete['fecha']))),
+                'monto_total'       => $datosFlete['total'],
+                'monto_total_mxn'   => $montoFleteMXN,
+                'moneda_documento'  => $datosFlete['moneda'],
+                'estado'            => $estado,
+                'ruta_xml'          => $rutaXmlFlete,
+                'ruta_txt'          => $datosFlete['path_txt_tr'],
+                'ruta_pdf'          => $rutaPdfFlete,
+                'created_at'        => now(),
+                'updated_at'        => now(),
             ];
 
             $bar->advance();
@@ -140,7 +150,7 @@ class AuditarFletesCommand extends Command
 
             Auditoria::upsert(
                 $fletesParaGuardar,
-                ['operacion_id', 'tipo_documento'], // Columna única para identificar si debe actualizar o insertar
+                ['operacion_id', 'tipo_documento', 'concepto_llave'], // Columna única para identificar si debe actualizar o insertar
                 ['folio', 'fecha_documento', 'monto_total', 'monto_total_mxn', 'moneda_documento', 'estado', 'ruta_xml', 'ruta_txt', 'ruta_pdf', 'updated_at']
             );
 

@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Models\Operacion;
-use App\Models\Auditoria; // Importamos el nuevo modelo
+use App\Models\AuditoriaTotalSC; // Importamos el nuevo modelo
 use Symfony\Component\Finder\Finder;
 use Spatie\Regex\Regex;
 class AuditarScCommand extends Command
@@ -20,10 +20,10 @@ class AuditarScCommand extends Command
         $indiceSC = $this->construirIndiceSC();
         $this->info("LOG: Se encontraron ".count($indiceSC)." facturas SC.");
         //--ESTE DE ABAJO ES PARA ACTUALIZAR TODA LA TABLA CON LOS SC RECIENTES, EN CASO DE QUE SE HAYA HECHO UN CAMBIO
-        //$operacionesSC = Operacion::whereIn('pedimento', array_keys($indiceSC))->get();
+        $operacionesSC = Operacion::whereIn('pedimento', array_keys($indiceSC))->get();
 
         //--Y ESTE ES PARA UNICAMENTE CREAR REGISTROS PARA LAS SC NUEVAS
-        $operacionesSC =  Operacion::query()
+        /* $operacionesSC =  Operacion::query()
             // 1. Filtramos para considerar solo las operaciones que nos interesan (opcional pero recomendado).
             ->whereIn('pedimento', array_keys($indiceSC))
 
@@ -34,7 +34,7 @@ class AuditarScCommand extends Command
                 // Esta sub-consulta se ejecuta sobre la tabla 'auditorias'.
                 $query->where('tipo_documento', 'sc');
             })
-            ->get();
+            ->get(); */
 
 
         $this->info("Se encontraron {$operacionesSC->count()} operaciones pendientes de auditoría de SC.");
@@ -64,26 +64,38 @@ class AuditarScCommand extends Command
 
                 // --- Lista de conceptos y sus montos ---
                 'montos' => [
-                    'impuestos' => $datosSC['monto_impuestos'],
-                    'pago_derecho' => $datosSC['monto_total_pdd'],
-                    'llc'       => $datosSC['monto_llc'],
-                    'flete'     => $datosSC['monto_flete'],
-                    'maniobras' => $datosSC['monto_maniobras'],
-                    'muestras'  => $datosSC['monto_muestras'],
-                    'termo'     => $datosSC['monto_termo'],
-                    'rojos'     => $datosSC['monto_rojos'],
+                    'sc'                => $datosSC['monto_total_sc'],
+                    'sc_mxn'            => ($datosSC['moneda'] == "USD" && $datosSC['monto_total_sc'] != -1) ? round($datosSC['monto_total_sc'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_total_sc'],
+
+                    'impuestos'         => $datosSC['monto_impuestos'],
+                    'impuestos_mxn'     => ($datosSC['moneda'] == "USD" && $datosSC['monto_impuestos'] != -1) ? round($datosSC['monto_impuestos'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_impuestos'],
+
+                    'pago_derecho'      => $datosSC['monto_total_pdd'],
+                    'pago_derecho_mxn'  => ($datosSC['moneda'] == "USD" && $datosSC['monto_total_pdd'] != -1) ? round($datosSC['monto_total_pdd'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_total_pdd'],
+
+                    'llc'               => $datosSC['monto_llc'],
+                    'llc_mxn'           => ($datosSC['moneda'] == "USD" && $datosSC['monto_llc'] != -1) ? round($datosSC['monto_llc'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_llc'],
+
+                    'flete'             => $datosSC['monto_flete'],
+                    'flete_mxn'         => ($datosSC['moneda'] == "USD" && $datosSC['monto_flete'] != -1) ? round($datosSC['monto_flete'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_flete'],
+
+                    'maniobras'         => $datosSC['monto_maniobras'],
+                    'maniobras_mxn'     => ($datosSC['moneda'] == "USD" && $datosSC['monto_maniobras'] != -1) ? round($datosSC['monto_maniobras'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_maniobras'],
+
+                    'muestras'          => $datosSC['monto_muestras'],
+                    'muestras_mxn'      => ($datosSC['moneda'] == "USD" && $datosSC['monto_muestras'] != -1) ? round($datosSC['monto_muestras'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_muestras'],
+
+                    'termo'             => $datosSC['monto_termo'],
+                    'termo_mxn'         => ($datosSC['moneda'] == "USD" && $datosSC['monto_termo'] != -1) ? round($datosSC['monto_termo'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_termo'],
+
+                    'rojos'             => $datosSC['monto_rojos'],
+                    'rojos_mxn'         => ($datosSC['moneda'] == "USD" && $datosSC['monto_rojos'] != -1) ? round($datosSC['monto_rojos'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_rojos'],
                 ]
             ];
-            $montoSCMXN = ($datosSC['moneda'] == "USD" && $datosSC['monto_total_sc'] != -1) ? $datosSC['monto_total_sc'] * $datosSC['tipo_cambio'] : $datosSC['monto_total_sc'];
             $auditoriasParaGuardar[] = [
                 'operacion_id'       => $operacion->id,
-                'tipo_documento'               => 'sc',
-                'folio'           => $datosSC['folio_sc'],
-                'fecha_documento'           => $datosSC['fecha_sc'],
-                'monto_total' => $datosSC['monto_total_sc'],
-                'monto_total_mxn' => $montoSCMXN,
-                'moneda_documento' => $datosSC['moneda'],
-                'estado' => $datosSC['monto_total_sc'] != -1 ? "Saldo encontrado" : "Saldo no encontrado",
+                'folio_documento'    => $datosSC['folio_sc'],
+                'fecha_documento'    => $datosSC['fecha_sc'],
                 'desglose_conceptos' => json_encode($desgloseSC),
                 'ruta_txt'           => $datosSC['ruta_txt'],
                 'ruta_pdf'           => $datosSC['ruta_pdf'],
@@ -98,12 +110,12 @@ class AuditarScCommand extends Command
         // Guardamos todos los resultados en una sola consulta para máximo rendimiento.
         if (!empty($auditoriasParaGuardar)) {
             $this->info("\nGuardando/Actualizando " . count($auditoriasParaGuardar) . " resultados de auditoría...");
-            Auditoria::upsert(
+            AuditoriaTotalSC::upsert(
                 $auditoriasParaGuardar,
-                ['operacion_id', 'tipo_documento'], // Columna única para identificar
-                ['folio', 'fecha_documento','monto_total', 'monto_total_mxn', 'moneda_documento', 'estado', 'desglose_conceptos', 'ruta_txt', 'ruta_pdf', 'updated_at'] // Columnas a actualizar
+                ['operacion_id'],
+                ['folio_documento', 'fecha_documento', 'desglose_conceptos', 'ruta_txt', 'ruta_pdf', 'updated_at']
             );
-            $this->info('¡Guardado con éxito!');
+            $this->info("\n¡Guardado con éxito!");
         }
 
         $this->info("\nAuditoría de SC finalizada.");

@@ -6,6 +6,7 @@ use Symfony\Component\Process\Process;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 use App\Models\Operacion; // No olvides importar el modelo
 use App\Models\Auditoria; // No olvides importar el modelo
+use App\Models\AuditoriaTotalSC; // No olvides importar el modelo
 use Illuminate\Support\Facades\Config; // Otra forma de acceder
 
 
@@ -57,6 +58,8 @@ public function handle()
         // Ahora este json_decode debería funcionar sin problemas y sin encode previo.
         $tablaDeDatos = json_decode($jsonOutput, true);
 
+        preg_match('/(?<=\d{2}\/\d{2}\/)\d{4}/', $tablaDeDatos[0][0], $matchYear); //Aqui se localiza el año del estado de cuenta - BBVA (CAMBIALO LUEGO)
+
         if (is_null($tablaDeDatos) || isset($tablaDeDatos['error'])) {
             $this->error("Error al decodificar el JSON o error devuelto por Python.");
             // Si hay error en Python, lo mostramos:
@@ -69,9 +72,12 @@ public function handle()
         $this->info("Tabula y Python procesaron el PDF y encontraron {$coleccionDeFilas->count()} filas de datos crudos.");
 
         // 3. Usamos map() para transformar y filter() para limpiar la colección.
-        $operacionesLimpias = $coleccionDeFilas->map(function ($fila) {
+        $operacionesLimpias = $coleccionDeFilas->map(function ($fila) use ($matchYear){
             // Verificamos que la fila tenga al menos 3 celdas (Fecha, Concepto, Cargo).
+
+
             if (isset($fila[0], $fila[1], $fila[2])) {
+
                 $textoConcepto = $fila[1];
                 // El Regex para encontrar el pedimento que ya conocemos.
                 $patron = '/PEDMTO:\s*([\w-]+)/';
@@ -115,7 +121,6 @@ public function handle()
                 ['pedimento'], // Columna(s) única(s) para la comparación
                 ['fecha_operacion', 'cliente_id', 'sede_id', 'updated_at'] // Columnas a actualizar si ya existe
             );
-
             // --- COMIENZA LA NUEVA LÓGICA EFICIENTE ---
 
             // PASO 2: Obtener todos los pedimentos que acabamos de procesar en un array simple.
@@ -131,13 +136,44 @@ public function handle()
             // Ahora podemos acceder a una operación así: $operacionMap['PEDIMENTO_123']
             $operacionMap = $operaciones->keyBy('pedimento');
 
+            $auditoriasSC = AuditoriaTotalSC::query()
+            //->with(['operacion'])
+            // Unimos con la tabla de operaciones para poder filtrar por pedimento
+            ->join('operaciones', 'auditorias_totales_sc.operacion_id', '=', 'operaciones.id')
+            // Filtramos para traer solo las que coinciden con los pedimentos de nuestros fletes
+            ->whereIn('operaciones.pedimento', $pedimentos)
+            // Seleccionamos solo los campos que realmente necesitamos para ser eficientes
+            ->select('operaciones.pedimento', 'auditorias_totales_sc.desglose_conceptos')
+            ->get();
+
+            // Aquí es donde extraemos el tipo de cambio del JSON.
+            $indiceSC = [];
+            foreach ($auditoriasSC as $auditoria) {
+                $pedimento = $auditoria->pedimento;
+                // Laravel ya ha convertido el `desglose_conceptos` en un array gracias a la propiedad `$casts`.
+                $desglose = $auditoria->desglose_conceptos;
+
+                // Creamos la entrada en nuestro mapa.
+                $indiceSC[$pedimento] = [
+                    'monto_impuesto_sc' => (float)$desglose['montos']['impuestos'],
+                    'monto_impuesto_sc_mxn' => (float)$desglose['montos']['impuestos_mxn'],
+                ];
+            }
 
             // PASO 5: Construir el array para las auditorías, usando nuestro mapa.
             // Pasamos el mapa a la clausula `use` para que esté disponible dentro del `map`.
-            $datosParaAuditorias = $operacionesLimpias->map(function ($op) use ($operacionMap) {
+            $datosParaAuditorias = $operacionesLimpias->map(function ($op) use ($operacionMap, $indiceSC) {
 
                 $pedimento = $op['pedimento'];
 
+                if(array_key_exists($pedimento, $indiceSC)){
+                    $datosSC = $indiceSC[$pedimento];
+                } else{
+                     $datosSC = [
+                    'monto_impuesto_sc' => -1.1,
+                    'monto_impuesto_sc_mxn' => -1.1, //CUANDO ES -1 = EXPO, CUANDO ES -1.1 = Sin SC!
+                    ];
+                }
                 // Verificación de seguridad: si por alguna razón la operación no se encontró, omitimos este registro.
                 if (!isset($operacionMap[$pedimento])) {
                     return null;
@@ -147,15 +183,20 @@ public function handle()
                 $operacionId = $operacionMap[$pedimento]->id;
 
                 preg_match('/[^$\s\r\n].*/', $op['cargo_str'], $matchCargo);
+                $montoImpuestoMXN = (float) filter_var($matchCargo[0], FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+                $montoSCMXN = (float) $datosSC['monto_impuesto_sc_mxn'];
+                $estado = $this->compararMontos($montoSCMXN, $montoImpuestoMXN);
 
                 // Devolvemos el array completo, AHORA con el `operacion_id` correcto.
                 return [
                     'operacion_id' => $operacionId, // ¡Aquí está la vinculación!
-                    'tipo_documento' => 'edc',
+                    'tipo_documento' => 'impuestos',
+                    'concepto_llave' => 'principal',
                     'fecha_documento' => \Carbon\Carbon::createFromFormat('d-m', $op['fecha_str'])->format('Y-m-d'),
                     'monto_total' => (float) str_replace(',', '', $matchCargo[0] ?? '0'),
                     'monto_total_mxn' => (float) str_replace(',', '', $matchCargo[0] ?? '0'),
                     'moneda_documento' => 'MXN',
+                    'estado'    => $estado,
                     'ruta_pdf' => config('reportes.rutas.bbva_edc'),
                     'created_at' => now(),
                     'updated_at' => now(),
@@ -168,12 +209,13 @@ public function handle()
             if (!empty($datosParaAuditorias)) {
                 Auditoria::upsert(
                     $datosParaAuditorias,
-                    ['operacion_id', 'tipo_documento'], // La llave única correcta
+                    ['operacion_id', 'tipo_documento', 'concepto_llave'], // La llave única correcta
                     [
                         'fecha_documento',
                         'monto_total', // Asegúrate que estos nombres coincidan con tu migración
                         'monto_total_mxn',
                         'moneda_documento',
+                        'estado',
                         'ruta_pdf',
                         'updated_at'
                     ]
@@ -189,4 +231,18 @@ public function handle()
         return 1;
     }
 }
+
+ private function compararMontos(float $esperado, float $real): string
+    {
+        if($esperado == -1){ return 'EXPO'; }
+        if($esperado == -1.1){ return 'Sin SC!'; }
+        if($real == -1){ return 'Sin Flete!'; }
+        // Usamos una pequeña tolerancia (epsilon) para comparar números flotantes
+        // y evitar problemas de precisión.
+        if (abs($esperado - $real) < 0.001) {
+            return 'Coinciden!';
+        }
+        //LA SC SIEMPRE DEBE DE TENER MAS CANTIDAD, SI TIENE MENOS, SIGNIFICA PERDIDA
+        return ($esperado > $real) ? 'Pago de mas!' : 'Pago de menos!';
+    }
 }

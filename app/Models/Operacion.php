@@ -71,4 +71,11 @@ class Operacion extends Model
     {
         return $this->hasMany(Auditoria::class, 'operacion_id');
     }
+
+    public function auditoriasTotalSC()
+    {
+          // Le decimos: la llave foránea en 'auditorias_totales_sc' es 'operacion_id'
+          // y se conecta con la llave local 'id' de esta tabla ('operaciones').
+          return $this->hasOne(AuditoriaTotalSC::class, 'operacion_id', 'id');
+    }
 }

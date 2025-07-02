@@ -1,0 +1,47 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class AuditoriaTotalSC extends Model
+{
+    use HasFactory;
+
+
+     /**
+     * El nombre de la tabla asociada con el modelo.
+     * @var string
+     */
+    protected $table = 'auditorias_totales_sc';
+
+    /**
+     * The attributes that should be cast.
+     *
+     * @var array
+     */
+    protected $casts = [
+        'desglose_conceptos' => 'array', // ¡Esta es la línea mágica!
+    ];
+
+    // También es buena idea definir qué campos se pueden llenar masivamente
+    protected $fillable = [
+        'operacion_id',
+        'folio_sc',
+        'fecha_sc',
+        'desglose_conceptos',
+        'ruta_pdf',
+        'ruta_txt',
+        'ruta_xml',
+    ];
+
+    /**
+     * Define la relación inversa de uno a muchos.
+     * Un registro de Auditoria pertenece a una Operacion.
+     */
+    public function operacion()
+    {
+        return $this->belongsTo(Operacion::class, 'operacion_id');
+    }
+}

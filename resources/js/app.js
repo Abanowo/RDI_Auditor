@@ -18,8 +18,11 @@ window.Vue = require('vue').default;
 
 // const files = require.context('./', true, /\.vue$/i)
 // files.keys().map(key => Vue.component(key.split('/').pop().split('.')[0], files(key).default))
-
+Vue.component('filtro-auditorias', require('./components/FilterBar.vue').default);
+Vue.component('lista-auditorias', require('./components/AuditPage.vue').default);
+Vue.component('paginacion', require('./components/Pagination.vue').default);
 Vue.component('upload-form', require('./components/UploadForm.vue').default);
+
 //Vue.component('bannerpedimento', require('./components/BannerPedimento.vue').default);
 
 /**
@@ -27,7 +30,23 @@ Vue.component('upload-form', require('./components/UploadForm.vue').default);
  * the page. Then, you may begin adding components to this application
  * or customize the JavaScript scaffolding to fit your unique needs.
  */
-
+// --- AÑADE ESTE FILTRO AQUÍ ---
+/**
+ * Filtro global para formatear números como moneda,
+ * asegurando que siempre tengan 2 decimales.
+ */
+Vue.filter('currency', function (value) {
+  // Si el valor no es un número, lo devolvemos tal cual (ej. 'N/A')
+  if (typeof value !== 'number') {
+    const parsedValue = parseFloat(value);
+    if (isNaN(parsedValue)) {
+        return value;
+    }
+    value = parsedValue;
+  }
+  // toFixed(2) es el método de JavaScript que hace toda la magia.
+  return value.toFixed(2);
+});
 const app = new Vue({
     el: '#app',
 });
