@@ -4650,6 +4650,14 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
+//
+//
+//
+//
+//
+//
+//
+//
 
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
   data: function data() {
@@ -4673,8 +4681,15 @@ __webpack_require__.r(__webpack_exports__);
         operador: ""
       },
       // Para el selector de periodos
-      selectedPeriod: "personalizado"
+      selectedPeriod: "custom"
     };
+  },
+  computed: {
+    exportUrl: function exportUrl() {
+      // Tomamos los filtros activos y los convertimos a un query string
+      var params = new URLSearchParams(this.filters).toString();
+      return "/auditoria/exportar?".concat(params);
+    }
   },
   watch: {
     // Observador para el selector de periodos
@@ -4693,7 +4708,7 @@ __webpack_require__.r(__webpack_exports__);
       Object.keys(this.filters).forEach(function (key) {
         return _this.filters[key] = "";
       });
-      this.selectedPeriod = "personalizado";
+      this.selectedPeriod = "custom";
       this.search();
     },
     setPeriod: function setPeriod(period) {
@@ -44265,6 +44280,7 @@ var render = function () {
                       expression: "filters.fecha_fin",
                     },
                   ],
+                  ref: "fecha_fin",
                   staticClass:
                     "block w-full border-gray-300 rounded-md shadow-sm text-sm",
                   attrs: { type: "date" },
@@ -44357,6 +44373,16 @@ var render = function () {
                 ),
                 _vm._v(" "),
                 _c("div", { staticClass: "flex items-center space-x-2" }, [
+                  _c(
+                    "a",
+                    {
+                      staticClass:
+                        "w-full text-center bg-green-600 text-white py-2 px-4 rounded-md shadow-sm hover:bg-green-700",
+                      attrs: { href: _vm.exportUrl, target: "_blank" },
+                    },
+                    [_vm._v("\n            Exportar\n          ")]
+                  ),
+                  _vm._v(" "),
                   _c(
                     "button",
                     {

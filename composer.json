@@ -17,6 +17,7 @@
         "laravel/framework": "^8.0",
         "laravel/tinker": "^2.0",
         "laravel/ui": "^3.2",
+        "maatwebsite/excel": "3.1.25",
         "smalot/pdfparser": "^2.12",
         "spatie/pdf-to-text": "^1.4",
         "spatie/regex": "^1.4",

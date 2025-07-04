@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Route;
 */
 // Esta única ruta manejará tanto la carga inicial de la página como las peticiones de datos.
 Route::get('/documentos/ver', [DocumentoController::class, 'mostrarPdf'])->name('documentos.ver');
+Route::get('/auditoria/exportar', [AuditController::class, 'exportarFacturado'])->name('auditoria.exportar');
 Route::get('/auditoria', [AuditController::class, 'index'])->name('auditoria.index');
 Route::get('/', function () {
     return view('welcome');

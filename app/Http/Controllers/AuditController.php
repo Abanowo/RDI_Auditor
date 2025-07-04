@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 // En app/Http/Controllers/AuditController.php
 use App\Models\Operacion;
 use Illuminate\Http\Request;
+use App\Exports\AuditoriaFacturadoExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class AuditController extends Controller
 {
@@ -52,16 +54,34 @@ class AuditController extends Controller
             // SECCIÓN 3: Estados
             // Filtro por Estado (también busca en la tabla relacionada)
             $query->when($request->input('estado'), function ($q, $estado) use ($request) {
-                return $q->whereHas('auditorias', function ($subQuery) use ($estado, $request) {
+                $tipo_documento = $request->input('estado_tipo_documento');
+
+                // --- CASO ESPECIAL: Si estamos buscando por la existencia de la SC ---
+                if ($estado === 'SC Encontrada') {
+                    // Primero, aseguramos que la operación SÍ tiene una SC asociada.
+                    // Esto busca registros en la tabla 'auditorias_totales_sc'.
+                    $q->whereHas('auditoriasTotalSc');
+
+                    // Luego, si ADEMÁS se especificó un tipo de documento (ej. 'llc')...
+                    if ($tipo_documento) {
+                        // ...aseguramos que la operación TAMBIÉN tenga esa factura en la tabla 'auditorias'.
+                        $q->whereHas('auditorias', function ($subQuery) use ($tipo_documento) {
+                            $subQuery->where('tipo_documento', $tipo_documento);
+                        });
+                    }
+                    return $q;
+                }
+
+                // --- CASO NORMAL: Para todos los demás estados que sí existen en la tabla 'auditorias' ---
+                return $q->whereHas('auditorias', function ($subQuery) use ($estado, $tipo_documento) {
                     $subQuery->where('estado', $estado);
-                    // Filtro por Tipo de documento - Estado (también busca en la tabla relacionada)
-                    // Si se especifica un tipo, se añade a la condición del estado
-                    // ¡CORRECCIÓN! Usamos $subQuery->when() para que se aplique dentro de la misma búsqueda
-                    $subQuery->when($request->input('estado_tipo_documento'), function ($q_inner, $tipo) {
-                        return $q_inner->where('tipo_documento', $tipo);
-                    });
+                    // Si se especifica un tipo, se añade a la condición del estado.
+                    if ($tipo_documento) {
+                        $subQuery->where('tipo_documento', $tipo_documento);
+                    }
                 });
             });
+
 
 
             // SECCIÓN 4: Periodo de Fecha
@@ -143,4 +163,24 @@ class AuditController extends Controller
             'status_botones' => $status_botones,
         ];
     }
+
+    public function exportarFacturado(Request $request)
+    {
+        // Regla de negocio: si no hay filtros, usar el mes actual por defecto.
+        $filters = $request->query();
+        $hasActiveFilters = !empty(array_filter($filters));
+
+        if (!$hasActiveFilters) {
+            $filters['fecha_inicio'] = now()->addMonths(-1)->toDateString();
+            $filters['fecha_fin'] = now()->toDateString();
+        }
+
+        // Creamos el nombre del archivo dinámicamente
+        $fecha = now()->format('dmY');
+        $fileName = "RDI_NOG{$fecha}.xlsx";
+
+        // Le pasamos la responsabilidad a nuestra clase de exportación
+        return Excel::download(new AuditoriaFacturadoExport($filters), $fileName);
+    }
+
 }

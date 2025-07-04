@@ -96,6 +96,7 @@
             <span class="text-gray-500">-</span>
             <input
               type="date"
+              ref="fecha_fin"
               v-model="filters.fecha_fin"
               class="block w-full border-gray-300 rounded-md shadow-sm text-sm"
             />
@@ -121,6 +122,13 @@
             Cliente (Próx...)
           </div>
           <div class="flex items-center space-x-2">
+            <a
+              :href="exportUrl"
+              target="_blank"
+              class="w-full text-center bg-green-600 text-white py-2 px-4 rounded-md shadow-sm hover:bg-green-700"
+            >
+              Exportar
+            </a>
             <button
               @click="search"
               class="w-full bg-theme-primary text-white py-2 px-4 rounded-md shadow-sm hover:opacity-90"
@@ -167,8 +175,16 @@ export default {
         operador: "",
       },
       // Para el selector de periodos
-      selectedPeriod: "personalizado",
+      selectedPeriod: "custom",
     };
+  },
+
+  computed: {
+    exportUrl() {
+      // Tomamos los filtros activos y los convertimos a un query string
+      const params = new URLSearchParams(this.filters).toString();
+      return `/auditoria/exportar?${params}`;
+    },
   },
   watch: {
     // Observador para el selector de periodos
@@ -182,10 +198,10 @@ export default {
       this.$emit("apply-filters", this.filters);
     },
     clear() {
-      // Limpia todos los filtros y el selector de periodo
-      Object.keys(this.filters).forEach((key) => (this.filters[key] = ""));
-      this.selectedPeriod = "personalizado";
-      this.search();
+        // Limpia todos los filtros y el selector de periodo
+        Object.keys(this.filters).forEach((key) => (this.filters[key] = ""));
+        this.selectedPeriod = "custom";
+        this.search();
     },
     setPeriod(period) {
       const today = new Date();
