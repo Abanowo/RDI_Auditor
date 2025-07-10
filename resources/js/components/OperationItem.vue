@@ -8,7 +8,9 @@
           {{ displayNumber }}
         </span>
         <div>
-          <p class="font-bold text-lg text-theme-dark">{{ operacion.pedimento }}</p>
+          <p class="font-bold text-lg text-theme-dark">
+            {{ operacion.pedimento }} - {{ operacion.cliente }}
+          </p>
           <p class="text-sm text-gray-500">{{ operacion.fecha_edc }}</p>
         </div>
       </div>

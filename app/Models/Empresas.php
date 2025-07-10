@@ -5,11 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Sede extends Model
+class Empresas extends Model
 {
     use HasFactory;
-    public function operaciones()
-{
-    return $this->hasMany(Operacion::class);
-}
+
 }

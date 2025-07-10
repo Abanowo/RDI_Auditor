@@ -1,8 +1,19 @@
 <template>
   <div class="p-8 bg-theme-light min-h-screen">
-    <h1 class="text-3xl font-bold text-theme-dark mb-6">
-      Panel de Auditoría de Operaciones
-    </h1>
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-3xl font-bold text-theme-dark">
+        Panel de Auditoría de Operaciones
+      </h1>
+      <button
+        @click="isImportModalVisible = true"
+        class="bg-theme-primary text-white font-bold py-2 px-4 rounded-lg shadow hover:opacity-90"
+      >
+        Subir Montos
+      </button>
+    </div>
+
+    <ImportModal :show="isImportModalVisible" @close="isImportModalVisible = false" />
+
     <FilterBar @apply-filters="handleFilters" />
     <div v-if="isLoading" class="text-center text-gray-500 mt-10">
       <p>Cargando operaciones...</p>
@@ -49,12 +60,14 @@ import OperationItem from "../components/OperationItem.vue"; // ¡Importante! Im
 import Pagination from "../components/Pagination.vue";
 import AuditModal from "../components/AuditModal.vue";
 import FilterBar from "../components/FilterBar.vue";
+import ImportModal from "./ImportModal.vue";
 export default {
   components: {
     OperationItem, // Registra el componente para poder usarlo en el template
     Pagination,
     AuditModal,
     FilterBar,
+    ImportModal,
   },
   data() {
     return {
@@ -62,7 +75,8 @@ export default {
       pagination: {}, // Aquí guardaremos el resto de la info (links, total, etc.)
       isLoading: true, // Un "extra" para mostrar un mensaje de "Cargando..."
       isModalVisible: false, // VARIABLE DE VISIBILIDAD - Modal
-      modalAuditData: null, // AÑADIR VARIABLE PARA DATOS - Modal
+      modalAuditData: null, // VARIABLE PARA DATOS - Modal
+      isImportModalVisible: false, // VARIABLE PARA VISIBILIDAD DE IMPORTACION - Modal
       // 3. Guardaremos el estado de los filtros aquí
       activeFilters: {},
     };

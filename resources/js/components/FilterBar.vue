@@ -33,7 +33,7 @@
       </fieldset>
 
       <fieldset class="border p-4 rounded-md">
-        <legend class="px-2 font-semibold text-sm">Estados</legend>
+        <legend class="px-2 font-semibold text-sm">Estados/Cliente</legend>
         <div class="space-y-3">
           <div class="flex space-x-2">
             <select
@@ -70,6 +70,14 @@
               <option value="llc">LLC</option>
               <option value="pago_derecho">Pago Derecho</option>
             </select>
+          </div>
+
+          <div class="flex space-x-2">
+            <div
+              class="block py-2 w-full border-gray-300 rounded-md shadow-sm text-sm bg-gray-100 p-2 text-center text-gray-400"
+            >
+              Cliente (Próx...)
+            </div>
           </div>
         </div>
       </fieldset>
@@ -118,9 +126,6 @@
       <fieldset class="border p-4 rounded-md">
         <legend class="px-2 font-semibold text-sm">Acciones</legend>
         <div class="h-full flex flex-col justify-end space-y-2">
-          <div class="bg-gray-100 p-2 rounded-md text-center text-sm text-gray-400">
-            Cliente (Próx...)
-          </div>
           <div class="flex items-center space-x-2">
             <a
               :href="exportUrl"
@@ -198,10 +203,10 @@ export default {
       this.$emit("apply-filters", this.filters);
     },
     clear() {
-        // Limpia todos los filtros y el selector de periodo
-        Object.keys(this.filters).forEach((key) => (this.filters[key] = ""));
-        this.selectedPeriod = "custom";
-        this.search();
+      // Limpia todos los filtros y el selector de periodo
+      Object.keys(this.filters).forEach((key) => (this.filters[key] = ""));
+      this.selectedPeriod = "custom";
+      this.search();
     },
     setPeriod(period) {
       const today = new Date();

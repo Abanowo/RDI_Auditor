@@ -464,7 +464,7 @@ export default {
       }
 
       // Determinamos el 'tipo' basado en si es una auditoría de SC o no
-      const tipo = this.isScAudit ? "sc" : "auditoria";
+      const tipo = this.auditData?.tipo;
       const id = factura.id;
 
       // Construimos la URL con los parámetros que nuestro controlador espera

@@ -1,9 +1,10 @@
 <?php
 namespace App\Exports;
 
-use App\Models\Operacion;
+use Illuminate\Support\Collection;
+use Illuminate\Database\Capsule\Manager;
 use Maatwebsite\Excel\Concerns\WithStrictNullComparison;
-use Maatwebsite\Excel\Concerns\FromQuery;
+use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
@@ -20,99 +21,35 @@ use PhpOffice\PhpSpreadsheet\Style\Font;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class SCSheet implements FromQuery, WithHeadings,WithTitle, WithMapping,
+class SCSheet implements FromCollection, WithHeadings,WithTitle, WithMapping,
 WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents,
 WithStrictNullComparison
 {
-    protected $filters;
+    protected $operaciones;
 
-    public function __construct(array $filters)
+    public function __construct(Collection $operaciones)
     {
-        $this->filters = $filters;
+        $this->operaciones = $operaciones;
     }
 
     /**
      * Define la consulta a la base de datos, incluyendo filtros.
      */
-    public function query()
+
+    // El método collection() simplemente devuelve los datos que ya tenemos
+    public function collection()
     {
-        $query = Operacion::query();
-
-        // Aquí replicamos la misma lógica de filtros de tu AuditController
-        // Aplicamos los filtros recibidos
-            $filters = $this->filters;
-        // --- AQUÍ APLICAMOS LOS FILTROS DINÁMICAMENTE ---
-            // SECCIÓN 1: Identificadores Universales
-            // Filtro por Pedimento
-            $query->whereHas('auditoriasTotalSC');
-            $query->when($filters['pedimento'], function ($q, $val) {return $q->where('pedimento', 'like', "%{$val}%");});
-
-            // Filtro por Operacion ID
-            $query->when($filters['operacion_id'], function ($q, $val){return $q->where('id', $val);});
-
-
-            // SECCIÓN 2: Identificadores de Factura (Folio)
-            // Filtro por Folio (AHORA BUSCA TAMBIÉN EN LA SC)
-            $query->when($filters['folio'], function ($q, $folio) use ($filters) {
-                return $q->where(function ($query) use ($folio, $filters) {
-                    // Busca en las facturas sueltas (auditorias)
-                    $query->whereHas('auditorias', function ($subQuery) use ($folio, $filters) {
-                        $subQuery->where('folio', 'like', "%{$folio}%");
-                        // ¡CORRECCIÓN! Usamos $subQuery->when() para que se aplique dentro de la misma búsqueda
-                        $subQuery->when($filters['folio_tipo_documento'], function ($q_inner, $tipo) {
-                            return $q_inner->where('tipo_documento', $tipo);
-                        });
-                    })
-                    // O busca en la factura maestra (auditorias_totales_sc)
-                    ->orWhereHas('auditoriasTotalSC', function ($subQuery) use ($folio) {
-                        $subQuery->where('folio_documento', $folio);
-                    });
-                });
-            });
-
-            //Por Operacion ID
-            /* $query->when($request->input('operacion_id'), function ($q, $num_operacion) {
-                return $q->whereHas('auditorias', function ($subQuery) use ($num_operacion) {
-                    $subQuery->where('operacion_id', $num_operacion);
-                });
-            }); */
-            // SECCIÓN 3: Estados
-            // Filtro por Estado (también busca en la tabla relacionada)
-            $query->when($filters['estado'], function ($q, $estado) use ($filters) {
-                return $q->whereHas('auditorias', function ($subQuery) use ($estado, $filters) {
-                    $subQuery->where('estado', $estado);
-                    // Filtro por Tipo de documento - Estado (también busca en la tabla relacionada)
-                    // Si se especifica un tipo, se añade a la condición del estado
-                    // ¡CORRECCIÓN! Usamos $subQuery->when() para que se aplique dentro de la misma búsqueda
-                    $subQuery->when($filters['estado_tipo_documento'], function ($q_inner, $tipo) {
-                        return $q_inner->where('tipo_documento', $tipo);
-                    });
-                });
-            });
-
-
-            // SECCIÓN 4: Periodo de Fecha
-            //Filtro por Fecha inicio
-            $query->when($filters['fecha_inicio'], function ($q, $fecha_inicio) use ($filters) {
-                //Filtro por Fecha final
-                $fecha_fin = $filters['fecha_fin'] ?? $fecha_inicio; // Si no hay fecha fin, busca solo en la fecha de inicio
-                //Filtro por Tipo documento - Fecha
-                $tipo_documento = $filters['fecha_tipo_documento'];
-
-                return $q->whereHas('auditorias', function ($subQuery) use ($fecha_inicio, $fecha_fin, $tipo_documento) {
-                    $subQuery->whereBetween('fecha_documento', [$fecha_inicio, $fecha_fin]);
-                    if ($tipo_documento) {
-                        $subQuery->where('tipo_documento', $tipo_documento);
-                    }
-                });
-            });
-
-            // SECCIÓN 5: Involucrados (Placeholders para el futuro)
-            // $query->when($request->input('cliente_id'), fn($q, $val) => $q->where('cliente_id', $val));
-            // $query->when($request->input('operador_id'), fn($q, $val) => $q->where('operador_id', $val));
-
-
-        return $query->with(['auditoriasTotalSC']);
+        // Filtramos para quedarnos solo con las operaciones que tienen SC
+        return $this->operaciones->map( function ($pedimento) {
+            $sc = $pedimento->importacion->auditoriasTotalSC;
+            if (!$sc) { return []; }
+            return
+            [
+                'pedimento' => $pedimento->num_pedimiento,
+                'cliente'   => $pedimento->importacion->cliente,
+                'sc'        => $sc,
+            ];
+        })->filter();
     }
 
     public function title(): string
@@ -134,32 +71,44 @@ WithStrictNullComparison
     /**
      * Mapea los datos de cada operación a las columnas del Excel.
      */
-    public function map($operacion): array
+    public function map($row): array
     {
-        $sc = $operacion->auditoriasTotalSc;
+        $sc = $row['sc'] ?? null;
+        $cliente = $row['cliente'] ?? null;
+        $pedimento = $row['pedimento'] ?? null;
+        if ($sc) {
 
-        $pedimento = $operacion->pedimento;
-        $desgloseSc = $sc->desglose_conceptos;
-        $montosSc = $desgloseSc['montos'] ?? [];
-        $montoSc = (float)($montosSc['sc'] ?? 0);
-        $montoScMxn = (float)($montosSc['sc_mxn'] ?? 0);
-        $folioSc = $sc->folio_documento;
-        if ($sc->ruta_pdf) {
-            $pdfSc = '=HYPERLINK("' . $sc->ruta_pdf . '", "Acceder PDF")';
+            $desgloseSc = $sc->desglose_conceptos;
+            $montosSc = $desgloseSc['montos'] ?? [];
+            $montoSc = (float)($montosSc['sc'] ?? 0);
+            $montoScMxn = (float)($montosSc['sc_mxn'] ?? 0);
+            $folioSc = $sc->folio_documento;
+            $nombreCliente = $cliente->nombre;
+
+            $urlSC = route('documentos.ver', [
+            'tipo' => 'sc',
+            'id' => $sc->id
+            ]);
+
+            if ($sc->ruta_pdf) {
+                $pdfSc = '=HYPERLINK("' . $urlSC . '", "Acceder PDF")';
+            }
+
+            $monedaConTC = $desgloseSc['moneda'] == "MXN" ? $desgloseSc['moneda'] : $desgloseSc['moneda']. " (" . number_format($desgloseSc['tipo_cambio'], 2) . " MXN)";
         }
 
-        $monedaConTC = $desgloseSc['moneda'] == "MXN" ? $desgloseSc['moneda'] : $desgloseSc['moneda']. " (" . number_format($desgloseSc['tipo_cambio'], 2) . " MXN)";
-
-        return [
+        $resultado =
+        [
             $sc->fecha_documento,
-            $operacion->pedimento,
-            'CLIENTE PLACEHOLDER',
+            $pedimento,
+            $nombreCliente,
             $montoSc,
             $montoScMxn,
             $monedaConTC,
             $folioSc,
             $pdfSc,
         ];
+        return $resultado;
     }
     /**
      * Define anchos específicos para cada columna.

@@ -1,14 +1,13 @@
 <?php
 
 namespace App\Models;
-
+use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class AuditoriaTotalSC extends Model
 {
     use HasFactory;
-
 
      /**
      * El nombre de la tabla asociada con el modelo.
@@ -36,12 +35,4 @@ class AuditoriaTotalSC extends Model
         'ruta_xml',
     ];
 
-    /**
-     * Define la relación inversa de uno a muchos.
-     * Un registro de Auditoria pertenece a una Operacion.
-     */
-    public function operacion()
-    {
-        return $this->belongsTo(Operacion::class, 'operacion_id');
-    }
 }

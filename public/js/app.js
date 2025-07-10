@@ -4211,7 +4211,7 @@ __webpack_require__.r(__webpack_exports__);
     },
     // 5. El visor de PDF
     pdfUrl: function pdfUrl() {
-      var _this$auditData5;
+      var _this$auditData5, _this$auditData6;
       // Primero, determinamos cuál es el registro de la factura que estamos viendo
       var factura = (_this$auditData5 = this.auditData) === null || _this$auditData5 === void 0 ? void 0 : _this$auditData5.factura;
 
@@ -4221,7 +4221,7 @@ __webpack_require__.r(__webpack_exports__);
       }
 
       // Determinamos el 'tipo' basado en si es una auditoría de SC o no
-      var tipo = this.isScAudit ? "sc" : "auditoria";
+      var tipo = (_this$auditData6 = this.auditData) === null || _this$auditData6 === void 0 ? void 0 : _this$auditData6.tipo;
       var id = factura.id;
 
       // Construimos la URL con los parámetros que nuestro controlador espera
@@ -4343,6 +4343,18 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _components_Pagination_vue__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../components/Pagination.vue */ "./resources/js/components/Pagination.vue");
 /* harmony import */ var _components_AuditModal_vue__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../components/AuditModal.vue */ "./resources/js/components/AuditModal.vue");
 /* harmony import */ var _components_FilterBar_vue__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../components/FilterBar.vue */ "./resources/js/components/FilterBar.vue");
+/* harmony import */ var _ImportModal_vue__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./ImportModal.vue */ "./resources/js/components/ImportModal.vue");
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 //
 //
 //
@@ -4394,13 +4406,15 @@ __webpack_require__.r(__webpack_exports__);
 
 
 
+
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
   components: {
     OperationItem: _components_OperationItem_vue__WEBPACK_IMPORTED_MODULE_0__["default"],
     // Registra el componente para poder usarlo en el template
     Pagination: _components_Pagination_vue__WEBPACK_IMPORTED_MODULE_1__["default"],
     AuditModal: _components_AuditModal_vue__WEBPACK_IMPORTED_MODULE_2__["default"],
-    FilterBar: _components_FilterBar_vue__WEBPACK_IMPORTED_MODULE_3__["default"]
+    FilterBar: _components_FilterBar_vue__WEBPACK_IMPORTED_MODULE_3__["default"],
+    ImportModal: _ImportModal_vue__WEBPACK_IMPORTED_MODULE_4__["default"]
   },
   data: function data() {
     return {
@@ -4413,7 +4427,9 @@ __webpack_require__.r(__webpack_exports__);
       isModalVisible: false,
       // VARIABLE DE VISIBILIDAD - Modal
       modalAuditData: null,
-      // AÑADIR VARIABLE PARA DATOS - Modal
+      // VARIABLE PARA DATOS - Modal
+      isImportModalVisible: false,
+      // VARIABLE PARA VISIBILIDAD DE IMPORTACION - Modal
       // 3. Guardaremos el estado de los filtros aquí
       activeFilters: {}
     };
@@ -4658,6 +4674,11 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
+//
+//
+//
+//
+//
 
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
   data: function data() {
@@ -4743,6 +4764,71 @@ __webpack_require__.r(__webpack_exports__);
 
 /***/ }),
 
+/***/ "./node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/ImportModal.vue?vue&type=script&lang=js&":
+/*!******************************************************************************************************************************************************************************************************************!*\
+  !*** ./node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/ImportModal.vue?vue&type=script&lang=js& ***!
+  \******************************************************************************************************************************************************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+/* harmony import */ var _UploadForm_vue__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./UploadForm.vue */ "./resources/js/components/UploadForm.vue");
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+
+ // Asumiendo que tu form se llama así
+
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
+  components: {
+    UploadForm: _UploadForm_vue__WEBPACK_IMPORTED_MODULE_0__["default"]
+  },
+  props: {
+    show: {
+      type: Boolean,
+      "default": false
+    }
+  },
+  emits: ["close"],
+  methods: {
+    close: function close() {
+      this.$emit("close");
+    },
+    handleUploadSuccess: function handleUploadSuccess() {
+      // Cuando el form nos avise que tuvo éxito, también cerramos el modal.
+      // Podríamos también avisarle a la página principal que recargue la lista.
+      this.close();
+    }
+  }
+});
+
+/***/ }),
+
 /***/ "./node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/OperationItem.vue?vue&type=script&lang=js&":
 /*!********************************************************************************************************************************************************************************************************************!*\
   !*** ./node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/OperationItem.vue?vue&type=script&lang=js& ***!
@@ -4754,6 +4840,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
+//
+//
 //
 //
 //
@@ -5192,7 +5280,7 @@ __webpack_require__.r(__webpack_exports__);
       // 1. Datos para almacenar las selecciones del usuario
       selectedFile: null,
       selectedBank: "",
-      selectedSede: "",
+      selectedSucursal: "",
       // 2. Opciones para los dropdowns (podrían venir de Laravel en el futuro)
       allBanks: [{
         text: "BBVA",
@@ -5204,7 +5292,7 @@ __webpack_require__.r(__webpack_exports__);
         text: "Externo (XLSX)",
         value: "EXTERNO"
       }],
-      sedes: [{
+      sucursales: [{
         text: "Nogales",
         value: "NOG"
       }, {
@@ -5231,16 +5319,16 @@ __webpack_require__.r(__webpack_exports__);
   computed: {
     /**
      * Esta propiedad computada devuelve una lista de bancos
-     * que depende de la sede seleccionada.
+     * que depende de la sucursal seleccionada.
      */
     isFormValid: function isFormValid() {
       // Esta función recalcula automáticamente su valor
       // cada vez que una de estas 3 variables cambia.
-      return this.selectedFile && this.selectedBank && this.selectedSede;
+      return this.selectedFile && this.selectedBank && this.selectedSucursal;
     },
     filteredBanks: function filteredBanks() {
-      // Si la sede seleccionada es Tijuana ('TIJ')...
-      if (this.selectedSede === "TIJ") {
+      // Si la sucursal seleccionada es Tijuana ('TIJ')...
+      if (this.selectedSucursal === "TIJ") {
         // ...devolvemos la lista completa de bancos.
         return this.allBanks;
       } else {
@@ -5254,9 +5342,9 @@ __webpack_require__.r(__webpack_exports__);
   },
   watch: {
     /**
-     * Este 'observador' se activa cada vez que 'selectedSede' cambia.
+     * Este 'observador' se activa cada vez que 'selectedSucursal' cambia.
      */
-    selectedSede: function selectedSede(newSede, oldSede) {
+    selectedSucursal: function selectedSucursal(newSucursal, oldSucursal) {
       var _this = this;
       // Verificamos si el banco que estaba seleccionado ('this.selectedBank')
       // existe en la nueva lista de bancos filtrados.
@@ -5280,19 +5368,38 @@ __webpack_require__.r(__webpack_exports__);
     },
     // 6. Método que se ejecutará al hacer clic en el botón
     submitForm: function submitForm() {
-      if (!this.isFormValid) return; // Doble chequeo de seguridad
+      var _this2 = this;
+      if (!this.isFormValid) return;
+      this.isLoading = true;
+      this.errorMessage = ""; // Limpiamos errores anteriores
 
-      this.isLoading = true; // Mostramos un estado de carga (opcional)
-      console.log("Enviando los siguientes datos al backend:");
-      console.log("Archivo:", this.selectedFile.name);
-      console.log("Banco:", this.selectedBank);
-      console.log("Sede:", this.selectedSede);
+      // 1. Creamos un objeto FormData, especial para enviar archivos
+      var formData = new FormData();
 
-      // Aquí es donde en el futuro haremos la llamada a Laravel con Axios
-      // Por ahora, simularemos una navegación
-      alert("¡Formulario válido! Navegando a la siguiente página...");
-      // window.location.href = '/siguiente-paso';
-      this.isLoading = false;
+      // 2. Añadimos los datos del formulario al objeto
+      formData.append("estado_de_cuenta", this.selectedFile);
+      formData.append("banco", this.selectedBank);
+      formData.append("sucursal", this.selectedSucursal);
+
+      // 3. Hacemos la petición POST con Axios a nuestra nueva ruta
+      axios.post("/importar-estado-de-cuenta", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data" // Header importante para archivos
+        }
+      }).then(function (response) {
+        // Si todo fue bien...
+        _this2.isLoading = false;
+        alert(response.data.message); // Mostramos el mensaje de éxito
+        // Opcional: podrías recargar la lista de auditorías o redirigir
+        // window.location.href = '/auditoria';
+      })["catch"](function (error) {
+        var _error$response;
+        // Si algo falló en el backend...
+        _this2.isLoading = false;
+        // Mostramos el error que nos devolvió el controlador
+        _this2.errorMessage = ((_error$response = error.response) === null || _error$response === void 0 || (_error$response = _error$response.data) === null || _error$response === void 0 ? void 0 : _error$response.error) || "Ocurrió un error inesperado.";
+        alert(_this2.errorMessage);
+      });
     }
   }
 });
@@ -43859,9 +43966,34 @@ var render = function () {
     "div",
     { staticClass: "p-8 bg-theme-light min-h-screen" },
     [
-      _c("h1", { staticClass: "text-3xl font-bold text-theme-dark mb-6" }, [
-        _vm._v("\n    Panel de Auditoría de Operaciones\n  "),
+      _c("div", { staticClass: "flex justify-between items-center mb-6" }, [
+        _c("h1", { staticClass: "text-3xl font-bold text-theme-dark" }, [
+          _vm._v("\n      Panel de Auditoría de Operaciones\n    "),
+        ]),
+        _vm._v(" "),
+        _c(
+          "button",
+          {
+            staticClass:
+              "bg-theme-primary text-white font-bold py-2 px-4 rounded-lg shadow hover:opacity-90",
+            on: {
+              click: function ($event) {
+                _vm.isImportModalVisible = true
+              },
+            },
+          },
+          [_vm._v("\n      Subir Montos\n    ")]
+        ),
       ]),
+      _vm._v(" "),
+      _c("ImportModal", {
+        attrs: { show: _vm.isImportModalVisible },
+        on: {
+          close: function ($event) {
+            _vm.isImportModalVisible = false
+          },
+        },
+      }),
       _vm._v(" "),
       _c("FilterBar", { on: { "apply-filters": _vm.handleFilters } }),
       _vm._v(" "),
@@ -44079,7 +44211,7 @@ var render = function () {
           _vm._v(" "),
           _c("fieldset", { staticClass: "border p-4 rounded-md" }, [
             _c("legend", { staticClass: "px-2 font-semibold text-sm" }, [
-              _vm._v("Estados"),
+              _vm._v("Estados/Cliente"),
             ]),
             _vm._v(" "),
             _c("div", { staticClass: "space-y-3" }, [
@@ -44186,6 +44318,8 @@ var render = function () {
                   ]
                 ),
               ]),
+              _vm._v(" "),
+              _vm._m(3),
             ]),
           ]),
           _vm._v(" "),
@@ -44363,15 +44497,6 @@ var render = function () {
               "div",
               { staticClass: "h-full flex flex-col justify-end space-y-2" },
               [
-                _c(
-                  "div",
-                  {
-                    staticClass:
-                      "bg-gray-100 p-2 rounded-md text-center text-sm text-gray-400",
-                  },
-                  [_vm._v("\n          Cliente (Próx...)\n        ")]
-                ),
-                _vm._v(" "),
                 _c("div", { staticClass: "flex items-center space-x-2" }, [
                   _c(
                     "a",
@@ -44452,7 +44577,111 @@ var staticRenderFns = [
       _c("option", [_vm._v("Intactics")]),
     ])
   },
+  function () {
+    var _vm = this
+    var _h = _vm.$createElement
+    var _c = _vm._self._c || _h
+    return _c("div", { staticClass: "flex space-x-2" }, [
+      _c(
+        "div",
+        {
+          staticClass:
+            "block py-2 w-full border-gray-300 rounded-md shadow-sm text-sm bg-gray-100 p-2 text-center text-gray-400",
+        },
+        [_vm._v("\n            Cliente (Próx...)\n          ")]
+      ),
+    ])
+  },
 ]
+render._withStripped = true
+
+
+
+/***/ }),
+
+/***/ "./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/ImportModal.vue?vue&type=template&id=cf706626&":
+/*!***********************************************************************************************************************************************************************************************************************!*\
+  !*** ./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/ImportModal.vue?vue&type=template&id=cf706626& ***!
+  \***********************************************************************************************************************************************************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   render: () => (/* binding */ render),
+/* harmony export */   staticRenderFns: () => (/* binding */ staticRenderFns)
+/* harmony export */ });
+var render = function () {
+  var _vm = this
+  var _h = _vm.$createElement
+  var _c = _vm._self._c || _h
+  return _vm.show
+    ? _c(
+        "div",
+        {
+          staticClass:
+            "fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4",
+          on: {
+            click: function ($event) {
+              if ($event.target !== $event.currentTarget) {
+                return null
+              }
+              return _vm.close($event)
+            },
+          },
+        },
+        [
+          _c(
+            "div",
+            {
+              staticClass:
+                "bg-gray-50 rounded-lg shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col",
+            },
+            [
+              _c(
+                "div",
+                {
+                  staticClass:
+                    "flex justify-between items-center p-4 border-b bg-white rounded-t-lg flex-shrink-0",
+                },
+                [
+                  _c(
+                    "h3",
+                    { staticClass: "text-xl font-bold text-theme-dark" },
+                    [_vm._v("Subir Nuevo Estado de Cuenta")]
+                  ),
+                  _vm._v(" "),
+                  _c(
+                    "button",
+                    {
+                      staticClass: "text-gray-400 hover:text-gray-800 text-3xl",
+                      on: { click: _vm.close },
+                    },
+                    [_vm._v("\n        ×\n      ")]
+                  ),
+                ]
+              ),
+              _vm._v(" "),
+              _c(
+                "div",
+                {
+                  staticClass:
+                    "p-6 overflow-y-auto flex-grow flex justify-center items-center",
+                },
+                [
+                  _c("UploadForm", {
+                    on: { "upload-success": _vm.handleUploadSuccess },
+                  }),
+                ],
+                1
+              ),
+            ]
+          ),
+        ]
+      )
+    : _vm._e()
+}
+var staticRenderFns = []
 render._withStripped = true
 
 
@@ -44495,7 +44724,13 @@ var render = function () {
           _vm._v(" "),
           _c("div", [
             _c("p", { staticClass: "font-bold text-lg text-theme-dark" }, [
-              _vm._v(_vm._s(_vm.operacion.pedimento)),
+              _vm._v(
+                "\n          " +
+                  _vm._s(_vm.operacion.pedimento) +
+                  " - " +
+                  _vm._s(_vm.operacion.cliente) +
+                  "\n        "
+              ),
             ]),
             _vm._v(" "),
             _c("p", { staticClass: "text-sm text-gray-500" }, [
@@ -44836,283 +45071,259 @@ var render = function () {
   var _c = _vm._self._c || _h
   return _c(
     "div",
-    {
-      staticClass:
-        "min-h-screen bg-theme-light flex items-center justify-center p-4",
-    },
+    { staticClass: "bg-white p-8 rounded-xl shadow-lg w-full max-w-lg" },
     [
-      _c(
-        "div",
-        { staticClass: "bg-white p-8 rounded-xl shadow-lg w-full max-w-lg" },
-        [
+      _c("div", { staticClass: "space-y-6" }, [
+        _c("div", [
           _c(
-            "h1",
-            {
-              staticClass:
-                "text-2xl font-bold text-center text-theme-dark mb-6",
-            },
-            [_vm._v("\n      Procesador de Cuentas\n    ")]
+            "label",
+            { staticClass: "block text-sm font-medium text-gray-700 mb-1" },
+            [_vm._v("Estado de Cuenta (PDF o XLSX)")]
           ),
           _vm._v(" "),
-          _c("div", { staticClass: "space-y-6" }, [
-            _c("div", [
-              _c(
-                "label",
-                { staticClass: "block text-sm font-medium text-gray-700 mb-1" },
-                [_vm._v("Estado de Cuenta (PDF o XLSX)")]
-              ),
-              _vm._v(" "),
-              _c(
-                "div",
-                {
-                  staticClass:
-                    "mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md",
-                  on: { change: _vm.handleFileUpload },
-                },
-                [
-                  _c("div", { staticClass: "space-y-1 text-center" }, [
-                    _c(
-                      "svg",
-                      {
-                        staticClass: "mx-auto h-12 w-12 text-gray-400",
-                        attrs: {
-                          stroke: "currentColor",
-                          fill: "none",
-                          viewBox: "0 0 48 48",
-                          "aria-hidden": "true",
-                        },
+          _c(
+            "div",
+            {
+              staticClass:
+                "mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md",
+              on: { change: _vm.handleFileUpload },
+            },
+            [
+              _c("div", { staticClass: "space-y-1 text-center" }, [
+                _c(
+                  "svg",
+                  {
+                    staticClass: "mx-auto h-12 w-12 text-gray-400",
+                    attrs: {
+                      stroke: "currentColor",
+                      fill: "none",
+                      viewBox: "0 0 48 48",
+                      "aria-hidden": "true",
+                    },
+                  },
+                  [
+                    _c("path", {
+                      attrs: {
+                        d: "M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8",
+                        "stroke-width": "2",
+                        "stroke-linecap": "round",
+                        "stroke-linejoin": "round",
                       },
-                      [
-                        _c("path", {
-                          attrs: {
-                            d: "M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8",
-                            "stroke-width": "2",
-                            "stroke-linecap": "round",
-                            "stroke-linejoin": "round",
-                          },
-                        }),
-                      ]
-                    ),
-                    _vm._v(" "),
-                    _c("div", { staticClass: "flex text-sm text-gray-600" }, [
-                      _vm.selectedFile
-                        ? _c(
-                            "label",
-                            {
-                              staticClass:
-                                "relative cursor-pointer bg-white rounded-md font-medium text-green-600 font-semibold hover:opacity-80 focus-within:outline-none",
+                    }),
+                  ]
+                ),
+                _vm._v(" "),
+                _c("div", { staticClass: "flex text-sm text-gray-600" }, [
+                  _vm.selectedFile
+                    ? _c(
+                        "label",
+                        {
+                          staticClass:
+                            "relative cursor-pointer bg-white rounded-md font-medium text-green-600 hover:opacity-80 focus-within:outline-none",
+                        },
+                        [
+                          _c("span", [_vm._v("Sube un archivo")]),
+                          _vm._v(" "),
+                          _c("input", {
+                            staticClass: "sr-only",
+                            attrs: {
+                              id: "file-upload",
+                              name: "file-upload",
+                              type: "file",
                             },
-                            [
-                              _c("span", [_vm._v("Sube un archivo")]),
-                              _vm._v(" "),
-                              _c("input", {
-                                staticClass: "sr-only",
-                                attrs: {
-                                  id: "file-upload",
-                                  name: "file-upload",
-                                  type: "file",
-                                },
-                                on: { change: _vm.handleFileUpload },
-                              }),
-                            ]
-                          )
-                        : _c(
-                            "label",
-                            {
-                              staticClass:
-                                "relative cursor-pointer bg-white rounded-md font-medium text-theme-primary hover:opacity-80 focus-within:outline-none",
-                              attrs: { for: "file-upload" },
+                            on: { change: _vm.handleFileUpload },
+                          }),
+                        ]
+                      )
+                    : _c(
+                        "label",
+                        {
+                          staticClass:
+                            "relative cursor-pointer bg-white rounded-md font-medium text-theme-primary hover:opacity-80 focus-within:outline-none",
+                          attrs: { for: "file-upload" },
+                        },
+                        [
+                          _c("span", [_vm._v("Sube un archivo")]),
+                          _vm._v(" "),
+                          _c("input", {
+                            staticClass: "sr-only",
+                            attrs: {
+                              id: "file-upload",
+                              name: "file-upload",
+                              type: "file",
                             },
-                            [
-                              _c("span", [_vm._v("Sube un archivo")]),
-                              _vm._v(" "),
-                              _c("input", {
-                                staticClass: "sr-only",
-                                attrs: {
-                                  id: "file-upload",
-                                  name: "file-upload",
-                                  type: "file",
-                                },
-                                on: { change: _vm.handleFileUpload },
-                              }),
-                            ]
-                          ),
-                      _vm._v(" "),
-                      _c("p", { staticClass: "pl-1" }, [
-                        _vm._v("o arrástralo aquí"),
-                      ]),
-                    ]),
-                    _vm._v(" "),
-                    _c("p", { staticClass: "text-xs text-gray-500" }, [
-                      _vm._v("PDF, XLSX hasta 10MB"),
-                    ]),
-                  ]),
-                ]
-              ),
-              _vm._v(" "),
-              _vm.selectedFile
-                ? _c(
-                    "p",
-                    {
-                      staticClass: "mt-2 text-sm text-green-600 font-semibold",
-                    },
-                    [
-                      _vm._v(
-                        "\n          Archivo seleccionado: " +
-                          _vm._s(_vm.selectedFile.name) +
-                          "\n        "
+                            on: { change: _vm.handleFileUpload },
+                          }),
+                        ]
                       ),
-                    ]
-                  )
-                : _vm._e(),
-            ]),
-            _vm._v(" "),
-            _c("div", [
-              _c(
-                "label",
-                {
-                  staticClass: "block text-sm font-medium text-gray-700",
-                  attrs: { for: "bank" },
-                },
-                [_vm._v("Banco")]
-              ),
-              _vm._v(" "),
-              _c(
-                "select",
-                {
-                  directives: [
-                    {
-                      name: "model",
-                      rawName: "v-model",
-                      value: _vm.selectedBank,
-                      expression: "selectedBank",
-                    },
-                  ],
-                  staticClass:
-                    "mt-1 block w-full pl-3 pr-10 py-2 text-base focus:outline-none focus:ring-2 focus:ring-theme-primary sm:text-sm rounded-md transition-all duration-300",
-                  class: _vm.selectedBank
-                    ? "border-green-500 border-2"
-                    : "border-gray-300",
-                  attrs: { id: "bank" },
-                  on: {
-                    change: function ($event) {
-                      var $$selectedVal = Array.prototype.filter
-                        .call($event.target.options, function (o) {
-                          return o.selected
-                        })
-                        .map(function (o) {
-                          var val = "_value" in o ? o._value : o.value
-                          return val
-                        })
-                      _vm.selectedBank = $event.target.multiple
-                        ? $$selectedVal
-                        : $$selectedVal[0]
-                    },
-                  },
-                },
-                [
-                  _c("option", { attrs: { value: "", disabled: "" } }, [
-                    _vm._v("Selecciona un banco"),
-                  ]),
                   _vm._v(" "),
-                  _vm._l(_vm.filteredBanks, function (bank) {
-                    return _c(
-                      "option",
-                      { key: bank.value, domProps: { value: bank.value } },
-                      [
-                        _vm._v(
-                          "\n            " + _vm._s(bank.text) + "\n          "
-                        ),
-                      ]
-                    )
-                  }),
-                ],
-                2
-              ),
-            ]),
-            _vm._v(" "),
-            _c("div", [
-              _c(
-                "label",
-                {
-                  staticClass: "block text-sm font-medium text-gray-700",
-                  attrs: { for: "sede" },
-                },
-                [_vm._v("Sede")]
-              ),
-              _vm._v(" "),
-              _c(
-                "select",
-                {
-                  directives: [
-                    {
-                      name: "model",
-                      rawName: "v-model",
-                      value: _vm.selectedSede,
-                      expression: "selectedSede",
-                    },
-                  ],
-                  staticClass:
-                    "mt-1 block w-full pl-3 pr-10 py-2 text-base focus:outline-none focus:ring-2 focus:ring-theme-primary sm:text-sm rounded-md transition-all duration-300",
-                  class: _vm.selectedSede
-                    ? "border-green-500 border-2"
-                    : "border-gray-300",
-                  attrs: { id: "sede" },
-                  on: {
-                    change: function ($event) {
-                      var $$selectedVal = Array.prototype.filter
-                        .call($event.target.options, function (o) {
-                          return o.selected
-                        })
-                        .map(function (o) {
-                          var val = "_value" in o ? o._value : o.value
-                          return val
-                        })
-                      _vm.selectedSede = $event.target.multiple
-                        ? $$selectedVal
-                        : $$selectedVal[0]
-                    },
-                  },
-                },
-                [
-                  _c("option", { attrs: { value: "", disabled: "" } }, [
-                    _vm._v("Selecciona una sede"),
+                  _c("p", { staticClass: "pl-1" }, [
+                    _vm._v("o arrástralo aquí"),
                   ]),
-                  _vm._v(" "),
-                  _vm._l(_vm.sedes, function (sede) {
-                    return _c(
-                      "option",
-                      { key: sede.value, domProps: { value: sede.value } },
-                      [
-                        _vm._v(
-                          "\n            " + _vm._s(sede.text) + "\n          "
-                        ),
-                      ]
-                    )
-                  }),
-                ],
-                2
-              ),
-            ]),
-            _vm._v(" "),
-            _c("div", { staticClass: "pt-4" }, [
-              _c(
-                "button",
+                ]),
+                _vm._v(" "),
+                _c("p", { staticClass: "text-xs text-gray-500" }, [
+                  _vm._v("PDF, XLSX hasta 10MB"),
+                ]),
+              ]),
+            ]
+          ),
+          _vm._v(" "),
+          _vm.selectedFile
+            ? _c(
+                "p",
+                { staticClass: "mt-2 text-sm text-green-600 font-semibold" },
+                [
+                  _vm._v(
+                    "\n        Archivo seleccionado: " +
+                      _vm._s(_vm.selectedFile.name) +
+                      "\n      "
+                  ),
+                ]
+              )
+            : _vm._e(),
+        ]),
+        _vm._v(" "),
+        _c("div", [
+          _c(
+            "label",
+            {
+              staticClass: "block text-sm font-medium text-gray-700",
+              attrs: { for: "bank" },
+            },
+            [_vm._v("Banco")]
+          ),
+          _vm._v(" "),
+          _c(
+            "select",
+            {
+              directives: [
                 {
-                  staticClass:
-                    "w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300",
-                  class: _vm.isFormValid
-                    ? "bg-green-500 hover:bg-green-600 focus:ring-green-500"
-                    : "bg-theme-primary",
-                  attrs: { type: "button", disabled: !_vm.isFormValid },
-                  on: { click: _vm.submitForm },
+                  name: "model",
+                  rawName: "v-model",
+                  value: _vm.selectedBank,
+                  expression: "selectedBank",
                 },
-                [_vm._v("\n          Siguiente Paso\n        ")]
-              ),
-            ]),
-          ]),
-        ]
-      ),
+              ],
+              staticClass:
+                "mt-1 block w-full pl-3 pr-10 py-2 text-base focus:outline-none focus:ring-2 focus:ring-theme-primary sm:text-sm rounded-md transition-all duration-300",
+              class: _vm.selectedBank
+                ? "border-green-500 border-2"
+                : "border-gray-300",
+              attrs: { id: "bank" },
+              on: {
+                change: function ($event) {
+                  var $$selectedVal = Array.prototype.filter
+                    .call($event.target.options, function (o) {
+                      return o.selected
+                    })
+                    .map(function (o) {
+                      var val = "_value" in o ? o._value : o.value
+                      return val
+                    })
+                  _vm.selectedBank = $event.target.multiple
+                    ? $$selectedVal
+                    : $$selectedVal[0]
+                },
+              },
+            },
+            [
+              _c("option", { attrs: { value: "", disabled: "" } }, [
+                _vm._v("Selecciona un banco"),
+              ]),
+              _vm._v(" "),
+              _vm._l(_vm.filteredBanks, function (bank) {
+                return _c(
+                  "option",
+                  { key: bank.value, domProps: { value: bank.value } },
+                  [_vm._v("\n          " + _vm._s(bank.text) + "\n        ")]
+                )
+              }),
+            ],
+            2
+          ),
+        ]),
+        _vm._v(" "),
+        _c("div", [
+          _c(
+            "label",
+            {
+              staticClass: "block text-sm font-medium text-gray-700",
+              attrs: { for: "sucursal" },
+            },
+            [_vm._v("Sucursal")]
+          ),
+          _vm._v(" "),
+          _c(
+            "select",
+            {
+              directives: [
+                {
+                  name: "model",
+                  rawName: "v-model",
+                  value: _vm.selectedSucursal,
+                  expression: "selectedSucursal",
+                },
+              ],
+              staticClass:
+                "mt-1 block w-full pl-3 pr-10 py-2 text-base focus:outline-none focus:ring-2 focus:ring-theme-primary sm:text-sm rounded-md transition-all duration-300",
+              class: _vm.selectedSucursal
+                ? "border-green-500 border-2"
+                : "border-gray-300",
+              attrs: { id: "sucursal" },
+              on: {
+                change: function ($event) {
+                  var $$selectedVal = Array.prototype.filter
+                    .call($event.target.options, function (o) {
+                      return o.selected
+                    })
+                    .map(function (o) {
+                      var val = "_value" in o ? o._value : o.value
+                      return val
+                    })
+                  _vm.selectedSucursal = $event.target.multiple
+                    ? $$selectedVal
+                    : $$selectedVal[0]
+                },
+              },
+            },
+            [
+              _c("option", { attrs: { value: "", disabled: "" } }, [
+                _vm._v("Selecciona una sucursal"),
+              ]),
+              _vm._v(" "),
+              _vm._l(_vm.sucursales, function (sucursal) {
+                return _c(
+                  "option",
+                  { key: sucursal.value, domProps: { value: sucursal.value } },
+                  [
+                    _vm._v(
+                      "\n          " + _vm._s(sucursal.text) + "\n        "
+                    ),
+                  ]
+                )
+              }),
+            ],
+            2
+          ),
+        ]),
+        _vm._v(" "),
+        _c("div", { staticClass: "pt-4" }, [
+          _c(
+            "button",
+            {
+              staticClass:
+                "w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300",
+              class: _vm.isFormValid
+                ? "bg-green-500 hover:bg-green-600 focus:ring-green-500"
+                : "bg-theme-primary",
+              attrs: { type: "button", disabled: !_vm.isFormValid },
+              on: { click: _vm.submitForm },
+            },
+            [_vm._v("\n        Siguiente Paso\n      ")]
+          ),
+        ]),
+      ]),
     ]
   )
 }
@@ -57571,6 +57782,79 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   staticRenderFns: () => (/* reexport safe */ _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_FilterBar_vue_vue_type_template_id_1fb74bc0___WEBPACK_IMPORTED_MODULE_0__.staticRenderFns)
 /* harmony export */ });
 /* harmony import */ var _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_FilterBar_vue_vue_type_template_id_1fb74bc0___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! -!../../../node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!../../../node_modules/vue-loader/lib/index.js??vue-loader-options!./FilterBar.vue?vue&type=template&id=1fb74bc0& */ "./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/FilterBar.vue?vue&type=template&id=1fb74bc0&");
+
+
+/***/ }),
+
+/***/ "./resources/js/components/ImportModal.vue":
+/*!*************************************************!*\
+  !*** ./resources/js/components/ImportModal.vue ***!
+  \*************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+/* harmony import */ var _ImportModal_vue_vue_type_template_id_cf706626___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./ImportModal.vue?vue&type=template&id=cf706626& */ "./resources/js/components/ImportModal.vue?vue&type=template&id=cf706626&");
+/* harmony import */ var _ImportModal_vue_vue_type_script_lang_js___WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./ImportModal.vue?vue&type=script&lang=js& */ "./resources/js/components/ImportModal.vue?vue&type=script&lang=js&");
+/* harmony import */ var _node_modules_vue_loader_lib_runtime_componentNormalizer_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! !../../../node_modules/vue-loader/lib/runtime/componentNormalizer.js */ "./node_modules/vue-loader/lib/runtime/componentNormalizer.js");
+
+
+
+
+
+/* normalize component */
+;
+var component = (0,_node_modules_vue_loader_lib_runtime_componentNormalizer_js__WEBPACK_IMPORTED_MODULE_2__["default"])(
+  _ImportModal_vue_vue_type_script_lang_js___WEBPACK_IMPORTED_MODULE_1__["default"],
+  _ImportModal_vue_vue_type_template_id_cf706626___WEBPACK_IMPORTED_MODULE_0__.render,
+  _ImportModal_vue_vue_type_template_id_cf706626___WEBPACK_IMPORTED_MODULE_0__.staticRenderFns,
+  false,
+  null,
+  null,
+  null
+  
+)
+
+/* hot reload */
+if (false) // removed by dead control flow
+{ var api; }
+component.options.__file = "resources/js/components/ImportModal.vue"
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (component.exports);
+
+/***/ }),
+
+/***/ "./resources/js/components/ImportModal.vue?vue&type=script&lang=js&":
+/*!**************************************************************************!*\
+  !*** ./resources/js/components/ImportModal.vue?vue&type=script&lang=js& ***!
+  \**************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+/* harmony import */ var _node_modules_babel_loader_lib_index_js_clonedRuleSet_5_0_rules_0_use_0_node_modules_vue_loader_lib_index_js_vue_loader_options_ImportModal_vue_vue_type_script_lang_js___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! -!../../../node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!../../../node_modules/vue-loader/lib/index.js??vue-loader-options!./ImportModal.vue?vue&type=script&lang=js& */ "./node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/ImportModal.vue?vue&type=script&lang=js&");
+ /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (_node_modules_babel_loader_lib_index_js_clonedRuleSet_5_0_rules_0_use_0_node_modules_vue_loader_lib_index_js_vue_loader_options_ImportModal_vue_vue_type_script_lang_js___WEBPACK_IMPORTED_MODULE_0__["default"]); 
+
+/***/ }),
+
+/***/ "./resources/js/components/ImportModal.vue?vue&type=template&id=cf706626&":
+/*!********************************************************************************!*\
+  !*** ./resources/js/components/ImportModal.vue?vue&type=template&id=cf706626& ***!
+  \********************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   render: () => (/* reexport safe */ _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_ImportModal_vue_vue_type_template_id_cf706626___WEBPACK_IMPORTED_MODULE_0__.render),
+/* harmony export */   staticRenderFns: () => (/* reexport safe */ _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_ImportModal_vue_vue_type_template_id_cf706626___WEBPACK_IMPORTED_MODULE_0__.staticRenderFns)
+/* harmony export */ });
+/* harmony import */ var _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_ImportModal_vue_vue_type_template_id_cf706626___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! -!../../../node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!../../../node_modules/vue-loader/lib/index.js??vue-loader-options!./ImportModal.vue?vue&type=template&id=cf706626& */ "./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/ImportModal.vue?vue&type=template&id=cf706626&");
 
 
 /***/ }),
