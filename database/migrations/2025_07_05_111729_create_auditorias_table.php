@@ -53,7 +53,7 @@ class CreateAuditoriasTable extends Migration
             $table->foreign('pedimento_id')->references('id_pedimiento')->nullable()->constrained()->on('pedimiento')->onDelete('cascade');
 
             // Definición de la Llave Única Compuesta
-            $table->unique(['pedimento_id', 'tipo_documento', 'concepto_llave']);
+            $table->unique(['pedimento_id', 'operation_type', 'tipo_documento', 'concepto_llave']);
         });
     }
 

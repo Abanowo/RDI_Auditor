@@ -140,6 +140,7 @@ class AuditarFletesCommand extends Command
                 [
                     'operacion_id'      => $operacionId,
                     'pedimento_id'      => $pedimentoId,
+                    'operation_type'    => "Intactics\Operaciones\Importacion",
                     'tipo_documento'    => 'flete',
                     'concepto_llave'    => 'principal',
                     'folio'             => $datosFlete['folio'],
@@ -165,7 +166,7 @@ class AuditarFletesCommand extends Command
 
                 Auditoria::upsert(
                     $fletesParaGuardar,
-                    ['operacion_id', 'pedimento_id', 'tipo_documento', 'concepto_llave'], // La llave única correcta
+                    ['operacion_id', 'pedimento_id', 'operation_type', 'tipo_documento', 'concepto_llave'], // La llave única correcta
                     [
                         'fecha_documento',
                         'monto_total', // Asegúrate que estos nombres coincidan con tu migración

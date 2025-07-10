@@ -42,7 +42,7 @@ class CreateAuditoriasTotalesScTable extends Migration
             $table->foreign('pedimento_id')->nullable()->constrained()->references('id_pedimiento')->on('pedimiento')->onDelete('cascade');
 
             // Le decimos a la base de datos que no puede haber dos filas con el mismo 'operacion_id'.
-            $table->unique(['pedimento_id']);
+            $table->unique(['pedimento_id', 'operation_type']);
         });
     }
 

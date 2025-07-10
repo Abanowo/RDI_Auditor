@@ -81,18 +81,19 @@ class AuditarPagosDerechoCommand extends Command
                         [
                             'operacion_id'      => $operacionId,
                             'pedimento_id'      => $pedimentoId,
-                            'tipo_documento'     => 'pago_derecho',
-                            'concepto_llave'     => $datosPago['llave_pago'],
-                            'fecha_documento'    => $datosPago['fecha_pago'],
-                            'monto_total'        => $datosPago['monto_total'],
-                            'monto_total_mxn'    => $datosPago['monto_total'],
-                            'moneda_documento'   => 'MXN',
-                            'estado'             => $datosPago['tipo'],
-                            'llave_pago_pdd'     => $datosPago['llave_pago'],
-                            'num_operacion_pdd'  => $datosPago['numero_operacion'],
-                            'ruta_pdf'           => $rutaPdf,
-                            'created_at'         => now(),
-                            'updated_at'         => now(),
+                            'operation_type'    => "Intactics\Operaciones\Importacion",
+                            'tipo_documento'    => 'pago_derecho',
+                            'concepto_llave'    => $datosPago['llave_pago'],
+                            'fecha_documento'   => $datosPago['fecha_pago'],
+                            'monto_total'       => $datosPago['monto_total'],
+                            'monto_total_mxn'   => $datosPago['monto_total'],
+                            'moneda_documento'  => 'MXN',
+                            'estado'            => $datosPago['tipo'],
+                            'llave_pago_pdd'    => $datosPago['llave_pago'],
+                            'num_operacion_pdd' => $datosPago['numero_operacion'],
+                            'ruta_pdf'          => $rutaPdf,
+                            'created_at'        => now(),
+                            'updated_at'        => now(),
                         ];
                     }
                 }
@@ -108,7 +109,7 @@ class AuditarPagosDerechoCommand extends Command
 
                 Auditoria::upsert(
                     $pagosParaGuardar,
-                    ['operacion_id', 'pedimento_id', 'tipo_documento', 'concepto_llave'], // Columna única para identificar si debe actualizar o insertar
+                    ['operacion_id', 'pedimento_id', 'operation_type', 'tipo_documento', 'concepto_llave'], // Columna única para identificar si debe actualizar o insertar
                     [
                         'fecha_documento',
                         'monto_total', // Asegúrate que estos nombres coincidan con tu migración

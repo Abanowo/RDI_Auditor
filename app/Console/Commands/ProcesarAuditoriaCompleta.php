@@ -30,8 +30,51 @@ class ProcesarAuditoriaCompleta extends Command
 
         $this->info("Iniciando orquestación para la Tarea #{$tarea->id}...");
         $tarea->update(['status' => 'procesando']);
-
         try {
+            // Función auxiliar para no repetir código.
+            $ejecutarComando = function(string $nombreComando, string $infoPaso) use ($tarea) {
+                $this->info("--- [INICIO] {$infoPaso} para Tarea #{$tarea->id} ---");
+                Log::info("Tarea #{$tarea->id}: Ejecutando comando {$nombreComando}...");
+
+                // 1. Capturamos el código de salida del comando.
+                $exitCode = Artisan::call($nombreComando, ['--tarea_id' => $tarea->id]);
+                // Mostramos la salida del comando que se acaba de ejecutar.
+                $this->line(Artisan::output());
+
+                // 2. Verificamos el código de salida Y el estado en la base de datos.
+                // $tarea->fresh() recarga el modelo desde la BD para obtener el estado más reciente.
+                if ($exitCode !== 0 || $tarea->fresh()->status === 'fallido') {
+                    // 3. Si algo falló, lanzamos una excepción para detener el orquestador.
+                    throw new \Exception("El subproceso '{$nombreComando}' falló.");
+                }
+
+                $this->info("--- [FIN] {$infoPaso}.");
+            };
+
+            // Ejecutamos cada comando usando nuestra función auxiliar.
+            $ejecutarComando('reporte:auditar-sc', 'Procesamiento de SCs');
+            $ejecutarComando('reporte:importar-operaciones', 'Procesamiento de Impuestos');
+            $ejecutarComando('reporte:auditar-fletes', 'Procesamiento de Fletes');
+            $ejecutarComando('reporte:auditar-llc', 'Procesamiento de LLCs');
+            $ejecutarComando('reporte:auditar-pagos-derecho', 'Procesamiento de Pagos de derecho');
+
+            // Si todos los comandos terminan bien, marca la tarea como completada.
+            $tarea->update(['status' => 'completado', 'resultado' => 'Proceso de auditoría finalizado con éxito.']);
+            $this->info("¡Orquestación de la Tarea #{$tarea->id} completada con éxito!");
+
+        } catch (\Exception $e) {
+            // Si algún comando falla, la excepción lanzada será capturada aquí.
+            // No es necesario actualizar el estado a 'fallido' aquí, porque el subcomando ya debería haberlo hecho.
+            // Solo registramos el error en el orquestador.
+            $this->error("Falló la orquestación de la Tarea #{$tarea->id}: " . $e->getMessage());
+            Log::error("Fallo en orquestación Tarea #{$tarea->id}: " . $e->getMessage());
+
+            // Opcional: puedes añadir un resultado más específico del orquestador si lo deseas.
+            $tarea->fresh()->update(['resultado' => 'La orquestación se detuvo debido a un fallo en un subproceso. ' . $e->getMessage()]);
+        }
+
+
+        /* try {
 
             // 1. Llama a cada comando en secuencia, pasándole el ID de la tarea
             $this->info("--- [INICIO] Procesando SCs para Tarea #{$tarea->id} ---");
@@ -82,7 +125,7 @@ class ProcesarAuditoriaCompleta extends Command
             $tarea->update(['status' => 'fallido', 'resultado' => 'Error durante la orquestación: ' . $e->getMessage()]);
             $this->error("Falló la orquestación de la Tarea #{$tarea->id}: " . $e->getMessage());
             Log::error("Fallo en orquestación Tarea #{$tarea->id}: " . $e->getMessage());
-        }
+        } */
 
         return 0;
     }

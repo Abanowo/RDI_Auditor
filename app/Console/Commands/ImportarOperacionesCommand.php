@@ -194,6 +194,7 @@ class ImportarOperacionesCommand extends Command
                     [
                         'operacion_id'      => $operacionId, // ¡Aquí está la vinculación auxiliar!
                         'pedimento_id'      => $pedimentoId['id_pedimiento'], // ¡Aquí está la vinculación!
+                        'operation_type'    => "Intactics\Operaciones\Importacion",
                         'tipo_documento'    => 'impuestos',
                         'concepto_llave'    => 'principal',
                         'fecha_documento'   => \Carbon\Carbon::createFromFormat('d-m', $op['fecha_str'])->format('Y-m-d'),
@@ -216,7 +217,7 @@ class ImportarOperacionesCommand extends Command
                 if (!empty($datosParaAuditorias)) {
                     Auditoria::upsert(
                         $datosParaAuditorias,
-                        ['operacion_id', 'pedimento_id', 'tipo_documento', 'concepto_llave'], // La llave única correcta
+                        ['operacion_id', 'pedimento_id', 'operation_type', 'tipo_documento', 'concepto_llave'], // La llave única correcta
                         [
                             'fecha_documento',
                             'monto_total', // Asegúrate que estos nombres coincidan con tu migración

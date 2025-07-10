@@ -118,16 +118,11 @@ class AuditarLlcCommand extends Command
                 // --- FASE 4: Comparar y Preparar Datos ---
                 $estado = $this->compararMontos($montoSCMXN, $montoLLCMXN);
 
-                // 1. Genera un UUID único para este documento
-                $uuidGenerado = (string) Str::uuid();
-                $tipoArchivo = 'llc';
-
-                // 2. Construye la URL pública usando el helper de rutas y el nuevo UUID
-                $urlPublica = route('documentos.ver', ['tipo' => $tipoArchivo, 'uuid' => $uuidGenerado]);
                 $llcsParaGuardar[] =
                 [
                     'operacion_id'      => $operacionId,
                     'pedimento_id'      => $pedimentoId,
+                    'operation_type'    => "Intactics\Operaciones\Importacion",
                     'tipo_documento'    => 'llc',
                     'concepto_llave'    => 'principal',
                     'folio'             => $datosLlc['folio'],
@@ -151,7 +146,7 @@ class AuditarLlcCommand extends Command
                 $this->info("\nGuardando/Actualizando " . count($llcsParaGuardar) . " registros de LLC...");
                 Auditoria::upsert(
                     $llcsParaGuardar,
-                    ['operacion_id', 'pedimento_id', 'tipo_documento', 'concepto_llave'],  // Columna única para identificar si debe actualizar o insertar
+                    ['operacion_id', 'pedimento_id', 'operation_type', 'tipo_documento', 'concepto_llave'],  // Columna única para identificar si debe actualizar o insertar
                     [
                         'fecha_documento',
                         'monto_total', // Asegúrate que estos nombres coincidan con tu migración
