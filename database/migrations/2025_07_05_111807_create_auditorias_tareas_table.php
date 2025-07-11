@@ -28,13 +28,14 @@ class CreateAuditoriasTareasTable extends Migration
 
             //Pedimentos utilizados para esta tarea
             $table->json('pedimentos_procesados')->nullable();
-            $table->json('pedimentos_no_procesados')->nullable();
+            $table->json('pedimentos_descartados')->nullable();
 
             // Columnas adicionales para gestionar el estado de la tarea
             $table->string('status')->default('pendiente')->comment('pendiente, procesando, completado, fallido');
             $table->text('resultado')->nullable()->comment('Guarda mensajes de éxito o error del proceso');
 
             //Rutas de los reportes
+            $table->text('mapeo_completo_facturas')->nullable()->comment('Ruta del mapeo de todos los archivos de factura Importacion/Exportacion');
             $table->string('reporte_impuestos')->nullable()->comment('Reporte de Impuestos - Facturado');
             $table->string('reporte_impuestos_pendientes')->nullable()->comment('Reporte de Impuestos - Sin facturar');
 

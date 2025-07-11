@@ -16,6 +16,11 @@ class Pedimento extends Model
         return $this->hasOne(Importacion::class, 'id_pedimiento', 'id_pedimiento');
     }
 
+    public function exportacion()
+    {
+        return $this->hasOne(Exportacion::class, 'id_pedimiento', 'id_pedimiento');
+    }
+
      public function auditorias()
     {
         return $this->hasMany(Auditoria::class, 'operacion_id');

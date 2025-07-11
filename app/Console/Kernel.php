@@ -14,7 +14,9 @@ class Kernel extends ConsoleKernel
      * @var array
      */
     protected $commands = [
+        \App\Console\Commands\ProcesarAuditoriaCompleta::class,
         \App\Console\Commands\ImportarOperacionesCommand::class, // El que ya teníamos (con su nuevo nombre)
+        \App\Console\Commands\MapearFacturasCommand::class,
         \App\Console\Commands\AuditarFletesCommand::class,
         \App\Console\Commands\AuditarScCommand::class,     // ¡El nuevo que acabamos de crear!
         \App\Console\Commands\AuditarLlcCommand::class,     // ¡El nuevo que acabamos de crear!

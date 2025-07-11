@@ -52,8 +52,9 @@ class ProcesarAuditoriaCompleta extends Command
             };
 
             // Ejecutamos cada comando usando nuestra función auxiliar.
-            $ejecutarComando('reporte:auditar-sc', 'Procesamiento de SCs');
             $ejecutarComando('reporte:importar-operaciones', 'Procesamiento de Impuestos');
+            //$ejecutarComando('reporte:mapear-facturas', 'Mapeado de Facturas');
+            $ejecutarComando('reporte:auditar-sc', 'Procesamiento de SCs');
             $ejecutarComando('reporte:auditar-fletes', 'Procesamiento de Fletes');
             $ejecutarComando('reporte:auditar-llc', 'Procesamiento de LLCs');
             $ejecutarComando('reporte:auditar-pagos-derecho', 'Procesamiento de Pagos de derecho');

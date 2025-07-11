@@ -3,7 +3,11 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Pedimento;
 use App\Models\Importacion; // Tu modelo para 'operaciones_importacion'
 use App\Models\Sucursales;
@@ -32,30 +36,37 @@ class AuditarScCommand extends Command
         }
 
         try {
-            $sucursal = $tarea->sucursal;
-            $this->info("Procesando Facturas SC para Tarea #{$tarea->id} en la sucursal: {$sucursal}");
+            //Iniciamos con obtener el mapeo
+            $rutaMapeo = $tarea->mapeo_completo_facturas;
+            if (!$rutaMapeo || !Storage::exists($rutaMapeo)) {
+                throw new \Exception("No se encontró el archivo de mapeo universal para la tarea #{$tarea->id}.");
+            }
 
-            // 1. Construimos el índice de SCs desde los archivos (tu lógica no cambia)
-            $indiceSC = $this->construirIndiceSC($sucursal);
+            //Leemos y decodificamos el archivo JSON completo
+            $contenidoJson = Storage::get($rutaMapeo);
+            $mapeadoFacturas = (array)json_decode($contenidoJson, true);
+
+            //Leemos los demas campos de la tarea
+            $sucursal = $tarea->sucursal;
+            $pedimentosJson = $tarea->pedimentos_procesados;
+            $pedimentos = $pedimentosJson ? json_decode($pedimentosJson, true) : [];
+
+            if (empty($pedimentos)) {
+                $this->info("Fletes: No hay pedimentos en la Tarea #{$tareaId} para procesar.");
+                return 0;
+            }
+            $this->info("Procesando Facturas SC para Tarea #{$tarea->id} en la sucursal: {$sucursal}");
+            $mapaPedimentoAImportacionId = (array)$mapeadoFacturas['pedimentos_importacion'];
+            $mapaPedimentoAExportacionId = (array)$mapeadoFacturas['pedimentos_exportacion'];
+
+            //--- YA UNA VEZ TENIENDO TODO A LA MANO
+            // 3. Construimos el índice de SCs desde los archivos (tu lógica no cambia)
+            $indiceSC = $this->construirIndiceSC($mapeadoFacturas['indices_importacion'], $mapeadoFacturas['indices_exportacion']);
             if (empty($indiceSC)) {
                 $this->info("No se encontraron archivos de SC para procesar en la sucursal {$sucursal}.");
                 return 0;
             }
             $this->info("Se encontraron " . count($indiceSC) . " facturas SC en los archivos.");
-
-            // 2. Obtenemos los números de pedimento de nuestro índice
-            $numerosDePedimento = array_keys($indiceSC);
-
-            $mapaPedimentoAId = $this->construirMapaDePedimentos($numerosDePedimento);
-            $this->info("Pedimentos encontrados en tabla 'pedimentos': ". count($mapaPedimentoAId));
-
-            // 3. MAPEADO EFICIENTE DE IDS (La misma lógica que en el comando anterior)
-            // Creamos un mapa: num_pedimento => id_importacion
-            $mapaPedimentoAImportacionId = Importacion::query()
-                ->join('pedimiento', 'operaciones_importacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
-                ->whereIn('pedimiento.num_pedimiento', $numerosDePedimento)
-                ->pluck('operaciones_importacion.id_importacion', 'pedimiento.num_pedimiento');
-            $this->info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_importacion': ". $mapaPedimentoAImportacionId->count());
 
             // 4. PREPARAR DATOS PARA GUARDAR EN 'auditorias_totales_sc'
             $auditoriasParaGuardar = [];
@@ -149,22 +160,43 @@ class AuditarScCommand extends Command
 
     // --- MÉTODOS DE AYUDA ---
 
-    private function construirIndiceSC(string $sucursal): array
+    private function construirIndiceSC(array $indicesImportacion, array $indicesExportacion): array
     {
-        // Esta lógica es similar a la que hicimos para Fletes, pero apunta al directorio de SC.
-        $directorioSC = config('reportes.rutas.sc_txt_filepath');
-        $finder = new Finder();
-        if($sucursal == 'NL' || $sucursal == 'REY') { $sucursal = 'NL'; }
         try {
-            $finder->depth(0)
-                ->path($sucursal)
-                ->in($directorioSC)
-                ->name('*.txt')
-                ->date("since " . config('reportes.periodo_meses_busqueda', 3) . " months ago");
 
             $indice = [];
-            foreach ($finder as $file) {
-                $contenido = $file->getContents();
+            foreach ($indicesImportacion as $pedimento => $datos) {
+                $coleccionFacturas = collect($datos['facturas']);
+                $facturaSC = $coleccionFacturas->first(function ($factura) {
+                    // La condición es la misma que ya tenías.
+                    return $factura['tipo_documento'] === 'sc' &&
+                           isset($factura['ruta_pdf']) && isset($factura['ruta_txt']);
+                });
+
+                if (!$facturaSC) {
+                    continue;
+                }
+                try {   //Cuando la URL esta mal construida, lo que se hace es buscar por medio del get el txt
+                    $contenido = file_get_contents($facturaSC['ruta_txt']);
+                } catch (\Exception $th) {
+
+                    $operacionID = $datos['operacion_id'];
+                    $url_txt = Http::withoutVerifying()->get("https://sistema.intactics.com/v3/operaciones/importaciones/{$operacionID}/get-files-txt-momentaneo");
+                    if (!$url_txt->successful()) {
+                        // Si la API falla para este ID, lo saltamos y continuamos con el siguiente.
+                        $this->warn("No se pudieron obtener los archivos para la importación ID: {$operacionID}");
+                        Log::warning("No se pudieron obtener los archivos para la importación ID: {$operacionID}");
+                        continue;
+                    }
+
+                    $urls = json_decode($url_txt, true);
+                    $contenido = file_get_contents('https://sistema.intactics.com' . $urls[0]['path']);
+                }
+
+
+                if (!$contenido) {
+                    continue;
+                }
                 // Refinamiento: Regex más preciso para el pedimento en la observación.
                 if (preg_match('/(?<=\[encOBSERVACION\])(\d*\-*)(\d{7})/', $contenido, $matchesPedimento)) {
 
@@ -199,10 +231,6 @@ class AuditarScCommand extends Command
                         preg_match('/\[encTIPOCAMBIO\]([^\r\n]*)/', $contenido, $matchTC);
                     }
 
-                    // Construimos la ruta al PDF
-                    $rutaPdf = config('reportes.rutas.sc_pdf_filepath') . DIRECTORY_SEPARATOR . $file->getBasename();
-                    $rutaPdf = str_replace('.txt', '.pdf', $rutaPdf);
-
                     $indice[$pedimento] =
                     [
                         'monto_impuestos'   => isset($matchM_Impuesto[1]) && strlen($matchM_Impuesto[1]) > 0 ? (float)trim($matchM_Impuesto[1]) : -1,
@@ -214,8 +242,8 @@ class AuditarScCommand extends Command
 
                         'folio_sc'          => isset($matchFolio[1]) ? trim($matchFolio[1]) : null,
                         'fecha_sc'          => isset($matchFecha[2]) ? \Carbon\Carbon::parse(trim($matchFecha[1]))->format('Y-m-d') : now(), //ESTO PUEDES DECIRLE QUE TE LO IGUAL A NULL, NO HAY FECHA DENTRO DE LA SC
-                        'ruta_txt'          => $file->getRealPath(),
-                        'ruta_pdf'          => file_exists($rutaPdf) ? $rutaPdf : null,
+                        'ruta_txt'          => $facturaSC['ruta_txt'],
+                        'ruta_pdf'          => $facturaSC['ruta_pdf'],
                         'moneda'            => isset($matchMoneda[1]) && $matchMoneda[1] == "1" ? "MXN" : "USD",
                         'tipo_cambio'       => isset($matchTC[1]) ? (float)trim($matchTC[1]) : 1.0,
                         'monto_total_sc'    => isset($matchTotalSC[1]) && strlen($matchTotalSC[1]) > 0 ? (float)trim($matchTotalSC[1]) : -1,
@@ -233,6 +261,7 @@ class AuditarScCommand extends Command
         } catch (\Exception $e) {
             Log::error("Error buscando archivo para pedimento {$pedimento}: " . $e->getMessage());
             $this->error("Error buscando archivo para pedimento {$pedimento}: " . $e->getMessage());
+
         }
         return $indice;
     }
@@ -306,57 +335,5 @@ class AuditarScCommand extends Command
 
         return $resultados;
     }
-
-    private function construirMapaDePedimentos(array $pedimentosLimpios): array
-    {
-        if (empty($pedimentosLimpios)) { return []; }
-
-        // 1. Hacemos una única consulta a la BD para traer todos los registros
-        //    que POTENCIALMENTE contienen nuestros números.
-        $query = Pedimento::query();
-        $regexPattern = implode('|', $pedimentosLimpios);
-
-        // Obtenemos solo las columnas que necesitamos
-        $posiblesCoincidencias = $query->where('num_pedimiento', 'REGEXP', $regexPattern)->get(['id_pedimiento', 'num_pedimiento']);
-
-        // 1. Creamos un mapa de los pedimentos que nos falta por encontrar.
-        //    Usamos array_flip para que la búsqueda y eliminación sea instantánea.
-        $pedimentosPorEncontrar = array_flip($pedimentosLimpios);
-
-        //Ahora, procesamos los resultados en PHP para crear el mapa definitivo.
-        $mapaFinal = [];
-        // 2. Recorremos los resultados de la BD UNA SOLA VEZ.
-        foreach ($posiblesCoincidencias as $pedimentoSucio) {
-            // Si ya no quedan pedimentos por buscar, salimos del bucle para máxima eficiencia.
-            if (empty($pedimentosPorEncontrar)) { break; }
-
-            $pedimentoObtenido = $pedimentoSucio->num_pedimiento;
-
-            // 3. Revisamos cuáles de los pedimentos PENDIENTES están en el string sucio actual.
-            foreach ($pedimentosPorEncontrar as $pedimentoLimpio => $value) {
-                if (str_contains($pedimentoObtenido, $pedimentoLimpio)) {
-                    // ¡Coincidencia! La guardamos en el resultado final.
-                    $mapaFinal[$pedimentoLimpio] =
-                    [
-                        'id_pedimiento' => $pedimentoSucio->id_pedimiento,
-                        'num_pedimiento' => $pedimentoObtenido,
-                    ];
-
-                    // 4. (La optimización clave) Eliminamos el pedimento de la lista de pendientes.
-                    //    Así, nunca más se volverá a buscar.
-                    unset($pedimentosPorEncontrar[$pedimentoLimpio]);
-                }
-            }
-        }
-
-        // 5. (Opcional) Al final, lo que quede en $pedimentosPorEncontrar son los que no se encontraron.
-        //    Podemos lanzar los warnings de forma mucho más eficiente.
-        foreach (array_keys($pedimentosPorEncontrar) as $pedimentoNoEncontrado) {
-            $this->warn('Omitiendo pedimento no encontrado en tabla \'pedimiento\': ' . $pedimentoNoEncontrado);
-        }
-
-        return $mapaFinal;
-    }
-
 }
 

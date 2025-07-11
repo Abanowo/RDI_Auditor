@@ -12,7 +12,7 @@ class AuditoriaTareas extends Model
 
     protected $casts = [
         'pedimentos_procesados' => 'array',
-        'pedimentos_no_procesados' => 'array',
+        'pedimentos_descartados' => 'array',
         'rutas_extras' => 'array',
     ];
 
@@ -22,8 +22,9 @@ class AuditoriaTareas extends Model
         'nombre_archivo',
         'ruta_estado_de_cuenta',
         'rutas_extras',
-        'pedimentos_no_procesados',
+        'mapeo_completo_facturas',
         'pedimentos_procesados',
+        'pedimentos_descartados',
         'status',
         'resultado',
     ];

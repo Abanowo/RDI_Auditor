@@ -58,12 +58,4 @@ class Auditoria extends Model
         'ruta_xml',
     ];
 
-    /**
-     * Define la relación inversa de uno a muchos.
-     * Un registro de Auditoria pertenece a una Operacion.
-     */
-    public function operacion()
-    {
-        return $this->belongsTo(Operacion::class, 'operacion_id');
-    }
 }

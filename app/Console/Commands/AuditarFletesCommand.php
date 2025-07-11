@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 use DateTime;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use Illuminate\Support\Arr;
