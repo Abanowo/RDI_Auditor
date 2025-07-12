@@ -277,6 +277,7 @@ class MapearFacturasCommand extends Command
 
                 // Inicializamos la entrada para el pedimento actual
                 $indiceFacturas[$pedimento] = [
+                    'tipo_operacion' => $tipoOperacion,
                     'operacion_id' => $operacionID['id_operacion'],
                     'facturas' => [], // Aquí guardaremos las facturas encontradas
                 ];

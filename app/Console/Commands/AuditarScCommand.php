@@ -256,7 +256,7 @@ class AuditarScCommand extends Command
                     $bar->advance();
                     continue;
                 }
-
+                $te = $datos['tipo_operacion'];
                 $coleccionFacturas = collect($datos['facturas']);
                 $facturaSC = $coleccionFacturas->first(function ($factura) {
                     // La condición es la misma que ya tenías.
@@ -273,7 +273,7 @@ class AuditarScCommand extends Command
                 } catch (\Exception $th) {
 
                     $operacionID = $datos['operacion_id'];
-                    $url_txt = Http::withoutVerifying()->get("https://sistema.intactics.com/v3/operaciones/importaciones/{$operacionID}/get-files-txt-momentaneo");
+                    $url_txt = Http::withoutVerifying()->get("https://sistema.intactics.com/v3/operaciones/{$datos['tipo_operacion']}/{$operacionID}/get-files-txt-momentaneo");
 
                     if (!$url_txt->successful()) {
                         // Si la API falla para este ID, lo saltamos y continuamos con el siguiente.

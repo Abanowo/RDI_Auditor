@@ -107,7 +107,7 @@ class AuditarFletesCommand extends Command
                 ];
             }
 
-            $this->info("Iniciando vinculacion de los " . count($mapaPedimentoAId) . " pedimentos.");
+            $this->info("\nIniciando vinculacion de los " . count($mapaPedimentoAId) . " pedimentos.");
             Log::info("Iniciando vinculacion de los " . count($mapaPedimentoAId) . " pedimentos.");
 
             $this->info("Iniciando mapeo para Upsert.");
@@ -269,7 +269,7 @@ class AuditarFletesCommand extends Command
                     } catch (\Exception $th) {
 
                         $operacionID = $datos['operacion_id'];
-                        $url_txt = Http::withoutVerifying()->get("https://sistema.intactics.com/v3/operaciones/importaciones/{$operacionID}/get-files-txt-momentaneo");
+                        $url_txt = Http::withoutVerifying()->get("https://sistema.intactics.com/v3/operaciones/{$datos['tipo_operacion']}/{$operacionID}/get-files-txt-momentaneo");
 
                         if (!$url_txt->successful()) {
                             // Si la API falla para este ID, lo saltamos y continuamos con el siguiente.
