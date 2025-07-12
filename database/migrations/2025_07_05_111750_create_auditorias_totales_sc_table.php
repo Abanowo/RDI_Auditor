@@ -38,8 +38,6 @@ class CreateAuditoriasTotalesScTable extends Migration
             $table->softDeletes();
 
             // Definición de las Relaciones (Llaves Foráneas)
-            $table->foreign('operacion_id', 'id_importacion_operacion_id_totales_sc_foreign')->nullable()->constrained()->references('id_importacion')->on('operaciones_importacion')->onDelete('cascade');
-            $table->foreign('operacion_id', 'id_exportacion_operacion_id_totales_sc_foreign')->nullable()->constrained()->references('id_exportacion')->on('operaciones_exportacion')->onDelete('cascade');
             $table->foreign('pedimento_id')->nullable()->constrained()->references('id_pedimiento')->on('pedimiento')->onDelete('cascade');
 
             // Le decimos a la base de datos que no puede haber dos filas con el mismo 'operacion_id'.

@@ -45,22 +45,26 @@ class ProcesarAuditoriaCompleta extends Command
                 // $tarea->fresh() recarga el modelo desde la BD para obtener el estado más reciente.
                 if ($exitCode !== 0 || $tarea->fresh()->status === 'fallido') {
                     // 3. Si algo falló, lanzamos una excepción para detener el orquestador.
+                    Log::info("El subproceso '{$nombreComando}' falló.");
                     throw new \Exception("El subproceso '{$nombreComando}' falló.");
                 }
 
                 $this->info("--- [FIN] {$infoPaso}.");
             };
 
+            mapear_facturas($tarea->id);
+
             // Ejecutamos cada comando usando nuestra función auxiliar.
-            $ejecutarComando('reporte:importar-operaciones', 'Procesamiento de Impuestos');
-            //$ejecutarComando('reporte:mapear-facturas', 'Mapeado de Facturas');
-            $ejecutarComando('reporte:auditar-sc', 'Procesamiento de SCs');
+            //$ejecutarComando('reporte:importar-operaciones', 'Procesamiento de Impuestos');
+            //$ejecutarComando('reporte:mapear-facturas', 'Mapeado de Facturas'); (new AuditController())->mapear($);
+            //$ejecutarComando('reporte:auditar-sc', 'Procesamiento de SCs');
             $ejecutarComando('reporte:auditar-fletes', 'Procesamiento de Fletes');
             $ejecutarComando('reporte:auditar-llc', 'Procesamiento de LLCs');
             $ejecutarComando('reporte:auditar-pagos-derecho', 'Procesamiento de Pagos de derecho');
 
             // Si todos los comandos terminan bien, marca la tarea como completada.
             $tarea->update(['status' => 'completado', 'resultado' => 'Proceso de auditoría finalizado con éxito.']);
+
             $this->info("¡Orquestación de la Tarea #{$tarea->id} completada con éxito!");
 
         } catch (\Exception $e) {

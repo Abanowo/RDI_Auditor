@@ -41,17 +41,19 @@ class MapearFacturasCommand extends Command
         $tareaId = $this->option('tarea_id');
         if (!$tareaId) {
             $this->error('Se requiere el argumento --tarea_id.');
+            Log::error('Se requiere el argumento --tarea_id.');
             return 1;
         }
 
         $tarea = AuditoriaTareas::find($tareaId);
         if (!$tarea) {
             $this->error("No se encontró la Tarea con ID: {$tareaId}");
+            Log::error("No se encontró la Tarea con ID: {$tareaId}");
             return 1;
         }
 
         $this->info("--- [INICIO] Mapeo de facturas para Tarea #{$tarea->id} ---");
-        Log::info("Tarea #{$tarea->id}: Iniciando mapeo de facturas...");
+        Log::info("--- [INICIO] Mapeo de facturas para Tarea #{$tarea->id} ---");
 
         try {
             $sucursal = $tarea->sucursal;
@@ -75,16 +77,36 @@ class MapearFacturasCommand extends Command
             // PROCESAR IMPORTACIONES
             $mapaPedimentoAImportacionId = Importacion::query()
                 ->join('pedimiento', 'operaciones_importacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
+                ->select('operaciones_importacion.id_importacion', 'pedimiento.num_pedimiento', 'pedimiento.id_pedimiento')
                 ->whereIn('pedimiento.num_pedimiento', $numerosDePedimento)
-                ->pluck('operaciones_importacion.id_importacion', 'pedimiento.num_pedimiento');
+                ->get()
+                ->map(function($operacion){
+                    return[
+                        'pedimento'      => $operacion->num_pedimiento,
+                        'id_operacion'   => $operacion->id_importacion,
+                        'id_pedimento'   => $operacion->id_pedimiento,
+                    ];
+                })
+                ->keyBy('pedimento');
             $this->info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_importacion': ". $mapaPedimentoAImportacionId->count());
 
             // 2. MAPEADO EFICIENTE DE IDS
             // PROCESAR EXPORTACIONES
             $mapaPedimentoAExportacionId = Exportacion::query()
                 ->join('pedimiento', 'operaciones_exportacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
+                ->select('operaciones_exportacion.id_exportacion', 'pedimiento.num_pedimiento', 'pedimiento.id_pedimiento')
                 ->whereIn('pedimiento.num_pedimiento', $numerosDePedimento)
-                ->pluck('operaciones_exportacion.id_exportacion', 'pedimiento.num_pedimiento');
+                ->get()
+                ->map(function($operacion){
+                    return[
+                        'pedimento'      => $operacion->num_pedimiento,
+                        'id_operacion'   => $operacion->id_exportacion,
+                        'id_pedimento'   => $operacion->id_pedimiento,
+                    ];
+                })
+                ->keyBy('pedimento');
+
+
             $this->info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_exportacion': ". $mapaPedimentoAExportacionId->count());
 
             // --- LOGICA PARA DETECTAR LOS NO ENCONTRADOS
@@ -150,12 +172,21 @@ class MapearFacturasCommand extends Command
                 $this->info("¡Todos los pedimentos fueron encontrados y mapeados correctamente!");
             }
 
+            // CONSTRUIR EL ÍNDICE - EXPORTACIONES
+            $this->info("Iniciando mapeo de archivos de exportaciones.");
+            Log::info("Iniciando mapeo de archivos de exportaciones.");
+            $indiceExportaciones = $this->construirIndiceFacturas($mapaPedimentoAExportacionId, $sucursal, 'exportaciones');
+            $this->info("\nMapeo de exportaciones finalizado, se indexaron " . count($indiceExportaciones) . " operaciones!");
+            Log::info("Mapeo de exportaciones finalizado!");
+
             // --- OJO: Aqui se gastan muchos recursos en el mapeo!!!
             // CONSTRUIR EL ÍNDICE - IMPORTACIONES
-            $indiceImportaciones = $this->construirIndiceFacturas($mapaPedimentoAImportacionId, $sucursal);
+            $this->info("Iniciando mapeo de archivos de importaciones.");
+            Log::info("Iniciando mapeo de archivos de importaciones.");
+            $indiceImportaciones = $this->construirIndiceFacturas($mapaPedimentoAImportacionId,  $sucursal, 'importaciones');
+            $this->info("\nMapeo de importaciones finalizado, se indexaron " . count($indiceImportaciones) . " operaciones!");
+            Log::info("Mapeo de importaciones finalizado!");
 
-            // CONSTRUIR EL ÍNDICE - EXPORTACIONES
-            $indiceExportaciones = $this->construirIndiceFacturas($mapaPedimentoAExportacionId, $sucursal);
 
             $mapeadoOperacionesID =
             [
@@ -207,10 +238,9 @@ class MapearFacturasCommand extends Command
     /**
      * Lógica central para obtener y procesar los archivos de la API.
      */
-    private function construirIndiceFacturas(Collection $importacionPedimentos, string $sucursal): array
+    private function construirIndiceFacturas(Collection $pedimentosOperacion, string $sucursal, string $tipoOperacion): array
     {
         $indiceFacturas = [];
-        if($sucursal == 'NL' || $sucursal == 'REY') { $sucursal = 'NL'; }
 
         $mapeoFacturas =
         [
@@ -219,7 +249,10 @@ class MapearFacturasCommand extends Command
             'HONORARIOS-LLC' => 'llc',
             'PAGOS-DE-DERECHOS' => 'pago_derecho',
         ];
-        foreach ($importacionPedimentos as $pedimento => $operacionID) {
+        $bar = $this->output->createProgressBar($pedimentosOperacion->count());
+        $bar->start();
+
+        foreach ($pedimentosOperacion as $pedimento => $operacionID) {
             try {
 
                 // --- 1. OBTENCIÓN DE DATOS ---
@@ -228,12 +261,13 @@ class MapearFacturasCommand extends Command
                 // ARREGLO TEMPORAL PARA SSL: Usamos withoutVerifying() para saltar la verificación del certificado SSL.
                 // ¡¡¡IMPORTANTE!!! Esto es solo para desarrollo local. Eliminar en producción.
                 //$url_txt = Http::withoutVerifying()->get("https://sistema.intactics.com/v3/operaciones/exportaciones/{$operacionID}/get-files-txt-momentaneo");
-                $url_pdf = Http::withoutVerifying()->get("https://sistema.intactics.com/v3/operaciones/exportaciones/{$operacionID}/get-files-momentaneo");
+                $url_pdf = Http::withoutVerifying()->get("https://sistema.intactics.com/v3/operaciones/{$tipoOperacion}/{$operacionID['id_operacion']}/get-files-momentaneo");
 
                 if (!$url_pdf->successful()) {
                     // Si la API falla para este ID, lo saltamos y continuamos con el siguiente.
-                    $this->warn("No se pudieron obtener los archivos para la importación ID: {$operacionID}");
-                    Log::warning("No se pudieron obtener los archivos para la importación ID: {$operacionID}");
+                    $this->warn("No se pudieron obtener los archivos para la importación ID: {$operacionID['id_operacion']}");
+                    Log::warning("No se pudieron obtener los archivos para la importación ID: {$operacionID['id_operacion']}");
+                    $bar->advance();
                     continue;
                 }
 
@@ -243,7 +277,7 @@ class MapearFacturasCommand extends Command
 
                 // Inicializamos la entrada para el pedimento actual
                 $indiceFacturas[$pedimento] = [
-                    'operacion_id' => $operacionID,
+                    'operacion_id' => $operacionID['id_operacion'],
                     'facturas' => [], // Aquí guardaremos las facturas encontradas
                 ];
 
@@ -298,10 +332,11 @@ class MapearFacturasCommand extends Command
                 // Asignamos las facturas agrupadas y limpias al resultado final.
                 // array_values() reinicia los índices del array para que sea una lista limpia.
                 $indiceFacturas[$pedimento]['facturas'] = array_values($agrupadorTemp);
+                $bar->advance();
 
             } catch (\Exception $e) {
-                $this->error("Ocurrió un error procesando la importación ID {$operacionID}: " . $e->getMessage());
-                Log::error("Ocurrió un error procesando la importación ID {$operacionID}: " . $e->getMessage());
+                $this->error("Ocurrió un error procesando la operacion ID ({$tipoOperacion}) {$operacionID['id_operacion']}: " . $e->getMessage());
+                Log::error("Ocurrió un error procesando la operacion ID ({$tipoOperacion}) {$operacionID['id_operacion']}: " . $e->getMessage());
                 // Aseguramos que haya una entrada para este pedimento aunque falle, para evitar errores posteriores.
                 if (!isset($indiceFacturas[$pedimento])) {
                      $indiceFacturas[$pedimento] = ['error' => $e->getMessage()];
@@ -309,11 +344,11 @@ class MapearFacturasCommand extends Command
             }
 
         }
-
+        $bar->finish();
         return $indiceFacturas;
     }
 
-     private function construirMapaDePedimentos(array $pedimentosLimpios): array
+    private function construirMapaDePedimentos(array $pedimentosLimpios): array
     {
         if (empty($pedimentosLimpios)) { return []; }
 

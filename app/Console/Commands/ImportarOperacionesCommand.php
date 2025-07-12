@@ -9,6 +9,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Arr;
 use App\Models\Pedimento;
 use App\Models\Importacion; // Tu modelo para 'operaciones_importacion'
+use App\Models\Exportacion;
 use App\Models\Sucursales;
 use App\Models\Auditoria;
 use App\Models\AuditoriaTareas;
@@ -156,6 +157,13 @@ class ImportarOperacionesCommand extends Command
                     ->pluck('operaciones_importacion.id_importacion', 'pedimiento.num_pedimiento');
                 $this->info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_importacion': ". $mapaPedimentoAImportacionId->count());
 
+
+                $mapaPedimentoAExportacionId = Exportacion::whereIn('operaciones_exportacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
+                    ->join('pedimiento', 'operaciones_exportacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
+                    ->pluck('operaciones_exportacion.id_exportacion', 'pedimiento.num_pedimiento');
+                $this->info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_exportacion': ". $mapaPedimentoAExportacionId->count());
+
+
                 // 3. Obtenemos todas las SC de una vez para la comparación de montos
                 $auditoriasSC = AuditoriaTotalSC::query()
                     ->whereIn('operacion_id', $mapaPedimentoAImportacionId->values())
@@ -167,13 +175,27 @@ class ImportarOperacionesCommand extends Command
                 // PASO 5: Construir el array para las auditorías, usando nuestro mapa.
                 // Pasamos el mapa a la clausula `use` para que esté disponible dentro del `map`.
                 $datosParaAuditorias = $operacionesLimpias->map(function ($op)
+                use ($rutaPdf, $auditoriasSC, $mapaPedimentoAId, $mapaPedimentoAExportacionId, $mapaPedimentoAImportacionId, $tarea) {
 
-                use ($rutaPdf, $auditoriasSC, $mapaPedimentoAId, $mapaPedimentoAImportacionId, $tarea) {
                     $pedimento = $op['pedimento'];
 
                     // Obtenemos el id_importacion desde nuestro mapa. Si no existe, omitimos este registro.
                     $operacionId = $mapaPedimentoAImportacionId[$pedimento] ?? null;
                     $pedimentoId = $mapaPedimentoAId[$pedimento] ?? null;
+
+                    // Obtemenos la operacionId por medio del pedimento sucio
+                    // Se verifica si la operacion ID esta en Importacion
+                    $operacionId = $mapaPedimentoAImportacionId[$pedimentoId['num_pedimiento']] ?? null;
+                    $tipoOperacion = "Intactics\Operaciones\Importacion";
+
+                    if (!$operacionId) { // Si no, entonces busca en Exportacion
+                        $operacionId = $mapaPedimentoAExportacionId[$pedimentoId['num_pedimiento']] ?? null;
+                        $tipoOperacion = "Intactics\Operaciones\Exportacion";
+                    }
+
+                    if (!$operacionId) { // Si no esta ni en Importacion o en Exportacion, que lo guarde por pedimento_id
+                        $tipoOperacion = "N/A";
+                    }
 
                     if (!$operacionId && !$pedimentoId) {
                         $this->warn("Omitiendo pedimento no encontrado en operaciones_importacion: {$pedimento}");
@@ -195,7 +217,7 @@ class ImportarOperacionesCommand extends Command
                     [
                         'operacion_id'      => $operacionId, // ¡Aquí está la vinculación auxiliar!
                         'pedimento_id'      => $pedimentoId['id_pedimiento'], // ¡Aquí está la vinculación!
-                        'operation_type'    => "Intactics\Operaciones\Importacion",
+                        'operation_type'    => $tipoOperacion,
                         'tipo_documento'    => 'impuestos',
                         'concepto_llave'    => 'principal',
                         'fecha_documento'   => \Carbon\Carbon::createFromFormat('d-m', $op['fecha_str'])->format('Y-m-d'),

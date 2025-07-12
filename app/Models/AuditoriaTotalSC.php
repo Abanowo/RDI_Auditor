@@ -35,4 +35,10 @@ class AuditoriaTotalSC extends Model
         'ruta_xml',
     ];
 
+    public function operacion()
+    {
+        // El nombre 'operacion' debe coincidir con el segundo argumento de morphMany
+        // y será el prefijo de las columnas 'operacion_id' y 'operacion_type'.
+        return $this->morphTo();
+    }
 }

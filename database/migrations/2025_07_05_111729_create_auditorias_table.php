@@ -49,8 +49,6 @@ class CreateAuditoriasTable extends Migration
             $table->softDeletes();
 
             // Definición de las Relaciones (Llaves Foráneas)
-            $table->foreign('operacion_id', 'id_importacion_operacion_id_auditorias_foreign')->nullable()->constrained()->references('id_importacion')->on('operaciones_importacion')->onDelete('cascade');
-            $table->foreign('operacion_id', 'id_exportacion_operacion_id_auditorias_foreign')->nullable()->constrained()->references('id_exportacion')->on('operaciones_exportacion')->onDelete('cascade');
             $table->foreign('pedimento_id')->references('id_pedimiento')->nullable()->constrained()->on('pedimiento')->onDelete('cascade');
 
             // Definición de la Llave Única Compuesta

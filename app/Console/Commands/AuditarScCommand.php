@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use Illuminate\Http\File;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -26,12 +27,14 @@ class AuditarScCommand extends Command
         $tareaId = $this->option('tarea_id');
         if (!$tareaId) {
             $this->error('Se requiere el ID de la tarea. Usa --tarea_id=X');
+            Log::error('Se requiere el ID de la tarea. Usa --tarea_id=X');
             return 1;
         }
 
         $tarea = AuditoriaTareas::find($tareaId);
         if (!$tarea || $tarea->status !== 'procesando') {
             $this->warn("SC: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.");
+            Log::warning("SC: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.");
             return 1;
         }
 
@@ -52,31 +55,62 @@ class AuditarScCommand extends Command
             $pedimentos = $pedimentosJson ? json_decode($pedimentosJson, true) : [];
 
             if (empty($pedimentos)) {
-                $this->info("Fletes: No hay pedimentos en la Tarea #{$tareaId} para procesar.");
+                $this->info("SC: No hay pedimentos en la Tarea #{$tareaId} para procesar.");
+                Log::info("SC: No hay pedimentos en la Tarea #{$tareaId} para procesar.");
                 return 0;
             }
             $this->info("Procesando Facturas SC para Tarea #{$tarea->id} en la sucursal: {$sucursal}");
-            $mapaPedimentoAImportacionId = (array)$mapeadoFacturas['pedimentos_importacion'];
-            $mapaPedimentoAExportacionId = (array)$mapeadoFacturas['pedimentos_exportacion'];
+            Log::info("Procesando Facturas SC para Tarea #{$tarea->id} en la sucursal: {$sucursal}");
+            //$mapasPedimento - Contienen todos los pedimentos del estado de cuenta, encontrados en Importacion/Exportacion
+            $mapaPedimentoAImportacionId = $mapeadoFacturas['pedimentos_importacion'];
+            $mapaPedimentoAExportacionId = $mapeadoFacturas['pedimentos_exportacion'];
+
+            //$operacionesId - Contienen todas las operaciones_id de los pedimentos del estado de cuenta, encontrados en Importacion/Exportacion
+            $operacionesId = array_merge(array_column($mapaPedimentoAImportacionId, 'id_operacion'), array_column($mapaPedimentoAExportacionId, 'id_operacion'));
+
+            $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'];
+            $indicesOperaciones = $mapeadoFacturas['indices_importacion'] + $mapeadoFacturas['indices_exportacion'];
 
             //--- YA UNA VEZ TENIENDO TODO A LA MANO
             // 3. Construimos el índice de SCs desde los archivos (tu lógica no cambia)
-            $indiceSC = $this->construirIndiceSC($mapeadoFacturas['indices_importacion'], $mapeadoFacturas['indices_exportacion']);
+            $indiceSC = $this->construirIndiceSC($indicesOperaciones);
             if (empty($indiceSC)) {
-                $this->info("No se encontraron archivos de SC para procesar en la sucursal {$sucursal}.");
+                $this->info("\nNo se encontraron archivos de SC para procesar en la sucursal {$sucursal}.");
+                 Log::info("No se encontraron archivos de SC para procesar en la sucursal {$sucursal}.");
                 return 0;
             }
-            $this->info("Se encontraron " . count($indiceSC) . " facturas SC en los archivos.");
-
+            $this->info("\nSe encontraron " . count($indiceSC) . " facturas SC en los archivos.");
+            Log::info("Se encontraron " . count($indiceSC) . " facturas SC en los archivos.");
             // 4. PREPARAR DATOS PARA GUARDAR EN 'auditorias_totales_sc'
+
+            $this->info("Iniciando mapeo para Upsert.");
+            Log::info("Iniciando mapeo para Upsert.");
+
             $auditoriasParaGuardar = [];
+            $bar = $this->output->createProgressBar(count($indiceSC));
+            $bar->start();
             foreach ($indiceSC as $pedimento => $datosSC) {
+
                 // Buscamos el id_importacion en nuestro mapa
-                $pedimentoId = $mapaPedimentoAId[$pedimento] ?? null;
-                $operacionId = $mapaPedimentoAImportacionId->get($pedimento) ?? null;
+                $pedimentoReal = $mapaPedimentoAId[$pedimento];
+                $tipoOperacion = "Intactics\Operaciones\Importacion";
+
+                //Se verifica si la operacion ID esta en Importacion
+                $operacionId = $mapaPedimentoAImportacionId[$pedimentoReal['num_pedimiento']] ?? null;
+
+                if (!$operacionId) { //Si no, entonces busca en Exportacion
+                    $operacionId = $mapaPedimentoAExportacionId[$pedimentoReal['num_pedimiento']]  ?? null;
+                    $tipoOperacion = "Intactics\Operaciones\Exportacion";
+                }
+
+                if (!$operacionId) { //Si no esta ni en Importacion o en Exportacion, que lo guarde por pedimento_id
+                    $tipoOperacion = "N/A";
+                }
 
                 if (!$operacionId && !$pedimentoId) {
-                    //$this->warn("Se omitió la SC del pedimento '{$pedimento}' porque no se encontró una operación de importación asociada.");
+                    $this->warn("Se omitió la SC del pedimento '{$pedimento}' porque no se encontró una operación de importación asociada.");
+                    Log::warning("Se omitió la SC del pedimento '{$pedimento}' porque no se encontró una operación de importación asociada.");
+                    $bar->advance();
                     continue; // Si no hay operación, no podemos guardar la SC
                 }
 
@@ -118,31 +152,78 @@ class AuditarScCommand extends Command
 
                 $auditoriasParaGuardar[] =
                 [
-                    'operacion_id'      => $operacionId, // ¡La vinculación auxiliar correcta!
-                    'pedimento_id'      => $pedimentoId['id_pedimiento'], // ¡La vinculación correcta!
-                    'operation_type'    => "Intactics\Operaciones\Importacion",
-                    'folio_documento'   => $datosSC['folio_sc'],
-                    'fecha_documento'   => $datosSC['fecha_sc'],
-                    'desglose_conceptos'=> json_encode($desgloseSC),
-                    'ruta_txt'          => $datosSC['ruta_txt'],
-                    'ruta_pdf'          => $datosSC['ruta_pdf'],
-                    'created_at'        => now(),
-                    'updated_at'        => now(),
+                    'operacion_id'       => isset($operacionId['id_operacion']) ? $operacionId['id_operacion'] : null, // ¡La vinculación auxiliar correcta!
+                    'pedimento_id'       => $pedimentoReal['id_pedimiento'], // ¡La vinculación correcta!
+                    'operation_type'     => $tipoOperacion,
+                    'folio_documento'    => $datosSC['folio_sc'],
+                    'fecha_documento'    => $datosSC['fecha_sc'],
+                    'desglose_conceptos' => json_encode($desgloseSC),
+                    'ruta_txt'           => $datosSC['ruta_txt'],
+                    'ruta_pdf'           => $datosSC['ruta_pdf'],
+                    'created_at'         => now(),
+                    'updated_at'         => now(),
                 ];
+                $bar->advance();
             }
 
             // 5. GUARDAR EN BASE DE DATOS
             if (!empty($auditoriasParaGuardar)) {
+
                 $this->info("\nGuardando/Actualizando " . count($auditoriasParaGuardar) . " registros de SC...");
+                Log::info("\nGuardando/Actualizando " . count($auditoriasParaGuardar) . " registros de SC...");
+
                 AuditoriaTotalSC::upsert(
                     $auditoriasParaGuardar,
                     ['operacion_id', 'pedimento_id', 'operation_type'], // La llave única
                     ['folio_documento', 'fecha_documento', 'desglose_conceptos', 'ruta_txt', 'ruta_pdf', 'updated_at']
                 );
+
                 $this->info("¡Guardado con éxito!");
+                Log::info("¡Guardado con éxito!");
+
+                $this->info("Actualizando mapeo...");
+                Log::info("Actualizando mapeo...");
+
+                // Aca lo que hacemos es, crear otro json en donde vendran todos los SC encontrados de los pedimentos del estado de cuenta
+                $auditoriasSC = AuditoriaTotalSC::query()
+                ->whereIn('operacion_id', $operacionesId)
+                ->orWhereIn('pedimento_id', array_keys($mapaPedimentoAId))
+                ->get()
+                ->keyBy('operacion_id');
+
+                // Adjuntamos el nuevo arreglo y lo parseamos a JSON
+                $mapeadoFacturas['auditorias_sc'] = $auditoriasSC->toArray();
+                $contenidoJson = json_encode($mapeadoFacturas, JSON_PRETTY_PRINT);
+
+                // Creamos un archivo temporal y guardamos nuestro JSON en él.
+                $tempFilePath = tempnam(sys_get_temp_dir(), 'mapeo_json_');
+                file_put_contents($tempFilePath, $contenidoJson);
+
+                // Usamos Storage::putFile() para que Laravel genere el hash y lo guarde.
+                // Esto es el equivalente a ->store()
+                $rutaRelativa = Storage::putFile(
+                    'mapeo_completo_facturas', // La carpeta destino dentro de storage/app
+                    new File($tempFilePath) // Le pasamos el archivo temporal
+                );
+
+                $this->info("Mapeo actualizado con auditorias_sc!");
+                Log::info("Mapeo actualizado con auditorias_sc!");
+
+                //Actualizamos la ruta por la que ya tiene las auditorias
+                $tarea->fresh()->update(
+                [
+                    'mapeo_completo_facturas' => $rutaRelativa,
+                    'updated_at'              => now(),
+                ]);
+
+                //Borramos el anterior
+                Storage::delete($rutaMapeo);
+                $this->info("SCs guardadas, actualizadas y registradas con exito!");
+                Log::info("SCs guardadas, actualizadas y registradas con exito!");
             }
             else {
                 $this->info("No se encontraron SCs para guardar en la base de datos.");
+                Log::info("No se encontraron SCs para guardar en la base de datos.");
             }
 
         }
@@ -152,20 +233,30 @@ class AuditarScCommand extends Command
                     'status' => 'fallido',
                     'resultado' => $e->getMessage()
                 ]);
-            Log::error("Error al procesar SC para la Tarea #{$tareaId}: " . $e->getMessage());
             $this->error("Error al procesar SC para la Tarea #{$tareaId}: " . $e->getMessage());
+            Log::error("Error al procesar SC para la Tarea #{$tareaId}: " . $e->getMessage());
             throw $e; // Lanzamos la excepción para que el orquestador la atrape
         }
     }
 
     // --- MÉTODOS DE AYUDA ---
 
-    private function construirIndiceSC(array $indicesImportacion, array $indicesExportacion): array
+    private function construirIndiceSC(array $indicesOperacion): array
     {
         try {
 
             $indice = [];
-            foreach ($indicesImportacion as $pedimento => $datos) {
+            $bar = $this->output->createProgressBar(count($indicesOperacion));
+            $bar->start();
+
+            foreach ($indicesOperacion as $pedimento => $datos) {
+
+                //Si el archivo mapeado conto con un error no controlado, se continua, ignorandolo.
+                if (isset($datos['error'])) {
+                    $bar->advance();
+                    continue;
+                }
+
                 $coleccionFacturas = collect($datos['facturas']);
                 $facturaSC = $coleccionFacturas->first(function ($factura) {
                     // La condición es la misma que ya tenías.
@@ -174,6 +265,7 @@ class AuditarScCommand extends Command
                 });
 
                 if (!$facturaSC) {
+                    $bar->advance();
                     continue;
                 }
                 try {   //Cuando la URL esta mal construida, lo que se hace es buscar por medio del get el txt
@@ -182,19 +274,33 @@ class AuditarScCommand extends Command
 
                     $operacionID = $datos['operacion_id'];
                     $url_txt = Http::withoutVerifying()->get("https://sistema.intactics.com/v3/operaciones/importaciones/{$operacionID}/get-files-txt-momentaneo");
+
                     if (!$url_txt->successful()) {
                         // Si la API falla para este ID, lo saltamos y continuamos con el siguiente.
                         $this->warn("No se pudieron obtener los archivos para la importación ID: {$operacionID}");
                         Log::warning("No se pudieron obtener los archivos para la importación ID: {$operacionID}");
+                        $bar->advance();
                         continue;
                     }
 
                     $urls = json_decode($url_txt, true);
-                    $contenido = file_get_contents('https://sistema.intactics.com' . $urls[0]['path']);
+
+                    //$arrContextOptions resuelve el siguiente error:
+                    //'file_get_contents(): SSL operation failed with code 1. OpenSSL Error messages:
+                    //error:1416F086:SSL routines:tls_process_server_certificate:certificate verify failed'
+                    $arrContextOptions = [
+                        "ssl" => [
+                            "verify_peer"      => false,
+                            "verify_peer_name" => false,
+                        ],
+                    ];
+
+                    $contenido = file_get_contents('https://sistema.intactics.com' . $urls[0]['path'], false, stream_context_create($arrContextOptions));
                 }
 
 
                 if (!$contenido) {
+                    $bar->advance();
                     continue;
                 }
                 // Refinamiento: Regex más preciso para el pedimento en la observación.
@@ -214,7 +320,7 @@ class AuditarScCommand extends Command
                     //[cteCTAMENSAJERIA] = MUESTRAS
                     preg_match('/\[cteCTAMENSAJERIA\](.*?)(\r|\n)/', $contenido, $matchM_Mue);
                     //[encFECHA] = FECHA (REALMENTE NO EXISTE EN LA SC)
-                    preg_match('/\[encFECHA\](.*?)(\r|\n)/', $contenido, $matchFecha);
+                    //preg_match('/\[encFECHA\](.*?)(\r|\n)/', $contenido, $matchFecha);
                     //[encFOLIOVENTA] = FOLIO
                     preg_match('/\[encFOLIOVENTA\](.*?)(\r|\n)/', $contenido, $matchFolio);
                     //[cteCODMONEDA] = MONEDA
@@ -241,7 +347,8 @@ class AuditarScCommand extends Command
                         'monto_muestras'    => isset($matchM_Mue[1]) && strlen($matchM_Mue[1]) > 0 ? (float)trim($matchM_Mue[1]) : -1,
 
                         'folio_sc'          => isset($matchFolio[1]) ? trim($matchFolio[1]) : null,
-                        'fecha_sc'          => isset($matchFecha[2]) ? \Carbon\Carbon::parse(trim($matchFecha[1]))->format('Y-m-d') : now(), //ESTO PUEDES DECIRLE QUE TE LO IGUAL A NULL, NO HAY FECHA DENTRO DE LA SC
+                        'fecha_sc'          => \Carbon\Carbon::parse(trim($facturaSC['update_date']))->format('Y-m-d'),
+                        //isset($matchFecha[2]) ? \Carbon\Carbon::parse(trim($matchFecha[1]))->format('Y-m-d') : now(), //ESTO PUEDES DECIRLE QUE TE LO IGUAL A NULL, NO HAY FECHA DENTRO DE LA SC
                         'ruta_txt'          => $facturaSC['ruta_txt'],
                         'ruta_pdf'          => $facturaSC['ruta_pdf'],
                         'moneda'            => isset($matchMoneda[1]) && $matchMoneda[1] == "1" ? "MXN" : "USD",
@@ -257,6 +364,7 @@ class AuditarScCommand extends Command
                     unset($aux['monto_maniobras_2']);
                     $indice[$pedimento] = array_merge($indice[$pedimento], $aux);
                 }
+                $bar->advance();
             }
         } catch (\Exception $e) {
             Log::error("Error buscando archivo para pedimento {$pedimento}: " . $e->getMessage());
