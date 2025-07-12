@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Importacion; // <-- CAMBIO CLAVE: Usamos Importacion como base
+use App\Models\Exportacion;
+use App\Models\Sucursales;
+use App\Models\Empresas;
 use App\Models\Pedimento;
 use Illuminate\Http\Request;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,14 +21,16 @@ class AuditController extends Controller
 
             // Ahora, cargamos las relaciones que necesitamos para la transformación
             // La ruta es más larga, pero es la forma correcta: pedimento -> importacion -> auditorias/totalSc
-            $resultados = $query->with(
-            [
-                'importacion.auditorias',
-                'importacion.auditoriasTotalSc',
-                'importacion.cliente', // Asumiendo que tienes una relación 'cliente' en el modelo Importacion
-                'importacion.getSucursal'     // Asumiendo que tienes una relación 'sucursal' en el modelo Importacion
+            // Cargamos dinámicamente las relaciones necesarias para ambos tipos de operación
+            $resultados = $query->with([
+                'importacion' => function ($q) {
+                    $q->with(['auditorias', 'auditoriasTotalSc', 'cliente', 'getSucursal']);
+                },
+                'exportacion' => function ($q) {
+                    $q->with(['auditorias', 'auditoriasTotalSc', 'cliente', 'getSucursal']);
+                }
             ])
-                ->latest() // Ordena por el 'created_at' de operaciones_importacion
+                ->latest('pedimiento.created_at') // Ordena por el 'created_at' de operaciones_importacion
                 ->paginate(15)
                 ->withQueryString();
 
@@ -51,79 +56,117 @@ class AuditController extends Controller
         // 1. La consulta ahora empieza desde el modelo Pedimento.
         $query = Pedimento::query();
 
-        // 2. ¡FILTRO CLAVE! Nos aseguramos de que el pedimento esté vinculado a una operación de importación
-        //    y que esa operación tenga al menos una auditoría o una SC.
-        //    Esto resuelve el problema de traer pedimentos "vacíos".
-        $query->whereHas('importacion', function ($q) {
-            $q->where(function ($subQ) {
-                $subQ->whereHas('auditorias')->orWhereHas('auditoriasTotalSC');
-            });
-        });
-
-        // --- APLICAMOS LOS FILTROS DEL USUARIO ---
-
-        // SECCIÓN 1: Identificadores Universales
-        // Filtro por Número de Pedimento (ahora es un 'where' directo)
+        // 2. Filtro por Número de Pedimento (directo sobre la tabla pedimiento)
         $query->when($filters['pedimento'] ?? null, function ($q, $val) {
             return $q->where('num_pedimiento', 'like', "%{$val}%");
         });
 
+        // 3. Contenedor principal de filtros que dependen de la operación (Impo/Expo)
+        $query->where(function ($q) use ($filters) {
 
-        // SECCIÓN 2 y 3: Folio y Estado (ahora se anidan dentro de la relación 'importacion')
-        $query->whereHas('importacion', function ($q) use ($filters) {
+            // Esta función interna aplica los filtros de factura (folio, estado, fecha)
+            // Se define una vez y se reutiliza para Impo y Expo. ¡DRY!
+            $filtrosAplicados = function (Builder $subQ) use ($filters) {
 
-            // Filtro por Folio
-            $q->when($filters['folio'] ?? null, function ($q, $folio) use ($filters) {
-                return $q->where(function ($query) use ($folio, $filters) {
-                    $query->whereHas('auditorias', function ($subQuery) use ($folio, $filters) {
-                        $subQuery->where('folio', 'like', "%{$folio}%");
-                        $subQuery->when($filters['folio_tipo_documento'] ?? null, function ($q_inner, $tipo) {
-                            return $q_inner->where('tipo_documento', $tipo);
+                // Filtro por Folio
+                $subQ->when($filters['folio'] ?? null, function ($q, $folio) use ($filters) {
+
+                    $tipo = $filters['folio_tipo_documento'] ?? null;
+
+                    $q->where(function ($innerQ) use ($folio, $tipo) {
+                        $innerQ->whereHas('auditorias', function ($auditQ) use ($folio, $tipo) {
+
+                            $auditQ->where('folio', 'like', "%{$folio}%");
+                            if ($tipo) $auditQ->where('tipo_documento', $tipo);
+
                         });
-                    })
-                    ->orWhereHas('auditoriasTotalSC', function($subQuery) { $subQuery->where('folio_documento', 'like', "%{$folio}%"); });
-                });
-            });
 
-            // Filtro por Estado
-            $q->when($filters['estado'] ?? null, function ($q, $estado) use ($filters) {
-                $tipo_documento = $filters['estado_tipo_documento'] ?? null;
-                if ($estado === 'SC Encontrada') {
-                    $q->whereHas('auditoriasTotalSC');
-                    if ($tipo_documento) {
-                        $q->whereHas('auditorias', function ($subQ){ $subQ->where('tipo_documento', $tipo_documento); });
+                        // Solo busca en SC si no se especificó un tipo de documento o si es 'sc'
+                        if (!$tipo || $tipo === 'sc') {
+                           $innerQ->orWhereHas('auditoriasTotalSC', function ($scQ) use ($folio) {
+
+                               $scQ->where('folio_documento', 'like', "%{$folio}%");
+
+                           });
+
+                        }
+                    });
+
+                });
+
+                // Filtro por Estado
+                $subQ->when($filters['estado'] ?? null, function ($q, $estado) use ($filters) {
+
+                    $tipo = $filters['estado_tipo_documento'] ?? null;
+
+                    if ($estado === 'SC Encontrada') {
+                        return $q->whereHas('auditoriasTotalSC');
                     }
+
+                    return $q->whereHas('auditorias', function ($auditQ) use ($estado, $tipo) {
+
+                        $auditQ->where('estado', $estado);
+                        if ($tipo) $auditQ->where('tipo_documento', $tipo);
+
+                    });
+                });
+
+                // Filtro por Periodo de Fecha
+                $subQ->when($filters['fecha_inicio'] ?? null, function ($q) use ($filters) {
+
+                    $inicio = $filters['fecha_inicio'];
+                    $fin = $filters['fecha_fin'] ?? $inicio;
+                    $tipo = $filters['fecha_tipo_documento'] ?? null;
+
+                    return $q->where(function ($innerQ) use ($inicio, $fin, $tipo) {
+                        $innerQ->whereHas('auditorias', function ($auditQ) use ($inicio, $fin, $tipo) {
+
+                            $auditQ->whereBetween('fecha_documento', [$inicio, $fin]);
+                            if ($tipo) $auditQ->where('tipo_documento', $tipo);
+
+                        })->orWhereHas('auditoriasTotalSC', function ($scQ) use ($inicio, $fin) {
+
+                            $scQ->whereBetween('fecha_documento', [$inicio, $fin]);
+
+                        });
+                    });
+                });
+
+                // Filtro por Cliente
+                $subQ->when($filters['cliente_id'] ?? null, function ($q, $clienteId) {
+                    return $q->where('id_cliente', $clienteId);
+                });
+
+                // Filtro por Sucursal
+                $subQ->when($filters['sucursal_id'] ?? null, function ($q, $sucursalId) {
+                     // Solo aplicamos el 'where' si el ID de la sucursal existe
+                    // Y NO es la palabra 'todos'.
+                    if ($sucursalId && $sucursalId !== 'todos') {
+                        return $q->where('sucursal', $sucursalId);
+                    }
+                    // Si es nulo o es 'todos', no hacemos nada, devolviendo todas las sucursales.
                     return $q;
-                }
-                return $q->whereHas('auditorias', function ($subQuery) use ($estado, $tipo_documento) {
-                    $subQuery->where('estado', $estado);
-                    if ($tipo_documento) {
-                        $subQuery->where('tipo_documento', $tipo_documento);
-                    }
                 });
-            });
-        });
+            };
 
-        // SECCIÓN 4: Periodo de Fecha (también se anida)
-        $query->when($filters['fecha_inicio'] ?? null, function ($q) use ($filters) {
-            $hasActiveFilters = !empty(array_filter($filters));
-            if (!$hasActiveFilters) {
-                $filters['fecha_inicio'] = now()->addMonths(-1)->toDateString();
-                $filters['fecha_fin'] = now()->toDateString();
+            // 4. Aplicar filtros según el TIPO DE OPERACIÓN seleccionado
+            $operationType = $filters['operation_type'] ?? 'todos';
+
+            if ($operationType === 'importacion') {
+                $q->whereHas('importacion', $filtrosAplicados);
+            } elseif ($operationType === 'exportacion') {
+                $q->whereHas('exportacion', $filtrosAplicados);
+            } else { // 'todos' o no especificado
+                $q->whereHas('importacion', $filtrosAplicados)
+                  ->orWhereHas('exportacion', $filtrosAplicados);
             }
-
-            $fecha_inicio = $filters['fecha_inicio'];
-            $fecha_fin = $filters['fecha_fin'] ?? $fecha_inicio;
-
-            $tipo_documento = $filters['fecha_tipo_documento'] ?? null;
-
-            return $q->whereHas('importacion.auditorias', function ($subQuery) use ($fecha_inicio, $fecha_fin, $tipo_documento) {
-                $subQuery->whereBetween('fecha_documento', [$fecha_inicio, $fecha_fin]);
-                if ($tipo_documento) {
-                    $subQuery->where('tipo_documento', $tipo_documento);
-                }
-            });
         });
+
+        // 5. Asegurarnos de que el pedimento tenga alguna auditoría asociada para no traer registros vacíos
+        $query->has('importacion.auditorias')
+              ->orHas('importacion.auditoriasTotalSc')
+              ->orHas('exportacion.auditorias')
+              ->orHas('exportacion.auditoriasTotalSc');
 
         return $query;
 
@@ -132,44 +175,45 @@ class AuditController extends Controller
     private function transformarOperacion($pedimento)
     {
         // Los datos ahora vienen de las relaciones del modelo Importacion
-        $auditorias = $pedimento->importacion->auditorias;
-        $sc = $pedimento->importacion->auditoriasTotalSC;
+        // Determinamos si el pedimento tiene una operación de importación o exportación cargada
+        $operacion = $pedimento->importacion ?? $pedimento->exportacion;
 
+        // Si por alguna razón no hay operación, no devolvemos nada.
+        if (!$operacion) {
+            return null;
+        }
+
+        $auditorias = $operacion->auditorias;
+        $sc = $operacion->auditoriasTotalSC->first(); // .first() porque es hasOne
+
+        // El resto de la lógica de transformación permanece igual...
         $status_botones = [];
-
-        // Lógica para el botón de la SC (sin cambios)
         $status_botones['sc']['estado'] = $sc ? 'verde' : 'gris';
         $status_botones['sc']['datos'] = $sc;
 
-        // Lógica para las demás facturas (sin cambios)
         $tipos_a_auditar = ['impuestos', 'flete', 'llc', 'pago_derecho'];
         foreach ($tipos_a_auditar as $tipo) {
             $facturas = $auditorias->where('tipo_documento', $tipo);
-
             if ($facturas->isEmpty()) {
                 $status_botones[$tipo]['estado'] = 'gris';
                 $status_botones[$tipo]['datos'] = null;
-
             } else {
                 $facturaPrincipal = $facturas->first();
                 $status_botones[$tipo]['estado'] = 'verde';
                 $status_botones[$tipo]['datos'] = $facturas->count() > 1 ? $facturas->values()->all() : $facturaPrincipal;
-
                 if (str_contains(optional($facturaPrincipal)->ruta_pdf, 'No encontrado')) {
                     $status_botones[$tipo]['estado'] = 'rojo';
-
                 }
             }
         }
 
-        // Devolvemos el JSON en el formato que el frontend espera
-        return
-        [
-            'id'             => $pedimento->importacion->id_importacion, // Usamos el ID de importación
-            'pedimento'      => $pedimento->num_pedimiento, // Obtenemos el número de la relación
-            'cliente'        => $pedimento->importacion->cliente->nombre,
-            'cliente_id'     => $pedimento->importacion->cliente->id,
-            'fecha_edc'      => optional($auditorias->where('tipo_documento', 'impuestos')->first())->fecha_documento,
+        return [
+            'id' => $operacion->getKey(), // ID de importacion o exportacion
+            'tipo_operacion' => $operacion instanceof \App\Models\Importacion ? 'Importación' : 'Exportación',
+            'pedimento' => $pedimento->num_pedimiento,
+            'cliente' => optional($operacion->cliente)->nombre,
+            'cliente_id' => optional($operacion->cliente)->id,
+            'fecha_edc' => optional($auditorias->where('tipo_documento', 'impuestos')->first())->fecha_documento,
             'status_botones' => $status_botones,
         ];
     }
@@ -197,4 +241,22 @@ class AuditController extends Controller
         return Excel::download(new AuditoriaFacturadoExport($resultados), $fileName);
     }
 
+    // --- NUEVOS MÉTODOS PARA POBLAR FILTROS ---
+
+    /**
+     * Devuelve una lista de todas las sucursales.
+     */
+    public function getSucursales()
+    {
+        return response()->json(Sucursales::select('id', 'nombre')->whereIn('id', [1, 2, 3, 4, 5, 11, 12])->get());
+    }
+
+     /**
+     * Devuelve una lista de todos los clientes (empresas).
+     */
+    public function getClientes()
+    {
+        // distinct() y orderBy() para una lista limpia y ordenada
+        return response()->json(Empresas::select('id', 'nombre')->distinct()->orderBy('nombre')->get());
+    }
 }

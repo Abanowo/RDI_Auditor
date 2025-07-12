@@ -24,6 +24,9 @@ Route::post('/importar-estado-de-cuenta', [ImportController::class, 'procesarEst
 Route::get('/documentos/ver', [DocumentoController::class, 'mostrarPdf'])->name('documentos.ver');
 
 //Rutas de AuditController
+// Rutas API para los filtros del frontend
+Route::get('/auditoria/sucursales', [AuditController::class, 'getSucursales']);
+Route::get('/auditoria/clientes', [AuditController::class, 'getClientes']);
 Route::get('/auditoria/exportar', [AuditController::class, 'exportarFacturado'])->name('auditoria.exportar');
 Route::get('/auditoria', [AuditController::class, 'index'])->name('auditoria.index');
 Route::get('/', function () {

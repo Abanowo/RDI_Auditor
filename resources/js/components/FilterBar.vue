@@ -76,7 +76,14 @@
             <div
               class="block py-2 w-full border-gray-300 rounded-md shadow-sm text-sm bg-gray-100 p-2 text-center text-gray-400"
             >
-              Cliente (Próx...)
+              <v-select
+                v-model="filters.cliente_id"
+                :options="clienteOptions"
+                label="nombre"
+                :reduce="(cliente) => cliente.id"
+                placeholder="Buscar Cliente..."
+                class="w-full"
+              ></v-select>
             </div>
           </div>
         </div>
@@ -154,7 +161,19 @@
 </template>
 
 <script>
+import vSelect from 'vue-select';
+import 'vue-select/dist/vue-select.css';
+
 export default {
+    components: {
+        vSelect
+    },
+    props: {
+    clientes: {
+      type: Array,
+      default: () => []
+    }
+  },
   data() {
     return {
       filters: {
@@ -176,8 +195,7 @@ export default {
         fecha_tipo_documento: "",
 
         //SECCION 5: Involucrados
-        cliente: "",
-        operador: "",
+        cliente_id: "",
       },
       // Para el selector de periodos
       selectedPeriod: "custom",
@@ -185,6 +203,11 @@ export default {
   },
 
   computed: {
+     // vue-select funciona mejor con un array de objetos
+    clienteOptions() {
+      return this.clientes;
+    },
+
     exportUrl() {
       // Tomamos los filtros activos y los convertimos a un query string
       const params = new URLSearchParams(this.filters).toString();
@@ -240,3 +263,15 @@ export default {
   },
 };
 </script>
+<style>
+/* Estilos para que vue-select se vea bien con Tailwind */
+.vs__dropdown-toggle {
+    @apply block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm;
+}
+.vs__selected {
+    @apply text-sm;
+}
+.vs__search {
+    @apply text-sm;
+}
+</style>

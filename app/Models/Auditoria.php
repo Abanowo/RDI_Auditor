@@ -46,6 +46,6 @@ class Auditoria extends Model
     {
         // El nombre 'operacion' debe coincidir con el segundo argumento de morphMany
         // y será el prefijo de las columnas 'operacion_id' y 'operacion_type'.
-        return $this->morphTo();
+        return $this->morphTo('operacion', 'operation_type', 'operacion_id');
     }
 }

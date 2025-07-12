@@ -24,14 +24,14 @@ class Exportacion extends Model
 
     public function auditorias()
     {
-        return $this->morphMany(Auditoria::class, 'operacion');
+        return $this->morphMany(Auditoria::class, 'operacion', 'operation_type', 'operacion_id');
     }
 
     public function auditoriasTotalSC()
     {
-          // Le decimos: la llave foránea en 'auditorias_totales_sc' es 'operacion_id'
-          // y se conecta con la llave local 'id' de esta tabla ('operaciones').
-          return $this->morphMany(AuditoriaTotalSC::class, 'operacion');
+        // Le decimos: la llave foránea en 'auditorias_totales_sc' es 'operacion_id'
+        // y se conecta con la llave local 'id' de esta tabla ('operaciones').
+        return $this->morphMany(AuditoriaTotalSC::class, 'operacion', 'operation_type', 'operacion_id');
     }
 
     public function getSucursal()

@@ -2,18 +2,21 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Support\Facades\Log;
+
+use DateTime;
 use Illuminate\Console\Command;
-use Illuminate\Support\Arr;
-use Smalot\PdfParser\Parser;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Pedimento;
 use App\Models\Importacion; // Tu modelo para 'operaciones_importacion'
 use App\Models\Sucursales;
 use App\Models\Auditoria;
 use App\Models\AuditoriaTareas;
-use App\Models\AuditoriaTotalSC;
-use Symfony\Component\Finder\Finder;
-use Spatie\PdfToText\Pdf;
+use App\Models\AuditoriaTotalSC;// Importamos el nuevo modelo
+use Smalot\PdfParser\Parser;
 
 class AuditarPagosDerechoCommand extends Command
 {
@@ -29,60 +32,101 @@ class AuditarPagosDerechoCommand extends Command
             return 1;
         }
         $this->info('Iniciando la auditoría de Pagos de Derecho...');
-        try
-        {
-            // --- FASE 1: Construir Índices en Memoria ---
-            // 1. Obtenemos los datos necesarios de la Tarea
+       try {
+            // --- FASE 1: Construir Índices en Memoria para Búsquedas Rápidas ---
+            //Iniciamos con obtener el mapeo
+            $rutaMapeo = $tarea->mapeo_completo_facturas;
+            if (!$rutaMapeo || !Storage::exists($rutaMapeo)) {
+                throw new \Exception("No se encontró el archivo de mapeo universal para la tarea #{$tarea->id}.");
+            }
+
+            //Leemos y decodificamos el archivo JSON completo
+            $contenidoJson = Storage::get($rutaMapeo);
+            $mapeadoFacturas = (array)json_decode($contenidoJson, true);
+
+            //Leemos los demas campos de la tarea
             $sucursal = $tarea->sucursal;
             $pedimentosJson = $tarea->pedimentos_procesados;
             $pedimentos = $pedimentosJson ? json_decode($pedimentosJson, true) : [];
 
             if (empty($pedimentos)) {
-                $this->info("Pagos derecho: No hay pedimentos en la Tarea #{$tareaId} para procesar.");
+                $this->info("Pagos de derecho: No hay pedimentos en la Tarea #{$tareaId} para procesar.");
+                Log::info("Pagos de derecho: No hay pedimentos en la Tarea #{$tareaId} para procesar.");
                 return 0;
             }
+            $this->info("Procesando Facturas de Pagos de derecho para Tarea #{$tarea->id} en la sucursal: {$sucursal}");
+            Log::info("Procesando Facturas de Pagos de derecho para Tarea #{$tarea->id} en la sucursal: {$sucursal}");
 
-            //Construimos el índice de TODOS los PDFs de Pagos de Derecho UNA SOLA VEZ.
-            $this->info('Construyendo índice de archivos de Pagos de Derecho...');
-            $indicePagosDerecho = $this->construirIndicePagosDeDerecho();
-            $this->info("Índice construido. Se encontraron facturas para " . count($indicePagosDerecho) . " pedimentos.");
+            //$mapasPedimento - Contienen todos los pedimentos del estado de cuenta, encontrados en Importacion/Exportacion
+            $mapaPedimentoAImportacionId = $mapeadoFacturas['pedimentos_importacion'];
+            $mapaPedimentoAExportacionId = $mapeadoFacturas['pedimentos_exportacion'];
 
-            $mapaPedimentoAId = $this->construirMapaDePedimentos($pedimentos);
-            $this->info("Pedimentos encontrados en tabla 'pedimentos': ". count($mapaPedimentoAId));
+            //$mapaPedimentoAId - Este arreglo contiene los pedimentos limpios, sucios, y su Id correspondiente
+            $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'];
 
-            // 3. Mapeamos los pedimentos a sus id_importacion
-            $mapaPedimentoAImportacionId = Importacion::query()
-                ->join('pedimiento', 'operaciones_importacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
-                ->whereIn('pedimiento.num_pedimiento', $pedimentos)
-                ->pluck('operaciones_importacion.id_importacion', 'pedimiento.num_pedimiento');
-            $this->info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_importacion': ". $mapaPedimentoAImportacionId->count());
+            //$indicesOperaciones - Combina el mapeado de archivos/urls de importacion y exportacion
+            $indicesOperaciones = $mapeadoFacturas['indices_importacion'] + $mapeadoFacturas['indices_exportacion'];
 
-            $this->info("Iniciando vinculacion de los " . count($mapaPedimentoAId) . " pedimentos.");
+            //--- YA UNA VEZ TENIENDO TODO A LA MANO
+            // 3. Construimos el índice de Pagos de derecho desde los archivos de importacion y exportacion
+            $indicePagosDerecho = $this->construirIndiceOperacionesPagosDerecho($indicesOperaciones);
+
+            $this->info("\nIniciando vinculacion de los " . count($mapaPedimentoAId) . " pedimentos.");
+            Log::info("Iniciando vinculacion de los " . count($mapaPedimentoAId) . " pedimentos.");
+
+            $this->info("Iniciando mapeo para Upsert.");
+            Log::info("Iniciando mapeo para Upsert.");
+            //----------------------------------------------------
             $bar = $this->output->createProgressBar(count($mapaPedimentoAId));
             $bar->start();
             $pagosParaGuardar = [];
 
-            foreach ($mapaPedimentoAId as $pedimentoId => $numPedimento) {
-                // 2. Buscamos el(los) PDF(s) de Pago de Derecho para este pedimento.
-                $rutasPdfs = $indicePagosDerecho[$numPedimento['pedimento']] ?? null;
+            foreach ($mapaPedimentoAId as $pedimentoLimpio => $pedimentoSucioYId) {
+                // Obtemenos la operacionId por medio del pedimento sucio
+                // Se verifica si la operacion ID esta en Importacion
+                $operacionId = $mapaPedimentoAImportacionId[$pedimentoSucioYId['num_pedimiento']] ?? null;
+                $tipoOperacion = "Intactics\Operaciones\Importacion";
+
+                if (!$operacionId) { // Si no, entonces busca en Exportacion
+                    $operacionId = $mapaPedimentoAExportacionId[$pedimentoSucioYId['num_pedimiento']] ?? null;
+                    $tipoOperacion = "Intactics\Operaciones\Exportacion";
+                }
+
+                if (!$operacionId) { // Si no esta ni en Importacion o en Exportacion, que lo guarde por pedimento_id
+                    $tipoOperacion = "N/A";
+                }
+
+                if (!$operacionId && !$pedimentoId) {
+                    $this->warn("Se omitió la SC del pedimento '{$pedimento}' porque no se encontró una operación de importación asociada.");
+                    Log::warning("Se omitió la SC del pedimento '{$pedimento}' porque no se encontró una operación de importación asociada.");
+                    $bar->advance();
+                    continue; // Si no hay operación, no podemos guardar la SC
+                }
+
+                $rutasPdfs = $indicePagosDerecho[$pedimentoSucioYId['num_pedimiento']] ?? null;
                 if (!$rutasPdfs) {
                     $bar->advance();
                     continue;
                 }
                 foreach ($rutasPdfs as $rutaPdf) {
-                    $operacionId = $mapaPedimentoAImportacionId[$numPedimento['pedimento']] ?? null;
 
+                    if($rutaPdf === 'https://sistema.intactics.com/v2/uploads/3757275-PAGO-DE-DERECHO.pdf'){
+                    $ao = 0;
+                    }
                     //Parseamos cada PDF encontrado.
-                    $datosPago = $this->parsearPdfPagoDeDerecho($rutaPdf);
+                    $datosPago = $this->parsearPdfPagoDeDerecho($rutaPdf) ?? null;
 
                     if ($datosPago) {
-
+                        if(!$datosPago['llave_pago'])
+                        {
+                            $ao = 0;
+                        }
                         // 4. Si obtuvimos datos, los acumulamos para el guardado masivo.
                         $pagosParaGuardar[] =
                         [
-                            'operacion_id'      => $operacionId,
-                            'pedimento_id'      => $pedimentoId,
-                            'operation_type'    => "Intactics\Operaciones\Importacion",
+                            'operacion_id'      => $operacionId['id_operacion'],
+                            'pedimento_id'      => $pedimentoSucioYId['id_pedimiento'],
+                            'operation_type'    => $tipoOperacion,
                             'tipo_documento'    => 'pago_derecho',
                             'concepto_llave'    => $datosPago['llave_pago'],
                             'fecha_documento'   => $datosPago['fecha_pago'],
@@ -145,35 +189,47 @@ class AuditarPagosDerechoCommand extends Command
      * Escanea el directorio de Pagos de Derecho una vez y crea un mapa
      * de [pedimento => [lista_de_rutas_pdf]].
      */
-    private function construirIndicePagosDeDerecho(): array {
-        $directorio = config('reportes.rutas.pagos_de_derecho');
-        $mesesABuscar = config('reportes.periodo_meses_busqueda', 3);
-        $fechaLimite = new \DateTime("-{$mesesABuscar} months");
-
-        $indice = [];
-        $finder = new Finder();
-
+    private function construirIndiceOperacionesPagosDerecho(array $indicesOperacion): array {
         try {
-            // Buscamos todos los PDFs recientes en todas las subcarpetas de sucursal (ZLO, NOG, etc.)
-            $finder->in($directorio)->files()->name("*.pdf")->date(">= {$fechaLimite->format('Y-m-d')}");
+            $indice = [];
 
-            if ($finder->hasResults()) {
-                foreach ($finder as $file) {
-                    // Extraemos el pedimento del nombre del archivo.
-                    // Este Regex busca 7 dígitos seguidos de un posible guion.
-                    if (preg_match('/(\d{7})-?/', $file->getFilename(), $matches)) {
-                        $pedimento = $matches[1];
-                        // Añadimos la ruta al array de este pedimento.
-                        $indice[$pedimento][] = $file->getRealPath();
-                    }
+            $bar = $this->output->createProgressBar(count($indicesOperacion));
+            $bar->start();
+            foreach ($indicesOperacion as $pedimento => $datos) {
+
+                //Si el archivo mapeado conto con un error no controlado, se continua, ignorandolo.
+                if (isset($datos['error'])) {
+                    $bar->advance();
+                    continue;
+                }
+
+                $coleccionFacturas = collect($datos['facturas']);
+                $facturaPDD = $coleccionFacturas->filter(function ($factura) {
+                    // La condición es la misma que ya tenías.
+                    return $factura['tipo_documento'] === 'pago_derecho' &&
+                        isset($factura['ruta_pdf']);
+                })->toArray();
+
+                if (!$facturaPDD) {
+                    $bar->advance();
+                    continue;
+                }
+
+                // Extraemos el pedimento del nombre del archivo.
+                // Este Regex busca 7 dígitos seguidos de un posible guion.
+                foreach ($facturaPDD as $factura => $datos) {
+                    $indice[$pedimento][] = $datos['ruta_pdf'];
+                }
+
+                $bar->advance();
                 }
             }
-        }
-        catch (\Exception $e) {
-            Log::error("Error construyendo el índice de Pagos de Derecho: " . $e->getMessage());
-            $this->error("Error construyendo el índice de Pagos de Derecho: " . $e->getMessage());
-        }
 
+            catch (\Exception $e) {
+                Log::error("Error construyendo el índice de Pagos de Derecho: " . $e->getMessage());
+                $this->error("Error construyendo el índice de Pagos de Derecho: " . $e->getMessage());
+            }
+        $bar->finish();
         return $indice;
     }
 
@@ -196,6 +252,9 @@ class AuditarPagosDerechoCommand extends Command
             // 3. Obtener el texto de todas las páginas del documento.
             // El resultado es un string muy similar al que obtenías con pdftotext.
             $texto = $pdf->getText();
+
+            //Si el valor esta vacio, o si es un pago de derecho de Banamex (es a cuenta del cliente, por lo que lo descartamos)
+            if ($texto === '' || str_contains($texto, 'citibanamex')) { return null; }
             // --- FIN DEL CAMBIO ---
             $datos = [];
 
@@ -238,60 +297,17 @@ class AuditarPagosDerechoCommand extends Command
         } catch(\Exception $e) {
             Log::error("Error al parsear el PDF: {$rutaPdf} - " . $e->getMessage());
             $this->error("\nError al parsear el PDF: {$rutaPdf} - " . $e->getMessage());
+            $datos['numero_operacion'] = 'N/A';
+            $datos['llave_pago'] = 'N/A';
+            $datos['monto_total'] = -1;
+            $datos['fecha_pago'] = isset($matchFecha[1]) ? \Carbon\Carbon::createFromFormat('Ymd', $matchFecha[1])->format('Y-m-d') : null;
+            $datos['tipo'] = 'No encontrado';
             return null;
         }
+
+
     }
 
-    private function construirMapaDePedimentos(array $pedimentosLimpios): array
-    {
-        if (empty($pedimentosLimpios)) { return []; }
-
-        // 1. Hacemos una única consulta a la BD para traer todos los registros
-        //    que POTENCIALMENTE contienen nuestros números.
-        $query = Pedimento::query();
-        $regexPattern = implode('|', $pedimentosLimpios);
-
-            // Obtenemos solo las columnas que necesitamos
-        $posiblesCoincidencias = $query->where('num_pedimiento', 'REGEXP', $regexPattern)->get(['id_pedimiento', 'num_pedimiento']);
-        // 1. Creamos un mapa de los pedimentos que nos falta por encontrar.
-        //    Usamos array_flip para que la búsqueda y eliminación sea instantánea.
-        $pedimentosPorEncontrar = array_flip($pedimentosLimpios);
-
-        //Ahora, procesamos los resultados en PHP para crear el mapa definitivo.
-        $mapaFinal = [];
-        // 2. Recorremos los resultados de la BD UNA SOLA VEZ.
-        foreach ($posiblesCoincidencias as $pedimentoSucio) {
-            // Si ya no quedan pedimentos por buscar, salimos del bucle para máxima eficiencia.
-            if (empty($pedimentosPorEncontrar)) { break; }
-
-            $pedimentoObtenido = $pedimentoSucio->num_pedimiento;
-
-            // 3. Revisamos cuáles de los pedimentos PENDIENTES están en el string sucio actual.
-            foreach ($pedimentosPorEncontrar as $pedimentoLimpio => $value) {
-                if (str_contains($pedimentoObtenido, $pedimentoLimpio)) {
-                    // ¡Coincidencia! La guardamos en el resultado final.
-                    //Ahora el 'id_pedimiento' es el que servira de indice
-                    $mapaFinal[$pedimentoSucio->id_pedimiento] =
-                        [
-                            'pedimento' =>$pedimentoLimpio,
-                            'num_pedimiento' => $pedimentoObtenido,
-                        ];
-
-                    // 4. (La optimización clave) Eliminamos el pedimento de la lista de pendientes.
-                    //    Así, nunca más se volverá a buscar.
-                    unset($pedimentosPorEncontrar[$pedimentoLimpio]);
-                }
-            }
-        }
-
-        // 5. (Opcional) Al final, lo que quede en $pedimentosPorEncontrar son los que no se encontraron.
-        //    Podemos lanzar los warnings de forma mucho más eficiente.
-        foreach (array_keys($pedimentosPorEncontrar) as $pedimentoNoEncontrado) {
-            $this->warn('Omitiendo pedimento no encontrado en tabla \'pedimiento\': ' . $pedimentoNoEncontrado);
-        }
-
-        return $mapaFinal;
-    }
 }
 
 

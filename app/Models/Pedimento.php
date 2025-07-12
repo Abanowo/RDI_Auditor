@@ -23,13 +23,15 @@ class Pedimento extends Model
 
      public function auditorias()
     {
-        return $this->hasMany(Auditoria::class, 'operacion_id');
+         // La llave foránea en 'auditorias' es 'pedimento_id'
+    return $this->hasMany(Auditoria::class, 'pedimento_id', 'id_pedimiento');
     }
 
     public function auditoriasTotalSC()
     {
           // Le decimos: la llave foránea en 'auditorias_totales_sc' es 'operacion_id'
           // y se conecta con la llave local 'id' de esta tabla ('operaciones').
-          return $this->hasOne(AuditoriaTotalSC::class, 'operacion_id', 'id');
+          // La llave foránea en 'auditorias_totales_sc' es 'pedimento_id'
+        return $this->hasOne(AuditoriaTotalSC::class, 'pedimento_id', 'id_pedimiento');
     }
 }
