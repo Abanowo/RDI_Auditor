@@ -1,7 +1,8 @@
 <?php
 
 namespace App\Console\Commands;
-
+use Illuminate\Support\Facades\Storage;
+use App\Http\Controllers\AuditController;
 use App\Models\AuditoriaTareas;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
@@ -31,41 +32,75 @@ class ProcesarAuditoriaCompleta extends Command
         $this->info("Iniciando orquestación para la Tarea #{$tarea->id}...");
         $tarea->update(['status' => 'procesando']);
         try {
-            // Función auxiliar para no repetir código.
-            $ejecutarComando = function(string $nombreComando, string $infoPaso) use ($tarea) {
-                $this->info("--- [INICIO] {$infoPaso} para Tarea #{$tarea->id} ---");
-                Log::info("Tarea #{$tarea->id}: Ejecutando comando {$nombreComando}...");
 
-                // 1. Capturamos el código de salida del comando.
-                $exitCode = Artisan::call($nombreComando, ['--tarea_id' => $tarea->id]);
-                // Mostramos la salida del comando que se acaba de ejecutar.
-                $this->line(Artisan::output());
+            // 2. Llama a cada comando en secuencia, pasándole el ID de la tarea
+            $this->info("--- [INICIO] Procesando Impuestos (Fase 1) para Tarea #{$tarea->id} ---");
+            Log::info("Tarea #{$tarea->ids}: Ejecutando comando de Impuestos...");
+            (new AuditController())->importarImpuestosEnAuditorias($tarea->id); //Impuestos Fase (1)
 
-                // 2. Verificamos el código de salida Y el estado en la base de datos.
-                // $tarea->fresh() recarga el modelo desde la BD para obtener el estado más reciente.
-                if ($exitCode !== 0 || $tarea->fresh()->status === 'fallido') {
-                    // 3. Si algo falló, lanzamos una excepción para detener el orquestador.
-                    Log::info("El subproceso '{$nombreComando}' falló.");
-                    throw new \Exception("El subproceso '{$nombreComando}' falló.");
-                }
+            $this->info("--- [FIN] Procesamiento de Impuestos.");
+            Log::info("--- [FIN] Procesamiento de Impuestos.");
 
-                $this->info("--- [FIN] {$infoPaso}.");
-            };
 
-            mapear_facturas($tarea->id);
+            // 1. Llama a cada comando en secuencia, pasándole el ID de la tarea
+            $this->info("--- [INICIO] Creando mapeo para Tarea #{$tarea->id} ---");
+            Log::info("Tarea #{$tarea->id}: Ejecutando comando de mapeo...");
+            (new AuditController())->mapearFacturasYFacturasSCEnAuditorias($tarea->id); //Mapeado
 
-            // Ejecutamos cada comando usando nuestra función auxiliar.
-            //$ejecutarComando('reporte:importar-operaciones', 'Procesamiento de Impuestos');
-            //$ejecutarComando('reporte:mapear-facturas', 'Mapeado de Facturas'); (new AuditController())->mapear($);
-            //$ejecutarComando('reporte:auditar-sc', 'Procesamiento de SCs');
-            //$ejecutarComando('reporte:auditar-fletes', 'Procesamiento de Fletes');
-            //$ejecutarComando('reporte:auditar-llc', 'Procesamiento de LLCs');
-            //$ejecutarComando('reporte:auditar-pagos-derecho', 'Procesamiento de Pagos de derecho');
+            $this->info("--- [FIN] Creacion de mapeo.");
+            Log::info("--- [FIN] Creacion de mapeo.");
 
-            // Si todos los comandos terminan bien, marca la tarea como completada.
+
+            // 1. Llama a cada comando en secuencia, pasándole el ID de la tarea
+            $this->info("--- [INICIO] Procesando SCs para Tarea #{$tarea->id} ---");
+            Log::info("Tarea #{$tarea->id}: Ejecutando comando de SC...");
+            (new AuditController())->importarFacturasSCEnAuditoriasTotalesSC($tarea->id); //SC
+
+            $this->info("--- [FIN] Procesamiento de SCs.");
+            Log::info("--- [FIN] Procesamiento de SCs.");
+
+
+            // 2. Llama a cada comando en secuencia, pasándole el ID de la tarea
+            $this->info("--- [INICIO] Procesando Impuestos (Fase 2) para Tarea #{$tarea->id} ---");
+            Log::info("Tarea #{$tarea->id}: Ejecutando comando de Impuestos...");
+            (new AuditController())->importarImpuestosEnAuditorias($tarea->id); //Impuestos Fase (2)
+
+            $this->info("--- [FIN] Procesamiento de Impuestos.");
+            Log::info("--- [FIN] Procesamiento de Impuestos.");
+
+
+            // 3. Llama a cada comando en secuencia, pasándole el ID de la tarea
+            $this->info("--- [INICIO] Procesando Fletes para Tarea #{$tarea->id} ---");
+            Log::info("Tarea #{$tarea->id}: Ejecutando comando de Fletes...");
+            (new AuditController())->auditarFacturasDeFletes($tarea->id); //Fletes
+
+            $this->info("--- [FIN] Procesamiento de Fletes.");
+            Log::info("--- [FIN] Procesamiento de Fletes.");
+
+
+            // 4. Llama a cada comando en secuencia, pasándole el ID de la tarea
+            $this->info("--- [INICIO] Procesando LLCs para Tarea #{$tarea->id} ---");
+            Log::info("Tarea #{$tarea->id}: Ejecutando comando de LLC...");
+            (new AuditController())->auditarFacturasDeLLC($tarea->id); //LLC
+
+            $this->info("--- [FIN] Procesamiento de LLCs.");
+            Log::info("--- [FIN] Procesamiento de LLCs.");
+
+
+            // 5. Llama a cada comando en secuencia, pasándole el ID de la tarea
+            $this->info("--- [INICIO] Procesando Pagos de derecho para Tarea #{$tarea->id} ---");
+            Log::info("Tarea #{$tarea->id}: Ejecutando comando de Pagos de derecho...");
+            (new AuditController())->auditarFacturasDePagosDeDerecho($tarea->id); //Pagos de derecho
+
+            $this->info("--- [FIN] Procesamiento de Pagos de derecho.");
+            Log::info("--- [FIN] Procesamiento de Pagos de derecho.");
+
+
+            //6. Si todos los comandos terminan bien, marca la tarea como completada
             $tarea->update(['status' => 'completado', 'resultado' => 'Proceso de auditoría finalizado con éxito.']);
-
             $this->info("¡Orquestación de la Tarea #{$tarea->id} completada con éxito!");
+            $tarea->refresh();
+            Storage::delete($tarea->mapeo_completo_facturas);
 
         } catch (\Exception $e) {
             // Si algún comando falla, la excepción lanzada será capturada aquí.
@@ -75,7 +110,8 @@ class ProcesarAuditoriaCompleta extends Command
             Log::error("Fallo en orquestación Tarea #{$tarea->id}: " . $e->getMessage());
 
             // Opcional: puedes añadir un resultado más específico del orquestador si lo deseas.
-            $tarea->fresh()->update(['resultado' => 'La orquestación se detuvo debido a un fallo en un subproceso. ' . $e->getMessage()]);
+            $tarea->refresh()->update(['resultado' => 'La orquestación se detuvo debido a un fallo en un subproceso. ' . $e->getMessage()]);
+            Storage::delete($tarea->mapeo_completo_facturas);
         }
 
 

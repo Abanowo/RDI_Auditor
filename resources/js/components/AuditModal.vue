@@ -468,7 +468,10 @@ export default {
       const id = factura.id;
 
       // Construimos la URL con los parámetros que nuestro controlador espera
-      return `/documentos/ver?tipo=${tipo}&id=${id}`;
+      return tipo !== "impuestos"
+        ? factura.ruta_pdf
+        : `/documentos/ver?tipo=${tipo}&id=${id}`;
+      //return `/documentos/ver?tipo=${tipo}&id=${id}`;
     },
 
     /**

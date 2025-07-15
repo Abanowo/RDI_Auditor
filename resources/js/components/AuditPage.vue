@@ -77,7 +77,7 @@
 
       <ImportModal :show="isImportModalVisible" @close="isImportModalVisible = false" />
 
-      <FilterBar @apply-filters="handleFilters" />
+      <FilterBar :clientes="clientes" @apply-filters="handleFilters" />
       <div v-if="isLoading" class="text-center text-gray-500 mt-10">
         <p>Cargando operaciones...</p>
       </div>
@@ -206,7 +206,12 @@ export default {
     },
     fetchClientes() {
       axios
-        .get("/auditoria/clientes")
+        .get("/auditoria/clientes", {
+          params: {
+            sucursal_id: this.selectedSucursal.id,
+            operation_type: this.selectedOperationType,
+          },
+        })
         .then((response) => {
           this.clientes = response.data;
         })
@@ -216,23 +221,23 @@ export default {
       this.selectedSucursal = sucursal;
     },
     selectOperationType(type, updateUrl = true) {
-    this.selectedOperationType = type;
+      this.selectedOperationType = type;
 
-    // Solo actualizamos la URL si la función fue llamada sin el segundo
-    // parámetro (lo que significa que fue un clic del usuario) o si es explícitamente true.
-    if (updateUrl) {
+      // Solo actualizamos la URL si la función fue llamada sin el segundo
+      // parámetro (lo que significa que fue un clic del usuario) o si es explícitamente true.
+      if (updateUrl) {
         const params = new URLSearchParams();
-        params.set('sucursal_id', this.selectedSucursal.id);
-        params.set('operation_type', this.selectedOperationType);
+        params.set("sucursal_id", this.selectedSucursal.id);
+        params.set("operation_type", this.selectedOperationType);
 
         // history.pushState cambia la URL sin recargar la página
-        window.history.pushState({}, '', `?${params.toString()}`);
-    }
+        window.history.pushState({}, "", `?${params.toString()}`);
+      }
 
-    // Cargamos los datos necesarios para el panel
-    this.fetchClientes();
-    this.fetchOperaciones();
-},
+      // Cargamos los datos necesarios para el panel
+      this.fetchClientes();
+      this.fetchOperaciones();
+    },
     resetSelection() {
       this.selectedSucursal = null;
       this.selectedOperationType = null;
@@ -267,26 +272,32 @@ export default {
       };
       this.isModalVisible = true;
     },
-    //Este método se activa cuando FilterBar emite el evento
-    handleFilters(filters) {
-      // Guardamos los filtros y pedimos la página 1 con esos filtros
-      this.activeFilters = filters;
+
+    // Este método recibe los filtros de FilterBar y los guarda
+    handleFilters(filtersFromBar) {
+      this.activeFilters = filtersFromBar;
       this.fetchOperaciones();
     },
 
+    // En AuditPage.vue -> methods
+
     fetchOperaciones(url = "/auditoria") {
-      // El parámetro 'url' es crucial
-      if (!url) return;
+      if (!this.selectedSucursal || !this.selectedOperationType || !url) return;
       this.isLoading = true;
-      const cleanParams = this.cleanFilters(this.activeFilters);
-      // Axios permite pasar los filtros como un objeto 'params'
+
+      // ANTES (Incorrecto):
+      // const cleanParams = this.cleanFilters(this.activeFilters);
+
+      // ✅ DESPUÉS (Correcto):
+      // Usa la propiedad computada 'finalFilters' que ya combina todo.
+      const cleanParams = this.cleanFilters(this.finalFilters);
+
       axios
         .get(url, { params: cleanParams })
         .then((response) => {
           this.operaciones = response.data.data;
-          this.pagination = response.data; // La paginación ya viene filtrada desde Laravel
+          this.pagination = response.data;
           this.isLoading = false;
-          // No necesitamos history.pushState aquí porque withQueryString() ya construye la URL correcta
         })
         .catch((error) => {
           console.error("Error al obtener las operaciones:", error);

@@ -31,7 +31,7 @@ class Exportacion extends Model
     {
         // Le decimos: la llave foránea en 'auditorias_totales_sc' es 'operacion_id'
         // y se conecta con la llave local 'id' de esta tabla ('operaciones').
-        return $this->morphMany(AuditoriaTotalSC::class, 'operacion', 'operation_type', 'operacion_id');
+        return $this->morphOne(AuditoriaTotalSC::class, 'operacion', 'operation_type', 'operacion_id');
     }
 
     public function getSucursal()

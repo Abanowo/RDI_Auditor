@@ -4225,7 +4225,8 @@ __webpack_require__.r(__webpack_exports__);
       var id = factura.id;
 
       // Construimos la URL con los parámetros que nuestro controlador espera
-      return "/documentos/ver?tipo=".concat(tipo, "&id=").concat(id);
+      return tipo !== "impuestos" ? factura.ruta_pdf : "/documentos/ver?tipo=".concat(tipo, "&id=").concat(id);
+      //return `/documentos/ver?tipo=${tipo}&id=${id}`;
     },
     /**
      * NUEVA PROPIEDAD COMPUTADA: Prepara los datos de las facturas reales encontradas.
@@ -4565,7 +4566,12 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
     },
     fetchClientes: function fetchClientes() {
       var _this3 = this;
-      axios.get("/auditoria/clientes").then(function (response) {
+      axios.get("/auditoria/clientes", {
+        params: {
+          sucursal_id: this.selectedSucursal.id,
+          operation_type: this.selectedOperationType
+        }
+      }).then(function (response) {
         _this3.clientes = response.data;
       })["catch"](function (error) {
         return console.error("Error al obtener clientes:", error);
@@ -4582,11 +4588,11 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
       // parámetro (lo que significa que fue un clic del usuario) o si es explícitamente true.
       if (updateUrl) {
         var params = new URLSearchParams();
-        params.set('sucursal_id', this.selectedSucursal.id);
-        params.set('operation_type', this.selectedOperationType);
+        params.set("sucursal_id", this.selectedSucursal.id);
+        params.set("operation_type", this.selectedOperationType);
 
         // history.pushState cambia la URL sin recargar la página
-        window.history.pushState({}, '', "?".concat(params.toString()));
+        window.history.pushState({}, "", "?".concat(params.toString()));
       }
 
       // Cargamos los datos necesarios para el panel
@@ -4627,27 +4633,30 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
       };
       this.isModalVisible = true;
     },
-    //Este método se activa cuando FilterBar emite el evento
-    handleFilters: function handleFilters(filters) {
-      // Guardamos los filtros y pedimos la página 1 con esos filtros
-      this.activeFilters = filters;
+    // Este método recibe los filtros de FilterBar y los guarda
+    handleFilters: function handleFilters(filtersFromBar) {
+      this.activeFilters = filtersFromBar;
       this.fetchOperaciones();
     },
+    // En AuditPage.vue -> methods
     fetchOperaciones: function fetchOperaciones() {
       var _this4 = this;
       var url = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : "/auditoria";
-      // El parámetro 'url' es crucial
-      if (!url) return;
+      if (!this.selectedSucursal || !this.selectedOperationType || !url) return;
       this.isLoading = true;
-      var cleanParams = this.cleanFilters(this.activeFilters);
-      // Axios permite pasar los filtros como un objeto 'params'
+
+      // ANTES (Incorrecto):
+      // const cleanParams = this.cleanFilters(this.activeFilters);
+
+      // ✅ DESPUÉS (Correcto):
+      // Usa la propiedad computada 'finalFilters' que ya combina todo.
+      var cleanParams = this.cleanFilters(this.finalFilters);
       axios.get(url, {
         params: cleanParams
       }).then(function (response) {
         _this4.operaciones = response.data.data;
-        _this4.pagination = response.data; // La paginación ya viene filtrada desde Laravel
+        _this4.pagination = response.data;
         _this4.isLoading = false;
-        // No necesitamos history.pushState aquí porque withQueryString() ya construye la URL correcta
       })["catch"](function (error) {
         console.error("Error al obtener las operaciones:", error);
         _this4.isLoading = false;
@@ -44840,7 +44849,10 @@ var render = function () {
               },
             }),
             _vm._v(" "),
-            _c("FilterBar", { on: { "apply-filters": _vm.handleFilters } }),
+            _c("FilterBar", {
+              attrs: { clientes: _vm.clientes },
+              on: { "apply-filters": _vm.handleFilters },
+            }),
             _vm._v(" "),
             _vm.isLoading
               ? _c("div", { staticClass: "text-center text-gray-500 mt-10" }, [

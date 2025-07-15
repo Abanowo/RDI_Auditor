@@ -25,7 +25,7 @@ class ImportController extends Controller
             ]);
 
         // 1. Guardamos el estado de cuenta principal
-        $rutaPrincipal = $request->file('estado_de_cuenta')->store('importaciones/estados_de_cuenta');
+        $rutaPrincipal = $request->file('estado_de_cuenta')->store('operaciones/estados_de_cuenta');
 
         // 2. Guardamos los archivos extra si existen
         $rutasExtras = [];

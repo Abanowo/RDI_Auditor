@@ -41,12 +41,12 @@ WithStrictNullComparison
     {
         // Filtramos para quedarnos solo con las operaciones que tienen SC
         return $this->operaciones->map( function ($pedimento) {
-            $sc = $pedimento->importacion->auditoriasTotalSC;
+            $sc = $pedimento->importacion->auditoriasTotalSC ?? $pedimento->exportacion->auditoriasTotalSC;
             if (!$sc) { return []; }
             return
             [
                 'pedimento' => $pedimento->num_pedimiento,
-                'cliente'   => $pedimento->importacion->cliente,
+                'cliente'   => $pedimento->importacion->cliente ?? $pedimento->exportacion->cliente,
                 'sc'        => $sc,
             ];
         })->filter();

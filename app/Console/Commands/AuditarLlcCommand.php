@@ -111,11 +111,11 @@ class AuditarLlcCommand extends Command
                 // Obtemenos la operacionId por medio del pedimento sucio
                 // Se verifica si la operacion ID esta en Importacion
                 $operacionId = $mapaPedimentoAImportacionId[$pedimentoSucioYId['num_pedimiento']] ?? null;
-                $tipoOperacion = "Intactics\Operaciones\Importacion";
+                $tipoOperacion = Importacion::class;
 
                 if (!$operacionId) { // Si no, entonces busca en Exportacion
                     $operacionId = $mapaPedimentoAExportacionId[$pedimentoSucioYId['num_pedimiento']] ?? null;
-                    $tipoOperacion = "Intactics\Operaciones\Exportacion";
+                    $tipoOperacion = Exportacion::class;
                 }
 
                 if (!$operacionId) { // Si no esta ni en Importacion o en Exportacion, que lo guarde por pedimento_id

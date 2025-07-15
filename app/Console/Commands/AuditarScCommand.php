@@ -93,14 +93,14 @@ class AuditarScCommand extends Command
 
                 // Buscamos el id_importacion en nuestro mapa
                 $pedimentoReal = $mapaPedimentoAId[$pedimento];
-                $tipoOperacion = "Intactics\Operaciones\Importacion";
+                $tipoOperacion = Importacion::class;
 
                 //Se verifica si la operacion ID esta en Importacion
                 $operacionId = $mapaPedimentoAImportacionId[$pedimentoReal['num_pedimiento']] ?? null;
 
                 if (!$operacionId) { //Si no, entonces busca en Exportacion
                     $operacionId = $mapaPedimentoAExportacionId[$pedimentoReal['num_pedimiento']]  ?? null;
-                    $tipoOperacion = "Intactics\Operaciones\Exportacion";
+                    $tipoOperacion = Exportacion::class;
                 }
 
                 if (!$operacionId) { //Si no esta ni en Importacion o en Exportacion, que lo guarde por pedimento_id
