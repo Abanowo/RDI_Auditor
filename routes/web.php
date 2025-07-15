@@ -1,6 +1,6 @@
 <?php
 use App\Http\Controllers\ImportController;
-use App\Http\Controllers\AuditController;
+use App\Http\Controllers\AuditoriaImpuestosController;
 use App\Http\Controllers\DocumentoController;
 use Illuminate\Support\Facades\Route;
 
@@ -23,12 +23,12 @@ Route::post('/importar-estado-de-cuenta', [ImportController::class, 'procesarEst
 // La ruta no necesita cambiar si usamos parámetros GET
 Route::get('/documentos/ver', [DocumentoController::class, 'mostrarPdf'])->name('documentos.ver');
 
-//Rutas de AuditController
+//Rutas de AuditoriaImpuestosController
 // Rutas API para los filtros del frontend
-Route::get('/auditoria/sucursales', [AuditController::class, 'getSucursales']);
-Route::get('/auditoria/clientes', [AuditController::class, 'getClientes']);
-Route::get('/auditoria/exportar', [AuditController::class, 'exportarFacturado'])->name('auditoria.exportar');
-Route::get('/auditoria', [AuditController::class, 'index'])->name('auditoria.index');
+Route::get('/auditoria/sucursales', [AuditoriaImpuestosController::class, 'getSucursales']);
+Route::get('/auditoria/clientes', [AuditoriaImpuestosController::class, 'getClientes']);
+Route::get('/auditoria/exportar', [AuditoriaImpuestosController::class, 'exportarFacturado'])->name('auditoria.exportar');
+Route::get('/auditoria', [AuditoriaImpuestosController::class, 'index'])->name('auditoria.index');
 Route::get('/', function () {
     return view('welcome');
 });

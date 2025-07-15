@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 use Illuminate\Support\Facades\Storage;
-use App\Http\Controllers\AuditController;
+use App\Http\Controllers\AuditoriaImpuestosController;
 use App\Models\AuditoriaTareas;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
@@ -37,7 +37,7 @@ class ProcesarAuditoriaCompleta extends Command
             // 2. Llama a cada comando en secuencia, pasándole el ID de la tarea
             $this->info("--- [INICIO] Procesando Impuestos (Fase 1) para Tarea #{$tarea->id} ---");
             Log::info("Tarea #{$tarea->ids}: Ejecutando comando de Impuestos...");
-            $status = (new AuditController())->importarImpuestosEnAuditorias($tarea->id); //Impuestos Fase (1)
+            $status = (new AuditoriaImpuestosController())->importarImpuestosEnAuditorias($tarea->id); //Impuestos Fase (1)
             if($status['code'] > 0) throw $status['message'];
 
             $this->info("--- [FIN] Procesamiento de Impuestos.");
@@ -47,7 +47,7 @@ class ProcesarAuditoriaCompleta extends Command
             // 1. Llama a cada comando en secuencia, pasándole el ID de la tarea
             $this->info("--- [INICIO] Creando mapeo para Tarea #{$tarea->id} ---");
             Log::info("Tarea #{$tarea->id}: Ejecutando comando de mapeo...");
-            $status = (new AuditController())->mapearFacturasYFacturasSCEnAuditorias($tarea->id);  //Mapeado
+            $status = (new AuditoriaImpuestosController())->mapearFacturasYFacturasSCEnAuditorias($tarea->id);  //Mapeado
             if($status['code'] > 0) throw $status['message'];
 
             $this->info("--- [FIN] Creacion de mapeo.");
@@ -57,7 +57,7 @@ class ProcesarAuditoriaCompleta extends Command
             // 1. Llama a cada comando en secuencia, pasándole el ID de la tarea
             $this->info("--- [INICIO] Procesando SCs para Tarea #{$tarea->id} ---");
             Log::info("Tarea #{$tarea->id}: Ejecutando comando de SC...");
-            $status = (new AuditController())->importarFacturasSCEnAuditoriasTotalesSC($tarea->id);  //SC
+            $status = (new AuditoriaImpuestosController())->importarFacturasSCEnAuditoriasTotalesSC($tarea->id);  //SC
             if($status['code'] > 0) throw $status['message'];
 
             $this->info("--- [FIN] Procesamiento de SCs.");
@@ -67,7 +67,7 @@ class ProcesarAuditoriaCompleta extends Command
             // 2. Llama a cada comando en secuencia, pasándole el ID de la tarea
             $this->info("--- [INICIO] Procesando Impuestos (Fase 2) para Tarea #{$tarea->id} ---");
             Log::info("Tarea #{$tarea->id}: Ejecutando comando de Impuestos...");
-            $status = (new AuditController())->importarImpuestosEnAuditorias($tarea->id); //Impuestos Fase (2)
+            $status = (new AuditoriaImpuestosController())->importarImpuestosEnAuditorias($tarea->id); //Impuestos Fase (2)
             if($status['code'] > 0) throw $status['message'];
 
             $this->info("--- [FIN] Procesamiento de Impuestos.");
@@ -77,7 +77,7 @@ class ProcesarAuditoriaCompleta extends Command
             // 3. Llama a cada comando en secuencia, pasándole el ID de la tarea
             $this->info("--- [INICIO] Procesando Fletes para Tarea #{$tarea->id} ---");
             Log::info("Tarea #{$tarea->id}: Ejecutando comando de Fletes...");
-            $status = (new AuditController())->auditarFacturasDeFletes($tarea->id); //Fletes
+            $status = (new AuditoriaImpuestosController())->auditarFacturasDeFletes($tarea->id); //Fletes
             if($status['code'] > 0) throw $status['message'];
 
             $this->info("--- [FIN] Procesamiento de Fletes.");
@@ -87,7 +87,7 @@ class ProcesarAuditoriaCompleta extends Command
             // 4. Llama a cada comando en secuencia, pasándole el ID de la tarea
             $this->info("--- [INICIO] Procesando LLCs para Tarea #{$tarea->id} ---");
             Log::info("Tarea #{$tarea->id}: Ejecutando comando de LLC...");
-            $status = (new AuditController())->auditarFacturasDeLLC($tarea->id); //LLC
+            $status = (new AuditoriaImpuestosController())->auditarFacturasDeLLC($tarea->id); //LLC
             if($status['code'] > 0) throw $status['message'];
 
             $this->info("--- [FIN] Procesamiento de LLCs.");
@@ -97,7 +97,7 @@ class ProcesarAuditoriaCompleta extends Command
             // 5. Llama a cada comando en secuencia, pasándole el ID de la tarea
             $this->info("--- [INICIO] Procesando Pagos de derecho para Tarea #{$tarea->id} ---");
             Log::info("Tarea #{$tarea->id}: Ejecutando comando de Pagos de derecho...");
-            $status = (new AuditController())->auditarFacturasDePagosDeDerecho($tarea->id);  //Pagos de derecho
+            $status = (new AuditoriaImpuestosController())->auditarFacturasDePagosDeDerecho($tarea->id);  //Pagos de derecho
             if($status['code'] > 0) throw $status['message'];
 
             $this->info("--- [FIN] Procesamiento de Pagos de derecho.");

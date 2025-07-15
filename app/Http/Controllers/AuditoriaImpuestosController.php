@@ -31,7 +31,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Smalot\PdfParser\Parser;
 use Maatwebsite\Excel\Facades\Excel;
 
-class AuditController extends Controller
+class AuditoriaImpuestosController extends Controller
 {
     public function index(Request $request)
     {
@@ -54,6 +54,7 @@ class AuditController extends Controller
                 ->paginate(15)
                 ->withQueryString();
 
+            $t = json_encode($resultados);
             // La transformación ahora recibe un objeto 'Pedimento'
             $resultados->getCollection()->transform(function ($pedimento) use ($filters) {
                 return $this->transformarOperacion($pedimento, $filters);
@@ -74,7 +75,7 @@ class AuditController extends Controller
         $operationType = $filters['operation_type'] ?? 'todos';
 
         // Asumimos que este código está dentro de un método que recibe los filtros,
-        // como el index() de tu AuditController o el query() de tu clase de Export.
+        // como el index() de tu AuditoriaImpuestosController o el query() de tu clase de Export.
 
         // --- LÓGICA DE FILTROS RECONSTRUIDA ---
 
@@ -318,7 +319,7 @@ class AuditController extends Controller
     }
 
     //--------------------------------------------------------------------------------------------------------------
-    //----------------------------------- INICIO DE LOS COMMANDS - AUDITCONTROLLER ---------------------------------
+    //----------------------------------- INICIO DE LOS COMMANDS - AuditoriaImpuestosController ---------------------------------
     //--------------------------------------------------------------------------------------------------------------
 
     //--- METODO IMPORTAR IMPUESTOS A AUDITORIAS
@@ -1539,13 +1540,13 @@ class AuditController extends Controller
 
 
     //--------------------------------------------------------------------------------------------------------------
-    //----------------------------------- FINAL DE LOS COMMANDS - AUDITCONTROLLER ----------------------------------
+    //----------------------------------- FINAL DE LOS COMMANDS - AuditoriaImpuestosController ----------------------------------
     //--------------------------------------------------------------------------------------------------------------
 
     //================================================================================================================================================================
 
     //--------------------------------------------------------------------------------------------------------------
-    //----------------------------- INICIO DE LOS METODOS INDEXANTES - AUDITCONTROLLER -----------------------------
+    //----------------------------- INICIO DE LOS METODOS INDEXANTES - AuditoriaImpuestosController -----------------------------
     //--------------------------------------------------------------------------------------------------------------
 
 
@@ -2045,13 +2046,13 @@ class AuditController extends Controller
 
 
     //--------------------------------------------------------------------------------------------------------------
-    //------------------------------ FINAL DE LOS METODOS INDEXANTES - AUDITCONTROLLER -----------------------------
+    //------------------------------ FINAL DE LOS METODOS INDEXANTES - AuditoriaImpuestosController -----------------------------
     //--------------------------------------------------------------------------------------------------------------
 
     //================================================================================================================================================================
 
     //--------------------------------------------------------------------------------------------------------------
-    //----------------------------- INICIO DE LOS METODOS AUXILIARES - AUDITCONTROLLER -----------------------------
+    //----------------------------- INICIO DE LOS METODOS AUXILIARES - AuditoriaImpuestosController -----------------------------
     //--------------------------------------------------------------------------------------------------------------
 
 
@@ -2343,7 +2344,7 @@ class AuditController extends Controller
 
 
     //--------------------------------------------------------------------------------------------------------------
-    //------------------------------ FINAL DE LOS METODOS AUXILIARES - AUDITCONTROLLER -----------------------------
+    //------------------------------ FINAL DE LOS METODOS AUXILIARES - AuditoriaImpuestosController -----------------------------
     //--------------------------------------------------------------------------------------------------------------
 
     //================================================================================================================================================================
