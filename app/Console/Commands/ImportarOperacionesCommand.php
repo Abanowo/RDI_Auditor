@@ -153,14 +153,22 @@ class ImportarOperacionesCommand extends Command
                 // 3. Hacemos UNA SOLA consulta a operaciones_importacion usando los IDs que encontramos
                 //    y creamos nuestro mapa final: num_pedimento => id_importacion
                 $mapaPedimentoAImportacionId = Importacion::whereIn('operaciones_importacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
-                    ->join('pedimiento', 'operaciones_importacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
-                    ->pluck('operaciones_importacion.id_importacion', 'pedimiento.num_pedimiento');
+                    /* ->join('pedimiento', 'operaciones_importacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
+                    ->select('operaciones_importacion.id_importacion', 'pedimiento.num_pedimiento') */
+                    ->orderBy('operaciones_importacion.created_at', 'desc')
+                    ->get()
+                    ->keyBy('id_pedimiento');
+
                 $this->info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_importacion': ". $mapaPedimentoAImportacionId->count());
 
 
                 $mapaPedimentoAExportacionId = Exportacion::whereIn('operaciones_exportacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
-                    ->join('pedimiento', 'operaciones_exportacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
-                    ->pluck('operaciones_exportacion.id_exportacion', 'pedimiento.num_pedimiento');
+                   /*  ->join('pedimiento', 'operaciones_exportacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
+                    ->select('operaciones_exportacion.id_exportacion', 'pedimiento.num_pedimiento') */
+                    ->orderBy('operaciones_exportacion.created_at', 'desc')
+                    ->get()
+                    ->keyBy('id_pedimiento');
+
                 $this->info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_exportacion': ". $mapaPedimentoAExportacionId->count());
 
 
@@ -177,20 +185,39 @@ class ImportarOperacionesCommand extends Command
                 $datosParaAuditorias = $operacionesLimpias->map(function ($op)
                 use ($rutaPdf, $auditoriasSC, $mapaPedimentoAId, $mapaPedimentoAExportacionId, $mapaPedimentoAImportacionId, $tarea) {
 
-                    $pedimento = $op['pedimento'];
+                    $pedimentoLimpio = $op['pedimento'];
+                    $pedimentoInfo = $mapaPedimentoAId[$pedimentoLimpio] ?? null;
+
+                    if (!$pedimentoInfo) {
+                        $this->warn("Omitiendo pedimento no encontrado en el mapa: {$pedimentoLimpio}");
+                        return null;
+                    }
+
+                    $id_pedimento_db = $pedimentoInfo['id_pedimiento'];
+                    $operacionId = null;
+                    $tipoOperacion = null;
+
+                    // Buscamos la operación más reciente en nuestros nuevos mapas
+                    $ultimaImportacion = $mapaPedimentoAImportacionId->get($id_pedimento_db);
+                    $ultimaExportacion = $mapaPedimentoAExportacionId->get($id_pedimento_db);
 
                     // Obtenemos el id_importacion desde nuestro mapa. Si no existe, omitimos este registro.
-                    $operacionId = $mapaPedimentoAImportacionId[$pedimento] ?? null;
-                    $pedimentoId = $mapaPedimentoAId[$pedimento] ?? null;
+                    $pedimentoId = $mapaPedimentoAId[$pedimentoLimpio] ?? null;
 
-                    // Obtemenos la operacionId por medio del pedimento sucio
-                    // Se verifica si la operacion ID esta en Importacion
-                    //Anth
-                    $operacionId = $mapaPedimentoAImportacionId[$pedimentoId['num_pedimiento']] ?? null;
-                    $tipoOperacion = Importacion::class;
-
-                    if (!$operacionId) { // Si no, entonces busca en Exportacion
-                        $operacionId = $mapaPedimentoAExportacionId[$pedimentoId['num_pedimiento']] ?? null;
+                    // Damos prioridad a la operación más reciente entre impo y expo si ambas existen
+                    if ($ultimaImportacion && $ultimaExportacion) {
+                        if ($ultimaImportacion->created_at > $ultimaExportacion->created_at) {
+                            $operacionId = $ultimaImportacion->id_importacion;
+                            $tipoOperacion = Importacion::class;
+                        } else {
+                            $operacionId = $ultimaExportacion->id_exportacion;
+                            $tipoOperacion = Exportacion::class;
+                        }
+                    } elseif ($ultimaImportacion) {
+                        $operacionId = $ultimaImportacion->id_importacion;
+                        $tipoOperacion = Importacion::class;
+                    } elseif ($ultimaExportacion) {
+                        $operacionId = $ultimaExportacion->id_exportacion;
                         $tipoOperacion = Exportacion::class;
                     }
 
@@ -199,7 +226,7 @@ class ImportarOperacionesCommand extends Command
                     }
 
                     if (!$operacionId && !$pedimentoId) {
-                        $this->warn("Omitiendo pedimento no encontrado en operaciones_importacion: {$pedimento}");
+                        $this->warn("Omitiendo pedimento no encontrado en operaciones_importacion: {$pedimentoLimpio}");
                         return null; // Marcamos para ser filtrado
                     }
 
@@ -216,8 +243,8 @@ class ImportarOperacionesCommand extends Command
                     // Devolvemos el array completo, AHORA con el `operacion_id` correcto.
                     return
                     [
-                        'operacion_id'      => $operacionId, // ¡Aquí está la vinculación auxiliar!
-                        'pedimento_id'      => $pedimentoId['id_pedimiento'], // ¡Aquí está la vinculación!
+                        'operacion_id'      => $operacionId,
+                        'pedimento_id'      => $id_pedimento_db,
                         'operation_type'    => $tipoOperacion,
                         'tipo_documento'    => 'impuestos',
                         'concepto_llave'    => 'principal',

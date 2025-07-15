@@ -36,6 +36,7 @@ class AuditController extends Controller
     public function index(Request $request)
     {
         if ($request->wantsJson()) {
+            $filters = $request->query();
             $query = $this->obtenerQueryFiltrado($request);
 
             // Ahora, cargamos las relaciones que necesitamos para la transformación
@@ -54,13 +55,15 @@ class AuditController extends Controller
                 ->withQueryString();
 
             // La transformación ahora recibe un objeto 'Pedimento'
-            $resultados->getCollection()->transform(function ($pedimento) {
-                return $this->transformarOperacion($pedimento);
+            $resultados->getCollection()->transform(function ($pedimento) use ($filters) {
+                return $this->transformarOperacion($pedimento, $filters);
             });
 
             return response()->json($resultados);
         }
-
+        // Esto es para la primera visita desde el navegador.
+        // Le dice a Laravel: "Carga y muestra el archivo de la vista principal".
+        return view('welcome'); // O el nombre de tu vista, ej: 'audits.index'
     }
     //Para no estar escribiendo todo el filtrado en cada parte que lo ocupe, hago la construccion del query junto con todos sus filtros
     //y lo devuelvo de aqui hacia a donde se ocupe.
@@ -183,7 +186,7 @@ class AuditController extends Controller
             // Para 'todos', un pedimento es válido si cumple los filtros en CUALQUIERA de sus operaciones
             $query->where(function($q) use ($filtrosAplicados) {
                 $q->whereHas('importacion', $filtrosAplicados)
-                ->orWhereHas('exportacion', '>=', 1, 'or', $filtrosAplicados); // El 'or' aquí es clave
+                ->orWhereHas('exportacion', $filtrosAplicados);  // El 'or' aquí es clave
             });
         }
 
@@ -193,12 +196,22 @@ class AuditController extends Controller
 
     }
     //Metodo para mapear lo que se mostrara en la pagina
-    private function transformarOperacion($pedimento)
+    private function transformarOperacion($pedimento, $filters)
     {
         // Los datos ahora vienen de las relaciones del modelo Importacion
         // Determinamos si el pedimento tiene una operación de importación o exportación cargada
-        $operacion = $pedimento->importacion ?? $pedimento->exportacion;
+        $operationType = $filters['operation_type'] ?? 'todos';
+        $operacion = null;
 
+        // Con esta lógica, forzamos a que se use la relación correcta
+        // según el filtro que el usuario seleccionó.
+        if ($operationType === 'importacion') {
+            $operacion = $pedimento->importacion;
+        } elseif ($operationType === 'exportacion') {
+            $operacion = $pedimento->exportacion;
+        } else { // Para el caso 'todos', mantenemos la prioridad de importación
+            $operacion = $pedimento->importacion ?? $pedimento->exportacion;
+        }
         // Si por alguna razón no hay operación, no devolvemos nada.
         if (!$operacion) {
             return null;
@@ -314,21 +327,20 @@ class AuditController extends Controller
     // que se mostraran unicamente para el panel de auditorias, y son exclusivamente de aqui.
     public function importarImpuestosEnAuditorias(string $tareaId)
     {
-
         if (!$tareaId) {
             Log::error('Se requiere el ID de la tarea. Usa --tarea_id=X');
-            return 1;
+            return ['code' => 1, 'message' => new \Exception('Se requiere el ID de la tarea. Usa --tarea_id=X')];
         }
 
         // 1. Busca la primera tarea que esté pendiente
         $tarea = AuditoriaTareas::find($tareaId);
         if (!$tarea || $tarea->status !== 'procesando') {
             Log::warning("Impuestos: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.");
-            return 1;
+            return ['code' => 1, 'message' => new \Exception("Impuestos: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.")];
         }
         if (!$tarea) {
             Log::error("No se encontró la tarea con ID: {$tareaId}");
-            return 1;
+            return ['code' => 1, 'message' => new \Exception("No se encontró la tarea con ID: {$tareaId}")];
         }
 
         Log::info('Iniciando lectura de PDF con Python y Tabula...');
@@ -348,7 +360,7 @@ class AuditController extends Controller
                 'status' => 'fallido',
                 'resultado' => "Ruta pdf no encontrada: ({$rutaPdf})"
             ]);
-            return 1;
+            return ['code' => 1, 'message' => new \Exception("Ruta pdf no encontrada: ({$rutaPdf})")];
         }
 
         $process = new Process(['python', base_path('scripts/python/parser.py'), $rutaPdf]);
@@ -366,7 +378,7 @@ class AuditController extends Controller
                 Log::error("Error al decodificar el JSON o error devuelto por Python.");
                 // Si hay error en Python, lo mostramos:
                 if(isset($tablaDeDatos['error'])) { Log::error("Detalle: " . $tablaDeDatos['error']); }
-                return 1;
+                return ['code' => 1, 'message' => new \Exception("Error al decodificar el JSON o error devuelto por Python.")];
             }
 
             // Convertimos el array de datos crudos en una Colección de Laravel.
@@ -416,20 +428,29 @@ class AuditController extends Controller
                 // 3. Hacemos UNA SOLA consulta a operaciones_importacion usando los IDs que encontramos
                 //    y creamos nuestro mapa final: num_pedimento => id_importacion
                 $mapaPedimentoAImportacionId = Importacion::whereIn('operaciones_importacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
-                    ->join('pedimiento', 'operaciones_importacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
-                    ->pluck('operaciones_importacion.id_importacion', 'pedimiento.num_pedimiento');
+                    /* ->join('pedimiento', 'operaciones_importacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
+                    ->select('operaciones_importacion.id_importacion', 'pedimiento.num_pedimiento') */
+                    ->orderBy('operaciones_importacion.created_at', 'desc')
+                    ->get()
+                    ->keyBy('id_pedimiento');
+
                 Log::info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_importacion': ". $mapaPedimentoAImportacionId->count());
 
 
                 $mapaPedimentoAExportacionId = Exportacion::whereIn('operaciones_exportacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
-                    ->join('pedimiento', 'operaciones_exportacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
-                    ->pluck('operaciones_exportacion.id_exportacion', 'pedimiento.num_pedimiento');
+                   /*  ->join('pedimiento', 'operaciones_exportacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
+                    ->select('operaciones_exportacion.id_exportacion', 'pedimiento.num_pedimiento') */
+                    ->orderBy('operaciones_exportacion.created_at', 'desc')
+                    ->get()
+                    ->keyBy('id_pedimiento');
+
                 Log::info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_exportacion': ". $mapaPedimentoAExportacionId->count());
 
 
                 // 3. Obtenemos todas las SC de una vez para la comparación de montos
                 $auditoriasSC = AuditoriaTotalSC::query()
-                    ->whereIn('operacion_id', $mapaPedimentoAImportacionId->values())
+                    ->whereIn('operacion_id', $mapaPedimentoAImportacionId->keys())
+                    ->orWhereIn('operacion_id', $mapaPedimentoAExportacionId->keys())
                     ->orWhereIn('pedimento_id', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
                     ->get()
                     ->keyBy('pedimento_id'); // Las indexamos por operacion_id para búsqueda rápida
@@ -440,20 +461,39 @@ class AuditController extends Controller
                 $datosParaAuditorias = $operacionesLimpias->map(function ($op)
                 use ($rutaPdf, $auditoriasSC, $mapaPedimentoAId, $mapaPedimentoAExportacionId, $mapaPedimentoAImportacionId, $tarea) {
 
-                    $pedimento = $op['pedimento'];
+                    $pedimentoLimpio = $op['pedimento'];
+                    $pedimentoInfo = $mapaPedimentoAId[$pedimentoLimpio] ?? null;
+
+                    if (!$pedimentoInfo) {
+                        Log::warning("Omitiendo pedimento no encontrado en el mapa: {$pedimentoLimpio}");
+                        return null;
+                    }
+
+                    $id_pedimento_db = $pedimentoInfo['id_pedimiento'];
+                    $operacionId = null;
+                    $tipoOperacion = null;
+
+                    // Buscamos la operación más reciente en nuestros nuevos mapas
+                    $ultimaImportacion = $mapaPedimentoAImportacionId->get($id_pedimento_db);
+                    $ultimaExportacion = $mapaPedimentoAExportacionId->get($id_pedimento_db);
 
                     // Obtenemos el id_importacion desde nuestro mapa. Si no existe, omitimos este registro.
-                    $operacionId = $mapaPedimentoAImportacionId[$pedimento] ?? null;
-                    $pedimentoId = $mapaPedimentoAId[$pedimento] ?? null;
+                    $pedimentoId = $mapaPedimentoAId[$pedimentoLimpio] ?? null;
 
-                    // Obtemenos la operacionId por medio del pedimento sucio
-                    // Se verifica si la operacion ID esta en Importacion
-                    //Anth
-                    $operacionId = $mapaPedimentoAImportacionId[$pedimentoId['num_pedimiento']] ?? null;
-                    $tipoOperacion = Importacion::class;
-
-                    if (!$operacionId) { // Si no, entonces busca en Exportacion
-                        $operacionId = $mapaPedimentoAExportacionId[$pedimentoId['num_pedimiento']] ?? null;
+                    // Damos prioridad a la operación más reciente entre impo y expo si ambas existen
+                    if ($ultimaImportacion && $ultimaExportacion) {
+                        if ($ultimaImportacion->created_at > $ultimaExportacion->created_at) {
+                            $operacionId = $ultimaImportacion->id_importacion;
+                            $tipoOperacion = Importacion::class;
+                        } else {
+                            $operacionId = $ultimaExportacion->id_exportacion;
+                            $tipoOperacion = Exportacion::class;
+                        }
+                    } elseif ($ultimaImportacion) {
+                        $operacionId = $ultimaImportacion->id_importacion;
+                        $tipoOperacion = Importacion::class;
+                    } elseif ($ultimaExportacion) {
+                        $operacionId = $ultimaExportacion->id_exportacion;
                         $tipoOperacion = Exportacion::class;
                     }
 
@@ -462,7 +502,7 @@ class AuditController extends Controller
                     }
 
                     if (!$operacionId && !$pedimentoId) {
-                        Log::warning("Omitiendo pedimento no encontrado en operaciones_importacion: {$pedimento}");
+                        Log::warning("Omitiendo pedimento no encontrado en operaciones_importacion: {$pedimentoLimpio}");
                         return null; // Marcamos para ser filtrado
                     }
 
@@ -479,8 +519,8 @@ class AuditController extends Controller
                     // Devolvemos el array completo, AHORA con el `operacion_id` correcto.
                     return
                     [
-                        'operacion_id'      => $operacionId, // ¡Aquí está la vinculación auxiliar!
-                        'pedimento_id'      => $pedimentoId['id_pedimiento'], // ¡Aquí está la vinculación!
+                        'operacion_id'      => $operacionId,
+                        'pedimento_id'      => $id_pedimento_db,
                         'operation_type'    => $tipoOperacion,
                         'tipo_documento'    => 'impuestos',
                         'concepto_llave'    => 'principal',
@@ -533,7 +573,7 @@ class AuditController extends Controller
 
         } catch (ProcessFailedException $exception) {
             Log::error('Falló el script de Python: ' . $exception->getErrorOutput());
-            return 1;
+            return ['code' => 1, 'message' => new \Exception('Falló el script de Python: ' . $exception->getErrorOutput())];
 
         } catch (\Exception $e) {
             // 5. Si algo falla, marca la tarea como 'fallido' y guarda el error
@@ -543,6 +583,7 @@ class AuditController extends Controller
                     'resultado' => $e->getMessage()
                 ]);
             Log::error("Falló la tarea #{$tarea->id}: " . $e->getMessage());
+            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage())];
         }
     }
 
@@ -555,13 +596,13 @@ class AuditController extends Controller
     {
         if (!$tareaId) {
             Log::error('Se requiere el argumento --tarea_id.');
-            return 1;
+            return ['code' => 1, 'message' => new \Exception('Se requiere el argumento --tarea_id.')];
         }
 
         $tarea = AuditoriaTareas::find($tareaId);
         if (!$tarea) {
             Log::error("No se encontró la Tarea con ID: {$tareaId}");
-            return 1;
+            return ['code' => 1, 'message' => new \Exception("No se encontró la Tarea con ID: {$tareaId}")];
         }
 
         Log::info("--- [INICIO] Mapeo de facturas para Tarea #{$tarea->id} ---");
@@ -590,6 +631,7 @@ class AuditController extends Controller
                 ->join('pedimiento', 'operaciones_importacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
                 ->select('operaciones_importacion.id_importacion', 'pedimiento.num_pedimiento', 'pedimiento.id_pedimiento')
                 ->whereIn('pedimiento.num_pedimiento', $numerosDePedimento)
+                ->orderBy('operaciones_importacion.created_at', 'desc')
                 ->get()
                 ->map(function($operacion){
                     return[
@@ -607,6 +649,7 @@ class AuditController extends Controller
                 ->join('pedimiento', 'operaciones_exportacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
                 ->select('operaciones_exportacion.id_exportacion', 'pedimiento.num_pedimiento', 'pedimiento.id_pedimiento')
                 ->whereIn('pedimiento.num_pedimiento', $numerosDePedimento)
+                ->orderBy('operaciones_exportacion.created_at', 'desc')
                 ->get()
                 ->map(function($operacion){
                     return[
@@ -737,7 +780,7 @@ class AuditController extends Controller
         } catch (\Exception $e) {
             Log::error("Fallo en Tarea #{$tarea->id} [reporte:mapear-facturas]: " . $e->getMessage());
             $tarea->update(['status' => 'fallido', 'resultado' => 'Error al generar el mapeo de facturas.' . $e->getMessage() ]);
-            return 1;
+            return ['code' => 1, 'message' => new \Exception("Fallo en Tarea #{$tarea->id} [reporte:mapear-facturas]: " . $e->getMessage())];
         }
     }
 
@@ -750,13 +793,13 @@ class AuditController extends Controller
     {
         if (!$tareaId) {
             Log::error('Se requiere el ID de la tarea. Usa --tarea_id=X');
-            return 1;
+            return ['code' => 1, 'message' => new \Exception('Se requiere el ID de la tarea. Usa --tarea_id=X')];
         }
 
         $tarea = AuditoriaTareas::find($tareaId);
         if (!$tarea || $tarea->status !== 'procesando') {
             Log::warning("SC: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.");
-            return 1;
+            return ['code' => 1, 'message' => new \Exception("SC: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.")];
         }
 
         try {
@@ -764,7 +807,7 @@ class AuditController extends Controller
             $rutaMapeo = $tarea->mapeo_completo_facturas;
             if (!$rutaMapeo || !Storage::exists($rutaMapeo)) {
                 Log::info("No se encontró el archivo de mapeo universal para la tarea #{$tarea->id}.");
-                throw new \Exception("No se encontró el archivo de mapeo universal para la tarea #{$tarea->id}.");
+                return ['code' => 1, 'message' => new \Exception("No se encontró el archivo de mapeo universal para la tarea #{$tarea->id}.")];
             }
 
             //Leemos y decodificamos el archivo JSON completo
@@ -944,7 +987,7 @@ class AuditController extends Controller
                     'resultado' => $e->getMessage()
                 ]);
             Log::error("Error al procesar SC para la Tarea #{$tareaId}: " . $e->getMessage());
-            throw $e; // Lanzamos la excepción para que el orquestador la atrape
+            return ['code' => 1, 'message' => new \Exception("Error al procesar SC para la Tarea #{$tareaId}: " . $e->getMessage())]; // Lanzamos la excepción para que el orquestador la atrape
         }
     }
 
@@ -956,7 +999,7 @@ class AuditController extends Controller
         $tarea = AuditoriaTareas::find($tareaId);
         if (!$tarea || $tarea->status !== 'procesando') {
             Log::warning("Fletes: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.");
-            return 1;
+            return ['code' => 1, 'message' => new \Exception("Fletes: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.")];
         }
 
         Log::info('Iniciando la auditoría de Fletes (Transportactics)...');
@@ -966,7 +1009,7 @@ class AuditController extends Controller
             $rutaMapeo = $tarea->mapeo_completo_facturas;
             if (!$rutaMapeo || !Storage::exists($rutaMapeo)) {
                 Log::error("No se encontró el archivo de mapeo universal para la tarea #{$tarea->id}.");
-                throw new \Exception("No se encontró el archivo de mapeo universal para la tarea #{$tarea->id}.");
+                return ['code' => 1, 'message' => new \Exception("No se encontró el archivo de mapeo universal para la tarea #{$tarea->id}.")];
             }
 
             //Leemos y decodificamos el archivo JSON completo
@@ -1142,6 +1185,7 @@ class AuditController extends Controller
                 ]);
 
             Log::error("Falló la tarea #{$tarea->id}: " . $e->getMessage());
+            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage())];
         }
     }
 
@@ -1153,7 +1197,7 @@ class AuditController extends Controller
         $tarea = AuditoriaTareas::find($tareaId);
         if (!$tarea || $tarea->status !== 'procesando') {
             Log::warning("LLC: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.");
-            return 1;
+            return ['code' => 1, 'message' => new \Exception("LLC: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.")];
         }
         Log::info('Iniciando la auditoría de facturas LLC...');
 
@@ -1163,7 +1207,7 @@ class AuditController extends Controller
             $rutaMapeo = $tarea->mapeo_completo_facturas;
             if (!$rutaMapeo || !Storage::exists($rutaMapeo)) {
                 Log::error("No se encontró el archivo de mapeo universal para la tarea #{$tarea->id}.");
-                throw new \Exception("No se encontró el archivo de mapeo universal para la tarea #{$tarea->id}.");
+                return ['code' => 1, 'message' => new \Exception("No se encontró el archivo de mapeo universal para la tarea #{$tarea->id}.")];
             }
 
             //Leemos y decodificamos el archivo JSON completo
@@ -1327,6 +1371,7 @@ class AuditController extends Controller
                 ]);
 
             Log::error("Falló la tarea #{$tarea->id}: " . $e->getMessage());
+            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage())];
         }
     }
 
@@ -1338,7 +1383,7 @@ class AuditController extends Controller
         $tarea = AuditoriaTareas::find($tareaId);
         if (!$tarea || $tarea->status !== 'procesando') {
             Log::warning("Pagos derecho: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.");
-            return 1;
+            return ['code' => 1, 'message' => new \Exception("Pagos derecho: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.")];
         }
         Log::info('Iniciando la auditoría de Pagos de Derecho...');
        try {
@@ -1347,7 +1392,7 @@ class AuditController extends Controller
             $rutaMapeo = $tarea->mapeo_completo_facturas;
             if (!$rutaMapeo || !Storage::exists($rutaMapeo)) {
                 Log::error("No se encontró el archivo de mapeo universal para la tarea #{$tarea->id}.");
-                throw new \Exception("No se encontró el archivo de mapeo universal para la tarea #{$tarea->id}.");
+                return ['code' => 1, 'message' => new \Exception("No se encontró el archivo de mapeo universal para la tarea #{$tarea->id}.")];
             }
 
             //Leemos y decodificamos el archivo JSON completo
@@ -1488,6 +1533,7 @@ class AuditController extends Controller
                     'resultado' => $e->getMessage()
                 ]);
             Log::error("Falló la tarea #{$tarea->id}: " . $e->getMessage());
+            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage())];
         }
     }
 

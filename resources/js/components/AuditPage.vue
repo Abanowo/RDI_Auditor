@@ -163,37 +163,53 @@ export default {
       };
     },
   },
-  mounted() {
-    // 1. PRIMERO OBTENEMOS LAS SUCURSALES SIEMPRE
-    axios
-      .get("/auditoria/sucursales")
-      .then((response) => {
-        this.sucursales = response.data;
+  // ...
+  async mounted() {
+    // Usamos un bloque try/catch para capturar cualquier error crítico durante la carga.
+    try {
+      this.isLoading = true; // Mostramos el spinner de carga desde el inicio
 
-        // 2. DESPUÉS, INTENTAMOS LEER LA URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const sucursalId = urlParams.get("sucursal_id");
-        const operationType = urlParams.get("operation_type");
+      // 1. Esperamos a que la lista de sucursales se cargue por completo.
+      const response = await axios.get("/auditoria/sucursales");
+      this.sucursales = response.data;
 
-        if (sucursalId && operationType) {
-          // Buscamos el objeto completo de la sucursal usando el ID de la URL
-          let foundSucursal = this.sucursales.find((s) => s.id == sucursalId);
+      // 2. Ahora que tenemos las sucursales, procesamos la URL.
+      const urlParams = new URLSearchParams(window.location.search);
+      const sucursalId = urlParams.get("sucursal_id");
+      const operationType = urlParams.get("operation_type");
+      const page = urlParams.get("page");
 
-          // Si no se encuentra, usamos el objeto para 'Todas'
-          if (!foundSucursal && sucursalId === "todos") {
-            foundSucursal = { id: "todos", nombre: "Todas" };
-          }
-
-          if (foundSucursal) {
-            // Restauramos el estado y saltamos directamente al panel
-            this.selectedSucursal = foundSucursal;
-            this.selectOperationType(operationType, false); // El 'false' evita que se reescriba la URL
-          }
+      // 3. Verificamos si la URL contiene los filtros para saltar la selección.
+      if (sucursalId && operationType) {
+        let foundSucursal = this.sucursales.find((s) => s.id == sucursalId);
+        if (!foundSucursal && sucursalId === "todos") {
+          foundSucursal = { id: "todos", nombre: "Todas" };
         }
-      })
-      .catch((error) => {
-        console.error("Error al obtener sucursales:", error);
-      });
+
+        if (foundSucursal) {
+          // Asignamos el estado directamente
+          this.selectedSucursal = foundSucursal;
+          this.selectedOperationType = operationType;
+
+          // Construimos la URL inicial para la paginación
+          const initialUrl = page ? `/auditoria?page=${page}` : "/auditoria";
+
+          // Disparamos las llamadas para obtener los datos del panel.
+          // Usamos Promise.all para que se ejecuten en paralelo y sea más rápido.
+          await Promise.all([this.fetchClientes(), this.fetchOperaciones(initialUrl)]);
+        } else {
+          // Si la sucursal de la URL no es válida, no hacemos nada y dejamos que se muestre la selección.
+          this.isLoading = false;
+        }
+      } else {
+        // Si no hay filtros en la URL, simplemente dejamos de cargar.
+        this.isLoading = false;
+      }
+    } catch (error) {
+      console.error("Error crítico durante el montaje del componente:", error);
+      this.isLoading = false; // Ocultamos el spinner en caso de error
+      // Opcional: podrías mostrar un mensaje de error al usuario.
+    }
   },
   methods: {
     fetchSucursales() {
@@ -298,6 +314,9 @@ export default {
           this.operaciones = response.data.data;
           this.pagination = response.data;
           this.isLoading = false;
+          // Esto cambia la URL sin recargar la página. El 'url' que recibimos
+          // ya contiene el parámetro ?page=X gracias a Laravel.
+          window.history.pushState({}, "", url);
         })
         .catch((error) => {
           console.error("Error al obtener las operaciones:", error);

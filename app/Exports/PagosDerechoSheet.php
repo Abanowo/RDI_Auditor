@@ -41,19 +41,31 @@ WithStrictNullComparison
 
         // Usamos flatMap para "desenrollar" los pagos de derecho
         return $this->operaciones->flatMap(function ($pedimento) {
-            $pagosDeDerecho = $pedimento->importacion->auditorias->where('tipo_documento', 'pago_derecho');
+            // 1. Primero, determinamos de forma segura cuál operación existe
+            $operacion = $pedimento->importacion ?? $pedimento->exportacion;
+
+            // Si por alguna razón un pedimento no tiene ni impo ni expo, lo saltamos
+            if (!$operacion) {
+                return null; // Será eliminado por ->filter() más adelante
+            }
+
+            $pagosDeDerecho = $operacion->auditorias->where('tipo_documento', 'pago_derecho');
 
             // Si no hay pagos, no devolvemos nada para esta operación
-            if ($pagosDeDerecho->isEmpty()) {
+            if (!$pagosDeDerecho) {
                 return null;
             }
-            $sc = $pedimento->importacion->auditoriasTotalSC;
+
+            // 2. Ahora que sabemos que $operacion existe, accedemos a sus relaciones de forma segura
+            $sc = $operacion->auditoriasTotalSC;
+            $cliente = $operacion->cliente;
+
             // Creamos una fila por cada pago de derecho encontrado
-            return $pagosDeDerecho->map(function ($pago) use ($pedimento, $sc) {
+            return $pagosDeDerecho->map(function ($pago) use ($pedimento, $sc, $cliente) {
                 return
                 [
                     'pedimento' => $pedimento->num_pedimiento,
-                    'cliente'   => $pedimento->importacion->cliente,
+                    'cliente'   => $cliente ?? null,
                     'pago_derecho' => $pago,
                     'sc' => $sc,
                 ];
@@ -101,14 +113,9 @@ WithStrictNullComparison
             $montoSc = (float)($montosSc['pago_derecho'] ?? 0);
             $montoScMxn = (float)($montosSc['pago_derecho_mxn'] ?? 0);
             $folioSc = $sc->folio_documento;
-            $urlSC = route('documentos.ver',
-            [
-            'tipo' => 'sc',
-            'id' => $sc->id
-            ]);
 
             if ($sc->ruta_pdf) {
-                $pdfSc = '=HYPERLINK("' . $urlSC . '", "Acceder PDF")';
+                $pdfSc = '=HYPERLINK("' . $sc->ruta_pdf . '", "Acceder PDF")';
             }
         } else {
              $estado = 'Sin SC!';
@@ -119,20 +126,15 @@ WithStrictNullComparison
             $monedaConTC = "USD (" . number_format($desgloseSc['tipo_cambio'], 2) . " MXN)";
         }
 
-        $urlFactura = route('documentos.ver', [
-            'tipo' => 'pago_derecho',
-            'id' => $facturaPDDs->id
-        ]);
-
         $pdfFactura = optional($facturaPDDs)->ruta_pdf
-            ? '=HYPERLINK("' . $urlFactura . '", "Acceder PDF")'
+            ? '=HYPERLINK("' . $facturaPDDs->ruta_pdf . '", "Acceder PDF")'
             : 'Sin PDF!';
 
         return
         [
             optional($facturaPDDs)->fecha_documento,
             $pedimento,
-            $cliente->nombre,
+            optional($cliente)->nombre,
             (float) $facturaPDDs->monto_total,
             (float) $facturaPDDs->monto_total_mxn,
             $montoSc,

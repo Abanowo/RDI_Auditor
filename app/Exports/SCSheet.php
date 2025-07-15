@@ -39,17 +39,36 @@ WithStrictNullComparison
     // El método collection() simplemente devuelve los datos que ya tenemos
     public function collection()
     {
+
         // Filtramos para quedarnos solo con las operaciones que tienen SC
         return $this->operaciones->map( function ($pedimento) {
-            $sc = $pedimento->importacion->auditoriasTotalSC ?? $pedimento->exportacion->auditoriasTotalSC;
-            if (!$sc) { return []; }
-            return
-            [
+            // 1. Primero, determinamos de forma segura cuál operación existe
+            $operacion = $pedimento->importacion ?? $pedimento->exportacion;
+
+            // Si por alguna razón un pedimento no tiene ni impo ni expo, lo saltamos
+            if (!$operacion) {
+                return null; // Será eliminado por ->filter() más adelante
+            }
+
+            // 2. Ahora que sabemos que $operacion existe, accedemos a sus relaciones de forma segura
+            $sc = $operacion->auditoriasTotalSC;
+            $cliente = $operacion->cliente;
+
+            // 3. Si no hay una factura SC para esta operación, la saltamos
+            if (!$sc) {
+                return null;
+            }
+
+            // 4. Si todo está en orden, devolvemos el array con los datos para el Excel
+            return [
                 'pedimento' => $pedimento->num_pedimiento,
-                'cliente'   => $pedimento->importacion->cliente ?? $pedimento->exportacion->cliente,
+                'cliente'   => $cliente, // Usamos optional() por si el cliente fuera nulo
                 'sc'        => $sc,
             ];
         })->filter();
+
+
+
     }
 
     public function title(): string
@@ -85,13 +104,8 @@ WithStrictNullComparison
             $folioSc = $sc->folio_documento;
             $nombreCliente = $cliente->nombre;
 
-            $urlSC = route('documentos.ver', [
-            'tipo' => 'sc',
-            'id' => $sc->id
-            ]);
-
             if ($sc->ruta_pdf) {
-                $pdfSc = '=HYPERLINK("' . $urlSC . '", "Acceder PDF")';
+                $pdfSc = '=HYPERLINK("' . $sc->ruta_pdf . '", "Acceder PDF")';
             }
 
             $monedaConTC = $desgloseSc['moneda'] == "MXN" ? $desgloseSc['moneda'] : $desgloseSc['moneda']. " (" . number_format($desgloseSc['tipo_cambio'], 2) . " MXN)";

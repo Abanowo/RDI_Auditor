@@ -42,13 +42,22 @@ WithStrictNullComparison
         return $this->operaciones->map(function ($pedimento) {
             // Primero, nos aseguramos de que las relaciones necesarias existan para evitar errores.
             if (!$pedimento->importacion || !$pedimento->importacion->auditorias) {
+                if (!$pedimento->exportacion || !$pedimento->exportacion->auditorias) {
                 return null;
+                }
+            }
+            // 1. Primero, determinamos de forma segura cuál operación existe
+            $operacion = $pedimento->importacion ?? $pedimento->exportacion;
+
+            // Si por alguna razón un pedimento no tiene ni impo ni expo, lo saltamos
+            if (!$operacion) {
+                return null; // Será eliminado por ->filter() más adelante
             }
 
             // CAMBIO CLAVE: Usamos firstWhere para obtener un único modelo o null.
             // Esto buscará en la colección 'auditorias' el primer registro
             // donde 'tipo_documento' sea 'LLC'.
-            $facturaLLCs = $pedimento->importacion->auditorias->firstWhere('tipo_documento', 'llc');
+            $facturaLLCs = $operacion->auditorias->firstWhere('tipo_documento', 'llc');
 
             // Si no se encuentra una factura de LLC para este pedimento, devolvemos null.
             // El método ->filter() posterior se encargará de eliminar esta entrada.
@@ -57,14 +66,16 @@ WithStrictNullComparison
             }
 
             // Obtenemos la factura SC (factura maestra) asociada.
-            $sc = $pedimento->importacion->auditoriasTotalSC;
+            // 2. Ahora que sabemos que $operacion existe, accedemos a sus relaciones de forma segura
+            $sc = $operacion->auditoriasTotalSC;
+            $cliente = $operacion->cliente;
 
             // Devolvemos el array con los datos listos para el método map() del export.
             // Ahora 'LLC' será un objeto del modelo Auditoria.
             return
             [
                 'pedimento' => $pedimento->num_pedimiento,
-                'cliente'   => $pedimento->importacion->cliente,
+                'cliente'   => $cliente,
                 'llc'       => $facturaLLCs, // ¡Correcto! Ahora es un objeto App\Models\Auditoria
                 'sc'        => $sc,
             ];
@@ -113,14 +124,9 @@ WithStrictNullComparison
             $montoScMxn = (float)($montosSc['llc_mxn'] ?? 0);
             $folioSc = $sc->folio_documento;
 
-            $urlSC = route('documentos.ver',
-            [
-            'tipo' => 'sc',
-            'id' => $sc->id
-            ]);
 
             if ($sc->ruta_pdf) {
-                $pdfSc = '=HYPERLINK("' . $urlSC . '", "Acceder PDF")';
+                $pdfSc = '=HYPERLINK("' . $sc->ruta_pdf . '", "Acceder PDF")';
             }
         } else {
              $estado = 'Sin SC!';
@@ -131,14 +137,8 @@ WithStrictNullComparison
             $monedaConTC = "USD (" . number_format($desgloseSc['tipo_cambio'], 2) . " MXN)";
         }
 
-        $urlFactura = route('documentos.ver',
-        [
-            'tipo' => 'llc',
-            'id' => $facturaLLCs->id
-        ]);
-
         $pdfFactura = optional($facturaLLCs)->ruta_pdf
-            ? '=HYPERLINK("' . $urlFactura . '", "Acceder PDF")'
+            ? '=HYPERLINK("' . $facturaLLCs->ruta_pdf . '", "Acceder PDF")'
             : 'Sin PDF!';
 
         return
