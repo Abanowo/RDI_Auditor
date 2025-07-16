@@ -34,6 +34,7 @@ class ProcesarAuditoriaCompleta extends Command
         try {
 
             $status = null;
+
             // 2. Llama a cada comando en secuencia, pasándole el ID de la tarea
             $this->info("--- [INICIO] Procesando Impuestos (Fase 1) para Tarea #{$tarea->id} ---");
             Log::info("Tarea #{$tarea->ids}: Ejecutando comando de Impuestos...");
@@ -103,6 +104,14 @@ class ProcesarAuditoriaCompleta extends Command
             $this->info("--- [FIN] Procesamiento de Pagos de derecho.");
             Log::info("--- [FIN] Procesamiento de Pagos de derecho.");
 
+            // 5. Llama a cada comando en secuencia, pasándole el ID de la tarea
+            $this->info("--- [INICIO] Exportando auditorias a Excel para Tarea #{$tarea->id} ---");
+            Log::info("Tarea #{$tarea->id}: Ejecutando comando de Exportacion de auditorias...");
+            $status = (new AuditoriaImpuestosController())->exportarAuditoriasAExcel($tarea->id);  //Exportacion a Excel
+            if($status['code'] > 0) throw $status['message'];
+
+            $this->info("--- [FIN] Exportacion de auditorias a Excel.");
+            Log::info("--- [FIN] Exportacion de auditorias a Excel.");
 
             //6. Si todos los comandos terminan bien, marca la tarea como completada
             $tarea->update(['status' => 'completado', 'resultado' => 'Proceso de auditoría finalizado con éxito.']);
@@ -121,60 +130,6 @@ class ProcesarAuditoriaCompleta extends Command
             $tarea->refresh()->update(['resultado' => 'La orquestación se detuvo debido a un fallo en un subproceso. ' . $e->getMessage()]);
             Storage::delete($tarea->mapeo_completo_facturas);
         }
-
-
-        /* try {
-
-            // 1. Llama a cada comando en secuencia, pasándole el ID de la tarea
-            $this->info("--- [INICIO] Procesando SCs para Tarea #{$tarea->id} ---");
-            Log::info("Tarea #{$tarea->id}: Ejecutando comando de SC...");
-            Artisan::call('reporte:auditar-sc', ['--tarea_id' => $tarea->id]); // <-- Descomentarás cuando lo tengas
-            // Capturamos y mostramos la salida del comando anterior
-            $this->line(Artisan::output());
-            $this->info("--- [FIN] Procesamiento de SCs.");
-
-            // 2. Llama a cada comando en secuencia, pasándole el ID de la tarea
-            $this->info("--- [INICIO] Procesando Impuestos para Tarea #{$tarea->id} ---");
-            Log::info("Tarea #{$tarea->id}: Ejecutando comando de Impuestos...");
-            Artisan::call('reporte:importar-operaciones', ['--tarea_id' => $tarea->id]);
-            // Capturamos y mostramos la salida del comando anterior
-            $this->line(Artisan::output());
-            $this->info("--- [FIN] Procesamiento de Impuestos.");
-
-            // 3. Llama a cada comando en secuencia, pasándole el ID de la tarea
-            $this->info("--- [INICIO] Procesando Fletes para Tarea #{$tarea->id} ---");
-            Log::info("Tarea #{$tarea->id}: Ejecutando comando de Fletes...");
-            Artisan::call('reporte:auditar-fletes', ['--tarea_id' => $tarea->id]); // <-- Descomentarás cuando lo tengas
-            // Capturamos y mostramos la salida del comando anterior
-            $this->line(Artisan::output());
-            $this->info("--- [FIN] Procesamiento de Fletes.");
-
-            // 4. Llama a cada comando en secuencia, pasándole el ID de la tarea
-            $this->info("--- [INICIO] Procesando LLCs para Tarea #{$tarea->id} ---");
-            Log::info("Tarea #{$tarea->id}: Ejecutando comando de LLC...");
-            Artisan::call('reporte:auditar-llc', ['--tarea_id' => $tarea->id]); // <-- Descomentarás cuando lo tengas
-            // Capturamos y mostramos la salida del comando anterior
-            $this->line(Artisan::output());
-            $this->info("--- [FIN] Procesamiento de LLCs.");
-
-            // 5. Llama a cada comando en secuencia, pasándole el ID de la tarea
-            $this->info("--- [INICIO] Procesando Pagos de derecho para Tarea #{$tarea->id} ---");
-            Log::info("Tarea #{$tarea->id}: Ejecutando comando de Pagos de derecho...");
-            Artisan::call('reporte:auditar-pagos-derecho', ['--tarea_id' => $tarea->id]); // <-- Descomentarás cuando lo tengas
-            // Capturamos y mostramos la salida del comando anterior
-            $this->line(Artisan::output());
-            $this->info("--- [FIN] Procesamiento de Pagos de derecho.");
-
-            //6. Si todos los comandos terminan bien, marca la tarea como completada
-            $tarea->update(['status' => 'completado', 'resultado' => 'Proceso de auditoría finalizado con éxito.']);
-            $this->info("¡Orquestación de la Tarea #{$tarea->id} completada con éxito!");
-
-        } catch (\Exception $e) {
-            // 7. Si algún comando falla, captura el error y marca la tarea como fallida
-            $tarea->update(['status' => 'fallido', 'resultado' => 'Error durante la orquestación: ' . $e->getMessage()]);
-            $this->error("Falló la orquestación de la Tarea #{$tarea->id}: " . $e->getMessage());
-            Log::error("Fallo en orquestación Tarea #{$tarea->id}: " . $e->getMessage());
-        } */
 
         return 0;
     }

@@ -71,123 +71,84 @@ class AuditoriaImpuestosController extends Controller
     private function obtenerQueryFiltrado(Request $request) : Builder
     {
         $filters = $request->query();
-
         $operationType = $filters['operation_type'] ?? 'todos';
 
-        // Asumimos que este código está dentro de un método que recibe los filtros,
-        // como el index() de tu AuditoriaImpuestosController o el query() de tu clase de Export.
-
-        // --- LÓGICA DE FILTROS RECONSTRUIDA ---
-
-        // 1. La consulta ahora empieza desde el modelo Pedimento.
+        // 1. Empezamos con el modelo base
         $query = Pedimento::query();
 
-        // 2. CONDICIÓN BASE: El pedimento DEBE tener una auditoría asociada DIRECTAMENTE.
-        // Esto resuelve el problema de los 6,400 registros y los 0 resultados.
-        $query->where(function ($q) {
-            $q->has('auditorias')->orHas('auditoriasTotalSC');
-        });
-
-        // 2. Filtro por Número de Pedimento (directo sobre la tabla pedimiento)
+        // 2. Filtro por Número de Pedimento (se aplica directamente al pedimento, es rápido)
         $query->when($filters['pedimento'] ?? null, function ($q, $val) {
-            return $q->where('num_pedimiento', 'like', "%{$val}%");
+            $q->where('num_pedimiento', 'like', "%{$val}%");
         });
 
-        // Esta función interna aplica los filtros de factura (folio, estado, fecha)
-        // Se define una vez y se reutiliza para Impo y Expo. ¡DRY!
-        $filtrosAplicados = function (Builder $subQ) use ($filters) {
+        // 3. Esta clausura contiene TODAS las condiciones que debe cumplir la OPERACIÓN (Impo/Expo)
+        $applyRelationshipFilters = function (Builder $q) use ($filters) {
 
-            // Filtro por Folio
-            $subQ->when($filters['folio'] ?? null, function ($q, $folio) use ($filters) {
+            // --- A. Filtros que aplican DIRECTAMENTE a la tabla de operación (rápidos) ---
+            $q->when($filters['sucursal_id'] ?? null, function ($subQ, $id) {
+                if ($id && $id !== 'todos') {
+                    $subQ->where('sucursal', $id);
+                }
+            });
 
-                $tipo = $filters['folio_tipo_documento'] ?? null;
+            $q->when($filters['cliente_id'] ?? null, function ($subQ, $id) {
+                $subQ->where('id_cliente', $id);
+            });
+            if (!isset($filters['fecha_inicio'])) {
+                $filters['fecha_inicio'] = now()->addMonths(-1)->toDateTimeString();
+            $filters['fecha_fin'] = now()->toDateTimeString();
+            }
+            // --- B. Filtros que aplican a las tablas de auditoría (LA OPTIMIZACIÓN PRINCIPAL) ---
+            // Agrupamos todas las condiciones de auditoría en un solo bloque.
+            $q->where(function ($auditExistsQuery) use ($filters) {
 
-                $q->where(function ($innerQ) use ($folio, $tipo) {
-                    $innerQ->whereHas('auditorias', function ($auditQ) use ($folio, $tipo) {
+                // RUTA 1: La operación tiene una 'auditoria' que cumple TODOS los filtros aplicables.
+                $auditExistsQuery->orWhereHas('auditorias', function ($auditQuery) use ($filters) {
 
-                        $auditQ->where('folio', 'like', "%{$folio}%");
-                        if ($tipo) $auditQ->where('tipo_documento', $tipo);
-
+                    $auditQuery->when($filters['folio'] ?? null, function ($sq, $val) {
+                        $sq->where('folio', 'like', "%{$val}%");
                     });
 
-                    // Solo busca en SC si no se especificó un tipo de documento o si es 'sc'
-                    if (!$tipo || $tipo === 'sc') {
-                        $innerQ->orWhereHas('auditoriasTotalSC', function ($scQ) use ($folio) {
+                    $auditQuery->when($filters['estado'] ?? null, function ($sq, $val) {
+                        if ($val !== 'SC Encontrada') { // 'SC Encontrada' no aplica a esta tabla
+                            $sq->where('estado', $val);
+                        }
+                    });
 
-                            $scQ->where('folio_documento', 'like', "%{$folio}%");
+                    $auditQuery->when($filters['fecha_inicio'] ?? null, function ($sq, $val) use ($filters) {
+                        $fin = $filters['fecha_fin'] ?? $val;
+                        $sq->whereBetween('fecha_documento', [$val, $fin]);
+                    });
+                });
 
-                        });
+                // RUTA 2: O la operación tiene una 'auditoriaTotalSC' que cumple TODOS los filtros aplicables.
+                $auditExistsQuery->orWhereHas('auditoriasTotalSC', function ($scQuery) use ($filters) {
 
+                    $scQuery->when($filters['folio'] ?? null, function ($sq, $val) {
+                        $sq->where('folio_documento', 'like', "%{$val}%");
+                    });
+
+                    if (($filters['estado'] ?? null) === 'SC Encontrada') {
+                        // La condición se cumple por la simple existencia, no se necesita un 'where' extra.
                     }
-                });
 
-            });
-
-            // Filtro por Estado
-            $subQ->when($filters['estado'] ?? null, function ($q, $estado) use ($filters) {
-
-                $tipo = $filters['estado_tipo_documento'] ?? null;
-
-                if ($estado === 'SC Encontrada') {
-                    return $q->whereHas('auditoriasTotalSC');
-                }
-
-                return $q->whereHas('auditorias', function ($auditQ) use ($estado, $tipo) {
-
-                    $auditQ->where('estado', $estado);
-                    if ($tipo) $auditQ->where('tipo_documento', $tipo);
-
-                });
-            });
-
-            // Filtro por Periodo de Fecha
-            $subQ->when($filters['fecha_inicio'] ?? null, function ($q) use ($filters) {
-
-                $inicio = $filters['fecha_inicio'];
-                $fin = $filters['fecha_fin'] ?? $inicio;
-                $tipo = $filters['fecha_tipo_documento'] ?? null;
-
-                return $q->where(function ($innerQ) use ($inicio, $fin, $tipo) {
-                    $innerQ->whereHas('auditorias', function ($auditQ) use ($inicio, $fin, $tipo) {
-
-                        $auditQ->whereBetween('fecha_documento', [$inicio, $fin]);
-                        if ($tipo) $auditQ->where('tipo_documento', $tipo);
-
-                    })->orWhereHas('auditoriasTotalSC', function ($scQ) use ($inicio, $fin) {
-
-                        $scQ->whereBetween('fecha_documento', [$inicio, $fin]);
-
+                    $scQuery->when($filters['fecha_inicio'] ?? null, function ($sq, $val) use ($filters) {
+                        $fin = $filters['fecha_fin'] ?? $val;
+                        $sq->whereBetween('fecha_documento', [$val, $fin]);
                     });
                 });
-            });
-
-            // Filtro por Cliente
-            $subQ->when($filters['cliente_id'] ?? null, function ($q, $clienteId) {
-                return $q->where('id_cliente', $clienteId);
-            });
-
-            // Filtro por Sucursal
-            $subQ->when($filters['sucursal_id'] ?? null, function ($q, $sucursalId) {
-                    // Solo aplicamos el 'where' si el ID de la sucursal existe
-                // Y NO es la palabra 'todos'.
-                if ($sucursalId && $sucursalId !== 'todos') {
-                    return $q->where('sucursal', $sucursalId);
-                }
-                // Si es nulo o es 'todos', no hacemos nada, devolviendo todas las sucursales.
-                return $q;
             });
         };
 
-        // 4. Aplicamos los filtros de relación según el tipo de operación
+        // 4. Aplicamos el conjunto de filtros a la relación correcta
         if ($operationType === 'importacion') {
-            $query->whereHas('importacion', $filtrosAplicados);
+            $query->whereHas('importacion', $applyRelationshipFilters);
         } elseif ($operationType === 'exportacion') {
-            $query->whereHas('exportacion', $filtrosAplicados);
+            $query->whereHas('exportacion', $applyRelationshipFilters);
         } else { // 'todos'
-            // Para 'todos', un pedimento es válido si cumple los filtros en CUALQUIERA de sus operaciones
-            $query->where(function($q) use ($filtrosAplicados) {
-                $q->whereHas('importacion', $filtrosAplicados)
-                ->orWhereHas('exportacion', $filtrosAplicados);  // El 'or' aquí es clave
+            $query->where(function($q) use ($applyRelationshipFilters) {
+                $q->whereHas('importacion', $applyRelationshipFilters)
+                ->orWhereHas('exportacion', $applyRelationshipFilters);
             });
         }
 
@@ -318,6 +279,43 @@ class AuditoriaImpuestosController extends Controller
         );
     }
 
+    public function getTareasCompletadas(Request $request)
+    {
+        $request->validate(['sucursal_id' => 'required']);
+
+        $sucursalId = $request->input('sucursal_id');
+        $sucursalNombre = ($sucursalId !== 'todos') ? Sucursales::find($sucursalId)->nombre : null;
+        $sucursalesDiccionario = [
+         "Nogales"     => "NOG" ,
+         "Tijuana"     => "TIJ" ,
+         "Laredo"      => "NL"  ,
+         "Reynosa"     => "REY" ,
+         "Mexicali"    => "MXL" ,
+         "Manzanillo"  => "ZLO" ,
+        ];
+        $serieSucursal = $sucursalesDiccionario[$sucursalNombre];
+        $tareas = AuditoriaTareas::query()
+            ->where('status', 'completado')
+            ->when($serieSucursal, function ($query, $nombre) {
+                return $query->where('sucursal', $nombre);
+            })
+            ->orderBy('created_at', 'desc')
+            ->limit(10)
+            // Seleccionamos las columnas con los nuevos nombres
+            ->get([
+                'id',
+                'nombre_archivo',
+                'sucursal',
+                'created_at',
+                'ruta_reporte_impuestos',
+                'nombre_reporte_impuestos',
+                'ruta_reporte_impuestos_pendientes',
+                'nombre_reporte_pendientes'
+            ]);
+
+        return response()->json($tareas);
+    }
+
     //--------------------------------------------------------------------------------------------------------------
     //----------------------------------- INICIO DE LOS COMMANDS - AuditoriaImpuestosController ---------------------------------
     //--------------------------------------------------------------------------------------------------------------
@@ -387,23 +385,44 @@ class AuditoriaImpuestosController extends Controller
             Log::info("Tabula y Python procesaron el PDF y encontraron {$coleccionDeFilas->count()} filas de datos crudos.");
 
             // 3. Usamos map() para transformar y filter() para limpiar la colección.
-            $operacionesLimpias = $coleccionDeFilas->map(function ($fila) use ($matchYear) {
-                // Verificamos que la fila tenga al menos 3 celdas (Fecha, Concepto, Cargo).
-                if (isset($fila[0], $fila[1], $fila[2])) {
-                    $textoConcepto = $fila[1];
-                    // El Regex para encontrar el pedimento que ya conocemos.
-                    $patron = '/PEDMTO:\s*([\w-]+)/';
+            $operacionesLimpias = $coleccionDeFilas->map(function ($fila) use ($matchYear, $banco) {
 
-                    if (preg_match($patron, $textoConcepto, $match)) {
-                        // Si es una fila de pedimento válida, devolvemos un array limpio y estructurado.
-                        return
-                        [
-                            'pedimento' => $match[1],
-                            'fecha_str' => $fila[0],
-                            'cargo_str' => $fila[2],
-                        ];
+                if($banco === 'BBVA'){
+                    // Verificamos que la fila tenga al menos 3 celdas (Fecha, Concepto, Cargo).
+                    if (isset($fila[0], $fila[1], $fila[2])) {
+                        $textoConcepto = $fila[1];
+                        // El Regex para encontrar el pedimento que ya conocemos.
+                        $patron = '/PEDMTO:\s*([\w-]+)/';
+
+                        if (preg_match($patron, $textoConcepto, $match)) {
+                            // Si es una fila de pedimento válida, devolvemos un array limpio y estructurado.
+                            return
+                            [
+                                'pedimento' => $match[1],
+                                'fecha_str' => \Carbon\Carbon::createFromFormat('d-m', $fila[0])->format('Y-m-d'),
+                                'cargo_str' => $fila[2],
+                            ];
+                        }
+                    }
+                } else if ($banco === 'SANTANDER'){
+                    // Verificamos que la fila tenga al menos 3 celdas (Fecha, Concepto, Cargo).
+                    if (isset($fila[1], $fila[4], $fila[5], $fila[8])) {
+                        $textoConcepto = $fila[4];
+                        // El Regex para encontrar el pedimento que ya conocemos.
+                        $patron = '/\s*\n*\r*CGO\s*IMP\s*CE\s*TE\s*\n*\r*/';
+
+                        if (preg_match($patron, $textoConcepto, $match)) {
+                            // Si es una fila de pedimento válida, devolvemos un array limpio y estructurado.
+                            return
+                            [
+                                'pedimento' => $fila[8],
+                                'fecha_str' => \Carbon\Carbon::createFromFormat('dmY', $fila[1])->format('Y-m-d'),
+                                'cargo_str' => $fila[5],
+                            ];
+                        }
                     }
                 }
+
                 return null; // Si no es una fila de pedimento, la marcamos para ser eliminada.
             })->filter(); // El método filter() elimina todos los resultados 'null'.
 
@@ -525,7 +544,7 @@ class AuditoriaImpuestosController extends Controller
                         'operation_type'    => $tipoOperacion,
                         'tipo_documento'    => 'impuestos',
                         'concepto_llave'    => 'principal',
-                        'fecha_documento'   => \Carbon\Carbon::createFromFormat('d-m', $op['fecha_str'])->format('Y-m-d'),
+                        'fecha_documento'   => $op['fecha_str'],
                         'monto_total'       => (float) str_replace(',', '', $matchCargo[0] ?? '0'),
                         'monto_total_mxn'   => (float) str_replace(',', '', $matchCargo[0] ?? '0'),
                         'moneda_documento'  => 'MXN',
@@ -1538,6 +1557,116 @@ class AuditoriaImpuestosController extends Controller
         }
     }
 
+
+    public function exportarAuditoriasAExcel(string $tareaId)
+    {
+        $tarea = AuditoriaTareas::find($tareaId);
+        if (!$tarea || $tarea->status !== 'procesando') {
+            Log::warning("Pagos derecho: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.");
+            return ['code' => 1, 'message' => new \Exception("Pagos derecho: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.")];
+        }
+        Log::info('Iniciando la auditoría de Pagos de Derecho...');
+       try {
+            // --- FASE 1: Construir Índices en Memoria para Búsquedas Rápidas ---
+            //Iniciamos con obtener el mapeo
+            $rutaMapeo = $tarea->mapeo_completo_facturas;
+            if (!$rutaMapeo || !Storage::exists($rutaMapeo)) {
+                Log::error("No se encontró el archivo de mapeo universal para la tarea #{$tarea->id}.");
+                return ['code' => 1, 'message' => new \Exception("No se encontró el archivo de mapeo universal para la tarea #{$tarea->id}.")];
+            }
+
+            //Leemos y decodificamos el archivo JSON completo
+            $contenidoJson = Storage::get($rutaMapeo);
+            $mapeadoFacturas = (array)json_decode($contenidoJson, true);
+
+            //Leemos los demas campos de la tarea
+            $sucursal = $tarea->sucursal;
+            $pedimentosJson = $tarea->pedimentos_procesados;
+            $pedimentos = $pedimentosJson ? json_decode($pedimentosJson, true) : [];
+
+            if (empty($pedimentos)) {
+                Log::info("Exportacion: No hay pedimentos en la Tarea #{$tareaId} para procesar.");
+                return 0;
+            }
+            Log::info("Procesando la Exportacion a Excel para Tarea #{$tarea->id} en la sucursal: {$sucursal}");
+
+            //$mapasPedimento - Contienen todos los pedimentos del estado de cuenta, encontrados en Importacion/Exportacion
+            $mapaPedimentoAImportacionId = $mapeadoFacturas['pedimentos_importacion'];
+            $mapaPedimentoAExportacionId = $mapeadoFacturas['pedimentos_exportacion'];
+            $mapaPedimentoAOperacionesId = $mapaPedimentoAImportacionId + $mapaPedimentoAExportacionId;
+            //$mapaPedimentoAId - Este arreglo contiene los pedimentos limpios, sucios, y su Id correspondiente
+            $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'];
+
+
+            // 1. Extraemos los arrays de IDs una sola vez para usarlos en ambas consultas.
+            $operacionIds = Arr::pluck($mapaPedimentoAOperacionesId, 'id_operacion');
+            $pedimentoIds = Arr::pluck($mapaPedimentoAId, 'id_pedimiento');
+
+
+            // 2. Construimos la consulta desde Pedimento.
+            $query = Pedimento::query()
+                // Usamos una clausura 'where' para agrupar las condiciones OR.
+                ->where(function ($q) use ($operacionIds, $pedimentoIds) {
+
+                    // BUSCA Pedimentos que tengan una 'auditoria'...
+                    $q->whereHas('auditorias', function ($auditQuery) use ($operacionIds, $pedimentoIds) {
+                        // ...cuyo 'operacion_id' O 'pedimento_id' esté en nuestras listas.
+                        $auditQuery->whereIn('operacion_id', $operacionIds)
+                                ->orWhereIn('pedimento_id', $pedimentoIds);
+                    });
+
+                    // O BUSCA Pedimentos que tengan una 'auditoriaTotalSC'...
+                    $q->orWhereHas('auditoriasTotalSC', function ($scQuery) use ($operacionIds, $pedimentoIds) {
+                        // ...cuyo 'operacion_id' O 'pedimento_id' esté en nuestras listas.
+                        $scQuery->whereIn('operacion_id', $operacionIds)
+                                ->orWhereIn('pedimento_id', $pedimentoIds);
+                    });
+                })
+                // 3. Cargamos todas las relaciones que tu método de exportación necesitará.
+                // Esto es crucial para evitar el problema N+1 y asegurar un buen rendimiento.
+                ->with([
+                    'importacion.cliente',
+                    'importacion.auditoriasTotalSC',
+                    'exportacion.cliente',
+                    'exportacion.auditoriasTotalSC'
+                ]);
+
+            // 4. Finalmente, ejecutamos la consulta.
+            $operacionesParaExportar = $query->get();
+            // Creamos el nombre del archivo dinámicamente
+            $fecha = now()->format('dmY');
+            $nombreArchivo = "RDI_NOG{$fecha}.xlsx";
+            $nombreUnico = Str::random(40) . '.xlsx'; // Genera un nombre aleatorio y seguro
+            $rutaDeAlmacenamiento = "/reportes/{$nombreUnico}";
+
+            // 2. Guardamos el archivo en el disco 'public', dentro de la carpeta 'reportes'
+            Excel::store(new AuditoriaFacturadoExport($operacionesParaExportar), $rutaDeAlmacenamiento, 'public');
+            Log::info("Reporte de impuestos almacenado para la tarea {$tareaId}");
+            // 3. Actualizamos el registro de la tarea en la base de datos
+            //    Asumo que tienes la variable $tarea disponible en este punto del comando.
+            if (isset($tarea)) {
+                $tarea->update([
+                    // Guardamos la ruta relativa donde se almacenó el archivo
+                    'ruta_reporte_impuestos'    => $rutaDeAlmacenamiento,
+
+                    // Guardamos el nombre amigable que usaremos para la descarga
+                    'nombre_reporte_impuestos'  => $nombreArchivo,
+                ]);
+            }
+            Log::info("El reporte de impuestos para la tarea {$tareaId} se ha exportado exitosamente!");
+            return 0;
+       } catch (\Exception $e) {
+            // 5. Si algo falla, marca la tarea como 'fallido' y guarda el error
+            $tarea->update(
+                [
+                    'status' => 'fallido',
+                    'resultado' => $e->getMessage()
+                ]);
+            Log::error("Falló la tarea #{$tarea->id}: " . $e->getMessage());
+            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage())];
+       }
+
+    }
 
     //--------------------------------------------------------------------------------------------------------------
     //----------------------------------- FINAL DE LOS COMMANDS - AuditoriaImpuestosController ----------------------------------

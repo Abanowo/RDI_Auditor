@@ -22,9 +22,12 @@ Route::post('/importar-estado-de-cuenta', [ImportController::class, 'procesarEst
 //Rutas de DocumentoController
 // La ruta no necesita cambiar si usamos parámetros GET
 Route::get('/documentos/ver', [DocumentoController::class, 'mostrarPdf'])->name('documentos.ver');
+// La ruta ahora espera un ID de tarea y una cadena de texto ('facturado' o 'pendiente').
+Route::get('/documentos/reporte-auditoria/{tarea}/{tipo}', [DocumentoController::class, 'descargarReporteAuditoria'])->name('reportes.auditoria.descargar');
 
 //Rutas de AuditoriaImpuestosController
 // Rutas API para los filtros del frontend
+Route::get('/auditoria/tareas-completadas', [AuditoriaImpuestosController::class, 'getTareasCompletadas']);
 Route::get('/auditoria/sucursales', [AuditoriaImpuestosController::class, 'getSucursales']);
 Route::get('/auditoria/clientes', [AuditoriaImpuestosController::class, 'getClientes']);
 Route::get('/auditoria/exportar', [AuditoriaImpuestosController::class, 'exportarFacturado'])->name('auditoria.exportar');

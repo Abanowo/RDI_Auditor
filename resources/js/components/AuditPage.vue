@@ -77,7 +77,11 @@
 
       <ImportModal :show="isImportModalVisible" @close="isImportModalVisible = false" />
 
-      <FilterBar :clientes="clientes" @apply-filters="handleFilters" />
+      <FilterBar
+        :selected-sucursal="selectedSucursal"
+        :clientes="clientes"
+        @apply-filters="handleFilters"
+      />
       <div v-if="isLoading" class="text-center text-gray-500 mt-10">
         <p>Cargando operaciones...</p>
       </div>
@@ -298,14 +302,10 @@ export default {
     // En AuditPage.vue -> methods
 
     fetchOperaciones(url = "/auditoria") {
+      // La guarda inicial está perfecta.
       if (!this.selectedSucursal || !this.selectedOperationType || !url) return;
+
       this.isLoading = true;
-
-      // ANTES (Incorrecto):
-      // const cleanParams = this.cleanFilters(this.activeFilters);
-
-      // ✅ DESPUÉS (Correcto):
-      // Usa la propiedad computada 'finalFilters' que ya combina todo.
       const cleanParams = this.cleanFilters(this.finalFilters);
 
       axios
@@ -314,9 +314,16 @@ export default {
           this.operaciones = response.data.data;
           this.pagination = response.data;
           this.isLoading = false;
-          // Esto cambia la URL sin recargar la página. El 'url' que recibimos
-          // ya contiene el parámetro ?page=X gracias a Laravel.
-          window.history.pushState({}, "", url);
+
+          // --- LÓGICA CORREGIDA ---
+          // 1. Buscamos el enlace de la página ACTIVA que nos devuelve Laravel.
+          const activeLink = response.data.links.find((link) => link.active);
+
+          // 2. Si encontramos ese enlace y tiene una URL, la usamos para actualizar
+          //    la barra de direcciones. Esta URL ya contiene TODOS los parámetros.
+          if (activeLink && activeLink.url) {
+            window.history.pushState({}, "", activeLink.url);
+          }
         })
         .catch((error) => {
           console.error("Error al obtener las operaciones:", error);

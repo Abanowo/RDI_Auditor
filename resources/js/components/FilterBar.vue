@@ -133,6 +133,38 @@
       <fieldset class="border p-4 rounded-md">
         <legend class="px-2 font-semibold text-sm">Acciones</legend>
         <div class="h-full flex flex-col justify-end space-y-2">
+          <!-- RICH SELECTBOX DE REPORTES RECIENTES -->
+          <!-- RICH SELECTBOX DE REPORTES RECIENTES -->
+          <v-select
+            ref="reporteSelect"
+            :options="tareasCompletadas"
+            placeholder="Ver reportes recientes..."
+            class="w-full mb-2"
+            :filterable="false"
+            @option:selected="limpiarSeleccionReporte"
+          >
+            <template #selected-option-container>
+                <div class="text-sm text-gray-500">Seleccione un reporte...</div>
+            </template>
+
+            <template #option="{ id, nombre_archivo, sucursal, created_at, ruta_reporte_impuestos, ruta_reporte_impuestos_pendientes }">
+              <div class="py-2 px-3">
+                <p class="font-bold text-base truncate" :title="nombre_archivo">{{ nombre_archivo }}</p>
+                <div class="flex justify-between text-xs mt-1">
+                  <span>{{ sucursal }}</span>
+                  <span>{{ formatRelativeDate(created_at) }}</span>
+                </div>
+                <div class="flex space-x-4 text-sm mt-2 pt-2 border-t">
+                  <a v-if="ruta_reporte_impuestos" :href="getDownloadUrl(id, 'facturado')" @click.stop target="_blank" class="font-medium hover:underline">Reporte - Facturados</a>
+                  <a v-if="ruta_reporte_impuestos_pendientes" :href="getDownloadUrl(id, 'pendiente')" @click.stop target="_blank" class="font-medium hover:underline">Reporte - Pendientes</a>
+                </div>
+              </div>
+            </template>
+
+            <template #no-options>
+              No hay reportes recientes para esta sucursal.
+            </template>
+          </v-select>
           <div class="flex items-center space-x-2">
             <a
               :href="exportUrl"
@@ -161,21 +193,22 @@
 </template>
 
 <script>
-import vSelect from 'vue-select';
-import 'vue-select/dist/vue-select.css';
-
+import vSelect from "vue-select";
+import "vue-select/dist/vue-select.css";
+// Para formatear la fecha (ej. "hace 2 días"), instala date-fns: npm install date-fns
+import { formatDistanceToNow, parseISO } from "date-fns";
+import { es } from "date-fns/locale";
 export default {
-    components: {
-        vSelect
-    },
-    props: {
-    clientes: {
-      type: Array,
-      default: () => []
-    }
+  components: {
+    vSelect,
+  },
+   props: {
+    clientes: { type: Array, default: () => [] },
+    selectedSucursal: { type: Object, default: null }
   },
   data() {
     return {
+      tareasCompletadas: [],
       filters: {
         //SECCION 1: Identificadores universales
         pedimento: "",
@@ -203,7 +236,7 @@ export default {
   },
 
   computed: {
-     // vue-select funciona mejor con un array de objetos
+    // vue-select funciona mejor con un array de objetos
     clienteOptions() {
       return this.clientes;
     },
@@ -215,12 +248,58 @@ export default {
     },
   },
   watch: {
+    // ESTE ES EL DISPARADOR: Se ejecuta cuando la prop 'selectedSucursal' cambia.
+    selectedSucursal: {
+      handler(newSucursal) {
+        // Verificamos que la nueva sucursal sea válida antes de llamar a la API
+        if (newSucursal && newSucursal.id) {
+          console.log(`Sucursal cambiada a: ${newSucursal.nombre}. Buscando tareas...`); // <-- Para depurar
+          this.fetchTareasCompletadas(newSucursal.id);
+        } else {
+          this.tareasCompletadas = []; // Limpia la lista si no hay sucursal
+        }
+      },
+      immediate: true // 'immediate: true' hace que se ejecute una vez cuando el componente se carga por primera vez.
+    },
     // Observador para el selector de periodos
     selectedPeriod(newPeriod) {
       this.setPeriod(newPeriod);
     },
   },
   methods: {
+    // Método que llama al backend
+    fetchTareasCompletadas(sucursalId) {
+      axios.get('/auditoria/tareas-completadas', { params: { sucursal_id: sucursalId } })
+        .then(response => {
+          this.tareasCompletadas = response.data;
+        })
+        .catch(error => {
+          console.error("Error al obtener tareas completadas:", error);
+          this.tareasCompletadas = [];
+        });
+    },
+    // Genera la URL de descarga correcta
+    getDownloadUrl(tareaId, tipoReporte) {
+        // Asegúrate que esta ruta coincida con la que definiste en tu archivo de rutas para el DocumentoController
+        return `/documentos/reporte-auditoria/${tareaId}/${tipoReporte}`;
+    },
+    // Formatea la fecha
+    formatRelativeDate(dateString) {
+        if (!dateString) return '';
+        try {
+            return formatDistanceToNow(parseISO(dateString), { addSuffix: true, locale: es });
+        } catch (e) {
+            return dateString;
+        }
+    },
+    // Reinicia la selección del dropdown
+    limpiarSeleccionReporte() {
+      setTimeout(() => {
+          if (this.$refs.reporteSelect) {
+            this.$refs.reporteSelect.clearSelection();
+          }
+      }, 50);
+    },
     search() {
       // Avisa al componente padre que se aplicaron los filtros
       this.$emit("apply-filters", this.filters);
@@ -263,15 +342,42 @@ export default {
   },
 };
 </script>
+<!-- ✅ ESTILOS CORREGIDOS PARA VUE-SELECT -->
 <style>
-/* Estilos para que vue-select se vea bien con Tailwind */
+/* Anulamos los estilos por defecto de vue-select.
+  Usamos selectores un poco más específicos para asegurar que nuestras reglas ganen.
+*/
+
+/* Define el color de fondo azul para la opción resaltada */
+.vs__dropdown-option--highlight {
+  background-color: #b47500; /* Un azul de Tailwind (blue-600) */
+  color: white;
+}
+
+/* Asegura que TODO el texto dentro de la opción resaltada sea blanco.
+  El selector '*' significa "cualquier elemento hijo".
+*/
+.vs__dropdown-option--highlight,
+.vs__dropdown-option--highlight * {
+  color: white;
+}
+
+/* Asegura que los enlaces también sean blancos y se subrayen al pasar el cursor
+  para mantener la interactividad visible.
+*/
+.vs__dropdown-option--highlight a {
+  color: white;
+  text-decoration-color: white;
+}
+.vs__dropdown-option--highlight a:hover {
+  text-decoration: underline;
+}
+
+/* Estilos generales para que el select se vea bien */
 .vs__dropdown-toggle {
-    @apply block w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm;
+    @apply block w-full py-1 px-1 border border-gray-300 bg-white rounded-md shadow-sm;
 }
-.vs__selected {
-    @apply text-sm;
-}
-.vs__search {
-    @apply text-sm;
+.vs__search::placeholder {
+    color: #6b7280;
 }
 </style>

@@ -25,6 +25,10 @@ class AuditoriaTareas extends Model
         'mapeo_completo_facturas',
         'pedimentos_procesados',
         'pedimentos_descartados',
+        'ruta_reporte_impuestos',
+        'nombre_reporte_impuestos',
+        'ruta_reporte_impuestos_pendientes',
+        'nombre_reporte_pendientes',
         'status',
         'resultado',
     ];

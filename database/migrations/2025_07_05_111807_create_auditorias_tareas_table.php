@@ -36,8 +36,10 @@ class CreateAuditoriasTareasTable extends Migration
 
             //Rutas de los reportes
             $table->text('mapeo_completo_facturas')->nullable()->comment('Ruta del mapeo de todos los archivos de factura Importacion/Exportacion');
-            $table->string('reporte_impuestos')->nullable()->comment('Reporte de Impuestos - Facturado');
-            $table->string('reporte_impuestos_pendientes')->nullable()->comment('Reporte de Impuestos - Sin facturar');
+            $table->string('ruta_reporte_impuestos')->nullable()->comment('Reporte de Impuestos - Facturado');
+            $table->string('nombre_reporte_impuestos')->nullable();
+            $table->string('ruta_reporte_impuestos_pendientes')->nullable()->comment('Reporte de Impuestos - Sin facturar');
+            $table->string('nombre_reporte_pendientes')->nullable();
 
             // Campos estándar de Laravel
             $table->timestamps();
