@@ -4481,7 +4481,7 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
 //
 //
 
- // ¡Importante! Importa el componente hijo.
+ // ¡Importante! Importa el componente hijo
 
 
 

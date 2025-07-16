@@ -342,7 +342,7 @@ export default {
   },
 };
 </script>
-<!-- ✅ ESTILOS CORREGIDOS PARA VUE-SELECT -->
+<!--  ✅ ESTILOS CORREGIDOS PARA VUE-SELECT -->
 <style>
 /* Anulamos los estilos por defecto de vue-select.
   Usamos selectores un poco más específicos para asegurar que nuestras reglas ganen.

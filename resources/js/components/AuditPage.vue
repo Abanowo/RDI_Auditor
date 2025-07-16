@@ -124,7 +124,7 @@
 </template>
 
 <script>
-import OperationItem from "../components/OperationItem.vue"; // ¡Importante! Importa el componente hijo.
+import OperationItem from "../components/OperationItem.vue"; // ¡Importante! Importa el componente hijo
 import Pagination from "../components/Pagination.vue";
 import AuditModal from "../components/AuditModal.vue";
 import FilterBar from "../components/FilterBar.vue";
