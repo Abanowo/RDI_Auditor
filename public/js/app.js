@@ -5000,7 +5000,11 @@ __webpack_require__.r(__webpack_exports__);
     exportUrl: function exportUrl() {
       // Tomamos los filtros activos y los convertimos a un query string
       var params = new URLSearchParams(this.filters).toString();
-      return "/auditoria/exportar?".concat(params);
+      var urlParams = new URLSearchParams(window.location.search).toString();
+      console.log(params);
+      console.log(urlParams);
+      var finalParams = params + '&' + urlParams;
+      return "/auditoria/exportar?".concat(finalParams);
     }
   },
   watch: {
@@ -5617,6 +5621,10 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
+//
+//
+//
+//
 
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
   data: function data() {
@@ -5682,6 +5690,19 @@ __webpack_require__.r(__webpack_exports__);
           return bank.value !== "EXTERNO";
         });
       }
+    },
+    // NUEVO: Propiedad computada para el atributo 'accept' del input
+    acceptedFileTypes: function acceptedFileTypes() {
+      if (this.selectedBank === "EXTERNO") {
+        // Devuelve las extensiones y tipos MIME para Excel
+        return ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+      }
+      // Por default o para otros bancos, solo PDF
+      return ".pdf,application/pdf";
+    },
+    // NUEVO: Propiedad computada para el texto de ayuda
+    fileTypeHint: function fileTypeHint() {
+      return this.selectedBank === "EXTERNO" ? "XLSX" : "PDF";
     }
   },
   watch: {
@@ -5701,14 +5722,52 @@ __webpack_require__.r(__webpack_exports__);
         // ...limpiamos la selección para forzar al usuario a elegir de nuevo.
         this.selectedBank = "";
       }
+    },
+    // NUEVO: Observador para re-validar el archivo cuando el banco cambia
+    selectedBank: function selectedBank() {
+      // Si ya hay un archivo seleccionado...
+      if (this.selectedFile) {
+        // ...y NO es válido para el nuevo banco seleccionado...
+        if (!this.isFileValid(this.selectedFile)) {
+          this.errorMessage = "El archivo ".concat(this.selectedFile.name, " no es un ").concat(this.fileTypeHint, ". Por favor, sube un archivo v\xE1lido.");
+          // ...lo limpiamos.
+          this.selectedFile = null;
+          this.$refs.fileInput.value = ''; // Limpia el input de archivo
+        } else {
+          this.errorMessage = "";
+        }
+      }
     }
   },
   methods: {
     // 5. Método para manejar la carga del archivo
     handleFileUpload: function handleFileUpload(event) {
       // Obtenemos el primer archivo seleccionado
-      this.selectedFile = event.target.files[0];
       this.errorMessage = ""; // Limpiamos errores previos
+      var file = event.target.files[0];
+      if (!file) {
+        this.selectedFile = null;
+        return;
+      }
+
+      // Validamos el archivo antes de asignarlo
+      if (this.isFileValid(file)) {
+        this.selectedFile = file;
+      } else {
+        // Si no es válido, mostramos un error y limpiamos todo
+        this.errorMessage = "Tipo de archivo incorrecto. Por favor, sube un ".concat(this.fileTypeHint, ".");
+        this.selectedFile = null;
+        event.target.value = ''; // Limpia el input para poder subir el mismo archivo (corregido) de nuevo
+      }
+    },
+    // NUEVO: Método reutilizable para validar el archivo
+    isFileValid: function isFileValid(file) {
+      var isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || file.name.endsWith('.xlsx');
+      var isPdf = file.type === 'application/pdf' || file.name.endsWith('.pdf');
+      if (this.selectedBank === 'EXTERNO') {
+        return isExcel;
+      }
+      return isPdf;
     },
     // 6. Método que se ejecutará al hacer clic en el botón
     submitForm: function submitForm() {
@@ -47823,6 +47882,7 @@ var render = function () {
                       fn: function (ref) {
                         var id = ref.id
                         var nombre_archivo = ref.nombre_archivo
+                        var banco = ref.banco
                         var sucursal = ref.sucursal
                         var created_at = ref.created_at
                         var ruta_reporte_impuestos = ref.ruta_reporte_impuestos
@@ -47847,6 +47907,8 @@ var render = function () {
                               },
                               [
                                 _c("span", [_vm._v(_vm._s(sucursal))]),
+                                _vm._v(" "),
+                                _c("span", [_vm._v(_vm._s(banco))]),
                                 _vm._v(" "),
                                 _c("span", [
                                   _vm._v(
@@ -48542,11 +48604,13 @@ var render = function () {
                           _c("span", [_vm._v("Sube un archivo")]),
                           _vm._v(" "),
                           _c("input", {
+                            ref: "fileInput",
                             staticClass: "sr-only",
                             attrs: {
                               id: "file-upload",
                               name: "file-upload",
                               type: "file",
+                              accept: _vm.acceptedFileTypes,
                             },
                             on: { change: _vm.handleFileUpload },
                           }),
@@ -48563,11 +48627,13 @@ var render = function () {
                           _c("span", [_vm._v("Sube un archivo")]),
                           _vm._v(" "),
                           _c("input", {
+                            ref: "fileInput",
                             staticClass: "sr-only",
                             attrs: {
                               id: "file-upload",
                               name: "file-upload",
                               type: "file",
+                              accept: _vm.acceptedFileTypes,
                             },
                             on: { change: _vm.handleFileUpload },
                           }),

@@ -134,7 +134,6 @@
         <legend class="px-2 font-semibold text-sm">Acciones</legend>
         <div class="h-full flex flex-col justify-end space-y-2">
           <!-- RICH SELECTBOX DE REPORTES RECIENTES -->
-          <!-- RICH SELECTBOX DE REPORTES RECIENTES -->
           <v-select
             ref="reporteSelect"
             :options="tareasCompletadas"
@@ -147,11 +146,12 @@
                 <div class="text-sm text-gray-500">Seleccione un reporte...</div>
             </template>
 
-            <template #option="{ id, nombre_archivo, sucursal, created_at, ruta_reporte_impuestos, ruta_reporte_impuestos_pendientes }">
+            <template #option="{ id, nombre_archivo, banco, sucursal, created_at, ruta_reporte_impuestos, ruta_reporte_impuestos_pendientes }">
               <div class="py-2 px-3">
                 <p class="font-bold text-base truncate" :title="nombre_archivo">{{ nombre_archivo }}</p>
                 <div class="flex justify-between text-xs mt-1">
                   <span>{{ sucursal }}</span>
+                  <span>{{ banco }}</span>
                   <span>{{ formatRelativeDate(created_at) }}</span>
                 </div>
                 <div class="flex space-x-4 text-sm mt-2 pt-2 border-t">
@@ -244,7 +244,13 @@ export default {
     exportUrl() {
       // Tomamos los filtros activos y los convertimos a un query string
       const params = new URLSearchParams(this.filters).toString();
-      return `/auditoria/exportar?${params}`;
+      const urlParams = new URLSearchParams(window.location.search).toString();
+
+      console.log(params);
+      console.log(urlParams);
+      const finalParams = params + '&' + urlParams;
+
+      return `/auditoria/exportar?${finalParams}`;
     },
   },
   watch: {

@@ -11,3 +11,5 @@ Homestead.yaml
 npm-debug.log
 yarn-error.log
 config/reportes.php
+/storage/framework/laravel-excel/
+app/temp/excel

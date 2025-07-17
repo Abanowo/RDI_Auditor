@@ -35,6 +35,8 @@
                   name="file-upload"
                   type="file"
                   class="sr-only"
+                  ref="fileInput"
+                  :accept="acceptedFileTypes"
                   @change="handleFileUpload"
                 />
               </label>
@@ -50,6 +52,8 @@
                   name="file-upload"
                   type="file"
                   class="sr-only"
+                  ref="fileInput"
+                  :accept="acceptedFileTypes"
                   @change="handleFileUpload"
                 />
               </label>
@@ -170,6 +174,19 @@ export default {
         return this.allBanks.filter((bank) => bank.value !== "EXTERNO");
       }
     },
+    // NUEVO: Propiedad computada para el atributo 'accept' del input
+    acceptedFileTypes() {
+      if (this.selectedBank === "EXTERNO") {
+        // Devuelve las extensiones y tipos MIME para Excel
+        return ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+      }
+      // Por default o para otros bancos, solo PDF
+      return ".pdf,application/pdf";
+    },
+    // NUEVO: Propiedad computada para el texto de ayuda
+    fileTypeHint() {
+      return this.selectedBank === "EXTERNO" ? "XLSX" : "PDF";
+    },
   },
   watch: {
     /**
@@ -188,14 +205,57 @@ export default {
         this.selectedBank = "";
       }
     },
+
+    // NUEVO: Observador para re-validar el archivo cuando el banco cambia
+    selectedBank() {
+        // Si ya hay un archivo seleccionado...
+      if (this.selectedFile) {
+        // ...y NO es válido para el nuevo banco seleccionado...
+        if (!this.isFileValid(this.selectedFile)) {
+           this.errorMessage = `El archivo ${this.selectedFile.name} no es un ${this.fileTypeHint}. Por favor, sube un archivo válido.`;
+          // ...lo limpiamos.
+          this.selectedFile = null;
+          this.$refs.fileInput.value = ''; // Limpia el input de archivo
+        } else {
+             this.errorMessage = "";
+        }
+      }
+    },
   },
   methods: {
     // 5. Método para manejar la carga del archivo
     handleFileUpload(event) {
       // Obtenemos el primer archivo seleccionado
-      this.selectedFile = event.target.files[0];
       this.errorMessage = ""; // Limpiamos errores previos
+      const file = event.target.files[0];
+
+      if (!file) {
+          this.selectedFile = null;
+          return;
+      }
+
+      // Validamos el archivo antes de asignarlo
+      if (this.isFileValid(file)) {
+        this.selectedFile = file;
+      } else {
+        // Si no es válido, mostramos un error y limpiamos todo
+        this.errorMessage = `Tipo de archivo incorrecto. Por favor, sube un ${this.fileTypeHint}.`;
+        this.selectedFile = null;
+        event.target.value = ''; // Limpia el input para poder subir el mismo archivo (corregido) de nuevo
+      }
     },
+     // NUEVO: Método reutilizable para validar el archivo
+    isFileValid(file) {
+        const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || file.name.endsWith('.xlsx');
+        const isPdf = file.type === 'application/pdf' || file.name.endsWith('.pdf');
+
+        if(this.selectedBank === 'EXTERNO') {
+            return isExcel;
+        }
+
+        return isPdf;
+    },
+
 
     // 6. Método que se ejecutará al hacer clic en el botón
     submitForm() {

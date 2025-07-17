@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use DateTime;
 use App\Exports\AuditoriaFacturadoExport;
+use App\Imports\LecturaEstadoCuentaExcel;
 use App\Models\Importacion; // <-- CAMBIO CLAVE: Usamos Importacion como base
 use App\Models\Exportacion;
 use App\Models\Sucursales;
@@ -66,6 +67,8 @@ class AuditoriaImpuestosController extends Controller
         // Le dice a Laravel: "Carga y muestra el archivo de la vista principal".
         return view('welcome'); // O el nombre de tu vista, ej: 'audits.index'
     }
+
+
     //Para no estar escribiendo todo el filtrado en cada parte que lo ocupe, hago la construccion del query junto con todos sus filtros
     //y lo devuelvo de aqui hacia a donde se ocupe.
     private function obtenerQueryFiltrado(Request $request) : Builder
@@ -157,6 +160,8 @@ class AuditoriaImpuestosController extends Controller
 
 
     }
+
+
     //Metodo para mapear lo que se mostrara en la pagina
     private function transformarOperacion($pedimento, $filters)
     {
@@ -214,11 +219,12 @@ class AuditoriaImpuestosController extends Controller
         ];
     }
 
+
     //Metodo para exportar las auditorias a un archivo de Excel
     public function exportarFacturado(Request $request)
     {   //$request contiene todos los filtros
         $query = $this->obtenerQueryFiltrado($request);
-
+        $filtrosGET = $request->query();
         // Ahora, cargamos las relaciones que necesitamos para la transformación
         // La ruta es más larga, pero es la forma correcta: pedimento -> importacion -> auditorias/totalSc
         $resultados = $query->with([
@@ -231,7 +237,25 @@ class AuditoriaImpuestosController extends Controller
             ])->get();
         // Creamos el nombre del archivo dinámicamente
         $fecha = now()->format('dmY');
-        $fileName = "RDI_NOG{$fecha}.xlsx";
+
+        if($filtrosGET['sucursal_id'] !== 'todos') {
+
+            $nombreSucursal = Sucursales::find($filtrosGET['sucursal_id'])->toArray();
+
+            $sucursalesDiccionario = [
+            "Nogales"     => "NOG" ,
+            "Tijuana"     => "TIJ" ,
+            "Laredo"      => "NL"  ,
+            "Reynosa"     => "REY" ,
+            "Mexicali"    => "MXL" ,
+            "Manzanillo"  => "ZLO" ,
+            ];
+            $serieSucursal = $sucursalesDiccionario[$nombreSucursal['nombre']];
+            $fileName = "RDI_{$serieSucursal}{$fecha}.xlsx";
+        } else {
+            $fileName = "RDI_AFMIXED{$fecha}.xlsx"; //Active Filters MIXED (o AF <3)
+        }
+
 
         // Le pasamos la responsabilidad a nuestra clase de exportación
         return Excel::download(new AuditoriaFacturadoExport($resultados), $fileName);
@@ -246,6 +270,7 @@ class AuditoriaImpuestosController extends Controller
     {
         return response()->json(Sucursales::select('id', 'nombre')->whereIn('id', [1, 2, 3, 4, 5, 11, 12])->get());
     }
+
 
      /**
      * Devuelve una lista de todos los clientes (empresas).
@@ -279,6 +304,9 @@ class AuditoriaImpuestosController extends Controller
         );
     }
 
+
+    // getTareasCompletadas()
+    // Se encarga de devolver los reportes de impuestos de las tareas completadas.
     public function getTareasCompletadas(Request $request)
     {
         $request->validate(['sucursal_id' => 'required']);
@@ -293,7 +321,7 @@ class AuditoriaImpuestosController extends Controller
          "Mexicali"    => "MXL" ,
          "Manzanillo"  => "ZLO" ,
         ];
-        $serieSucursal = $sucursalesDiccionario[$sucursalNombre];
+        $serieSucursal = isset($sucursalesDiccionario[$sucursalNombre]) ? $sucursalesDiccionario[$sucursalNombre] : null;
         $tareas = AuditoriaTareas::query()
             ->where('status', 'completado')
             ->when($serieSucursal, function ($query, $nombre) {
@@ -306,6 +334,7 @@ class AuditoriaImpuestosController extends Controller
                 'id',
                 'nombre_archivo',
                 'sucursal',
+                'banco',
                 'created_at',
                 'ruta_reporte_impuestos',
                 'nombre_reporte_impuestos',
@@ -315,6 +344,78 @@ class AuditoriaImpuestosController extends Controller
 
         return response()->json($tareas);
     }
+
+
+    //
+    //
+    /**
+     * Procesa un archivo PDF para extraer su contenido tabular usando smalot/pdfparser.
+     *
+     * @param string $rutaPdf La ruta completa al archivo PDF.
+     * @return array La tabla de datos extraída como un array de arrays.
+     */
+    /* function procesarPdfConPdfParser(string $rutaPdf): array
+    {
+        try {
+            $parser = new Parser();
+            $pdf = $parser->parseFile($rutaPdf);
+            $paginas = $pdf->getPages();
+            $filasAgrupadas = [];
+
+            // 1. Iterar sobre cada página del PDF
+            foreach ($paginas as $pagina) {
+                // Obtenemos todos los objetos de texto con sus coordenadas
+                $textos = $pagina->getTextArray();
+
+                // 2. Agrupar textos en filas por su coordenada Y
+                foreach ($textos as $key => $texto) {
+                    // En esta versión, las coordenadas vienen en un array diferente,
+                    // así que necesitamos obtenerlas por separado.
+                    $coordenadas = $pagina->getDetails()['Resources']['Font']['F1'][$key]['y'];
+                    $y = $coordenadas; // La coordenada Y ya viene como el valor que necesitamos
+
+                    // El resto de la lógica de agrupación y ordenamiento sigue igual...
+                    $claveFila = round($y / 5) * 5;
+
+                    // Creamos un objeto simple para mantener la estructura
+                    $filasAgrupadas[$claveFila][] = (object)[
+                        'texto' => $texto,
+                        'x' => $pagina->getDetails()['Resources']['Font']['F1'][$key]['x']
+                    ];
+                }
+            }
+
+            // 3. Ordenar las filas de arriba hacia abajo (las coordenadas Y más altas primero)
+            krsort($filasAgrupadas);
+
+            $tablaFinal = [];
+            foreach ($filasAgrupadas as $filaTextos) {
+
+                // 4. Ordenar las columnas de izquierda a derecha (por coordenada X)
+                usort($filaTextos, function ($a, $b) {
+                    return $a->x <=> $b->x;
+                });
+
+                // 5. Extraer el texto de cada celda
+                $filaLimpia = array_map(function ($obj) {
+                    return $obj->texto;
+                }, $filaTextos);
+
+                if (count(array_filter($filaLimpia)) > 0) {
+                    $tablaFinal[] = $filaLimpia;
+                }
+            }
+
+            return $tablaFinal;
+
+        } catch (\Exception $e) {
+            // Manejar cualquier error durante el parseo
+            Log::error("Error al procesar PDF con smalot/pdfparser: " . $e->getMessage());
+            return []; // Devolver un array vacío en caso de error
+        }
+    } */
+
+
 
     //--------------------------------------------------------------------------------------------------------------
     //----------------------------------- INICIO DE LOS COMMANDS - AuditoriaImpuestosController ---------------------------------
@@ -362,69 +463,87 @@ class AuditoriaImpuestosController extends Controller
             return ['code' => 1, 'message' => new \Exception("Ruta pdf no encontrada: ({$rutaPdf})")];
         }
 
-        $process = new Process(['python', base_path('scripts/python/parser.py'), $rutaPdf]);
-
         try {
-            $process->mustRun();
-            $jsonOutput = $process->getOutput();
-            $jsonOutput = mb_convert_encoding($jsonOutput, "utf-8");
-            // Ahora este json_decode debería funcionar sin problemas y sin encode previo.
-            $tablaDeDatos = json_decode($jsonOutput, true);
 
-            preg_match('/(?<=\d{2}\/\d{2}\/)\d{4}/', $tablaDeDatos[0][0], $matchYear); //Aqui se localiza el año del estado de cuenta - BBVA (CAMBIALO LUEGO)
+            if($banco !== "EXTERNO"){
+                $process = new Process(['python', base_path('scripts/python/parser.py'), $rutaPdf]);
 
-            if (is_null($tablaDeDatos) || isset($tablaDeDatos['error'])) {
-                Log::error("Error al decodificar el JSON o error devuelto por Python.");
-                // Si hay error en Python, lo mostramos:
-                if(isset($tablaDeDatos['error'])) { Log::error("Detalle: " . $tablaDeDatos['error']); }
-                return ['code' => 1, 'message' => new \Exception("Error al decodificar el JSON o error devuelto por Python.")];
-            }
+                $process->mustRun();
+                $jsonOutput = $process->getOutput();
+                $jsonOutput = mb_convert_encoding($jsonOutput, "utf-8");
+                // Ahora este json_decode debería funcionar sin problemas y sin encode previo.
 
-            // Convertimos el array de datos crudos en una Colección de Laravel.
-            $coleccionDeFilas = collect($tablaDeDatos);
-            Log::info("Tabula y Python procesaron el PDF y encontraron {$coleccionDeFilas->count()} filas de datos crudos.");
+                $tablaDeDatos = json_decode($jsonOutput, true);
 
-            // 3. Usamos map() para transformar y filter() para limpiar la colección.
-            $operacionesLimpias = $coleccionDeFilas->map(function ($fila) use ($matchYear, $banco) {
-
-                if($banco === 'BBVA'){
-                    // Verificamos que la fila tenga al menos 3 celdas (Fecha, Concepto, Cargo).
-                    if (isset($fila[0], $fila[1], $fila[2])) {
-                        $textoConcepto = $fila[1];
-                        // El Regex para encontrar el pedimento que ya conocemos.
-                        $patron = '/PEDMTO:\s*([\w-]+)/';
-
-                        if (preg_match($patron, $textoConcepto, $match)) {
-                            // Si es una fila de pedimento válida, devolvemos un array limpio y estructurado.
-                            return
-                            [
-                                'pedimento' => $match[1],
-                                'fecha_str' => \Carbon\Carbon::createFromFormat('d-m', $fila[0])->format('Y-m-d'),
-                                'cargo_str' => $fila[2],
-                            ];
-                        }
-                    }
-                } else if ($banco === 'SANTANDER'){
-                    // Verificamos que la fila tenga al menos 3 celdas (Fecha, Concepto, Cargo).
-                    if (isset($fila[1], $fila[4], $fila[5], $fila[8])) {
-                        $textoConcepto = $fila[4];
-                        // El Regex para encontrar el pedimento que ya conocemos.
-                        $patron = '/\s*\n*\r*CGO\s*IMP\s*CE\s*TE\s*\n*\r*/';
-
-                        if (preg_match($patron, $textoConcepto, $match)) {
-                            // Si es una fila de pedimento válida, devolvemos un array limpio y estructurado.
-                            return
-                            [
-                                'pedimento' => $fila[8],
-                                'fecha_str' => \Carbon\Carbon::createFromFormat('dmY', $fila[1])->format('Y-m-d'),
-                                'cargo_str' => $fila[5],
-                            ];
-                        }
-                    }
+                if (is_null($tablaDeDatos) || isset($tablaDeDatos['error'])) {
+                    Log::error("Error al decodificar el JSON o error devuelto por Python.");
+                    // Si hay error en Python, lo mostramos:
+                    if(isset($tablaDeDatos['error'])) { Log::error("Detalle: " . $tablaDeDatos['error']); }
+                    return ['code' => 1, 'message' => new \Exception("Error al decodificar el JSON o error devuelto por Python.")];
                 }
 
-                return null; // Si no es una fila de pedimento, la marcamos para ser eliminada.
-            })->filter(); // El método filter() elimina todos los resultados 'null'.
+                // Convertimos el array de datos crudos en una Colección de Laravel.
+                $coleccionDeFilas = collect($tablaDeDatos);
+
+                Log::info("Tabula y Python procesaron el PDF y encontraron {$coleccionDeFilas->count()} filas de datos crudos.");
+
+                // 3. Usamos map() para transformar y filter() para limpiar la colección.
+                $operacionesLimpias = $coleccionDeFilas->map(function ($fila) use ($banco) {
+
+                    if($banco === 'BBVA'){
+                        // Verificamos que la fila tenga al menos 3 celdas (Fecha, Concepto, Cargo).
+                        if (isset($fila[0], $fila[1], $fila[2])) {
+                            $textoConcepto = $fila[1];
+                            // El Regex para encontrar el pedimento que ya conocemos.
+                            $patron = '/PEDMTO:\s*([\w-]+)/';
+
+                            if (preg_match($patron, $textoConcepto, $match)) {
+                                // Si es una fila de pedimento válida, devolvemos un array limpio y estructurado.
+                                return
+                                [
+                                    'pedimento' => $match[1],
+                                    'fecha_str' => \Carbon\Carbon::createFromFormat('d-m', $fila[0])->format('Y-m-d'),
+                                    'cargo_str' => $fila[2],
+                                ];
+                            }
+                        }
+                    } else if ($banco === 'SANTANDER'){
+                        // Verificamos que la fila tenga al menos 3 celdas (Fecha, Concepto, Cargo).
+                        if (isset($fila[1], $fila[4], $fila[5], $fila[8])) {
+                            $textoConcepto = $fila[4];
+                            // El Regex para encontrar el pedimento que ya conocemos.
+                            $patron = '/\s*\n*\r*CGO\s*IMP\s*CE\s*TE\s*\n*\r*/';
+
+                            if (preg_match($patron, $textoConcepto, $match)) {
+                                // Si es una fila de pedimento válida, devolvemos un array limpio y estructurado.
+                                return
+                                [
+                                    'pedimento' => $fila[8],
+                                    'fecha_str' => \Carbon\Carbon::createFromFormat('dmY', $fila[1])->format('Y-m-d'),
+                                    'cargo_str' => $fila[5],
+                                ];
+                            }
+                        }
+                    }
+
+                    return null; // Si no es una fila de pedimento, la marcamos para ser eliminada.
+                })->filter(); // El método filter() elimina todos los resultados 'null'.
+
+            } else { // --- Inicio para cuando el estado de cuenta es "EXTERNO"
+
+                // 1. Crear una instancia de nuestro importador
+                $import = new LecturaEstadoCuentaExcel();
+
+                // 2. Importar el archivo usando la clase
+                Excel::import($import,  $rutaPdf);
+
+                // 3. Obtener la colección ya procesada y filtrada desde nuestro importador
+                $operacionesLimpias = $import->getProcessedData();
+
+                // ¡Listo! $coleccionDeFilas ya contiene los datos como los necesitas.
+                // Ahora puedes hacer lo que quieras con esta colección.
+            }
+
 
             if ($operacionesLimpias->isEmpty()) {
                 Log::info('No se encontraron operaciones válidas para procesar.');
@@ -690,82 +809,85 @@ class AuditoriaImpuestosController extends Controller
             //causan confusion y los subire a la tabla de tareas para que queden expuestos ante todo el mundo! awawaw
 
             // 1. Preparamos la búsqueda REGEXP para la base de datos
+
             $regexPattern = implode('|', array_unique($numerosDePedimento)); // Usamos array_unique para una query más corta
-            $posiblesCoincidencias = Pedimento::where('num_pedimiento', 'REGEXP', $regexPattern)->get();
+            if(!empty($regexPattern)){
+                $posiblesCoincidencias = Pedimento::where('num_pedimiento', 'REGEXP', $regexPattern)->get();
 
-            // 2. Creamos un mapa de los pedimentos que nos falta por encontrar.
-            //    OJO: Esta vez lo creamos a partir de la lista original CON duplicados.
-            $pedimentosPorEncontrar = array_count_values($numerosDePedimento);
-            $mapaNoEncontrados = [];
+                // 2. Creamos un mapa de los pedimentos que nos falta por encontrar.
+                //    OJO: Esta vez lo creamos a partir de la lista original CON duplicados.
+                $pedimentosPorEncontrar = array_count_values($numerosDePedimento);
+                $mapaNoEncontrados = [];
 
-            // 3. (LÓGICA CORREGIDA) Recorremos los resultados de la BD
-            foreach ($posiblesCoincidencias as $pedimentoSucio) {
-                if (empty($pedimentosPorEncontrar)) {
-                    break;
-                }
-
-                $pedimentoObtenido = $pedimentoSucio->num_pedimiento;
-
-                foreach ($pedimentosPorEncontrar as $pedimentoLimpio => $cantidad) {
-                    if (str_contains($pedimentoObtenido, $pedimentoLimpio)) {
-                        // ----- INICIO DE LA CORRECCIÓN -----
-
-                        // a. Mapeamos la coincidencia (opcional, igual que antes)
-                        if ($pedimentosPorEncontrar[$pedimentoLimpio] > 1) {
-                            $mapaNoEncontrados[$pedimentoLimpio] = [
-                            'id_pedimento' => $pedimentoSucio->id_pedimiento,
-                            'num_pedimiento' => $pedimentoObtenido,
-                        ];
-                        }
-
-
-                        // b. Restamos 1 al contador de este pedimento.
-                        $pedimentosPorEncontrar[$pedimentoLimpio]--;
-
-                        // c. Si ya encontramos todas las ocurrencias, lo eliminamos de la lista.
-                        if ($pedimentosPorEncontrar[$pedimentoLimpio] === 0) {
-                            unset($pedimentosPorEncontrar[$pedimentoLimpio]);
-                        }
-
-                        // d. Rompemos el bucle interno. Un pedimento sucio solo puede "satisfacer"
-                        //    a un pedimento limpio por pasada. Esto lo hace más rápido y correcto.
+                // 3. (LÓGICA CORREGIDA) Recorremos los resultados de la BD
+                foreach ($posiblesCoincidencias as $pedimentoSucio) {
+                    if (empty($pedimentosPorEncontrar)) {
                         break;
+                    }
 
-                        // ----- FIN DE LA CORRECCIÓN -----
+                    $pedimentoObtenido = $pedimentoSucio->num_pedimiento;
+
+                    foreach ($pedimentosPorEncontrar as $pedimentoLimpio => $cantidad) {
+                        if (str_contains($pedimentoObtenido, $pedimentoLimpio)) {
+                            // ----- INICIO DE LA CORRECCIÓN -----
+
+                            // a. Mapeamos la coincidencia (opcional, igual que antes)
+                            if ($pedimentosPorEncontrar[$pedimentoLimpio] > 1) {
+                                $mapaNoEncontrados[$pedimentoLimpio] = [
+                                'id_pedimento' => $pedimentoSucio->id_pedimiento,
+                                'num_pedimiento' => $pedimentoObtenido,
+                            ];
+                            }
+
+
+                            // b. Restamos 1 al contador de este pedimento.
+                            $pedimentosPorEncontrar[$pedimentoLimpio]--;
+
+                            // c. Si ya encontramos todas las ocurrencias, lo eliminamos de la lista.
+                            if ($pedimentosPorEncontrar[$pedimentoLimpio] === 0) {
+                                unset($pedimentosPorEncontrar[$pedimentoLimpio]);
+                            }
+
+                            // d. Rompemos el bucle interno. Un pedimento sucio solo puede "satisfacer"
+                            //    a un pedimento limpio por pasada. Esto lo hace más rápido y correcto.
+                            break;
+
+                            // ----- FIN DE LA CORRECCIÓN -----
+                        }
                     }
                 }
+
+                // 5. Mostramos los que quedaron en la lista de pendientes. ESTO SÍ FUNCIONARÁ.
+                if (!empty($pedimentosPorEncontrar)) {
+                    $tarea->update([
+                        'pedimentos_descartados' => $pedimentosPorEncontrar
+                    ]);
+                    Log::warning("Subiendo pedimentos no encontrados!");
+                } else {
+                    Log::info("¡Todos los pedimentos fueron encontrados y mapeados correctamente!");
+                }
+
+                // CONSTRUIR EL ÍNDICE - EXPORTACIONES
+                Log::info("Iniciando mapeo de archivos de exportaciones.");
+                $indiceExportaciones = $this->construirIndiceFacturasParaMapeo($mapaPedimentoAExportacionId, $sucursal, 'exportaciones');
+                Log::info("Mapeo de exportaciones finalizado!");
+
+                // --- OJO: Aqui se gastan muchos recursos en el mapeo!!!
+                // CONSTRUIR EL ÍNDICE - IMPORTACIONES
+                Log::info("Iniciando mapeo de archivos de importaciones.");
+                $indiceImportaciones = $this->construirIndiceFacturasParaMapeo($mapaPedimentoAImportacionId,  $sucursal, 'importaciones');
+                Log::info("Mapeo de importaciones finalizado!");
             }
-
-            // 5. Mostramos los que quedaron en la lista de pendientes. ESTO SÍ FUNCIONARÁ.
-            if (!empty($pedimentosPorEncontrar)) {
-                $tarea->update([
-                    'pedimentos_descartados' => $pedimentosPorEncontrar
-                ]);
-                Log::warning("Subiendo pedimentos no encontrados!");
-            } else {
-                Log::info("¡Todos los pedimentos fueron encontrados y mapeados correctamente!");
-            }
-
-            // CONSTRUIR EL ÍNDICE - EXPORTACIONES
-            Log::info("Iniciando mapeo de archivos de exportaciones.");
-            $indiceExportaciones = $this->construirIndiceFacturasParaMapeo($mapaPedimentoAExportacionId, $sucursal, 'exportaciones');
-            Log::info("Mapeo de exportaciones finalizado!");
-
-            // --- OJO: Aqui se gastan muchos recursos en el mapeo!!!
-            // CONSTRUIR EL ÍNDICE - IMPORTACIONES
-            Log::info("Iniciando mapeo de archivos de importaciones.");
-            $indiceImportaciones = $this->construirIndiceFacturasParaMapeo($mapaPedimentoAImportacionId,  $sucursal, 'importaciones');
-            Log::info("Mapeo de importaciones finalizado!");
 
 
             $mapeadoOperacionesID =
             [
-                'pedimentos_totales'        => $mapaPedimentoAId,
-                'pedimentos_no_encontrados' => $mapaNoEncontrados,
-                'pedimentos_importacion'    => $mapaPedimentoAImportacionId,
-                'pedimentos_exportacion'    => $mapaPedimentoAExportacionId,
-                'indices_importacion'       => $indiceImportaciones,
-                'indices_exportacion'       => $indiceExportaciones,
+                'pedimentos_totales'        => $mapaPedimentoAId ?? [],
+                'pedimentos_no_encontrados' => $mapaNoEncontrados ?? [],
+                'pedimentos_importacion'    => $mapaPedimentoAImportacionId ?? [],
+                'pedimentos_exportacion'    => $mapaPedimentoAExportacionId ?? [],
+                'indices_importacion'       => $indiceImportaciones ?? [],
+                'indices_exportacion'       => $indiceExportaciones ?? [],
 
             ];
             // 3. GUARDAR EL ÍNDICE EN UN ARCHIVO PRIVADO CON NOMBRE HASHEADO
@@ -858,7 +980,36 @@ class AuditoriaImpuestosController extends Controller
             // 3. Construimos el índice de SCs desde los archivos (tu lógica no cambia)
             $indiceSC = $this->construirIndiceSC($indicesOperaciones);
             if (empty($indiceSC)) {
-                 Log::info("No se encontraron archivos de SC para procesar en la sucursal {$sucursal}.");
+
+                Log::info("No se encontraron archivos de SC para procesar en la sucursal {$sucursal}.");
+                $mapeadoFacturas['auditorias_sc'] = [];
+
+                // Adjuntamos el nuevo arreglo y lo parseamos a JSON
+                $contenidoJson = json_encode($mapeadoFacturas, JSON_PRETTY_PRINT);
+
+                // Creamos un archivo temporal y guardamos nuestro JSON en él.
+                $tempFilePath = tempnam(sys_get_temp_dir(), 'mapeo_json_');
+                file_put_contents($tempFilePath, $contenidoJson);
+
+                // Usamos Storage::putFile() para que Laravel genere el hash y lo guarde.
+                // Esto es el equivalente a ->store()
+                $rutaRelativa = Storage::putFile(
+                    'mapeo_completo_facturas', // La carpeta destino dentro de storage/app
+                    new File($tempFilePath) // Le pasamos el archivo temporal
+                );
+
+                Log::info("Mapeo actualizado con auditorias_sc!");
+
+                //Actualizamos la ruta por la que ya tiene las auditorias
+                $tarea->fresh()->update(
+                [
+                    'mapeo_completo_facturas' => $rutaRelativa,
+                    'updated_at'              => now(),
+                ]);
+
+                //Borramos el anterior
+                Storage::delete($rutaMapeo);
+
                 return 0;
             }
             Log::info("Se encontraron " . count($indiceSC) . " facturas SC en los archivos.");
@@ -968,7 +1119,7 @@ class AuditoriaImpuestosController extends Controller
                 ->keyBy('operacion_id');
 
                 // Adjuntamos el nuevo arreglo y lo parseamos a JSON
-                $mapeadoFacturas['auditorias_sc'] = $auditoriasSC->toArray();
+                $mapeadoFacturas['auditorias_sc'] = $auditoriasSC->toArray() ?? [];
                 $contenidoJson = json_encode($mapeadoFacturas, JSON_PRETTY_PRINT);
 
                 // Creamos un archivo temporal y guardamos nuestro JSON en él.
@@ -996,7 +1147,36 @@ class AuditoriaImpuestosController extends Controller
                 Log::info("SCs guardadas, actualizadas y registradas con exito!");
             }
             else {
+
                 Log::info("No se encontraron SCs para guardar en la base de datos.");
+                $mapeadoFacturas['auditorias_sc'] = [];
+
+                // Adjuntamos el nuevo arreglo y lo parseamos a JSON
+                $contenidoJson = json_encode($mapeadoFacturas, JSON_PRETTY_PRINT);
+
+                // Creamos un archivo temporal y guardamos nuestro JSON en él.
+                $tempFilePath = tempnam(sys_get_temp_dir(), 'mapeo_json_');
+                file_put_contents($tempFilePath, $contenidoJson);
+
+                // Usamos Storage::putFile() para que Laravel genere el hash y lo guarde.
+                // Esto es el equivalente a ->store()
+                $rutaRelativa = Storage::putFile(
+                    'mapeo_completo_facturas', // La carpeta destino dentro de storage/app
+                    new File($tempFilePath) // Le pasamos el archivo temporal
+                );
+
+                Log::info("Mapeo actualizado con auditorias_sc!");
+
+                //Actualizamos la ruta por la que ya tiene las auditorias
+                $tarea->fresh()->update(
+                [
+                    'mapeo_completo_facturas' => $rutaRelativa,
+                    'updated_at'              => now(),
+                ]);
+
+                //Borramos el anterior
+                Storage::delete($rutaMapeo);
+
             }
 
         }
@@ -1557,7 +1737,9 @@ class AuditoriaImpuestosController extends Controller
         }
     }
 
-
+    //--- METODO EXPORTAR AUDITORIAS DEL ESTADO DE CUENTA A EXCEL
+    // Se encarga de obtener todos los registros de las tablas de auditorias y auditorias_totales_sc y las exporta a un archivo de excel
+    // el cual contendra unicamente los pedimentos encontrados dentro del estado de cuenta.
     public function exportarAuditoriasAExcel(string $tareaId)
     {
         $tarea = AuditoriaTareas::find($tareaId);
@@ -1635,7 +1817,7 @@ class AuditoriaImpuestosController extends Controller
             $operacionesParaExportar = $query->get();
             // Creamos el nombre del archivo dinámicamente
             $fecha = now()->format('dmY');
-            $nombreArchivo = "RDI_NOG{$fecha}.xlsx";
+            $nombreArchivo = "RDI_{$sucursal}{$fecha}.xlsx";
             $nombreUnico = Str::random(40) . '.xlsx'; // Genera un nombre aleatorio y seguro
             $rutaDeAlmacenamiento = "/reportes/{$nombreUnico}";
 
@@ -1777,9 +1959,61 @@ class AuditoriaImpuestosController extends Controller
 
                 // Asignamos las facturas agrupadas y limpias al resultado final.
                 // array_values() reinicia los índices del array para que sea una lista limpia.
-                $indiceFacturas[$pedimento]['facturas'] = array_values($agrupadorTemp);
+                //NUEVA FORMA
+                $indiceFacturas[$pedimento]['facturas'] = $agrupadorTemp;
+                //VIEJA FORMA
+                //$indiceFacturas[$pedimento]['facturas'] = array_values($agrupadorTemp);
                 //$bar->advance();
 
+                // --- BORRAR ESTO EN CASO DE QUE TE INTERESE OBTENER TODAS LAS SC
+                // Este foreach de abajo tiene el proposito de arreglar el Bug que se tiene en ZLO en donde existen 2 SCs
+                // y aveces termina agarrando la SC incorrecta. Y lo que se hace aca es buscar la que tenga el numero de folio menor
+                // ya que por experiencia, esas suelen ser las SC que le corresponden al cliente
+
+                // Suponiendo que tu arreglo se llama $datos
+                // Usamos un bucle foreach con una referencia (&) para poder modificar el arreglo original directamente.
+                foreach ($indiceFacturas as &$operacion) {
+                    // 1. Convertimos el sub-arreglo de 'facturas' a una colección para trabajar más fácil.
+                    $facturas = collect($operacion['facturas']);
+
+                    // 2. Separamos las facturas: las que son 'sc' y las que no.
+                    $scInvoices = $facturas->filter(function ($factura) {
+                        return $factura['tipo_documento'] === 'sc';
+                    });
+
+                    // 3. Si hay más de una factura 'sc', procedemos a encontrar la menor.
+                    //    Si hay solo una o ninguna, no hacemos nada.
+                    if ($scInvoices->count() > 1) {
+                        // Encontramos la factura 'sc' con el número de serie más bajo en su clave.
+                        // `sortBy` ordena la colección. Usamos una función para extraer el número
+                        // de la clave (la llave del arreglo, ej. 'ZLO3205') y lo convierte a entero
+                        // para una comparación numérica correcta. `first()` nos da el primer elemento
+                        // después de ordenar, que será el más bajo.
+                        $lowestScInvoice = $scInvoices->sortBy(function ($factura, $key) {
+                            // Extraemos todos los dígitos de la clave y tomamos el último número encontrado.
+                            preg_match_all('/\d+/', $key, $matches);
+                            return (int) end($matches[0]);
+                        })->first();
+
+                        // Obtenemos la llave de la factura que queremos conservar.
+                        $keyToKeep = $scInvoices->search($lowestScInvoice);
+
+                        // 4. Filtramos las facturas que NO son 'sc'
+                        $otherInvoices = $facturas->filter(function ($factura) {
+                            return $factura['tipo_documento'] !== 'sc';
+                        });
+
+                        // 5. Reconstruimos el arreglo de facturas:
+                        //    Juntamos las que no eran 'sc' con la única 'sc' que decidimos conservar.
+                        $operacion['facturas'] = $otherInvoices
+                            ->put($keyToKeep, $lowestScInvoice) // Añadimos la factura 'sc' correcta.
+                            ->all(); // Convertimos la colección de vuelta a un array.
+                    }
+                }
+
+                // Es una buena práctica eliminar la referencia al final del bucle.
+                unset($operacion);
+                // --- HASTA ACA TERMINA EL FOREACH
             } catch (\Exception $e) {
                 Log::error("Ocurrió un error procesando la operacion ID ({$tipoOperacion}) {$operacionID['id_operacion']}: " . $e->getMessage());
                 // Aseguramos que haya una entrada para este pedimento aunque falle, para evitar errores posteriores.
@@ -2018,7 +2252,8 @@ class AuditoriaImpuestosController extends Controller
     }
 
 
-     /**
+
+    /**
      * Lee todos los TXT de LLCs recientes y crea un mapa [pedimento => ruta_del_archivo].
      */
     private function construirIndiceOperacionesLLCs(array $indicesOperacion): array
@@ -2190,7 +2425,7 @@ class AuditoriaImpuestosController extends Controller
     {
         if($esperado == -1){ return 'EXPO'; }
         if($esperado == -1.1){ return 'Sin SC!'; }
-        if($real == -1){ return 'Sin Flete!'; }
+        if($real == -1){ return 'Sin Impuesto!'; } //Este IF es practicamente imposible, pero lo pongo para seguir el formato.
         // Usamos una pequeña tolerancia (epsilon) para comparar números flotantes
         // y evitar problemas de precisión.
         if (abs($esperado - $real) < 0.001) { return 'Coinciden!'; }
