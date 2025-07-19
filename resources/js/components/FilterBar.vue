@@ -1,18 +1,16 @@
 <template>
   <div class="p-4 bg-white rounded-lg shadow-md mb-6 border">
-    <div class="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
       <fieldset class="border p-4 rounded-md">
         <legend class="px-2 font-semibold text-sm">Identificadores</legend>
-        <div class="space-y-3">
-          <div class="flex space-x-2">
-            <input
-              type="text"
-              v-model="filters.pedimento"
-              placeholder="Pedimento"
-              class="block w-full py-2 border-gray-300 rounded-md shadow-sm text-sm"
-            />
-          </div>
-          <div class="flex space-x-2">
+        <div class="space-y-2">
+          <input
+            type="text"
+            v-model="filters.pedimento"
+            placeholder="Pedimento"
+            class="block w-full py-2 border-gray-300 rounded-md shadow-sm text-sm"
+          />
+          <div class="flex space-x-2 pt-3">
             <input
               type="text"
               v-model="filters.folio"
@@ -34,7 +32,7 @@
 
       <fieldset class="border p-4 rounded-md">
         <legend class="px-2 font-semibold text-sm">Estados/Cliente</legend>
-        <div class="space-y-3">
+        <div class="space-y-2">
           <div class="flex space-x-2">
             <select
               v-model="filters.estado"
@@ -71,119 +69,141 @@
               <option value="pago_derecho">Pago Derecho</option>
             </select>
           </div>
-
-          <div class="flex space-x-2">
-            <div
-              class="block py-2 w-full border-gray-300 rounded-md shadow-sm text-sm bg-gray-100 p-2 text-center text-gray-400"
-            >
-              <v-select
-                v-model="filters.cliente_id"
-                :options="clienteOptions"
-                label="nombre"
-                :reduce="(cliente) => cliente.id"
-                placeholder="Buscar Cliente..."
-                class="w-full"
-              ></v-select>
-            </div>
-          </div>
+          <v-select
+            v-model="filters.cliente_id"
+            :options="clienteOptions"
+            label="nombre"
+            :reduce="(cliente) => cliente.id"
+            placeholder="Buscar Cliente..."
+            class="w-full pt-3"
+          ></v-select>
         </div>
       </fieldset>
 
       <fieldset class="border p-4 rounded-md">
         <legend class="px-2 font-semibold text-sm">Periodo</legend>
-        <div class="space-y-3">
-          <select
-            v-model="selectedPeriod"
-            class="block w-full border-gray-300 rounded-md shadow-sm text-sm"
-          >
-            <option value="custom">Personalizado</option>
-            <option value="today">Hoy</option>
-            <option value="this_month">Este Mes</option>
-            <option value="last_month">Mes Anterior</option>
-            <option value="this_year">Este Año</option>
-          </select>
-          <div class="flex items-center space-x-2">
-            <input
-              type="date"
-              v-model="filters.fecha_inicio"
-              class="block w-full border-gray-300 rounded-md shadow-sm text-sm"
-            />
-            <span class="text-gray-500">-</span>
-            <input
-              type="date"
-              ref="fecha_fin"
-              v-model="filters.fecha_fin"
-              class="block w-full border-gray-300 rounded-md shadow-sm text-sm"
-            />
+        <div class="space-y-2">
+          <vue-ctk-date-time-picker
+            v-model="dateRange"
+            label="Selecciona un rango"
+            formatted="YYYY-MM-DD"
+            format="YYYY-MM-DD"
+            :range="true"
+            :no-time="true"
+            :button-color="'#b47500'"
+            :shortcuts="[
+              { key: 'thisWeek', label: 'Esta Semana' },
+              { key: 'lastWeek', label: 'Semana Pasada' },
+              { key: 'thisMonth', label: 'Este Mes' },
+              { key: 'lastMonth', label: 'Mes Pasado' },
+            ]"
+          />
+          <div class="block pt-3">
+            <select
+              v-model="filters.fecha_tipo_documento"
+              class="block w-full py-2 border-gray-300 rounded-md shadow-sm text-sm"
+            >
+              <option value="">Cualquier Tipo</option>
+              <option value="sc">SC</option>
+              <option value="impuestos">Impuestos</option>
+              <option value="flete">Flete</option>
+              <option value="llc">LLC</option>
+              <option value="pago_derecho">Pago Derecho</option>
+            </select>
           </div>
-          <select
-            v-model="filters.fecha_tipo_documento"
-            class="block w-full border-gray-300 rounded-md shadow-sm text-sm"
-          >
-            <option value="">Cualquier Tipo</option>
-            <option value="sc">SC</option>
-            <option value="impuestos">Impuestos</option>
-            <option value="flete">Flete</option>
-            <option value="llc">LLC</option>
-            <option value="pago_derecho">Pago Derecho</option>
-          </select>
         </div>
       </fieldset>
 
       <fieldset class="border p-4 rounded-md">
         <legend class="px-2 font-semibold text-sm">Acciones</legend>
-        <div class="h-full flex flex-col justify-end space-y-2">
-          <!-- RICH SELECTBOX DE REPORTES RECIENTES -->
-          <v-select
-            ref="reporteSelect"
-            :options="tareasCompletadas"
-            placeholder="Ver reportes recientes..."
-            class="w-full mb-2"
-            :filterable="false"
-            @option:selected="limpiarSeleccionReporte"
-          >
-            <template #selected-option-container>
-                <div class="text-sm text-gray-500">Seleccione un reporte...</div>
-            </template>
-
-            <template #option="{ id, nombre_archivo, banco, sucursal, created_at, ruta_reporte_impuestos, ruta_reporte_impuestos_pendientes }">
-              <div class="py-2 px-3">
-                <p class="font-bold text-base truncate" :title="nombre_archivo">{{ nombre_archivo }}</p>
-                <div class="flex justify-between text-xs mt-1">
-                  <span>{{ sucursal }}</span>
-                  <span>{{ banco }}</span>
-                  <span>{{ formatRelativeDate(created_at) }}</span>
-                </div>
-                <div class="flex space-x-4 text-sm mt-2 pt-2 border-t">
-                  <a v-if="ruta_reporte_impuestos" :href="getDownloadUrl(id, 'facturado')" @click.stop target="_blank" class="font-medium hover:underline">Reporte - Facturados</a>
-                  <a v-if="ruta_reporte_impuestos_pendientes" :href="getDownloadUrl(id, 'pendiente')" @click.stop target="_blank" class="font-medium hover:underline">Reporte - Pendientes</a>
-                </div>
-              </div>
-            </template>
-
-            <template #no-options>
-              No hay reportes recientes para esta sucursal.
-            </template>
-          </v-select>
-          <div class="flex items-center space-x-2">
-            <a
-              :href="exportUrl"
-              target="_blank"
-              class="w-full text-center bg-green-600 text-white py-2 px-4 rounded-md shadow-sm hover:bg-green-700"
+        <div class="h-full flex flex-col space-y-4">
+          <div>
+            <v-select
+              ref="reporteSelect"
+              :options="tareasCompletadas"
+              placeholder="Seleccione un reporte..."
+              class="w-full"
+              :filterable="false"
+              @option:selected="limpiarSeleccionReporte"
             >
-              Exportar
-            </a>
+              <template #selected-option-container>
+                <div class="text-sm text-gray-500">Seleccione un reporte...</div>
+              </template>
+
+              <template
+                #option="{
+                  id,
+                  nombre_archivo,
+                  banco,
+                  sucursal,
+                  created_at,
+                  ruta_reporte_impuestos,
+                  ruta_reporte_impuestos_pendientes,
+                }"
+              >
+                <div class="py-2 px-3">
+                  <p class="font-bold text-base truncate" :title="nombre_archivo">
+                    {{ nombre_archivo }}
+                  </p>
+                  <div class="flex justify-between text-xs mt-1">
+                    <span>{{ sucursal }}</span>
+                    <span>{{ banco }}</span>
+                    <span>{{ formatRelativeDate(created_at) }}</span>
+                  </div>
+                  <div class="flex space-x-4 text-sm mt-2 pt-2 border-t">
+                    <a
+                      v-if="ruta_reporte_impuestos"
+                      :href="getDownloadUrl(id, 'facturado')"
+                      @click.stop
+                      target="_blank"
+                      class="font-medium hover:underline"
+                      >Reporte - Facturados</a
+                    >
+                    <a
+                      v-if="ruta_reporte_impuestos_pendientes"
+                      :href="getDownloadUrl(id, 'pendiente')"
+                      @click.stop
+                      target="_blank"
+                      class="font-medium hover:underline"
+                      >Reporte - Pendientes</a
+                    >
+                  </div>
+                </div>
+              </template>
+
+              <template #no-options>
+                No hay reportes recientes para esta sucursal.
+              </template>
+            </v-select>
+          </div>
+
+          <div class="flex space-x-2 mt-auto">
             <button
               @click="search"
-              class="w-full bg-theme-primary text-white py-2 px-4 rounded-md shadow-sm hover:opacity-90"
+              class="w-full bg-blue-700 text-white py-2 px-4 rounded-md shadow-sm hover:opacity-90 font-semibold flex items-center justify-center"
             >
-              Buscar
+              <span class="font-semibold whitespace-nowrap">Filtrar operaciones</span>
+              <svg
+                class="w-5 h-5 ml-2 flex-shrink-0"
+                aria-hidden="true"
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-width="2"
+              >
+                <path d="m21 21-3.5-3.5M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z" />
+              </svg>
             </button>
             <button
+              v-if="hasActiveFilters"
               @click="clear"
-              class="w-1/2 bg-gray-200 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-300"
+              class="w-full bg-gray-200 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-300 text-sm"
             >
-              Limpiar
+              Limpiar filtros
             </button>
           </div>
         </div>
@@ -193,20 +213,52 @@
 </template>
 
 <script>
-import vSelect from "vue-select";
-import "vue-select/dist/vue-select.css";
 // Para formatear la fecha (ej. "hace 2 días"), instala date-fns: npm install date-fns
 import { formatDistanceToNow, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
+
+import VueCtkDateTimePicker from "vue-ctk-date-time-picker";
+import "vue-ctk-date-time-picker/dist/vue-ctk-date-time-picker.css";
+
+import vSelect from "vue-select";
+import "vue-select/dist/vue-select.css";
+
 export default {
   components: {
     vSelect,
+    VueCtkDateTimePicker,
   },
-   props: {
+  props: {
     clientes: { type: Array, default: () => [] },
-    selectedSucursal: { type: Object, default: null }
+    selectedSucursal: { type: Object, default: null },
   },
   data() {
+    // --- Lógica para calcular las fechas ---
+
+    // 1. Obtenemos la fecha de hoy
+    const fechaFin = new Date();
+
+    // 2. Creamos una nueva fecha para el inicio y le restamos un mes
+    const fechaInicio = new Date();
+    //fechaInicio.setDate(fechaFin.getDate() - 1);
+
+    // 3. (Opcional pero recomendado) Formateamos las fechas a YYYY-MM-DD
+    //    Este formato es el estándar para los inputs de tipo 'date' en HTML.
+    const formatearFecha = (fecha) => fecha.toISOString().split("T")[0];
+
+    //Guardamos el estado inicial de los filtros
+    const initialFiltersState = {
+      pedimento: "",
+      operacion_id: "",
+      folio: "",
+      folio_tipo_documento: "",
+      estado: "",
+      estado_tipo_documento: "",
+      fecha_inicio: formatearFecha(fechaInicio),
+      fecha_fin: formatearFecha(fechaFin),
+      fecha_tipo_documento: "",
+      cliente_id: "",
+    };
     return {
       tareasCompletadas: [],
       filters: {
@@ -223,34 +275,54 @@ export default {
         estado_tipo_documento: "",
 
         //SECCION 4: Periodo de fecha
-        fecha_inicio: "",
-        fecha_fin: "",
+        fecha_inicio: formatearFecha(fechaInicio),
+        fecha_fin: formatearFecha(fechaFin),
         fecha_tipo_documento: "",
 
         //SECCION 5: Involucrados
         cliente_id: "",
       },
-      // Para el selector de periodos
-      selectedPeriod: "custom",
+      // Creamos una copia inmutable para comparar después
+      initialFilters: Object.freeze(initialFiltersState),
     };
   },
 
   computed: {
+    /**
+     * Devuelve 'true' si algún filtro ha sido modificado
+     * con respecto a su estado inicial.
+     */
+    hasActiveFilters() {
+      // Comparamos el objeto de filtros actual con el inicial.
+      // JSON.stringify es una forma sencilla y efectiva de hacer una comparación profunda.
+      return JSON.stringify(this.filters) !== JSON.stringify(this.initialFilters);
+    },
+
+    // Se obtienen los clientes de la base de datos
     // vue-select funciona mejor con un array de objetos
     clienteOptions() {
       return this.clientes;
     },
 
-    exportUrl() {
-      // Tomamos los filtros activos y los convertimos a un query string
-      const params = new URLSearchParams(this.filters).toString();
-      const urlParams = new URLSearchParams(window.location.search).toString();
-
-      console.log(params);
-      console.log(urlParams);
-      const finalParams = params + '&' + urlParams;
-
-      return `/auditoria/exportar?${finalParams}`;
+    /**
+     * Esta propiedad computada actúa como un puente (getter/setter)
+     * para el v-model del date-time-picker.
+     */
+    dateRange: {
+      get() {
+        // GET: Devuelve el rango en el formato que el picker espera.
+        return {
+          start: this.filters.fecha_inicio,
+          end: this.filters.fecha_fin,
+        };
+      },
+      set(newValue) {
+        // SET: Se activa cuando el usuario cambia la fecha en el picker.
+        // Actualiza tus filtros y cambia el selector a 'Personalizado'.
+        this.filters.fecha_inicio = newValue.start;
+        this.filters.fecha_fin = newValue.end;
+        this.selectedPeriod = "custom";
+      },
     },
   },
   watch: {
@@ -265,7 +337,7 @@ export default {
           this.tareasCompletadas = []; // Limpia la lista si no hay sucursal
         }
       },
-      immediate: true // 'immediate: true' hace que se ejecute una vez cuando el componente se carga por primera vez.
+      immediate: true, // 'immediate: true' hace que se ejecute una vez cuando el componente se carga por primera vez.
     },
     // Observador para el selector de periodos
     selectedPeriod(newPeriod) {
@@ -275,45 +347,58 @@ export default {
   methods: {
     // Método que llama al backend
     fetchTareasCompletadas(sucursalId) {
-      axios.get('/auditoria/tareas-completadas', { params: { sucursal_id: sucursalId } })
-        .then(response => {
+      axios
+        .get("/auditoria/tareas-completadas", { params: { sucursal_id: sucursalId } })
+        .then((response) => {
           this.tareasCompletadas = response.data;
         })
-        .catch(error => {
+        .catch((error) => {
           console.error("Error al obtener tareas completadas:", error);
           this.tareasCompletadas = [];
         });
     },
     // Genera la URL de descarga correcta
     getDownloadUrl(tareaId, tipoReporte) {
-        // Asegúrate que esta ruta coincida con la que definiste en tu archivo de rutas para el DocumentoController
-        return `/documentos/reporte-auditoria/${tareaId}/${tipoReporte}`;
+      // Asegúrate que esta ruta coincida con la que definiste en tu archivo de rutas para el DocumentoController
+      return `/documentos/reporte-auditoria/${tareaId}/${tipoReporte}`;
     },
     // Formatea la fecha
     formatRelativeDate(dateString) {
-        if (!dateString) return '';
-        try {
-            return formatDistanceToNow(parseISO(dateString), { addSuffix: true, locale: es });
-        } catch (e) {
-            return dateString;
-        }
+      if (!dateString) return "";
+      try {
+        return formatDistanceToNow(parseISO(dateString), { addSuffix: true, locale: es });
+      } catch (e) {
+        return dateString;
+      }
     },
     // Reinicia la selección del dropdown
     limpiarSeleccionReporte() {
       setTimeout(() => {
-          if (this.$refs.reporteSelect) {
-            this.$refs.reporteSelect.clearSelection();
-          }
+        if (this.$refs.reporteSelect) {
+          this.$refs.reporteSelect.clearSelection();
+        }
       }, 50);
     },
+    getFilters() {
+      return this.filters;
+    },
+
+    setInitialFilters(initialFilters) {
+      // Esta lógica no funciona aquí porque 'this.filters' y
+      // 'this.initialFilters' no existen en AuditPage.vue
+      this.filters = { ...this.initialFilters, ...initialFilters };
+    },
+    /**
+     * El método search sigue siendo útil para la acción principal del botón.
+     * Todavía emite los filtros para que la tabla principal se actualice.
+     */
     search() {
       // Avisa al componente padre que se aplicaron los filtros
       this.$emit("apply-filters", this.filters);
     },
     clear() {
       // Limpia todos los filtros y el selector de periodo
-      Object.keys(this.filters).forEach((key) => (this.filters[key] = ""));
-      this.selectedPeriod = "custom";
+      this.filters = { ...this.initialFilters };
       this.search();
     },
     setPeriod(period) {
@@ -356,7 +441,7 @@ export default {
 
 /* Define el color de fondo azul para la opción resaltada */
 .vs__dropdown-option--highlight {
-  background-color: #b47500; /* Un azul de Tailwind (blue-600) */
+  background-color: #273792; /* Un azul de Tailwind (blue-600) */
   color: white;
 }
 
@@ -381,9 +466,25 @@ export default {
 
 /* Estilos generales para que el select se vea bien */
 .vs__dropdown-toggle {
-    @apply block w-full py-1 px-1 border border-gray-300 bg-white rounded-md shadow-sm;
+  @apply block w-full py-1 px-1 border border-gray-300 bg-white rounded-md shadow-sm;
 }
 .vs__search::placeholder {
-    color: #6b7280;
+  color: #6b7280;
+}
+
+/* Convierte el contenedor principal en un flexbox */
+.vs__dropdown-toggle {
+  @apply flex items-center justify-between;
+}
+
+/* Permite que el contenedor de la selección crezca para empujar la flecha */
+.vs__selected-options {
+  @apply flex-grow;
+}
+
+/* Contenedor de los íconos (flecha y 'x' de limpiar) */
+.vs__actions {
+  /* Alinea la flecha verticalmente si es necesario */
+  @apply self-center;
 }
 </style>

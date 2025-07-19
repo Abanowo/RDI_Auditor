@@ -38,7 +38,12 @@ class AuditoriaImpuestosController extends Controller
     {
         if ($request->wantsJson()) {
             $filters = $request->query();
+
             $query = $this->obtenerQueryFiltrado($request);
+
+            // Para depurar:
+            // Muestra el SQL generado y los valores a "bindear"
+
 
             // Ahora, cargamos las relaciones que necesitamos para la transformación
             // La ruta es más larga, pero es la forma correcta: pedimento -> importacion -> auditorias/totalSc
@@ -71,15 +76,15 @@ class AuditoriaImpuestosController extends Controller
 
     //Para no estar escribiendo todo el filtrado en cada parte que lo ocupe, hago la construccion del query junto con todos sus filtros
     //y lo devuelvo de aqui hacia a donde se ocupe.
-    private function obtenerQueryFiltrado(Request $request) : Builder
+    private function obtenerQueryFiltrado(Request $request): Builder
     {
         $filters = $request->query();
         $operationType = $filters['operation_type'] ?? 'todos';
 
-        // 1. Empezamos con el modelo base
+        // 1. La consulta empieza desde el modelo Pedimento.
         $query = Pedimento::query();
 
-        // 2. Filtro por Número de Pedimento (se aplica directamente al pedimento, es rápido)
+        // 2. Filtro por Número de Pedimento
         $query->when($filters['pedimento'] ?? null, function ($q, $val) {
             $q->where('num_pedimiento', 'like', "%{$val}%");
         });
@@ -97,68 +102,77 @@ class AuditoriaImpuestosController extends Controller
             $q->when($filters['cliente_id'] ?? null, function ($subQ, $id) {
                 $subQ->where('id_cliente', $id);
             });
-            if (!isset($filters['fecha_inicio'])) {
-                $filters['fecha_inicio'] = now()->addMonths(-1)->toDateTimeString();
-            $filters['fecha_fin'] = now()->toDateTimeString();
+
+            // --- B. LÓGICA DE FILTRADO REFACTORIZADA (LA SOLUCIÓN) ---
+
+            // Unificamos todos los filtros de documentos en un solo array para procesarlos.
+            $documentFilters = [];
+            if (!empty($filters['folio'])) $documentFilters['folio'] = ['value' => $filters['folio'], 'type' => $filters['folio_tipo_documento'] ?? 'any'];
+            if (!empty($filters['estado'])) $documentFilters['estado'] = ['value' => $filters['estado'], 'type' => $filters['estado_tipo_documento'] ?? 'any'];
+            if (!empty($filters['fecha_inicio'])) $documentFilters['fecha'] = ['value' => $filters['fecha_inicio'], 'type' => $filters['fecha_tipo_documento'] ?? 'any'];
+
+            // Si no hay ningún filtro de documento, no hacemos nada más.
+            if (empty($documentFilters)) {
+                return; // Termina la clausura aquí
             }
-            // --- B. Filtros que aplican a las tablas de auditoría (LA OPTIMIZACIÓN PRINCIPAL) ---
-            // Agrupamos todas las condiciones de auditoría en un solo bloque.
-            $q->where(function ($auditExistsQuery) use ($filters) {
 
-                // RUTA 1: La operación tiene una 'auditoria' que cumple TODOS los filtros aplicables.
-                $auditExistsQuery->orWhereHas('auditorias', function ($auditQuery) use ($filters) {
+            // B.1. Agrupamos los filtros por el tipo de documento especificado
+            $filtersByType = [];
+            foreach ($documentFilters as $key => $data) {
+                $filtersByType[$data['type']][$key] = $data['value'];
+            }
 
-                    $auditQuery->when($filters['folio'] ?? null, function ($sq, $val) {
-                        $sq->where('folio', 'like', "%{$val}%");
+            // B.2. Aplicamos los filtros agrupados con condiciones AND
+            foreach ($filtersByType as $type => $values) {
+
+                // CASO ESPECIAL: El tipo es 'sc'
+                if ($type === 'sc') {
+                    $q->whereHas('auditoriasTotalSC', function ($scQuery) use ($values, $filters) {
+                        if (isset($values['folio'])) $scQuery->where('folio', 'like', "%{$values['folio']}%");
+                        if (isset($values['fecha'])) $scQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
                     });
-
-                    $auditQuery->when($filters['estado'] ?? null, function ($sq, $val) {
-                        if ($val !== 'SC Encontrada') { // 'SC Encontrada' no aplica a esta tabla
-                            $sq->where('estado', $val);
-                        }
+                }
+                // CASO: El tipo es específico (ej. 'impuestos', 'flete')
+                elseif ($type !== 'any') {
+                    $q->whereHas('auditorias', function ($auditQuery) use ($values, $type, $filters) {
+                        $auditQuery->where('tipo_documento', $type);
+                        if (isset($values['folio'])) $auditQuery->where('folio', 'like', "%{$values['folio']}%");
+                        if (isset($values['estado'])) $auditQuery->where('estado', $values['estado']);
+                        if (isset($values['fecha'])) $auditQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
                     });
-
-                    $auditQuery->when($filters['fecha_inicio'] ?? null, function ($sq, $val) use ($filters) {
-                        $fin = $filters['fecha_fin'] ?? $val;
-                        $sq->whereBetween('fecha_documento', [$val, $fin]);
+                }
+                // CASO: El tipo es 'any' (Cualquier Tipo)
+                else {
+                    $q->where(function ($orQuery) use ($values, $filters) {
+                        // Busca en 'auditorias'
+                        $orQuery->orWhereHas('auditorias', function ($auditQuery) use ($values, $filters) {
+                            if (isset($values['folio'])) $auditQuery->where('folio', 'like', "%{$values['folio']}%");
+                            if (isset($values['estado'])) $auditQuery->where('estado', $values['estado']);
+                            if (isset($values['fecha'])) $auditQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
+                        });
+                        // O busca en 'auditoriasTotalSC' (solo para folio y fecha)
+                        $orQuery->orWhereHas('auditoriasTotalSC', function ($scQuery) use ($values, $filters) {
+                            if (isset($values['folio'])) $scQuery->where('folio', 'like', "%{$values['folio']}%");
+                            if (isset($values['fecha'])) $scQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
+                        });
                     });
-                });
-
-                // RUTA 2: O la operación tiene una 'auditoriaTotalSC' que cumple TODOS los filtros aplicables.
-                $auditExistsQuery->orWhereHas('auditoriasTotalSC', function ($scQuery) use ($filters) {
-
-                    $scQuery->when($filters['folio'] ?? null, function ($sq, $val) {
-                        $sq->where('folio_documento', 'like', "%{$val}%");
-                    });
-
-                    if (($filters['estado'] ?? null) === 'SC Encontrada') {
-                        // La condición se cumple por la simple existencia, no se necesita un 'where' extra.
-                    }
-
-                    $scQuery->when($filters['fecha_inicio'] ?? null, function ($sq, $val) use ($filters) {
-                        $fin = $filters['fecha_fin'] ?? $val;
-                        $sq->whereBetween('fecha_documento', [$val, $fin]);
-                    });
-                });
-            });
+                }
+            }
         };
 
-        // 4. Aplicamos el conjunto de filtros a la relación correcta
+        // 4. Aplicamos el conjunto de filtros a la relación correcta (Impo/Expo/Ambas)
         if ($operationType === 'importacion') {
             $query->whereHas('importacion', $applyRelationshipFilters);
         } elseif ($operationType === 'exportacion') {
             $query->whereHas('exportacion', $applyRelationshipFilters);
         } else { // 'todos'
-            $query->where(function($q) use ($applyRelationshipFilters) {
+            $query->where(function ($q) use ($applyRelationshipFilters) {
                 $q->whereHas('importacion', $applyRelationshipFilters)
                 ->orWhereHas('exportacion', $applyRelationshipFilters);
             });
         }
 
-
         return $query;
-
-
     }
 
 
@@ -343,6 +357,49 @@ class AuditoriaImpuestosController extends Controller
             ]);
 
         return response()->json($tareas);
+    }
+
+
+    /**
+     * Calcula el conteo de facturas SC del día para una sucursal específica.
+     */
+    public function getConteoScDiario(Request $request)
+    {
+        $request->validate(['sucursal_id' => 'required']);
+        $sucursalId = $request->input('sucursal_id');
+
+        // Obtenemos el nombre de la sucursal para el filtro
+        $sucursalNombre = ($sucursalId !== 'todos') ? Sucursales::find($sucursalId)->nombre : null;
+
+        // --- Conteo para Importaciones ---
+        $conteoImportacion = AuditoriaTotalSC::query()
+            ->whereDate('auditorias_totales_sc.created_at', today())
+            // Usamos whereHas para filtrar por la sucursal en la tabla padre (operaciones_importacion)
+            ->whereHas('operacion', function ($query) use ($sucursalNombre) {
+                $query->where('sucursal', $sucursalNombre);
+            }, '>=', 1, 'and', Importacion::class)
+            ->count();
+
+        // --- Conteo para Exportaciones ---
+        $conteoExportacion = AuditoriaTotalSC::query()
+            ->whereDate('auditorias_totales_sc.created_at', today())
+            // Hacemos lo mismo para operaciones_exportacion
+            ->whereHas('operacion', function ($query) use ($sucursalNombre) {
+                $query->where('sucursal', $sucursalNombre);
+            }, '>=', 1, 'and', Exportacion::class)
+            ->count();
+
+        // Si el filtro es 'todos', sumamos ambos conteos
+        if ($sucursalId === 'todos') {
+            $conteoImportacion = AuditoriaTotalSC::whereDate('created_at', today())->where('operation_type', Importacion::class)->count();
+            $conteoExportacion = AuditoriaTotalSC::whereDate('created_at', today())->where('operation_type', Exportacion::class)->count();
+        }
+
+        return response()->json([
+            'importacion' => $conteoImportacion,
+            'exportacion' => $conteoExportacion,
+            'todos' => $conteoImportacion + $conteoExportacion,
+        ]);
     }
 
 

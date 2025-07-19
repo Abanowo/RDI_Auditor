@@ -20,13 +20,18 @@ use Illuminate\Support\Facades\Route;
 Route::post('/importar-estado-de-cuenta', [ImportController::class, 'procesarEstadoDeCuenta'])->name('import.process');
 
 //Rutas de DocumentoController
-// La ruta no necesita cambiar si usamos parámetros GET
 Route::get('/documentos/ver', [DocumentoController::class, 'mostrarPdf'])->name('documentos.ver');
+// La ruta ahora espera un ID de tarea y una cadena de texto ('facturado' o 'pendiente').
+// Ruta para servir archivos locales (impuestos) por su tipo e ID
+Route::get('/documentos/ver/{tipo}/{id}', [DocumentoController::class, 'mostrarDocumentoLocal'])->name('documentos.local.mostrar');
+// Nueva ruta para servir como proxy para URLs externas
+Route::get('/documentos/proxy', [DocumentoController::class, 'proxyDocumentoExterno'])->name('documentos.externo.proxy');
 // La ruta ahora espera un ID de tarea y una cadena de texto ('facturado' o 'pendiente').
 Route::get('/documentos/reporte-auditoria/{tarea}/{tipo}', [DocumentoController::class, 'descargarReporteAuditoria'])->name('reportes.auditoria.descargar');
 
 //Rutas de AuditoriaImpuestosController
 // Rutas API para los filtros del frontend
+Route::get('/auditoria/conteo-sc-diario', [AuditoriaImpuestosController::class, 'getConteoScDiario']);
 Route::get('/auditoria/tareas-completadas', [AuditoriaImpuestosController::class, 'getTareasCompletadas']);
 Route::get('/auditoria/sucursales', [AuditoriaImpuestosController::class, 'getSucursales']);
 Route::get('/auditoria/clientes', [AuditoriaImpuestosController::class, 'getClientes']);

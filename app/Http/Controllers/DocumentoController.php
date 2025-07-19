@@ -6,10 +6,87 @@ use App\Models\Auditoria;
 use App\Models\AuditoriaTotalSC;
 use App\Models\AuditoriaTareas;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
 class DocumentoController extends Controller
 {
+    /**
+     * Muestra un documento local (ej. impuestos) desde el storage.
+     */
+    public function mostrarDocumentoLocal(Request $request, string $tipo, int $id)
+    {
+        $factura = Auditoria::findOrFail($id);
+        $rutaAbsoluta = $factura->ruta_pdf;
+
+        // Verificamos que la ruta exista y que el archivo sea legible.
+        if (!$rutaAbsoluta || !is_file($rutaAbsoluta) || !is_readable($rutaAbsoluta)) {
+             abort(404, 'El archivo local no fue encontrado o no se puede leer.');
+        }
+
+        // ✅ PASO 1: Detectamos la extensión del archivo dinámicamente.
+        $extension = strtolower(pathinfo($rutaAbsoluta, PATHINFO_EXTENSION));
+
+        // PASO 2: Si la petición solo quiere información, devolvemos la extensión.
+        if ($request->has('info')) {
+            return response()->json(['tipo_archivo' => $extension]);
+        }
+
+        // PASO 3: Si no es una petición de info, servimos el archivo con el Content-Type correcto.
+        $contenido = file_get_contents($rutaAbsoluta);
+        $nombreArchivo = basename($rutaAbsoluta);
+
+        // Mapeo de extensiones a tipos MIME para las cabeceras HTTP.
+        $mimeTypes = [
+            'pdf'  => 'application/pdf',
+            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'xls'  => 'application/vnd.ms-excel',
+            // Puedes añadir más tipos de archivo aquí si es necesario
+        ];
+
+        // Usamos el tipo MIME correspondiente a la extensión, o un tipo genérico si no se encuentra.
+        $contentType = $mimeTypes[$extension] ?? 'application/octet-stream';
+
+        return response($contenido, 200, [
+            'Content-Type' => $contentType,
+            'Content-Disposition' => 'inline; filename="' . $nombreArchivo . '"',
+        ]);
+    }
+
+    /**
+     * Actúa como un proxy para obtener y servir un documento desde una URL externa.
+     * Esto resuelve los problemas de CORS.
+     */
+    public function proxyDocumentoExterno(Request $request)
+    {
+        // Validamos que nos hayan enviado una URL.
+        $request->validate(['url' => 'required|url']);
+        $urlExterna = $request->input('url');
+
+        if ($request->has('info')) {
+            // Como tu regla de negocio dice que todas las facturas externas son PDF,
+            // podemos responder directamente sin necesidad de descargar el archivo.
+            return response()->json(['tipo_archivo' => 'pdf']);
+        }
+        try {
+            // Hacemos la petición desde nuestro servidor a la URL externa.
+            $response = Http::withoutVerifying()->get($urlExterna);
+
+            if ($response->failed()) {
+                abort(502, 'No se pudo obtener el documento desde el servidor de origen.');
+            }
+
+            // Servimos el contenido del PDF al navegador con las cabeceras correctas.
+            return response($response->body(), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="' . basename($urlExterna) . '"',
+            ]);
+
+        } catch (\Exception $e) {
+            abort(500, 'Ocurrió un error al procesar el documento externo.');
+        }
+    }
+
     public function mostrarPdf(Request $request)
     {
         // 1. Validamos que nos lleguen los parámetros 'tipo' e 'id'

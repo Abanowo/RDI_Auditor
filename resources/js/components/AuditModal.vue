@@ -132,8 +132,7 @@
             <div class="flex justify-evenly items-center my-4">
               <h4 class="font-bold text-lg">Visor de Documento</h4>
               <a
-                v-if="pdfUrl"
-                :href="pdfUrl"
+                :href="documentUrl"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="flex items-center space-x-2 px-3 py-1 text-xs font-semibold text-theme-primary bg-blue-50 hover:bg-blue-100 rounded-full transition"
@@ -156,19 +155,33 @@
               </a>
             </div>
 
-            <iframe
-              v-if="pdfUrl"
-              :src="pdfUrl"
-              class="w-full h-full min-h-[500px] flex-grow"
-              style="height: 60vh"
-              :class="{ invisible: isPdfLoading }"
-              @load="isPdfLoading = false"
-            >
-            </iframe>
+            <div v-if="isDocumentLoading" class="text-center p-10 text-gray-500">
+              <p>Cargando documento...</p>
+            </div>
 
-            <p v-else class="text-center p-10 text-gray-500">
-              No hay un PDF para mostrar.
-            </p>
+            <!-- ✅ LÓGICA DEL VISOR CORREGIDA -->
+            <div v-else class="flex-grow flex items-center justify-center">
+              <!-- Caso 1: El documento es un PDF, lo mostramos en el iframe -->
+              <iframe
+                v-if="documentType === 'pdf'"
+                :src="documentUrl"
+                class="w-full h-full"
+                style="height: 60vh"
+              ></iframe>
+
+              <!-- Caso 2: El documento es un XLSX, mostramos el mensaje personalizado -->
+              <p
+                v-else-if="documentType === 'xlsx'"
+                class="text-center p-10 text-gray-500"
+              >
+                No se puede visualizar este formato de estado de cuenta.
+              </p>
+
+              <!-- Caso 3: Cualquier otro caso (no hay doc, formato desconocido, etc.) -->
+              <p v-else class="text-center p-10 text-gray-500">
+                No hay un documento para mostrar o el formato no es soportado.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -278,8 +291,7 @@
             <div class="flex justify-evenly items-center my-4">
               <h4 class="font-bold text-lg">Visor de Documento</h4>
               <a
-                v-if="pdfUrl"
-                :href="pdfUrl"
+                :href="documentUrl"
                 target="_blank"
                 rel="noopener noreferrer"
                 class="flex items-center space-x-2 px-3 py-1 text-xs font-semibold text-theme-primary bg-blue-50 hover:bg-blue-100 rounded-full transition"
@@ -301,15 +313,34 @@
                 </svg>
               </a>
             </div>
-            <iframe
-              v-if="pdfUrl"
-              :src="pdfUrl"
-              class="w-full h-full flex-grow"
-              style="height: 60vh"
-            ></iframe>
-            <p v-else class="text-center p-10 text-gray-500">
-              No hay un PDF para mostrar.
-            </p>
+
+            <div v-if="isDocumentLoading" class="text-center p-10 text-gray-500">
+              <p>Cargando documento...</p>
+            </div>
+
+            <!-- ✅ LÓGICA DEL VISOR CORREGIDA -->
+            <div v-else class="flex-grow flex items-center justify-center">
+              <!-- Caso 1: El documento es un PDF, lo mostramos en el iframe -->
+              <iframe
+                v-if="documentType === 'pdf'"
+                :src="documentUrl"
+                class="w-full h-full"
+                style="height: 60vh"
+              ></iframe>
+
+              <!-- Caso 2: El documento es un XLSX, mostramos el mensaje personalizado -->
+              <p
+                v-else-if="documentType === 'xlsx'"
+                class="text-center p-10 text-gray-500"
+              >
+                No se puede visualizar este formato de estado de cuenta.
+              </p>
+
+              <!-- Caso 3: Cualquier otro caso (no hay doc, formato desconocido, etc.) -->
+              <p v-else class="text-center p-10 text-gray-500">
+                No hay un documento para mostrar o el formato no es soportado.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -337,10 +368,24 @@ export default {
     return {
       isDesgloseVisible: false, // Para el primer desplegable (Montos SC)
       isFacturasVisible: false, // Para el NUEVO desplegable (Facturas Reales)
-      isPdfLoading: false, //Para la carga del PDF
+      isDocumentLoading: false, //Para la carga del PDF o del XLSX
+      documentType: null, // NUEVO: para almacenar 'pdf', 'xlsx', etc.
     };
   },
   computed: {
+    /**
+     * Construye la URL para el visor de Microsoft Office Online.
+     * Es importante codificar la URL del documento para que funcione correctamente.
+     */
+    excelViewerUrl() {
+      if (this.documentType !== "xlsx" || !this.documentUrl) {
+        return "";
+      }
+      // Construimos la URL para el visor de Office Online
+      const encodedUrl = encodeURIComponent(window.location.origin + this.documentUrl);
+      return `https://view.officeapps.live.com/op/embed.aspx?src=${encodedUrl}`;
+    },
+
     // 1. ¿Estamos auditando una SC? (Devuelve true/false)
     isScAudit() {
       // Usamos 'optional chaining' (?.) para evitar errores si algo es null
@@ -454,7 +499,7 @@ export default {
     },
 
     // 5. El visor de PDF
-    pdfUrl() {
+    documentUrl() {
       // Primero, determinamos cuál es el registro de la factura que estamos viendo
       const factura = this.auditData?.factura;
 
@@ -463,15 +508,22 @@ export default {
         return null;
       }
 
-      // Determinamos el 'tipo' basado en si es una auditoría de SC o no
-      const tipo = this.auditData?.tipo;
+      // Obtenemos el tipo y el ID
+      const tipo = this.auditData?.tipo.replace(/(\s*#\d*)/g, ""); // Limpiamos el tipo (ej. 'pago_derecho #1' -> 'pago_derecho')
       const id = factura.id;
 
-      // Construimos la URL con los parámetros que nuestro controlador espera
-      return tipo !== "impuestos"
-        ? factura.ruta_pdf
-        : `/documentos/ver?tipo=${tipo}&id=${id}`;
-      //return `/documentos/ver?tipo=${tipo}&id=${id}`;
+      // Lógica condicional para manejar los dos tipos de documentos
+      if (tipo === "impuestos") {
+        // Para 'impuestos', usamos la ruta que busca el archivo local por ID, como antes.
+        return `/documentos/ver/${tipo}/${id}`;
+      } else {
+        // Para todos los demás (flete, llc, etc.), que son URLs externas,
+        // usamos una nueva ruta 'proxy' para evitar problemas de CORS.
+        // Nos aseguramos de que la ruta_pdf exista.
+        if (!factura.ruta_pdf) return null;
+        // Codificamos la URL externa para pasarla de forma segura como un parámetro.
+        return `/documentos/proxy?url=${encodeURIComponent(factura.ruta_pdf)}`;
+      }
     },
 
     /**
@@ -534,10 +586,42 @@ export default {
      * Observa si la URL del PDF cambia.
      * Si cambia, activamos el estado de carga.
      */
-    pdfUrl(newUrl, oldUrl) {
-      if (newUrl) {
-        this.isPdfLoading = true;
-      }
+    documentUrl: {
+      // Hacemos el handler asíncrono para poder usar await
+      async handler(newUrl) {
+        // Si no hay URL, limpiamos todo y salimos.
+        if (!newUrl) {
+          this.documentType = null;
+          this.isDocumentLoading = false;
+          return;
+        }
+
+        this.isDocumentLoading = true;
+        this.documentType = null; // Reiniciamos el tipo de documento
+
+        try {
+          // Construimos la URL para pedir solo la información del tipo de archivo
+          const infoUrl = newUrl.includes("?")
+            ? `${newUrl}&info=true`
+            : `${newUrl}?info=true`;
+
+          const response = await fetch(infoUrl);
+          if (!response.ok) {
+            throw new Error("No se pudo obtener la información del documento.");
+          }
+
+          const data = await response.json();
+          // Asignamos el tipo de archivo que nos devolvió Laravel ('pdf', 'xlsx', etc.)
+          this.documentType = data.tipo_archivo;
+        } catch (error) {
+          console.error("Error al verificar el tipo de documento:", error);
+          this.documentType = "unknown"; // Marcamos como desconocido si hay un error
+        } finally {
+          // Al final, independientemente del resultado, quitamos el estado de carga.
+          this.isDocumentLoading = false;
+        }
+      },
+      immediate: true, // Descomenta si quieres que se ejecute al montar el componente
     },
   },
   methods: {
@@ -575,12 +659,6 @@ export default {
       } else {
         return "text-gray-900 font-bold"; // Negro y en negritas para cualquier otro caso
       }
-    },
-    formatPdfUrl(path) {
-      // Esta función es un EJEMPLO. Necesitarás una ruta real en Laravel para servir los PDFs.
-      // Por ejemplo, si el id de la auditoría es 1380...
-      const fileId = this.auditData.factura.id;
-      return `/documentos/ver/${fileId}`; // ...la URL debería ser algo como esto.
     },
   },
 };

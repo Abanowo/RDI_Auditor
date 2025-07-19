@@ -68,21 +68,6 @@
       </div>
 
       <div>
-        <label for="bank" class="block text-sm font-medium text-gray-700">Banco</label>
-        <select
-          id="bank"
-          v-model="selectedBank"
-          class="mt-1 block w-full pl-3 pr-10 py-2 text-base focus:outline-none focus:ring-2 focus:ring-theme-primary sm:text-sm rounded-md transition-all duration-300"
-          :class="selectedBank ? 'border-green-500 border-2' : 'border-gray-300'"
-        >
-          <option value="" disabled>Selecciona un banco</option>
-          <option v-for="bank in filteredBanks" :key="bank.value" :value="bank.value">
-            {{ bank.text }}
-          </option>
-        </select>
-      </div>
-
-      <div>
         <label for="sucursal" class="block text-sm font-medium text-gray-700"
           >Sucursal</label
         >
@@ -102,6 +87,23 @@
           </option>
         </select>
       </div>
+
+      <div>
+        <label for="bank" class="block text-sm font-medium text-gray-700">Banco</label>
+        <select
+          id="bank"
+          v-model="selectedBank"
+          class="mt-1 block w-full pl-3 pr-10 py-2 text-base focus:outline-none focus:ring-2 focus:ring-theme-primary sm:text-sm rounded-md transition-all duration-300"
+          :class="selectedBank ? 'border-green-500 border-2' : 'border-gray-300'"
+        >
+          <option value="" disabled>Selecciona un banco</option>
+          <option v-for="bank in filteredBanks" :key="bank.value" :value="bank.value">
+            {{ bank.text }}
+          </option>
+        </select>
+      </div>
+
+
 
       <div class="pt-4">
         <button

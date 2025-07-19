@@ -27,8 +27,8 @@ class AuditoriaTotalSC extends Model
     // También es buena idea definir qué campos se pueden llenar masivamente
     protected $fillable = [
         'operacion_id',
-        'folio_sc',
-        'fecha_sc',
+        'folio',
+        'fecha_documento',
         'desglose_conceptos',
         'ruta_pdf',
         'ruta_txt',

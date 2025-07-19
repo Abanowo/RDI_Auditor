@@ -42,8 +42,17 @@ export default {
      * pasándole la URL de la página a la que queremos ir.
      */
     changePage(url) {
-      if (!url) return; // No hacer nada si la URL es nula
-      this.$emit("change-page", url);
+       if (!url) return; // La guarda de seguridad es correcta
+
+        // 1. Creamos un objeto URL para poder analizarlo fácilmente.
+        //    El segundo argumento es una base por si la URL es relativa (buena práctica).
+        const urlObject = new URL(url, window.location.origin);
+
+        // 2. Extraemos el valor del parámetro 'page'.
+        const page = urlObject.searchParams.get('page');
+
+        // 3. Emitimos SOLO el número de página.
+        this.$emit("change-page", page);
     },
   },
 };
