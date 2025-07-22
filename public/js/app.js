@@ -4176,7 +4176,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       var pedimento = (_this$auditData$opera = this.auditData.operacion) === null || _this$auditData$opera === void 0 ? void 0 : _this$auditData$opera.pedimento;
       var montos = (factura === null || factura === void 0 || (_factura$desglose_con = factura.desglose_conceptos) === null || _factura$desglose_con === void 0 ? void 0 : _factura$desglose_con.montos) || {};
       return {
-        folio: (factura === null || factura === void 0 ? void 0 : factura.folio_documento) || "N/A",
+        folio: (factura === null || factura === void 0 ? void 0 : factura.folio) || "N/A",
         pedimento: pedimento,
         total: montos.sc,
         total_mxn: montos.sc_mxn
@@ -5085,7 +5085,9 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
         _this6.operaciones = response.data.data;
         _this6.pagination = response.data;
         _this6.isLoading = false;
-
+        console.log("Response: ", response);
+        console.log("Response.data: ", response.data);
+        console.log("Response.data.links: ", response.data.links);
         // Esta parte es crucial y ahora funcionará correctamente
         var activeLink = response.data.links.find(function (link) {
           return link.active;
@@ -5761,31 +5763,12 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
 
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
-  // Aquí le decimos a Vue que este componente espera recibir un objeto llamado 'operacion'.
   props: {
     operacion: {
       type: Object,
-      // El tipo de dato que esperamos es un objeto
-      required: true // Indicamos que es un dato obligatorio
+      required: true
     },
     itemIndex: {
       type: Number,
@@ -5797,19 +5780,98 @@ __webpack_require__.r(__webpack_exports__);
     }
   },
   emits: ["open-modal"],
-  // <-- Declara el evento que este componente puede emitir
   computed: {
     displayNumber: function displayNumber() {
-      // El número inicial de la página + el índice del elemento actual
       return this.pageFrom + this.itemIndex;
+    },
+    operationType: function operationType() {
+      if (this.operacion.tipo_operacion.toLowerCase().includes("import")) return "IMPORTACIÓN";
+      if (this.operacion.tipo_operacion.toLowerCase().includes("export")) return "EXPORTACIÓN";
+      return "N/A";
+    },
+    operationTypeClass: function operationTypeClass() {
+      if (this.operationType.startsWith("IMP")) return "bg-blue-100 text-blue-800";
+      if (this.operationType.startsWith("EXP")) return "bg-purple-100 text-purple-800";
+      return "bg-gray-200 text-gray-800";
+    },
+    cardOverallState: function cardOverallState() {
+      var _this = this;
+      var statuses = Object.values(this.operacion.status_botones);
+      // 3. LÓGICA "SIN SC": Verificamos si hay un error rojo que NO sea 'Sin SC'
+      var hasCriticalRed = statuses.some(function (statusInfo) {
+        var estadoTexto = _this.getFacturaStatusText(Object.keys(_this.operacion.status_botones).find(function (key) {
+          return _this.operacion.status_botones[key] === statusInfo;
+        }), statusInfo);
+        return _this.isStatusRed(estadoTexto) && estadoTexto.toLowerCase() !== "sin sc!";
+      });
+      if (hasCriticalRed) return "rojo";
+      var hasPagoDeMas = statuses.some(function (statusInfo) {
+        var estadoTexto = _this.getFacturaStatusText(Object.keys(_this.operacion.status_botones).find(function (key) {
+          return _this.operacion.status_botones[key] === statusInfo;
+        }), statusInfo);
+        return estadoTexto.toLowerCase() === "pago de mas!";
+      });
+      if (hasPagoDeMas) return "amarillo";
+
+      // Si no hay errores críticos, verificamos si existe un 'Sin SC' para dejar el fondo blanco
+      var hasSinSc = statuses.some(function (statusInfo) {
+        var estadoTexto = _this.getFacturaStatusText(Object.keys(_this.operacion.status_botones).find(function (key) {
+          return _this.operacion.status_botones[key] === statusInfo;
+        }), statusInfo);
+        return estadoTexto.toLowerCase() === "sin sc!";
+      });
+      if (hasSinSc) return "neutro"; // Estado neutro para fondo blanco
+
+      return "verde";
+    },
+    cardBgClass: function cardBgClass() {
+      switch (this.cardOverallState) {
+        case "rojo":
+          return "bg-red-100";
+        case "verde":
+          return "bg-green-50";
+        case "amarillo":
+          return "bg-yellow-50";
+        case "neutro":
+          return "bg-gray-100";
+        // Fondo blanco si el estado es 'neutro'
+        default:
+          return "bg-white";
+      }
+    },
+    cardInformationBgClass: function cardInformationBgClass() {
+      switch (this.cardOverallState) {
+        case "rojo":
+          return "bg-red-600 bg-opacity-75 text-white";
+        case "verde":
+          return "bg-green-500 bg-opacity-75 text-white";
+        case "amarillo":
+          return "bg-yellow-500 bg-opacity-75 text-white";
+        case "neutro":
+          return "bg-gray-600 bg-opacity-75 text-white";
+        default:
+          return "bg-white text-gray-600";
+      }
     }
   },
   methods: {
-    // En el script de OperationItem.vue -> methods
-    /**
-     * Devuelve las clases para el FONDO de la sección superior de la tarjeta.
-     */
-    getCardBgClass: function getCardBgClass(estado) {
+    getFacturaStatusText: function getFacturaStatusText(tipo, info) {
+      if (tipo === "sc") {
+        return info.datos && info.datos.desglose_conceptos ? "SC Encontrada" : "No Encontrado";
+      }
+      return info.datos ? info.datos.estado : "No Encontrado";
+    },
+    isStatusRed: function isStatusRed(estado) {
+      if (!estado) return false;
+      var estadoLower = estado.toLowerCase();
+      return estadoLower.includes("pago de menos") || estadoLower.includes("sin") && !estadoLower.includes("sc") || estadoLower.includes("intactics");
+    },
+    isStatusGray: function isStatusGray(estado) {
+      if (!estado) return false;
+      var estadoLower = estado.toLowerCase();
+      return estadoLower.includes("sin sc") || estadoLower.includes("no encontrado");
+    },
+    getCardHeaderBgClass: function getCardHeaderBgClass(estado) {
       switch (estado) {
         case "verde":
           return "bg-green-50";
@@ -5817,32 +5879,22 @@ __webpack_require__.r(__webpack_exports__);
           return "bg-yellow-50";
         case "rojo":
           return "bg-red-50";
-        case "gris":
-          return "bg-gray-100";
         default:
           return "bg-gray-100";
       }
     },
-    /**
-     * Devuelve las clases para el BORDE de la tarjeta completa.
-     */
     getCardBorderClass: function getCardBorderClass(estado) {
       switch (estado) {
         case "verde":
-          return "border-green-200";
+          return "border-green-300";
         case "amarillo":
-          return "border-yellow-300";
+          return "border-yellow-400";
         case "rojo":
-          return "border-red-300";
-        case "gris":
-          return "border-gray-200";
+          return "border-red-400";
         default:
           return "border-gray-200";
       }
     },
-    /**
-     * Devuelve las clases de color de FONDO para el botón.
-     */
     getStatusButtonClass: function getStatusButtonClass(estado) {
       switch (estado) {
         case "verde":
@@ -5857,28 +5909,53 @@ __webpack_require__.r(__webpack_exports__);
           return "bg-gray-700 hover:bg-gray-800";
       }
     },
-    /**
-     * Devuelve las clases de color de TEXTO para el estado.
-     */
     getStatusTextClass: function getStatusTextClass(estado) {
-      if (!estado) return "text-gray-800 font-bold";
+      if (!estado) return "text-gray-800";
       var estadoLower = estado.toLowerCase();
-      if (estadoLower === "coinciden!" || estadoLower === "sc encontrada") {
-        return "text-green-600 font-bold";
-      } else if (estadoLower === "pago de mas!") {
-        return "text-yellow-500 font-bold";
-      } else if (estadoLower === "expo") {
-        return "text-indigo-600 font-bold";
-      } else if (estadoLower === "pago de menos!" || estadoLower.includes("sin") || estadoLower === "intactics") {
-        return "text-red-600 font-bold";
+      if (estadoLower.includes("coinciden") || estadoLower.includes("encontrada")) {
+        return "text-green-700";
+      } else if (estadoLower.includes("pago de mas")) {
+        return "text-yellow-600";
+      } else if (this.isStatusRed(estado) || estadoLower.includes("sin")) {
+        return "text-red-700";
+      } else if (estadoLower.includes("expo")) {
+        return "text-indigo-700";
       } else {
-        return "text-gray-800 font-bold";
+        return "text-gray-800";
       }
     },
-    abrirModal: function abrirModal(tipo, info) {
-      // Avisa a la página principal que abra el modal
-      // this.$emit('abrir-modal', { tipo, info });
-      console.log("Abrir modal para ".concat(tipo), info);
+    getFacturaAuditoriaStatusText: function getFacturaAuditoriaStatusText(tipo, info) {
+      var estadoTexto = this.getFacturaStatusText(tipo, info);
+      var estadoLower = estadoTexto.toLowerCase();
+      if (estadoTexto) {
+        if (tipo === "sc") {
+          if (estadoLower.includes("coinciden") || estadoLower.includes("encontrada")) {
+            return "verde";
+          } else {
+            return "gris";
+          }
+        } else {
+          if (estadoLower.includes("coinciden") || estadoLower.includes("encontrada") || estadoLower.includes("expo") || estadoLower.includes("impo")) {
+            return "verde";
+          } else if (estadoLower.includes("pago de mas")) {
+            return "amarillo";
+          } else if (this.isStatusRed(estadoTexto)) {
+            return "rojo";
+          } else {
+            return "neutral";
+          }
+        }
+      }
+    },
+    formatDate: function formatDate(dateString) {
+      if (!dateString) return "";
+      var date = new Date(dateString);
+      var options = {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      };
+      return date.toLocaleDateString("es-MX", options);
     }
   }
 });
@@ -75541,276 +75618,210 @@ var render = function () {
     "div",
     {
       staticClass:
-        "operacion-card bg-white p-4 shadow-md rounded-lg flex flex-col space-y-3",
+        "operacion-card w-full shadow-md rounded-lg flex space-x-3 p-2",
+      class: _vm.cardBgClass,
     },
     [
-      _c("div", { staticClass: "flex justify-between items-center" }, [
-        _c("div", { staticClass: "flex items-center space-x-3" }, [
+      _c("div", { staticClass: "w-[15%] flex-shrink-0 flex flex-col" }, [
+        _c("div", { staticClass: "flex items-center space-x-2 mb-1" }, [
           _c(
             "span",
             {
               staticClass:
-                "bg-blue-800 text-white font-bold text-sm rounded h-8 w-auto px-3 flex items-center justify-center flex-shrink-0",
+                "bg-blue-800 text-white font-bold text-xs rounded h-5 w-auto px-2 flex items-center justify-center",
             },
             [_vm._v("\n        " + _vm._s(_vm.displayNumber) + "\n      ")]
           ),
           _vm._v(" "),
-          _c("div", [
-            _c("p", { staticClass: "font-bold text-lg text-theme-dark" }, [
+          _c(
+            "span",
+            {
+              staticClass: "font-bold text-[11px] rounded px-1.5 py-0.5",
+              class: _vm.operationTypeClass,
+            },
+            [_vm._v("\n        " + _vm._s(_vm.operationType) + "\n      ")]
+          ),
+        ]),
+        _vm._v(" "),
+        _c(
+          "div",
+          {
+            staticClass:
+              "w-16 h-16 md:w-full md:h-auto md:aspect-square bg-gray-200 rounded-md flex items-center justify-center content-center border border-gray-300 order-1 md:order-2 mr-4 md:mr-0",
+            attrs: { title: "Logo del Cliente" },
+          },
+          [
+            _c(
+              "svg",
+              {
+                staticClass: "h-20 w-20 text-gray-400",
+                attrs: {
+                  xmlns: "http://www.w3.org/2000/svg",
+                  fill: "none",
+                  viewBox: "0 0 24 24",
+                  stroke: "currentColor",
+                },
+              },
+              [
+                _c("path", {
+                  attrs: {
+                    "stroke-linecap": "round",
+                    "stroke-linejoin": "round",
+                    "stroke-width": "1.5",
+                    d: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0v-4a2 2 0 012-2h6a2 2 0 012 2v4m-6 0h-2",
+                  },
+                }),
+              ]
+            ),
+          ]
+        ),
+      ]),
+      _vm._v(" "),
+      _c("div", { staticClass: "flex-grow flex flex-col space-y-1.5" }, [
+        _c(
+          "div",
+          {
+            staticClass: "inline-block bg-white rounded-md px-3 py-1 shadow-sm",
+            class: _vm.cardInformationBgClass,
+          },
+          [
+            _c("p", { staticClass: "font-bold text-base leading-tight" }, [
               _vm._v(
-                "\n          " +
+                "\n        " +
                   _vm._s(_vm.operacion.pedimento) +
                   " - " +
                   _vm._s(_vm.operacion.cliente) +
-                  "\n        "
+                  "\n      "
               ),
             ]),
             _vm._v(" "),
-            _c("p", { staticClass: "text-sm text-gray-500" }, [
+            _c("p", { staticClass: "text-xs" }, [
               _vm._v(_vm._s(_vm.operacion.fecha_edc)),
             ]),
-          ]),
-        ]),
-      ]),
-      _vm._v(" "),
-      _c(
-        "div",
-        {
-          staticClass:
-            "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 pt-2",
-        },
-        [
-          _vm._l(_vm.operacion.status_botones, function (info, tipo) {
-            return [
-              Array.isArray(info.datos)
-                ? _vm._l(info.datos, function (factura, index) {
-                    return _c(
+          ]
+        ),
+        _vm._v(" "),
+        _c(
+          "div",
+          {
+            staticClass:
+              "grid grid-cols-2 sm:grid-cols-1 lg:grid-cols-5 gap-1.5",
+          },
+          [
+            _vm._l(_vm.operacion.status_botones, function (info, tipo) {
+              return [
+                _c(
+                  "div",
+                  {
+                    key: tipo,
+                    staticClass:
+                      "border rounded-md shadow-sm overflow-hidden flex flex-col bg-white text-[11px]",
+                    class: _vm.getCardBorderClass(
+                      _vm.getFacturaAuditoriaStatusText(tipo, info)
+                    ),
+                  },
+                  [
+                    _c(
                       "div",
                       {
-                        key: tipo + "-" + factura.id,
-                        staticClass:
-                          "border rounded-lg shadow-sm overflow-hidden flex flex-col",
-                        class: _vm.getCardBorderClass(info.estado),
+                        staticClass: "p-1 flex justify-between items-center",
+                        class: _vm.getCardHeaderBgClass(
+                          _vm.getFacturaAuditoriaStatusText(tipo, info)
+                        ),
                       },
                       [
                         _c(
-                          "div",
+                          "button",
                           {
                             staticClass:
-                              "p-2 flex justify-between items-center",
-                            class: _vm.getCardBgClass(info.estado),
+                              "h-8 px-2 rounded text-white font-bold transition-all duration-200 shadow",
+                            class: _vm.getStatusButtonClass(info.estado),
+                            on: {
+                              click: function ($event) {
+                                return _vm.$emit("open-modal", {
+                                  tipo: tipo,
+                                  info: info,
+                                  operacion: _vm.operacion,
+                                  sc: _vm.operacion.status_botones.sc.datos,
+                                })
+                              },
+                            },
                           },
                           [
-                            _c(
-                              "button",
-                              {
-                                staticClass:
-                                  "h-6 px-2 rounded text-white text-xs font-bold transition-all duration-200 shadow",
-                                class: _vm.getStatusButtonClass(info.estado),
-                                on: {
-                                  click: function ($event) {
-                                    return _vm.$emit("open-modal", {
-                                      tipo: tipo + " #" + (index + 1),
-                                      info: {
-                                        datos: factura,
-                                        estado: info.estado,
-                                      },
-                                      operacion: _vm.operacion,
-                                      sc: _vm.operacion.status_botones.sc.datos,
-                                    })
-                                  },
-                                },
-                              },
-                              [
-                                _vm._v(
-                                  "\n              " +
-                                    _vm._s(
-                                      tipo.toUpperCase().replace("_", " ")
-                                    ) +
-                                    " #" +
-                                    _vm._s(index + 1) +
-                                    "\n            "
-                                ),
-                              ]
+                            _vm._v(
+                              "\n              " +
+                                _vm._s(tipo.toUpperCase().replace("_", " ")) +
+                                "\n            "
                             ),
-                            _vm._v(" "),
-                            _c("div", { staticClass: "text-right" }, [
-                              _c(
-                                "p",
-                                { staticClass: "text-xs text-gray-500" },
-                                [_vm._v("Folio")]
-                              ),
-                              _vm._v(" "),
-                              _c(
-                                "p",
-                                {
-                                  staticClass:
-                                    "text-sm font-semibold text-gray-800",
-                                },
-                                [
-                                  _vm._v(
-                                    "\n                " +
-                                      _vm._s(factura.folio || "N/A") +
-                                      "\n              "
-                                  ),
-                                ]
-                              ),
-                            ]),
                           ]
                         ),
                         _vm._v(" "),
-                        _c("div", { staticClass: "p-2 bg-white flex-grow" }, [
-                          _c("p", { staticClass: "text-xs text-gray-400" }, [
-                            _vm._v("Estado de Auditoría"),
-                          ]),
-                          _vm._v(" "),
-                          _c(
-                            "p",
-                            {
-                              staticClass: "text-sm",
-                              class: _vm.getStatusTextClass(factura.estado),
-                            },
-                            [
+                        _c(
+                          "p",
+                          { staticClass: "font-semibold text-gray-800" },
+                          [
+                            _c(
+                              "span",
+                              { staticClass: "font-normal text-gray-500" },
+                              [_vm._v("Folio:")]
+                            ),
+                            _vm._v(
+                              "\n              " +
+                                _vm._s(
+                                  (info.datos && info.datos.folio) || "N/A"
+                                ) +
+                                "\n            "
+                            ),
+                          ]
+                        ),
+                      ]
+                    ),
+                    _vm._v(" "),
+                    _c(
+                      "div",
+                      {
+                        staticClass:
+                          "p-1 flex justify-between items-center flex-grow",
+                      },
+                      [
+                        _c(
+                          "p",
+                          {
+                            staticClass: "font-bold",
+                            class: _vm.getStatusTextClass(
+                              _vm.getFacturaStatusText(tipo, info)
+                            ),
+                          },
+                          [
+                            _vm._v(
+                              "\n              " +
+                                _vm._s(_vm.getFacturaStatusText(tipo, info)) +
+                                "\n            "
+                            ),
+                          ]
+                        ),
+                        _vm._v(" "),
+                        info.datos
+                          ? _c("p", { staticClass: "text-gray-400" }, [
                               _vm._v(
                                 "\n              " +
-                                  _vm._s(factura.estado) +
+                                  _vm._s(
+                                    _vm.formatDate(info.datos.fecha_documento)
+                                  ) +
                                   "\n            "
                               ),
-                            ]
-                          ),
-                        ]),
+                            ])
+                          : _vm._e(),
                       ]
-                    )
-                  })
-                : _c(
-                    "div",
-                    {
-                      key: tipo,
-                      staticClass:
-                        "border rounded-lg shadow-sm overflow-hidden flex flex-col",
-                      class: _vm.getCardBorderClass(info.estado),
-                    },
-                    [
-                      _c(
-                        "div",
-                        {
-                          staticClass: "p-2 flex justify-between items-center",
-                          class: _vm.getCardBgClass(info.estado),
-                        },
-                        [
-                          _c(
-                            "button",
-                            {
-                              staticClass:
-                                "h-6 px-2 rounded text-white text-xs font-bold transition-all duration-200 shadow",
-                              class: _vm.getStatusButtonClass(info.estado),
-                              on: {
-                                click: function ($event) {
-                                  return _vm.$emit("open-modal", {
-                                    tipo: tipo,
-                                    info: info,
-                                    operacion: _vm.operacion,
-                                    sc: _vm.operacion.status_botones.sc.datos,
-                                  })
-                                },
-                              },
-                            },
-                            [
-                              _vm._v(
-                                "\n            " +
-                                  _vm._s(tipo.toUpperCase().replace("_", " ")) +
-                                  "\n          "
-                              ),
-                            ]
-                          ),
-                          _vm._v(" "),
-                          _c("div", { staticClass: "text-right" }, [
-                            _c("p", { staticClass: "text-xs text-gray-500" }, [
-                              _vm._v("Folio"),
-                            ]),
-                            _vm._v(" "),
-                            _c(
-                              "p",
-                              {
-                                staticClass:
-                                  "text-sm font-semibold text-gray-800",
-                              },
-                              [
-                                _vm._v(
-                                  "\n              " +
-                                    _vm._s(
-                                      (info.datos &&
-                                        (info.datos.folio_documento ||
-                                          info.datos.folio)) ||
-                                        "N/A"
-                                    ) +
-                                    "\n            "
-                                ),
-                              ]
-                            ),
-                          ]),
-                        ]
-                      ),
-                      _vm._v(" "),
-                      _c("div", { staticClass: "p-2 bg-white flex-grow" }, [
-                        _c("p", { staticClass: "text-xs text-gray-400" }, [
-                          _vm._v("Estado de Auditoría"),
-                        ]),
-                        _vm._v(" "),
-                        tipo === "sc"
-                          ? _c(
-                              "p",
-                              {
-                                staticClass: "text-sm",
-                                class: _vm.getStatusTextClass(
-                                  info.datos && info.datos.desglose_conceptos
-                                    ? "SC Encontrada"
-                                    : "No Encontrado"
-                                ),
-                              },
-                              [
-                                _vm._v(
-                                  "\n            " +
-                                    _vm._s(
-                                      info.datos &&
-                                        info.datos.desglose_conceptos
-                                        ? "SC Encontrada"
-                                        : "No Encontrado"
-                                    ) +
-                                    "\n          "
-                                ),
-                              ]
-                            )
-                          : _c(
-                              "p",
-                              {
-                                staticClass: "text-sm",
-                                class: _vm.getStatusTextClass(
-                                  info.datos
-                                    ? info.datos.estado
-                                    : "No Encontrado"
-                                ),
-                              },
-                              [
-                                _vm._v(
-                                  "\n            " +
-                                    _vm._s(
-                                      info.datos
-                                        ? info.datos.estado
-                                        : "No Encontrado"
-                                    ) +
-                                    "\n          "
-                                ),
-                              ]
-                            ),
-                      ]),
-                    ]
-                  ),
-            ]
-          }),
-        ],
-        2
-      ),
+                    ),
+                  ]
+                ),
+              ]
+            }),
+          ],
+          2
+        ),
+      ]),
     ]
   )
 }

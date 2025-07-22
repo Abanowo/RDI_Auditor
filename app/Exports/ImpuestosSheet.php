@@ -121,7 +121,7 @@ WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents
             $montosSc = $desgloseSc['montos'] ?? [];
             $montoSc = (float)($montosSc['impuestos'] ?? 0);
             $montoScMxn = (float)($montosSc['impuestos_mxn'] ?? 0);
-            $folioSc = $sc->folio_documento;
+            $folioSc = $sc->folio;
 
             if ($sc->ruta_pdf) {
                 $pdfSc = '=HYPERLINK("' . $sc->ruta_pdf . '", "Acceder PDF")';

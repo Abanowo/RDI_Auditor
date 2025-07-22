@@ -92,7 +92,7 @@ class AuditoriaImpuestosController extends Controller
         // 3. Esta clausura contiene TODAS las condiciones que debe cumplir la OPERACIÓN (Impo/Expo)
         $applyRelationshipFilters = function (Builder $q) use ($filters) {
 
-            // --- A. Filtros que aplican DIRECTAMENTE a la tabla de operación (rápidos) ---
+            // --- Filtros que aplican DIRECTAMENTE a la tabla de operación (rápidos) ---
             $q->when($filters['sucursal_id'] ?? null, function ($subQ, $id) {
                 if ($id && $id !== 'todos') {
                     $subQ->where('sucursal', $id);
@@ -103,7 +103,7 @@ class AuditoriaImpuestosController extends Controller
                 $subQ->where('id_cliente', $id);
             });
 
-            // --- B. LÓGICA DE FILTRADO REFACTORIZADA (LA SOLUCIÓN) ---
+            // --- LÓGICA DE FILTRADO REFACTORIZADA ---
 
             // Unificamos todos los filtros de documentos en un solo array para procesarlos.
             $documentFilters = [];
@@ -1142,7 +1142,7 @@ class AuditoriaImpuestosController extends Controller
                     'operacion_id'       => isset($operacionId['id_operacion']) ? $operacionId['id_operacion'] : null, // ¡La vinculación auxiliar correcta!
                     'pedimento_id'       => $pedimentoReal['id_pedimiento'], // ¡La vinculación correcta!
                     'operation_type'     => $tipoOperacion,
-                    'folio_documento'    => $datosSC['folio_sc'],
+                    'folio'              => $datosSC['folio_sc'],
                     'fecha_documento'    => $datosSC['fecha_sc'],
                     'desglose_conceptos' => json_encode($desgloseSC),
                     'ruta_txt'           => $datosSC['ruta_txt'],
@@ -1161,7 +1161,7 @@ class AuditoriaImpuestosController extends Controller
                 AuditoriaTotalSC::upsert(
                     $auditoriasParaGuardar,
                     ['operacion_id', 'pedimento_id', 'operation_type'], // La llave única
-                    ['folio_documento', 'fecha_documento', 'desglose_conceptos', 'ruta_txt', 'ruta_pdf', 'updated_at']
+                    ['folio', 'fecha_documento', 'desglose_conceptos', 'ruta_txt', 'ruta_pdf', 'updated_at']
                 );
 
                 Log::info("¡Guardado con éxito!");

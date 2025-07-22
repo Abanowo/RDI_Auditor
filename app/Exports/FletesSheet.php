@@ -123,7 +123,7 @@ WithStrictNullComparison
             $montosSc = $desgloseSc['montos'] ?? [];
             $montoSc = (float)($montosSc['flete'] ?? 0);
             $montoScMxn = (float)($montosSc['flete_mxn'] ?? 0);
-            $folioSc = $sc->folio_documento;
+            $folioSc = $sc->folio;
 
             if ($sc->ruta_pdf) {
                 $pdfSc = '=HYPERLINK("' . $sc->ruta_pdf . '", "Acceder PDF")';

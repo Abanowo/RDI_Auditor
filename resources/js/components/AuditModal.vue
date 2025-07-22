@@ -405,7 +405,7 @@ export default {
       const montos = factura?.desglose_conceptos?.montos || {};
 
       return {
-        folio: factura?.folio_documento || "N/A",
+        folio: factura?.folio || "N/A",
         pedimento: pedimento,
         total: montos.sc,
         total_mxn: montos.sc_mxn,

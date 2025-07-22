@@ -155,7 +155,7 @@ class AuditarScCommand extends Command
                     'operacion_id'       => isset($operacionId['id_operacion']) ? $operacionId['id_operacion'] : null, // ¡La vinculación auxiliar correcta!
                     'pedimento_id'       => $pedimentoReal['id_pedimiento'], // ¡La vinculación correcta!
                     'operation_type'     => $tipoOperacion,
-                    'folio_documento'    => $datosSC['folio_sc'],
+                    'folio'              => $datosSC['folio_sc'],
                     'fecha_documento'    => $datosSC['fecha_sc'],
                     'desglose_conceptos' => json_encode($desgloseSC),
                     'ruta_txt'           => $datosSC['ruta_txt'],
@@ -175,7 +175,7 @@ class AuditarScCommand extends Command
                 AuditoriaTotalSC::upsert(
                     $auditoriasParaGuardar,
                     ['operacion_id', 'pedimento_id', 'operation_type'], // La llave única
-                    ['folio_documento', 'fecha_documento', 'desglose_conceptos', 'ruta_txt', 'ruta_pdf', 'updated_at']
+                    ['folio', 'fecha_documento', 'desglose_conceptos', 'ruta_txt', 'ruta_pdf', 'updated_at']
                 );
 
                 $this->info("¡Guardado con éxito!");

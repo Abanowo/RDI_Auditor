@@ -666,6 +666,9 @@ export default {
           this.pagination = response.data;
           this.isLoading = false;
 
+          console.log("Response: ", response);
+          console.log("Response.data: ", response.data);
+          console.log("Response.data.links: ", response.data.links);
           // Esta parte es crucial y ahora funcionará correctamente
           const activeLink = response.data.links.find((link) => link.active);
           if (activeLink && activeLink.url) {

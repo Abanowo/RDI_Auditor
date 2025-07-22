@@ -101,7 +101,7 @@ WithStrictNullComparison
             $montosSc = $desgloseSc['montos'] ?? [];
             $montoSc = (float)($montosSc['sc'] ?? 0);
             $montoScMxn = (float)($montosSc['sc_mxn'] ?? 0);
-            $folioSc = $sc->folio_documento;
+            $folioSc = $sc->folio;
             $nombreCliente = $cliente->nombre;
 
             if ($sc->ruta_pdf) {
