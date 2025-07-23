@@ -48,6 +48,8 @@ class AuditoriaImpuestosController extends Controller
             // Ahora, cargamos las relaciones que necesitamos para la transformación
             // La ruta es más larga, pero es la forma correcta: pedimento -> importacion -> auditorias/totalSc
             // Cargamos dinámicamente las relaciones necesarias para ambos tipos de operación
+
+            //dd($query->toSql());
             $resultados = $query->with([
                 'importacion' => function ($q) {
                     $q->with(['auditorias', 'auditoriasTotalSC', 'cliente', 'getSucursal']);
@@ -80,7 +82,17 @@ class AuditoriaImpuestosController extends Controller
     {
         $filters = $request->query();
         $operationType = $filters['operation_type'] ?? 'todos';
+        $sucursalesDiccionario = [
+            1     => 3711 , //NOGALES, NOG
+            2     => 3849 , //TIJUANA, TIJ
+            3     => 3711 , //LAREDO, NL, LAR, LDO
+            4     => 1038 , //MEXICALI, MXL
+            5     => 3711 , //MANZANILLO, ZLO
+            11    => 3577 , //REYNOSA, NL, LAR, LDO
+            12    => 1864 , //VERACRUZ, ZLO
+            ];
 
+        $patenteSucursal = $filters['sucursal_id'] === 'todos' ? 'todos' : $sucursalesDiccionario[$filters['sucursal_id']];
         // 1. La consulta empieza desde el modelo Pedimento.
         $query = Pedimento::query();
 
@@ -90,18 +102,35 @@ class AuditoriaImpuestosController extends Controller
         });
 
         // 3. Esta clausura contiene TODAS las condiciones que debe cumplir la OPERACIÓN (Impo/Expo)
-        $applyRelationshipFilters = function (Builder $q) use ($filters) {
+        $applyRelationshipFilters = function (Builder $q) use ($filters, $patenteSucursal, $operationType) {
 
             // --- Filtros que aplican DIRECTAMENTE a la tabla de operación (rápidos) ---
-            $q->when($filters['sucursal_id'] ?? null, function ($subQ, $id) {
+            $q->when($filters['sucursal_id'] ?? null, function ($subQ, $id) use ($patenteSucursal) {
                 if ($id && $id !== 'todos') {
                     $subQ->where('sucursal', $id);
                 }
             });
 
-            $q->when($filters['cliente_id'] ?? null, function ($subQ, $id) {
-                $subQ->where('id_cliente', $id);
+            $q->when($patenteSucursal ?? null, function ($subQ, $id){
+                if ($id && $id !== 'todos') {
+                $subQ->where('patente', $id);
+                }
             });
+
+            if ($operationType === 'importacion') {
+                $q->when($filters['cliente_id'] ?? null, function ($subQ, $id) use ($operationType) {
+                    $subQ->where('operaciones_importacion.id_cliente', $id);
+                });
+            } else if ($operationType === 'exportacion') {
+                $q->when($filters['cliente_id'] ?? null, function ($subQ, $id) use ($operationType) {
+                    $subQ->where('operaciones_exportacion.id_cliente', $id);
+                });
+            } else {
+                $q->when($filters['cliente_id'] ?? null, function ($subQ, $id) {
+                    $subQ->where('id_cliente', $id);
+                });
+            }
+
 
             // --- LÓGICA DE FILTRADO REFACTORIZADA ---
 
@@ -136,8 +165,8 @@ class AuditoriaImpuestosController extends Controller
                 elseif ($type !== 'any') {
                     $q->whereHas('auditorias', function ($auditQuery) use ($values, $type, $filters) {
                         $auditQuery->where('tipo_documento', $type);
-                        if (isset($values['folio'])) $auditQuery->where('folio', 'like', "%{$values['folio']}%");
                         if (isset($values['estado'])) $auditQuery->where('estado', $values['estado']);
+                        if (isset($values['folio'])) $auditQuery->where('folio', 'like', "%{$values['folio']}%");
                         if (isset($values['fecha'])) $auditQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
                     });
                 }
@@ -145,16 +174,20 @@ class AuditoriaImpuestosController extends Controller
                 else {
                     $q->where(function ($orQuery) use ($values, $filters) {
                         // Busca en 'auditorias'
-                        $orQuery->orWhereHas('auditorias', function ($auditQuery) use ($values, $filters) {
-                            if (isset($values['folio'])) $auditQuery->where('folio', 'like', "%{$values['folio']}%");
+                       $orQuery->orWhereHas('auditorias', function ($auditQuery) use ($values, $filters) {
+
                             if (isset($values['estado'])) $auditQuery->where('estado', $values['estado']);
+                            if (isset($values['folio'])) $auditQuery->where('folio', 'like', "%{$values['folio']}%");
                             if (isset($values['fecha'])) $auditQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
                         });
-                        // O busca en 'auditoriasTotalSC' (solo para folio y fecha)
-                        $orQuery->orWhereHas('auditoriasTotalSC', function ($scQuery) use ($values, $filters) {
-                            if (isset($values['folio'])) $scQuery->where('folio', 'like', "%{$values['folio']}%");
-                            if (isset($values['fecha'])) $scQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
-                        });
+
+                        if (!isset($values['estado'])) {
+                            // O busca en 'auditoriasTotalSC' (solo para folio y fecha)
+                            $orQuery->orWhereHas('auditoriasTotalSC', function ($scQuery) use ($values, $filters) {
+                                if (isset($values['folio'])) $scQuery->where('folio', 'like', "%{$values['folio']}%");
+                                if (isset($values['fecha'])) $scQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
+                            });
+                        }
                     });
                 }
             }
@@ -162,9 +195,20 @@ class AuditoriaImpuestosController extends Controller
 
         // 4. Aplicamos el conjunto de filtros a la relación correcta (Impo/Expo/Ambas)
         if ($operationType === 'importacion') {
-            $query->whereHas('importacion', $applyRelationshipFilters);
+            //$query->whereHas('importacion', $applyRelationshipFilters);
+
+            $query->join('operaciones_importacion', 'operaciones_importacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
+                 ->where(function ($subQ) use ($applyRelationshipFilters) {
+                    $applyRelationshipFilters($subQ);
+                });
+
         } elseif ($operationType === 'exportacion') {
-            $query->whereHas('exportacion', $applyRelationshipFilters);
+            //$query->whereHas('exportacion', $applyRelationshipFilters);
+
+            $query->join('operaciones_exportacion', 'operaciones_exportacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
+                 ->where(function ($subQ) use ($applyRelationshipFilters) {
+                    $applyRelationshipFilters($subQ);
+                });
         } else { // 'todos'
             $query->where(function ($q) use ($applyRelationshipFilters) {
                 $q->whereHas('importacion', $applyRelationshipFilters)
@@ -522,7 +566,7 @@ class AuditoriaImpuestosController extends Controller
 
         try {
 
-            if($banco !== "EXTERNO"){
+            if($banco !== "EXTERNO") {
                 $process = new Process(['python', base_path('scripts/python/parser.py'), $rutaPdf]);
 
                 $process->mustRun();
@@ -606,6 +650,16 @@ class AuditoriaImpuestosController extends Controller
                 Log::info('No se encontraron operaciones válidas para procesar.');
                 return 0;
             }
+            $sucursalesDiccionario = [
+            'NOG'     => 3711 , //NOGALES, NOG
+            'TIJ'     => 3849 , //TIJUANA, TIJ
+            'NL'      => 3711 , //LAREDO, NL, LAR, LDO
+            'MXL'     => 1038 , //MEXICALI, MXL
+            'ZLO'     => 3711 , //MANZANILLO, ZLO
+            'REY'     => 3577 , //REYNOSA, NL, LAR, LDO
+            'VRZ'     => 1864 , //VERACRUZ, ZLO
+            ];
+            $patenteSucursal = $sucursalesDiccionario[$sucursal];
 
             // Preparamos un array con TODOS los registros que vamos a guardar/actualizar
             $datosParaOperaciones = $operacionesLimpias->map(function ($op){ return ['pedimento' => $op['pedimento']];} )->all(); // ->all() lo convierte de nuevo a un array simple
@@ -618,12 +672,13 @@ class AuditoriaImpuestosController extends Controller
                 Log::info("Pedimentos del estado de cuenta: ". count($datosParaOperaciones));
                 // 2. Hacemos UNA SOLA consulta para obtener los IDs de esos pedimentos
                 //    y creamos un mapa: num_pedimento => id_pedimiento
-                $mapaPedimentoAId = $this->construirMapaDePedimentos($numerosDePedimento);
+                $mapaPedimentoAId = $this->construirMapaDePedimentos($numerosDePedimento, $patenteSucursal);
                 Log::info("Pedimentos encontrados en tabla 'pedimentos': ". count($mapaPedimentoAId));
 
                 // 3. Hacemos UNA SOLA consulta a operaciones_importacion usando los IDs que encontramos
                 //    y creamos nuestro mapa final: num_pedimento => id_importacion
-                $mapaPedimentoAImportacionId = Importacion::whereIn('operaciones_importacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
+                $mapaPedimentoAImportacionId = Importacion::where('operaciones_importacion.patente', $patenteSucursal)
+                    ->whereIn('operaciones_importacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
                     /* ->join('pedimiento', 'operaciones_importacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
                     ->select('operaciones_importacion.id_importacion', 'pedimiento.num_pedimiento') */
                     ->orderBy('operaciones_importacion.created_at', 'desc')
@@ -633,7 +688,8 @@ class AuditoriaImpuestosController extends Controller
                 Log::info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_importacion': ". $mapaPedimentoAImportacionId->count());
 
 
-                $mapaPedimentoAExportacionId = Exportacion::whereIn('operaciones_exportacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
+                $mapaPedimentoAExportacionId = Exportacion::where('operaciones_exportacion.patente', $patenteSucursal)
+                    ->whereIn('operaciones_exportacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
                    /*  ->join('pedimiento', 'operaciones_exportacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
                     ->select('operaciones_exportacion.id_exportacion', 'pedimiento.num_pedimiento') */
                     ->orderBy('operaciones_exportacion.created_at', 'desc')
@@ -710,7 +766,7 @@ class AuditoriaImpuestosController extends Controller
 
                     preg_match('/[^$\s\r\n].*/', $op['cargo_str'], $matchCargo);
                     $montoImpuestoMXN = (float) filter_var($matchCargo[0], FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
-                    $estado = $this->compararMontos($montoSCMXN, $montoImpuestoMXN);
+                    $estado = $this->compararMontos($montoSCMXN, $montoImpuestoMXN, $tipoOperacion);
 
                     // Devolvemos el array completo, AHORA con el `operacion_id` correcto.
                     return
@@ -814,12 +870,34 @@ class AuditoriaImpuestosController extends Controller
             }
             Log::info("Procesando Facturas SC para Tarea #{$tarea->id} en la sucursal: {$sucursal}");
 
+            $sucursalesDiccionario = [
+            'NOG'     => 3711 , //NOGALES, NOG
+            'TIJ'     => 3849 , //TIJUANA, TIJ
+            'NL'      => 3711 , //LAREDO, NL, LAR, LDO
+            'MXL'     => 1038 , //MEXICALI, MXL
+            'ZLO'     => 3711 , //MANZANILLO, ZLO
+            'REY'     => 3577 , //REYNOSA, NL, LAR, LDO
+            'VRZ'     => 1864 , //VERACRUZ, ZLO
+            ];
+            $patenteSucursal = $sucursalesDiccionario[$sucursal];
             // 1. Obtenemos los números de pedimento de nuestro índice
             $numerosDePedimento = $pedimentos;
 
-            $mapaPedimentoAId = $this->construirMapaDePedimentos($numerosDePedimento);
+            $mapaPedimentoAId = $this->construirMapaDePedimentos($numerosDePedimento, $patenteSucursal);
             $numerosDePedimento = collect($mapaPedimentoAId)->pluck('num_pedimiento')->toArray();
             Log::info("Pedimentos encontrados en tabla 'pedimentos': ". count($mapaPedimentoAId));
+
+            $sucursalesDiccionario = [
+            'NOG'     => 3711 , //NOGALES, NOG
+            'TIJ'     => 3849 , //TIJUANA, TIJ
+            'NL'      => 3711 , //LAREDO, NL, LAR, LDO
+            'MXL'     => 1038 , //MEXICALI, MXL
+            'ZLO'     => 3711 , //MANZANILLO, ZLO
+            'REY'     => 3577 , //REYNOSA, NL, LAR, LDO
+            'VRZ'     => 1864 , //VERACRUZ, ZLO
+            ];
+
+            $patenteSucursal = $sucursalesDiccionario[$sucursal];
 
             // 2. MAPEADO EFICIENTE DE IDS
             // PROCESAR IMPORTACIONES
@@ -827,6 +905,7 @@ class AuditoriaImpuestosController extends Controller
                 ->join('pedimiento', 'operaciones_importacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
                 ->select('operaciones_importacion.id_importacion', 'pedimiento.num_pedimiento', 'pedimiento.id_pedimiento')
                 ->whereIn('pedimiento.num_pedimiento', $numerosDePedimento)
+                ->where('operaciones_importacion.patente', $patenteSucursal)
                 ->orderBy('operaciones_importacion.created_at', 'desc')
                 ->get()
                 ->map(function($operacion){
@@ -845,6 +924,7 @@ class AuditoriaImpuestosController extends Controller
                 ->join('pedimiento', 'operaciones_exportacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
                 ->select('operaciones_exportacion.id_exportacion', 'pedimiento.num_pedimiento', 'pedimiento.id_pedimiento')
                 ->whereIn('pedimiento.num_pedimiento', $numerosDePedimento)
+                ->where('operaciones_exportacion.patente', $patenteSucursal)
                 ->orderBy('operaciones_exportacion.created_at', 'desc')
                 ->get()
                 ->map(function($operacion){
@@ -1525,7 +1605,10 @@ class AuditoriaImpuestosController extends Controller
             Log::info("Iniciando vinculacion de los " . count($mapaPedimentoAId) . " pedimentos.");
 
             Log::info("Iniciando mapeo para Upsert.");
-            //----------------------------------------------------
+            //--------------------------------------------------------------------------------------------------------
+            //========================================================================================================
+            //--------------------------------------------------------------------------------------------------------
+
             //$bar = $this->output->createProgressBar(count($mapaPedimentoAId));
             //$bar->start();
             $llcsParaGuardar = [];
@@ -2478,9 +2561,11 @@ class AuditoriaImpuestosController extends Controller
 
 
     // Se encarga de hacer la comparativa de montos
-    private function compararMontos(float $esperado, float $real): string
+    private function compararMontos(float $esperado, float $real, string $tipoOperacion): string
     {
-        if($esperado == -1){ return 'EXPO'; }
+        if($esperado == -1){
+             return strpos(strtolower($tipoOperacion), 'importacion') ? 'IMPO' : 'EXPO';
+        }
         if($esperado == -1.1){ return 'Sin SC!'; }
         if($real == -1){ return 'Sin Impuesto!'; } //Este IF es practicamente imposible, pero lo pongo para seguir el formato.
         // Usamos una pequeña tolerancia (epsilon) para comparar números flotantes
@@ -2633,7 +2718,7 @@ class AuditoriaImpuestosController extends Controller
      * @param array $pedimentosLimpios Array de números de pedimento de 7 dígitos.
      * @return array El mapa final.
      */
-    private function construirMapaDePedimentos(array $pedimentosLimpios): array
+    private function construirMapaDePedimentos(array $pedimentosLimpios, string $patenteSucursal): array
     {
         if (empty($pedimentosLimpios)) { return []; }
 
@@ -2643,7 +2728,22 @@ class AuditoriaImpuestosController extends Controller
         $regexPattern = implode('|', $pedimentosLimpios);
 
             // Obtenemos solo las columnas que necesitamos
-        $posiblesCoincidencias = $query->where('num_pedimiento', 'REGEXP', $regexPattern)->get(['id_pedimiento', 'num_pedimiento']);
+        $posiblesCoincidencias =
+        $query->where('num_pedimiento', 'REGEXP', $regexPattern)
+            ->where(function ($q) use ($patenteSucursal) {
+            $q->whereHas('importacion', function ($importQuery) use ($patenteSucursal) {
+                $importQuery->where('patente', $patenteSucursal);
+            })
+            ->orWhere(function ($q2) use ($patenteSucursal) {
+                // Si no hay importación, buscar en exportación
+                $q2->whereDoesntHave('importacion')
+                ->whereHas('exportacion', function ($exportQuery) use ($patenteSucursal) {
+                    $exportQuery->where('patente', $patenteSucursal);
+                });
+            });
+        })
+        ->get();
+
         // 1. Creamos un mapa de los pedimentos que nos falta por encontrar.
         //    Usamos array_flip para que la búsqueda y eliminación sea instantánea.
         $pedimentosPorEncontrar = array_flip($pedimentosLimpios);

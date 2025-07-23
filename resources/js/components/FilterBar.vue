@@ -43,6 +43,7 @@
                 <option>Coinciden!</option>
                 <option>SC Encontrada</option>
                 <option>EXPO</option>
+                <option>IMPO</option>
               </optgroup>
               <optgroup label="Para auditar">
                 <option>Pago de mas!</option>

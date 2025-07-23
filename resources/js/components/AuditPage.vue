@@ -571,6 +571,7 @@ export default {
           this.operationCounts = { importacion: 0, exportacion: 0, todos: 0 };
         });
     },
+
     selectOperationType(type, updateUrl = true) {
       this.selectedOperationType = type;
 
@@ -662,7 +663,8 @@ export default {
       axios
         .get("/auditoria", { params: finalParams })
         .then((response) => {
-          this.operaciones = response.data.data;
+          // Si response.data.data existe y es un array, úsalo; si no, usa []
+          this.operaciones = Array.isArray(response.data.data) ? response.data.data : [];
           this.pagination = response.data;
           this.isLoading = false;
 
@@ -670,7 +672,7 @@ export default {
           console.log("Response.data: ", response.data);
           console.log("Response.data.links: ", response.data.links);
           // Esta parte es crucial y ahora funcionará correctamente
-          const activeLink = response.data.links.find((link) => link.active);
+          const activeLink = response?.data?.links?.find((link) => link.active);
           if (activeLink && activeLink.url) {
             // La URL de Laravel ahora sí contendrá todos los filtros,
             // porque la petición que le llegó era completa.
@@ -680,6 +682,7 @@ export default {
         })
         .catch((error) => {
           console.error("Error al obtener las operaciones:", error);
+          this.operaciones = []; // asegúrate de vaciarla si hay error
           this.isLoading = false;
         });
     },

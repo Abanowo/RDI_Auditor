@@ -101,7 +101,7 @@
                 {{ getFacturaStatusText(tipo, info) }}
               </p>
               <p v-if="info.datos" class="text-gray-400">
-                {{ formatDate(info.datos.fecha_documento) }}
+                {{ info.datos.fecha_documento }}
               </p>
             </div>
           </div>
@@ -120,10 +120,11 @@ export default {
   },
   emits: ["open-modal"],
   computed: {
+    //Para el contadorsito de la esquina superior izquierda
     displayNumber() {
       return this.pageFrom + this.itemIndex;
     },
-
+    //Para el label de Importacion o Exportacion de la esquina superior izquierda
     operationType() {
       if (this.operacion.tipo_operacion.toLowerCase().includes("import"))
         return "IMPORTACIÓN";
@@ -184,13 +185,13 @@ export default {
     cardBgClass() {
       switch (this.cardOverallState) {
         case "rojo":
-          return "bg-red-100";
+          return "border-2 border-red-600 bg-red-100";
         case "verde":
-          return "bg-green-50";
+          return "border-2 border-green-500 bg-green-50";
         case "amarillo":
-          return "bg-yellow-50";
+          return "border-2 border-yellow-500 bg-yellow-50";
         case "neutro":
-          return "bg-gray-100"; // Fondo blanco si el estado es 'neutro'
+          return "border-2 border-gray-600 bg-gray-100"; // Fondo blanco si el estado es 'neutro'
         default:
           return "bg-white";
       }
@@ -199,13 +200,13 @@ export default {
     cardInformationBgClass() {
       switch (this.cardOverallState) {
         case "rojo":
-          return "bg-red-600 bg-opacity-75 text-white";
+          return "border-2 border-red-600 text-gray-600";
         case "verde":
-          return "bg-green-500 bg-opacity-75 text-white";
+          return "border-2 border-green-500 text-gray-600";
         case "amarillo":
-          return "bg-yellow-500 bg-opacity-75 text-white";
+          return "border-2 border-yellow-500 text-gray-600";
         case "neutro":
-          return "bg-gray-600 bg-opacity-75 text-white";
+          return "border-2 border-gray-600 text-gray-600";
         default:
           return "bg-white text-gray-600";
       }
@@ -322,13 +323,6 @@ export default {
           }
         }
       }
-    },
-
-    formatDate(dateString) {
-      if (!dateString) return "";
-      const date = new Date(dateString);
-      const options = { year: "numeric", month: "2-digit", day: "2-digit" };
-      return date.toLocaleDateString("es-MX", options);
     },
   },
 };

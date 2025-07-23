@@ -5082,14 +5082,16 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
       axios.get("/auditoria", {
         params: finalParams
       }).then(function (response) {
-        _this6.operaciones = response.data.data;
+        var _response$data;
+        // Si response.data.data existe y es un array, úsalo; si no, usa []
+        _this6.operaciones = Array.isArray(response.data.data) ? response.data.data : [];
         _this6.pagination = response.data;
         _this6.isLoading = false;
         console.log("Response: ", response);
         console.log("Response.data: ", response.data);
         console.log("Response.data.links: ", response.data.links);
         // Esta parte es crucial y ahora funcionará correctamente
-        var activeLink = response.data.links.find(function (link) {
+        var activeLink = response === null || response === void 0 || (_response$data = response.data) === null || _response$data === void 0 || (_response$data = _response$data.links) === null || _response$data === void 0 ? void 0 : _response$data.find(function (link) {
           return link.active;
         });
         if (activeLink && activeLink.url) {
@@ -5100,6 +5102,7 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
         }
       })["catch"](function (error) {
         console.error("Error al obtener las operaciones:", error);
+        _this6.operaciones = []; // asegúrate de vaciarla si hay error
         _this6.isLoading = false;
       });
     }
@@ -5134,6 +5137,7 @@ function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t =
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+//
 //
 //
 //
@@ -5781,9 +5785,11 @@ __webpack_require__.r(__webpack_exports__);
   },
   emits: ["open-modal"],
   computed: {
+    //Para el contadorsito de la esquina superior izquierda
     displayNumber: function displayNumber() {
       return this.pageFrom + this.itemIndex;
     },
+    //Para el label de Importacion o Exportacion de la esquina superior izquierda
     operationType: function operationType() {
       if (this.operacion.tipo_operacion.toLowerCase().includes("import")) return "IMPORTACIÓN";
       if (this.operacion.tipo_operacion.toLowerCase().includes("export")) return "EXPORTACIÓN";
@@ -5827,13 +5833,13 @@ __webpack_require__.r(__webpack_exports__);
     cardBgClass: function cardBgClass() {
       switch (this.cardOverallState) {
         case "rojo":
-          return "bg-red-100";
+          return "border-2 border-red-600 bg-red-100";
         case "verde":
-          return "bg-green-50";
+          return "border-2 border-green-500 bg-green-50";
         case "amarillo":
-          return "bg-yellow-50";
+          return "border-2 border-yellow-500 bg-yellow-50";
         case "neutro":
-          return "bg-gray-100";
+          return "border-2 border-gray-600 bg-gray-100";
         // Fondo blanco si el estado es 'neutro'
         default:
           return "bg-white";
@@ -5842,13 +5848,13 @@ __webpack_require__.r(__webpack_exports__);
     cardInformationBgClass: function cardInformationBgClass() {
       switch (this.cardOverallState) {
         case "rojo":
-          return "bg-red-600 bg-opacity-75 text-white";
+          return "border-2 border-red-600 text-gray-600";
         case "verde":
-          return "bg-green-500 bg-opacity-75 text-white";
+          return "border-2 border-green-500 text-gray-600";
         case "amarillo":
-          return "bg-yellow-500 bg-opacity-75 text-white";
+          return "border-2 border-yellow-500 text-gray-600";
         case "neutro":
-          return "bg-gray-600 bg-opacity-75 text-white";
+          return "border-2 border-gray-600 text-gray-600";
         default:
           return "bg-white text-gray-600";
       }
@@ -5946,16 +5952,6 @@ __webpack_require__.r(__webpack_exports__);
           }
         }
       }
-    },
-    formatDate: function formatDate(dateString) {
-      if (!dateString) return "";
-      var date = new Date(dateString);
-      var options = {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit"
-      };
-      return date.toLocaleDateString("es-MX", options);
     }
   }
 });
@@ -75472,6 +75468,8 @@ var staticRenderFns = [
       _c("option", [_vm._v("SC Encontrada")]),
       _vm._v(" "),
       _c("option", [_vm._v("EXPO")]),
+      _vm._v(" "),
+      _c("option", [_vm._v("IMPO")]),
     ])
   },
   function () {
@@ -75805,9 +75803,7 @@ var render = function () {
                           ? _c("p", { staticClass: "text-gray-400" }, [
                               _vm._v(
                                 "\n              " +
-                                  _vm._s(
-                                    _vm.formatDate(info.datos.fecha_documento)
-                                  ) +
+                                  _vm._s(info.datos.fecha_documento) +
                                   "\n            "
                               ),
                             ])
