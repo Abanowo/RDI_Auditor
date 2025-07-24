@@ -49,10 +49,7 @@
     <!-- ================================================== -->
     <div class="flex-grow flex flex-col space-y-1.5">
       <!-- Info Principal de la Operación con fondo para destacar -->
-      <div
-        class="inline-block bg-white rounded-md px-3 py-1 shadow-sm"
-        :class="cardInformationBgClass"
-      >
+      <div class="inline-block bg-white rounded-md px-3 py-1 shadow-sm">
         <p class="font-bold text-base leading-tight">
           {{ operacion.pedimento }} - {{ operacion.cliente }}
         </p>
@@ -66,7 +63,6 @@
           <div
             :key="tipo"
             class="border rounded-md shadow-sm overflow-hidden flex flex-col bg-white text-[11px]"
-            :class="getCardBorderClass(getFacturaAuditoriaStatusText(tipo, info))"
           >
             <!-- Cabecera de la tarjeta de factura -->
             <div
@@ -185,13 +181,7 @@ export default {
     cardBgClass() {
       switch (this.cardOverallState) {
         case "rojo":
-          return "border-2 border-red-600 bg-red-100";
-        case "verde":
-          return "border-2 border-green-500 bg-green-50";
-        case "amarillo":
-          return "border-2 border-yellow-500 bg-yellow-50";
-        case "neutro":
-          return "border-2 border-gray-600 bg-gray-100"; // Fondo blanco si el estado es 'neutro'
+          return "border-2 border-red-600 bg-white";
         default:
           return "bg-white";
       }
@@ -242,11 +232,11 @@ export default {
     getCardHeaderBgClass(estado) {
       switch (estado) {
         case "verde":
-          return "bg-green-50";
+          return "bg-green-100";
         case "amarillo":
-          return "bg-yellow-50";
+          return "bg-yellow-100";
         case "rojo":
-          return "bg-red-50";
+          return "bg-red-100";
         default:
           return "bg-gray-100";
       }
@@ -289,7 +279,7 @@ export default {
         return "text-yellow-600";
       } else if (this.isStatusRed(estado) || estadoLower.includes("sin")) {
         return "text-red-700";
-      } else if (estadoLower.includes("expo")) {
+      } else if (estadoLower.includes("expo") || estadoLower.includes("impo")) {
         return "text-indigo-700";
       } else {
         return "text-gray-800";

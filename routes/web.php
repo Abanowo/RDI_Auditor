@@ -32,6 +32,7 @@ Route::get('/documentos/reporte-auditoria/{tarea}/{tipo}', [DocumentoController:
 //Rutas de AuditoriaImpuestosController
 // Rutas API para los filtros del frontend
 Route::get('/auditoria/conteo-sc-diario', [AuditoriaImpuestosController::class, 'getConteoScDiario']);
+Route::get('/auditoria/conteo-auditoria-diaria', [AuditoriaImpuestosController::class, 'getConteoAuditoriaDiario']);
 Route::get('/auditoria/tareas-completadas', [AuditoriaImpuestosController::class, 'getTareasCompletadas']);
 Route::get('/auditoria/sucursales', [AuditoriaImpuestosController::class, 'getSucursales']);
 Route::get('/auditoria/clientes', [AuditoriaImpuestosController::class, 'getClientes']);

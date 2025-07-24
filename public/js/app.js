@@ -4824,6 +4824,9 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
 //
 //
 //
+//
+//
+//
 
  // ¡Importante! Importa el componente hijo
 
@@ -4847,7 +4850,18 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
         exportacion: 0,
         todos: 0
       },
-      // Para guardar los conteos
+      // Para guardar los conteos de las operaciones de Importacion, Exportacion, y Ambas
+      auditCounts: {
+        balanceados: 0,
+        pago_menos: 0,
+        pago_mas: 0,
+        no_facturados: 0
+      },
+      // Para guardar los conteos de los pagos Balanceados, Pago de menos, Pago de mas y No facturados
+      auditTotalCount: {
+        total: 0,
+        ocupoActualizarContadores: true
+      },
       selectedSucursal: null,
       selectedOperationType: null,
       operaciones: [],
@@ -4972,7 +4986,7 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
     selectSucursal: function selectSucursal(sucursal) {
       this.selectedSucursal = sucursal;
       this.selectedOperationType = null; // Resetea la operación para forzar una nueva selección
-      this.fetchOperationCounts(sucursal.id); // Llama al nuevo método para obtener los conteos
+      this.fetchOperationCounts(sucursal.id); // Llama al nuevo método para obtener los conteos de Importacion/Exportacion o Ambos.
     },
     // Nuevo método para obtener los conteos de SC
     fetchOperationCounts: function fetchOperationCounts(sucursalId) {
@@ -5008,17 +5022,31 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
         // 3. Actualizamos la URL con TODOS los filtros unificados
         var params = new URLSearchParams(_this5.finalFilters);
         window.history.pushState({}, "", "?".concat(params.toString()));
-
+        console.log(_this5.selectedSucursal);
+        console.log(_this5.selectedOperationType);
         // 4. Llamamos a la API
         _this5.fetchClientes();
         _this5.fetchOperaciones(1);
+        //this.fetchAuditCounts(this.selectedSucursal.id, this.selectedOperationType);
       });
     },
     resetSelection: function resetSelection() {
       this.selectedSucursal = null;
       this.selectedOperationType = null;
       this.operaciones = [];
-      this.pagination = {};
+      this.operationCounts = {
+        importacion: 0,
+        exportacion: 0,
+        todos: 0
+      }, this.auditCounts = {
+        balanceados: 0,
+        pago_menos: 0,
+        pago_mas: 0,
+        no_facturados: 0
+      }, this.auditTotalCount = {
+        total: 0,
+        ocupoActualizarContadores: true
+      }, this.pagination = {};
       this.activeFilters = {};
 
       // Limpiamos la URL al resetear
@@ -5078,7 +5106,7 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
       //alert("Datos que se enviarán a la API:\n\n" + JSON.stringify(finalParams, null, 2));
       // ---------------------------------------------
 
-      // 2. Hacemos la llamada a la API siempre al mismo endpoint base
+      // Hacemos la llamada a la API siempre al mismo endpoint base
       axios.get("/auditoria", {
         params: finalParams
       }).then(function (response) {
@@ -5087,9 +5115,31 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
         _this6.operaciones = Array.isArray(response.data.data) ? response.data.data : [];
         _this6.pagination = response.data;
         _this6.isLoading = false;
+
+        // El arreglo de datos que viene de la API (para contadores y porcentajes)
+        var statsFromApi = response.data.meta.conteos.stats || [];
+
+        // Crea un nuevo objeto temporal para guardar los conteos actualizados
+        var newCounts = {};
+
+        // Itera sobre el ARREGLO de la API usando forEach
+        statsFromApi.forEach(function (stat) {
+          // Para cada estadística, usa su 'key' para crear una propiedad
+          // en nuestro nuevo objeto y asígnale su 'value'.
+          // Ejemplo: newCounts['pago_mas'] = (Objeto);
+          newCounts[stat.key] = stat;
+        });
+
+        // Finalmente, reemplaza el objeto antiguo con el nuevo ya actualizado
+        if (_this6.auditTotalCount.ocupoActualizarContadores) {
+          _this6.auditCounts = newCounts;
+          _this6.auditTotalCount.total = response.data.meta.conteos.total;
+        }
         console.log("Response: ", response);
         console.log("Response.data: ", response.data);
         console.log("Response.data.links: ", response.data.links);
+        console.log("Response.data.meta.conteos: ", response.data.meta.conteos);
+        console.log("auditCounts: ", _this6.auditCounts);
         // Esta parte es crucial y ahora funcionará correctamente
         var activeLink = response === null || response === void 0 || (_response$data = response.data) === null || _response$data === void 0 || (_response$data = _response$data.links) === null || _response$data === void 0 ? void 0 : _response$data.find(function (link) {
           return link.active;
@@ -5104,7 +5154,17 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
         console.error("Error al obtener las operaciones:", error);
         _this6.operaciones = []; // asegúrate de vaciarla si hay error
         _this6.isLoading = false;
+        _this6.auditTotalCount.ocupoActualizarContadores = true;
       });
+    },
+    //Metodo para conservar filtros despues de haber presionado un boton de filtros con conteo.
+    fetchOperacionesBotonesContadores: function fetchOperacionesBotonesContadores(estado) {
+      var oldEstado = this.finalFilters.estado;
+      this.finalFilters.estado = estado;
+      this.auditTotalCount.ocupoActualizarContadores = false;
+      this.fetchOperaciones();
+      //this.finalFilters.estado = oldEstado;
+      this.auditTotalCount.ocupoActualizarContadores = true;
     }
   }
 });
@@ -5763,10 +5823,6 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
-//
-//
-//
-//
 
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
   props: {
@@ -5833,14 +5889,7 @@ __webpack_require__.r(__webpack_exports__);
     cardBgClass: function cardBgClass() {
       switch (this.cardOverallState) {
         case "rojo":
-          return "border-2 border-red-600 bg-red-100";
-        case "verde":
-          return "border-2 border-green-500 bg-green-50";
-        case "amarillo":
-          return "border-2 border-yellow-500 bg-yellow-50";
-        case "neutro":
-          return "border-2 border-gray-600 bg-gray-100";
-        // Fondo blanco si el estado es 'neutro'
+          return "border-2 border-red-600 bg-white";
         default:
           return "bg-white";
       }
@@ -5880,11 +5929,11 @@ __webpack_require__.r(__webpack_exports__);
     getCardHeaderBgClass: function getCardHeaderBgClass(estado) {
       switch (estado) {
         case "verde":
-          return "bg-green-50";
+          return "bg-green-100";
         case "amarillo":
-          return "bg-yellow-50";
+          return "bg-yellow-100";
         case "rojo":
-          return "bg-red-50";
+          return "bg-red-100";
         default:
           return "bg-gray-100";
       }
@@ -5924,7 +5973,7 @@ __webpack_require__.r(__webpack_exports__);
         return "text-yellow-600";
       } else if (this.isStatusRed(estado) || estadoLower.includes("sin")) {
         return "text-red-700";
-      } else if (estadoLower.includes("expo")) {
+      } else if (estadoLower.includes("expo") || estadoLower.includes("impo")) {
         return "text-indigo-700";
       } else {
         return "text-gray-800";
@@ -74505,29 +74554,47 @@ var render = function () {
               [
                 _c(
                   "button",
-                  { staticClass: "btn-operation bg-green-600 text-white" },
+                  {
+                    staticClass: "btn-operation bg-white",
+                    on: {
+                      click: function ($event) {
+                        return _vm.fetchOperacionesBotonesContadores(
+                          _vm.auditCounts.balanceados.label
+                        )
+                      },
+                    },
+                  },
                   [
                     _c("div", { staticClass: "flex items-center" }, [
                       _c(
-                        "svg",
+                        "div",
                         {
-                          staticClass: "w-8 h-8 mr-4",
-                          attrs: {
-                            fill: "none",
-                            stroke: "currentColor",
-                            viewBox: "0 0 24 24",
-                          },
+                          staticClass:
+                            "w-12 h-12 mr-4 bg-green-600 rounded flex text-white items-center justify-center",
                         },
                         [
-                          _c("path", {
-                            attrs: {
-                              stroke: "currentColor",
-                              "stroke-linecap": "round",
-                              "stroke-linejoin": "round",
-                              "stroke-width": "2",
-                              d: "M10 3v4a1 1 0 0 1-1 1H5m4 6 2 2 4-4m4-8v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7.914a1 1 0 0 1 .293-.707l3.914-3.914A1 1 0 0 1 9.914 3H18a1 1 0 0 1 1 1Z",
+                          _c(
+                            "svg",
+                            {
+                              staticClass: "w-8 h-8",
+                              attrs: {
+                                fill: "none",
+                                stroke: "currentColor",
+                                viewBox: "0 0 24 24",
+                              },
                             },
-                          }),
+                            [
+                              _c("path", {
+                                attrs: {
+                                  stroke: "currentColor",
+                                  "stroke-linecap": "round",
+                                  "stroke-linejoin": "round",
+                                  "stroke-width": "2",
+                                  d: "M10 3v4a1 1 0 0 1-1 1H5m4 6 2 2 4-4m4-8v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7.914a1 1 0 0 1 .293-.707l3.914-3.914A1 1 0 0 1 9.914 3H18a1 1 0 0 1 1 1Z",
+                                },
+                              }),
+                            ]
+                          ),
                         ]
                       ),
                       _vm._v(" "),
@@ -74535,36 +74602,62 @@ var render = function () {
                     ]),
                     _vm._v(" "),
                     _c("span", { staticClass: "text-2xl font-bold" }, [
-                      _vm._v(_vm._s(_vm.operationCounts.importacion)),
+                      _vm._v(
+                        "\n          " +
+                          _vm._s(_vm.auditCounts.balanceados.value) +
+                          " / " +
+                          _vm._s(_vm.auditTotalCount.total) +
+                          " (" +
+                          _vm._s(_vm.auditCounts.balanceados.percentage) +
+                          "%)\n      "
+                      ),
                     ]),
                   ]
                 ),
                 _vm._v(" "),
                 _c(
                   "button",
-                  { staticClass: "btn-operation bg-red-700 text-white" },
+                  {
+                    staticClass: "btn-operation bg-white",
+                    on: {
+                      click: function ($event) {
+                        return _vm.fetchOperacionesBotonesContadores(
+                          _vm.auditCounts.pago_menos.label
+                        )
+                      },
+                    },
+                  },
                   [
                     _c("div", { staticClass: "flex items-center" }, [
                       _c(
-                        "svg",
+                        "div",
                         {
-                          staticClass: "w-8 h-8 mr-4",
-                          attrs: {
-                            fill: "none",
-                            stroke: "currentColor",
-                            viewBox: "0 0 24 24",
-                          },
+                          staticClass:
+                            "w-12 h-12 mr-4 bg-red-700 rounded flex text-white items-center justify-center",
                         },
                         [
-                          _c("path", {
-                            attrs: {
-                              stroke: "currentColor",
-                              "stroke-linecap": "round",
-                              "stroke-linejoin": "round",
-                              "stroke-width": "2",
-                              d: "M4 4.5V19a1 1 0 0 0 1 1h15M7 10l4 4 4-4 5 5m0 0h-3.207M20 15v-3.207",
+                          _c(
+                            "svg",
+                            {
+                              staticClass: "w-8 h-8",
+                              attrs: {
+                                fill: "none",
+                                stroke: "currentColor",
+                                viewBox: "0 0 24 24",
+                              },
                             },
-                          }),
+                            [
+                              _c("path", {
+                                attrs: {
+                                  stroke: "currentColor",
+                                  "stroke-linecap": "round",
+                                  "stroke-linejoin": "round",
+                                  "stroke-width": "2",
+                                  d: "M4 4.5V19a1 1 0 0 0 1 1h15M7 10l4 4 4-4 5 5m0 0h-3.207M20 15v-3.207",
+                                },
+                              }),
+                            ]
+                          ),
                         ]
                       ),
                       _vm._v(" "),
@@ -74572,36 +74665,62 @@ var render = function () {
                     ]),
                     _vm._v(" "),
                     _c("span", { staticClass: "text-2xl font-bold" }, [
-                      _vm._v(_vm._s(_vm.operationCounts.importacion)),
+                      _vm._v(
+                        "\n          " +
+                          _vm._s(_vm.auditCounts.pago_menos.value) +
+                          " / " +
+                          _vm._s(_vm.auditTotalCount.total) +
+                          " (" +
+                          _vm._s(_vm.auditCounts.pago_menos.percentage) +
+                          "%)\n      "
+                      ),
                     ]),
                   ]
                 ),
                 _vm._v(" "),
                 _c(
                   "button",
-                  { staticClass: "btn-operation bg-yellow-500 text-white" },
+                  {
+                    staticClass: "btn-operation bg-white",
+                    on: {
+                      click: function ($event) {
+                        return _vm.fetchOperacionesBotonesContadores(
+                          _vm.auditCounts.pago_mas.label
+                        )
+                      },
+                    },
+                  },
                   [
                     _c("div", { staticClass: "flex items-center" }, [
                       _c(
-                        "svg",
+                        "div",
                         {
-                          staticClass: "w-8 h-8 mr-4",
-                          attrs: {
-                            fill: "none",
-                            stroke: "currentColor",
-                            viewBox: "0 0 24 24",
-                          },
+                          staticClass:
+                            "w-12 h-12 mr-4 bg-yellow-500 rounded flex text-white items-center justify-center",
                         },
                         [
-                          _c("path", {
-                            attrs: {
-                              stroke: "currentColor",
-                              "stroke-linecap": "round",
-                              "stroke-linejoin": "round",
-                              "stroke-width": "2",
-                              d: "M4 4.5V19a1 1 0 0 0 1 1h15M7 14l4-4 4 4 5-5m0 0h-3.207M20 9v3.207",
+                          _c(
+                            "svg",
+                            {
+                              staticClass: "w-8 h-8",
+                              attrs: {
+                                fill: "none",
+                                stroke: "currentColor",
+                                viewBox: "0 0 24 24",
+                              },
                             },
-                          }),
+                            [
+                              _c("path", {
+                                attrs: {
+                                  stroke: "currentColor",
+                                  "stroke-linecap": "round",
+                                  "stroke-linejoin": "round",
+                                  "stroke-width": "2",
+                                  d: "M4 4.5V19a1 1 0 0 0 1 1h15M7 14l4-4 4 4 5-5m0 0h-3.207M20 9v3.207",
+                                },
+                              }),
+                            ]
+                          ),
                         ]
                       ),
                       _vm._v(" "),
@@ -74609,36 +74728,62 @@ var render = function () {
                     ]),
                     _vm._v(" "),
                     _c("span", { staticClass: "text-2xl font-bold" }, [
-                      _vm._v(_vm._s(_vm.operationCounts.exportacion)),
+                      _vm._v(
+                        "\n          " +
+                          _vm._s(_vm.auditCounts.pago_mas.value) +
+                          " / " +
+                          _vm._s(_vm.auditTotalCount.total) +
+                          " (" +
+                          _vm._s(_vm.auditCounts.pago_mas.percentage) +
+                          "%)\n      "
+                      ),
                     ]),
                   ]
                 ),
                 _vm._v(" "),
                 _c(
                   "button",
-                  { staticClass: "btn-operation text-white bg-gray-600" },
+                  {
+                    staticClass: "btn-operation bg-white",
+                    on: {
+                      click: function ($event) {
+                        return _vm.fetchOperacionesBotonesContadores(
+                          _vm.auditCounts.no_facturados.label
+                        )
+                      },
+                    },
+                  },
                   [
                     _c("div", { staticClass: "flex items-center" }, [
                       _c(
-                        "svg",
+                        "div",
                         {
-                          staticClass: "w-8 h-8 mr-4",
-                          attrs: {
-                            fill: "none",
-                            stroke: "currentColor",
-                            viewBox: "0 0 24 24",
-                          },
+                          staticClass:
+                            "w-12 h-12 mr-4 bg-gray-600 rounded flex text-white items-center justify-center",
                         },
                         [
-                          _c("path", {
-                            attrs: {
-                              stroke: "currentColor",
-                              "stroke-linecap": "round",
-                              "stroke-linejoin": "round",
-                              "stroke-width": "2",
-                              d: "M10 3v4a1 1 0 0 1-1 1H5m8 7.5 2.5 2.5M19 4v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7.914a1 1 0 0 1 .293-.707l3.914-3.914A1 1 0 0 1 9.914 3H18a1 1 0 0 1 1 1Zm-5 9.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z",
+                          _c(
+                            "svg",
+                            {
+                              staticClass: "w-8 h-8",
+                              attrs: {
+                                fill: "none",
+                                stroke: "currentColor",
+                                viewBox: "0 0 24 24",
+                              },
                             },
-                          }),
+                            [
+                              _c("path", {
+                                attrs: {
+                                  stroke: "currentColor",
+                                  "stroke-linecap": "round",
+                                  "stroke-linejoin": "round",
+                                  "stroke-width": "2",
+                                  d: "M10 3v4a1 1 0 0 1-1 1H5m8 7.5 2.5 2.5M19 4v16a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V7.914a1 1 0 0 1 .293-.707l3.914-3.914A1 1 0 0 1 9.914 3H18a1 1 0 0 1 1 1Zm-5 9.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z",
+                                },
+                              }),
+                            ]
+                          ),
                         ]
                       ),
                       _vm._v(" "),
@@ -74646,7 +74791,15 @@ var render = function () {
                     ]),
                     _vm._v(" "),
                     _c("span", { staticClass: "text-2xl font-bold" }, [
-                      _vm._v(_vm._s(_vm.operationCounts.todos)),
+                      _vm._v(
+                        "\n          " +
+                          _vm._s(_vm.auditCounts.no_facturados.value) +
+                          " / " +
+                          _vm._s(_vm.auditTotalCount.total) +
+                          " (" +
+                          _vm._s(_vm.auditCounts.no_facturados.percentage) +
+                          "%)\n      "
+                      ),
                     ]),
                   ]
                 ),
@@ -74757,10 +74910,6 @@ var staticRenderFns = [
       _c("span", { staticClass: "font-bold text-lg whitespace-nowrap" }, [
         _vm._v("Importación"),
       ]),
-      _vm._v(" "),
-      _c("span", { staticClass: "block text-xs whitespace-nowrap" }, [
-        _vm._v("SCs de hoy"),
-      ]),
     ])
   },
   function () {
@@ -74770,10 +74919,6 @@ var staticRenderFns = [
     return _c("div", { staticClass: "text-left" }, [
       _c("span", { staticClass: "font-bold text-lg whitespace-nowrap" }, [
         _vm._v("Exportación"),
-      ]),
-      _vm._v(" "),
-      _c("span", { staticClass: "block text-xs whitespace-nowrap" }, [
-        _vm._v("SCs de hoy"),
       ]),
     ])
   },
@@ -74785,10 +74930,6 @@ var staticRenderFns = [
       _c("span", { staticClass: "font-bold text-lg whitespace-nowrap" }, [
         _vm._v("Todas"),
       ]),
-      _vm._v(" "),
-      _c("span", { staticClass: "block text-xs whitespace-nowrap" }, [
-        _vm._v("SCs de hoy"),
-      ]),
     ])
   },
   function () {
@@ -74798,10 +74939,6 @@ var staticRenderFns = [
     return _c("div", { staticClass: "text-left" }, [
       _c("span", { staticClass: "font-bold text-lg" }, [
         _vm._v("Exportar reporte"),
-      ]),
-      _vm._v(" "),
-      _c("span", { staticClass: "block text-xs" }, [
-        _vm._v("Por filtros aplicados"),
       ]),
     ])
   },
@@ -74813,8 +74950,6 @@ var staticRenderFns = [
       _c("span", { staticClass: "font-bold text-lg" }, [
         _vm._v("Subir estados de cuenta"),
       ]),
-      _vm._v(" "),
-      _c("span", { staticClass: "block text-xs" }, [_vm._v("[PDF o XLSX]")]),
     ])
   },
   function () {
@@ -74823,10 +74958,6 @@ var staticRenderFns = [
     var _c = _vm._self._c || _h
     return _c("div", { staticClass: "text-left" }, [
       _c("span", { staticClass: "font-bold text-lg" }, [_vm._v("Balanceados")]),
-      _vm._v(" "),
-      _c("span", { staticClass: "block text-xs" }, [
-        _vm._v("Total pedimentos de hoy"),
-      ]),
     ])
   },
   function () {
@@ -74836,10 +74967,6 @@ var staticRenderFns = [
     return _c("div", { staticClass: "text-left" }, [
       _c("span", { staticClass: "font-bold text-lg" }, [
         _vm._v("Pagos de menos"),
-      ]),
-      _vm._v(" "),
-      _c("span", { staticClass: "block text-xs" }, [
-        _vm._v("Total pedimentos de hoy"),
       ]),
     ])
   },
@@ -74851,10 +74978,6 @@ var staticRenderFns = [
       _c("span", { staticClass: "font-bold text-lg" }, [
         _vm._v("Pagos de más"),
       ]),
-      _vm._v(" "),
-      _c("span", { staticClass: "block text-xs" }, [
-        _vm._v("Total pedimentos de hoy"),
-      ]),
     ])
   },
   function () {
@@ -74864,10 +74987,6 @@ var staticRenderFns = [
     return _c("div", { staticClass: "text-left" }, [
       _c("span", { staticClass: "font-bold text-lg" }, [
         _vm._v("No facturados"),
-      ]),
-      _vm._v(" "),
-      _c("span", { staticClass: "block text-xs" }, [
-        _vm._v("Total pedimentos de hoy"),
       ]),
     ])
   },
@@ -75680,7 +75799,6 @@ var render = function () {
           "div",
           {
             staticClass: "inline-block bg-white rounded-md px-3 py-1 shadow-sm",
-            class: _vm.cardInformationBgClass,
           },
           [
             _c("p", { staticClass: "font-bold text-base leading-tight" }, [
@@ -75714,9 +75832,6 @@ var render = function () {
                     key: tipo,
                     staticClass:
                       "border rounded-md shadow-sm overflow-hidden flex flex-col bg-white text-[11px]",
-                    class: _vm.getCardBorderClass(
-                      _vm.getFacturaAuditoriaStatusText(tipo, info)
-                    ),
                   },
                   [
                     _c(

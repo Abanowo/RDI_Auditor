@@ -49,8 +49,86 @@ class AuditoriaImpuestosController extends Controller
             // La ruta es más larga, pero es la forma correcta: pedimento -> importacion -> auditorias/totalSc
             // Cargamos dinámicamente las relaciones necesarias para ambos tipos de operación
 
-            //dd($query->toSql());
-            $resultados = $query->with([
+            // --- INICIA LA LÓGICA DE CONTEO TOTAL ---
+
+            // CLONA la consulta ANTES de paginar para obtener los IDs de TODOS los pedimentos filtrados.
+            // pluck() es muy rápido para obtener solo una columna.
+            $pedimentoIds = $query->clone()->pluck('pedimiento.id_pedimiento');
+
+            // Ahora, construye una consulta en 'Auditoria' limitada a los pedimentos que encontramos.
+            // Esto es mucho más eficiente que cargar todas las relaciones.
+            $auditoriaQuery = Auditoria::query()
+                ->whereHas('operacion', function ($q) use ($pedimentoIds) {
+                    $q->whereIn('id_pedimiento', $pedimentoIds);
+                });
+
+            // Define los estados y obtén el conteo para cada uno, clonando la consulta de auditorías.
+            $statuses = [
+                'pago_mas'      => 'Pago de mas!',
+                'pago_menos'    => 'Pago de menos!',
+                'balanceados'   => 'Coinciden!',
+                'no_facturados' => 'Sin SC!',
+            ];
+
+            $conteos = [];
+            foreach ($statuses as $key => $label) {
+                if($key === 'balanceados') {
+
+                    // Para 'balanceados', contamos los PEDIMENTOS "puros".
+                    // Un pedimento es "puro" si tiene facturas 'Coinciden!' y NINGUNA con otro estado.
+                    $conteos[$key] = $query->clone()->where(function ($q) use ($label) {
+
+                        // La lógica se aplica a la operación (impo o expo) que contenga las auditorías.
+                        $purelyBalancedLogic = function ($operationQuery) use ($label) {
+                            // 1. Debe tener AL MENOS UNA factura con estado "Coinciden!".
+                            $operationQuery->whereHas('auditorias', function ($auditQuery) use ($label) {
+                                $auditQuery->where('estado', $label);
+                            })
+                            // 2. Y NO DEBE TENER NINGUNA factura con estado DIFERENTE a "Coinciden!".
+                            ->whereDoesntHave('auditorias', function ($auditQuery) use ($label) {
+                                $auditQuery->where('estado', '!=', $label);
+                            });
+                        };
+
+                        // Aplicamos la lógica a la relación de importación O a la de exportación.
+                        $q->whereHas('importacion', $purelyBalancedLogic)
+                        ->orWhereHas('exportacion', $purelyBalancedLogic);
+
+                    })->count();
+
+                } else {
+                    $conteos[$key] = $auditoriaQuery->clone()->where('estado', $label)->count();
+                }
+
+            }
+
+            // Calcula el total y los porcentajes.
+            $totalFacturas = array_sum($conteos);
+            // Crea el arreglo de estadísticas con el formato que necesitas
+            $statsArray = [];
+            foreach ($statuses as $key => $label) {
+                $valor = $conteos[$key] ?? 0;
+                $porcentaje = ($totalFacturas > 0) ? round(($valor / $totalFacturas) * 100, 2) : 0;
+
+                // Añadimos un nuevo elemento al arreglo (esto crea los índices numéricos 0, 1, 2...)
+                $statsArray[] = [
+                    'key'        => $key,
+                    'label'      => $label,
+                    'value'      => $valor,
+                    'percentage' => $porcentaje
+                ];
+            }
+
+            // Prepara la data final para la respuesta, ahora estructurada
+            $conteosData = [
+                'stats' => $statsArray,
+                'total' => $totalFacturas
+            ];
+
+        // --- TERMINA LA LÓGICA DE CONTEO ---
+
+
+            $resultadosPaginados = $query->with([
                 'importacion' => function ($q) {
                     $q->with(['auditorias', 'auditoriasTotalSC', 'cliente', 'getSucursal']);
                 },
@@ -58,17 +136,27 @@ class AuditoriaImpuestosController extends Controller
                     $q->with(['auditorias', 'auditoriasTotalSC', 'cliente', 'getSucursal']);
                 }
             ])
-                ->latest('pedimiento.created_at') // Ordena por el 'created_at' de operaciones_importacion
+                ->latest('pedimiento.created_at')
                 ->paginate(15)
                 ->withQueryString();
 
-            $t = json_encode($resultados);
+
             // La transformación ahora recibe un objeto 'Pedimento'
-            $resultados->getCollection()->transform(function ($pedimento) use ($filters) {
+            $resultadosPaginados->getCollection()->transform(function ($pedimento) use ($filters) {
                 return $this->transformarOperacion($pedimento, $filters);
             });
 
-            return response()->json($resultados);
+            // Convierte el objeto paginador a un array.
+            // Esto nos da la estructura base con 'data', 'links', y 'meta' de la paginación.
+            $responseData = $resultadosPaginados->toArray();
+
+            // AÑADE tu data de conteos directamente al array de respuesta.
+            // Lo anidamos dentro de la clave 'meta' para mantener todo organizado.
+            $responseData['meta']['conteos'] = $conteosData;
+
+            // FINALMENTE: Añade los conteos a los metadatos de la respuesta paginada.
+            // Retorna el array completo como una respuesta JSON.
+            return response()->json($responseData);
         }
         // Esto es para la primera visita desde el navegador.
         // Le dice a Laravel: "Carga y muestra el archivo de la vista principal".
@@ -157,35 +245,63 @@ class AuditoriaImpuestosController extends Controller
                 // CASO ESPECIAL: El tipo es 'sc'
                 if ($type === 'sc') {
                     $q->whereHas('auditoriasTotalSC', function ($scQuery) use ($values, $filters) {
-                        if (isset($values['folio'])) $scQuery->where('folio', 'like', "%{$values['folio']}%");
-                        if (isset($values['fecha'])) $scQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
+
+                        if (isset($values['folio'])) {
+                            $scQuery->where('folio', 'like', "%{$values['folio']}%");
+                        }
+
+                        if (isset($values['fecha'])) {
+                            $scQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
+                        }
                     });
-                }
-                // CASO: El tipo es específico (ej. 'impuestos', 'flete')
-                elseif ($type !== 'any') {
+                } elseif ($type !== 'any') { // CASO: El tipo es específico (ej. 'impuestos', 'flete')
+
                     $q->whereHas('auditorias', function ($auditQuery) use ($values, $type, $filters) {
                         $auditQuery->where('tipo_documento', $type);
-                        if (isset($values['estado'])) $auditQuery->where('estado', $values['estado']);
-                        if (isset($values['folio'])) $auditQuery->where('folio', 'like', "%{$values['folio']}%");
-                        if (isset($values['fecha'])) $auditQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
+
+                        if (isset($values['estado'])){
+                            $auditQuery->where('estado', $values['estado']);
+                        }
+
+                        if (isset($values['folio'])) {
+                            $auditQuery->where('folio', 'like', "%{$values['folio']}%");
+                        }
+
+                        if (isset($values['fecha'])) {
+                            $auditQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
+                        }
                     });
-                }
-                // CASO: El tipo es 'any' (Cualquier Tipo)
-                else {
+                } else { // CASO: El tipo es 'any' (Cualquier Tipo)
+
                     $q->where(function ($orQuery) use ($values, $filters) {
                         // Busca en 'auditorias'
                        $orQuery->orWhereHas('auditorias', function ($auditQuery) use ($values, $filters) {
 
-                            if (isset($values['estado'])) $auditQuery->where('estado', $values['estado']);
-                            if (isset($values['folio'])) $auditQuery->where('folio', 'like', "%{$values['folio']}%");
-                            if (isset($values['fecha'])) $auditQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
+                            if (isset($values['estado'])){
+                            $auditQuery->where('estado', $values['estado']);
+                            }
+
+                            if (isset($values['folio'])) {
+                                $auditQuery->where('folio', 'like', "%{$values['folio']}%");
+                            }
+
+                            if (isset($values['fecha'])) {
+                                $auditQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
+                            }
+
                         });
 
                         if (!isset($values['estado'])) {
                             // O busca en 'auditoriasTotalSC' (solo para folio y fecha)
                             $orQuery->orWhereHas('auditoriasTotalSC', function ($scQuery) use ($values, $filters) {
-                                if (isset($values['folio'])) $scQuery->where('folio', 'like', "%{$values['folio']}%");
-                                if (isset($values['fecha'])) $scQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
+
+                               if (isset($values['folio'])) {
+                                    $scQuery->where('folio', 'like', "%{$values['folio']}%");
+                                }
+
+                                if (isset($values['fecha'])) {
+                                    $scQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
+                                }
                             });
                         }
                     });
@@ -445,6 +561,7 @@ class AuditoriaImpuestosController extends Controller
             'todos' => $conteoImportacion + $conteoExportacion,
         ]);
     }
+
 
 
     //
