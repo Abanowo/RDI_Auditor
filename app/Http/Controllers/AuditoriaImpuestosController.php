@@ -40,7 +40,14 @@ class AuditoriaImpuestosController extends Controller
             $filters = $request->query();
 
             $query = $this->obtenerQueryFiltrado($request);
-
+            $query->with([
+                'importacion' => function ($q) {
+                    $q->with(['auditorias', 'auditoriasTotalSC', 'cliente', 'getSucursal']);
+                },
+                'exportacion' => function ($q) {
+                    $q->with(['auditorias', 'auditoriasTotalSC', 'cliente', 'getSucursal']);
+                }
+            ]);
             // Para depurar:
             // Muestra el SQL generado y los valores a "bindear"
 
@@ -71,6 +78,7 @@ class AuditoriaImpuestosController extends Controller
             ];
 
             $conteos = [];
+            $sumasDiferencias = [];
             foreach ($statuses as $key => $label) {
                 if($key === 'balanceados') {
 
@@ -81,23 +89,27 @@ class AuditoriaImpuestosController extends Controller
                         // La lógica se aplica a la operación (impo o expo) que contenga las auditorías.
                         $purelyBalancedLogic = function ($operationQuery) use ($label) {
                             // 1. Debe tener AL MENOS UNA factura con estado "Coinciden!".
-                            $operationQuery->whereHas('auditorias', function ($auditQuery) use ($label) {
-                                $auditQuery->where('estado', $label);
+                            $operationQuery->whereHas('auditorias', function ($auditQuery) {
+                                $auditQuery->where('monto_diferencia_sc', 0);
                             })
                             // 2. Y NO DEBE TENER NINGUNA factura con estado DIFERENTE a "Coinciden!".
                             ->whereDoesntHave('auditorias', function ($auditQuery) use ($label) {
-                                $auditQuery->where('estado', '!=', $label);
+                                //$auditQuery->where('estado', '!=', $label);
+                                $auditQuery->whereNotIn('estado', ['Coinciden!', 'Normal', 'Segundo Pago', 'Medio Pago']);
                             });
                         };
 
                         // Aplicamos la lógica a la relación de importación O a la de exportación.
                         $q->whereHas('importacion', $purelyBalancedLogic)
-                        ->orWhereHas('exportacion', $purelyBalancedLogic);
+                            ->orWhereHas('exportacion', $purelyBalancedLogic);
 
-                    })->count();
-
+                    });
+                    $sumasDiferencias[$key] = 0;
+                    $conteos[$key] = $conteos[$key]->count();
                 } else {
-                    $conteos[$key] = $auditoriaQuery->clone()->where('estado', $label)->count();
+                    $conteos[$key] = $auditoriaQuery->clone()->where('estado', $label);
+                    $sumasDiferencias[$key] = $conteos[$key]->sum('monto_diferencia_sc');
+                    $conteos[$key] = $conteos[$key]->count();
                 }
 
             }
@@ -109,13 +121,14 @@ class AuditoriaImpuestosController extends Controller
             foreach ($statuses as $key => $label) {
                 $valor = $conteos[$key] ?? 0;
                 $porcentaje = ($totalFacturas > 0) ? round(($valor / $totalFacturas) * 100, 2) : 0;
-
+                $sumatoriaDiferencia = $sumasDiferencias[$key];
                 // Añadimos un nuevo elemento al arreglo (esto crea los índices numéricos 0, 1, 2...)
                 $statsArray[] = [
                     'key'        => $key,
                     'label'      => $label,
                     'value'      => $valor,
-                    'percentage' => $porcentaje
+                    'percentage' => $porcentaje,
+                    'delta_sum'  => $sumatoriaDiferencia,
                 ];
             }
 
@@ -128,14 +141,7 @@ class AuditoriaImpuestosController extends Controller
         // --- TERMINA LA LÓGICA DE CONTEO ---
 
 
-            $resultadosPaginados = $query->with([
-                'importacion' => function ($q) {
-                    $q->with(['auditorias', 'auditoriasTotalSC', 'cliente', 'getSucursal']);
-                },
-                'exportacion' => function ($q) {
-                    $q->with(['auditorias', 'auditoriasTotalSC', 'cliente', 'getSucursal']);
-                }
-            ])
+            $resultadosPaginados = $query
                 ->latest('pedimiento.created_at')
                 ->paginate(15)
                 ->withQueryString();
@@ -272,10 +278,10 @@ class AuditoriaImpuestosController extends Controller
                         }
                     });
                 } else { // CASO: El tipo es 'any' (Cualquier Tipo)
-
                     $q->where(function ($orQuery) use ($values, $filters) {
-                        // Busca en 'auditorias'
-                       $orQuery->orWhereHas('auditorias', function ($auditQuery) use ($values, $filters) {
+
+                    // Busca en 'auditorias'
+                    $orQuery->orWhereHas('auditorias', function ($auditQuery) use ($values, $filters) {
 
                             if (isset($values['estado'])){
                             $auditQuery->where('estado', $values['estado']);
@@ -292,10 +298,11 @@ class AuditoriaImpuestosController extends Controller
                         });
 
                         if (!isset($values['estado'])) {
+
                             // O busca en 'auditoriasTotalSC' (solo para folio y fecha)
                             $orQuery->orWhereHas('auditoriasTotalSC', function ($scQuery) use ($values, $filters) {
 
-                               if (isset($values['folio'])) {
+                                if (isset($values['folio'])) {
                                     $scQuery->where('folio', 'like', "%{$values['folio']}%");
                                 }
 
@@ -303,7 +310,13 @@ class AuditoriaImpuestosController extends Controller
                                     $scQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
                                 }
                             });
+                        } else if ($values['estado'] === 'SC Encontrada') {
+
+                            // O busca en 'auditoriasTotalSC'
+                            $orQuery->orWhereHas('auditoriasTotalSC');
                         }
+
+
                     });
                 }
             }
@@ -645,6 +658,7 @@ class AuditoriaImpuestosController extends Controller
     // que se mostraran unicamente para el panel de auditorias, y son exclusivamente de aqui.
     public function importarImpuestosEnAuditorias(string $tareaId)
     {
+        gc_collect_cycles();
         if (!$tareaId) {
             Log::error('Se requiere el ID de la tarea. Usa --tarea_id=X');
             return ['code' => 1, 'message' => new \Exception('Se requiere el ID de la tarea. Usa --tarea_id=X')];
@@ -661,7 +675,7 @@ class AuditoriaImpuestosController extends Controller
             return ['code' => 1, 'message' => new \Exception("No se encontró la tarea con ID: {$tareaId}")];
         }
 
-        Log::info('Iniciando lectura de PDF con Python y Tabula...');
+        Log::info('Iniciando lectura de PDF del estado de cuenta...');
 
 
         // 2. Usa los datos del registro de la tarea
@@ -683,69 +697,103 @@ class AuditoriaImpuestosController extends Controller
 
         try {
 
-            if($banco !== "EXTERNO") {
-                $process = new Process(['python', base_path('scripts/python/parser.py'), $rutaPdf]);
+            if ($banco !== "EXTERNO") {
+                // Ahora utilizando Smalot!
+                $config = new \Smalot\PdfParser\Config();
+                // Whether to retain raw image data as content or discard it to save memory
+                $config->setRetainImageContent(false);
+                // Memory limit to use when de-compressing files, in bytes
+                $config->setDecodeMemoryLimit(10276800);
 
-                $process->mustRun();
-                $jsonOutput = $process->getOutput();
-                $jsonOutput = mb_convert_encoding($jsonOutput, "utf-8");
-                // Ahora este json_decode debería funcionar sin problemas y sin encode previo.
+                // Se crea el objeto Parser, utilizando las configuraciones de antes para evitar memory leaks
+                $parser = new \Smalot\PdfParser\Parser([], $config);
+                $pdf = $parser->parseFile($rutaPdf);
+                $textoPdf = $pdf->getText();
 
-                $tablaDeDatos = json_decode($jsonOutput, true);
+                // En $tablaDeDatos se almacenara el resultado procesado del estado de cuenta
+                $tablaDeDatos = [];
+                // En $tipoSplit se definira cual sera el enfoque de splits para el texto extraido
+                $tipoSplit = ['/\n/', 0];
+                $yearEstadoCuenta = now()->format('Y');
+                if ($banco === 'BBVA') {
+                    // Si es BBVA, se utiliza un REGEX en donde se hace split cuando encuentra la fecha,
+                    // seguido de un enter y PEDMTO, seguido de un enter y demas caracteres, otro enter y demas caracteres
+                    // y otro enter. Esto es debido a que el texto convierte la tabla 4x1 a 1x1, dando las
+                    // 4 columnas de una fila, en 4 filas de una columna
+                    $tipoSplit = ['/(\d{2}-\d{2}\n.*PEDMT\s*O:\s*([\w-]+)\n.*\n.*\n)/', PREG_SPLIT_DELIM_CAPTURE];
 
-                if (is_null($tablaDeDatos) || isset($tablaDeDatos['error'])) {
-                    Log::error("Error al decodificar el JSON o error devuelto por Python.");
-                    // Si hay error en Python, lo mostramos:
-                    if(isset($tablaDeDatos['error'])) { Log::error("Detalle: " . $tablaDeDatos['error']); }
-                    return ['code' => 1, 'message' => new \Exception("Error al decodificar el JSON o error devuelto por Python.")];
+                } else if ($banco === 'SANTANDER') {
+                    // Si es SANTANDER, entonces solo se hace un split por los Enters
+                    $tipoSplit = ['/\n/', 0];
+
                 }
 
-                // Convertimos el array de datos crudos en una Colección de Laravel.
-                $coleccionDeFilas = collect($tablaDeDatos);
+                //Se itera el texto, linea por linea, utilizando el $tipoSplit correspondiente al banco.
+                foreach (preg_split($tipoSplit[0], $textoPdf, -1, $tipoSplit[1]) as $linea) {
 
-                Log::info("Tabula y Python procesaron el PDF y encontraron {$coleccionDeFilas->count()} filas de datos crudos.");
+                    if ($banco === 'BBVA') {
+                        // Se busca en el texto si se encuentra el PEDMTO
+                        $patron = "/PEDMT\s*O:\s*([\w-]+)/";
 
-                // 3. Usamos map() para transformar y filter() para limpiar la colección.
-                $operacionesLimpias = $coleccionDeFilas->map(function ($fila) use ($banco) {
-
-                    if($banco === 'BBVA'){
-                        // Verificamos que la fila tenga al menos 3 celdas (Fecha, Concepto, Cargo).
-                        if (isset($fila[0], $fila[1], $fila[2])) {
-                            $textoConcepto = $fila[1];
-                            // El Regex para encontrar el pedimento que ya conocemos.
-                            $patron = '/PEDMTO:\s*([\w-]+)/';
-
-                            if (preg_match($patron, $textoConcepto, $match)) {
-                                // Si es una fila de pedimento válida, devolvemos un array limpio y estructurado.
-                                return
-                                [
-                                    'pedimento' => $match[1],
-                                    'fecha_str' => \Carbon\Carbon::createFromFormat('d-m', $fila[0])->format('Y-m-d'),
-                                    'cargo_str' => $fila[2],
-                                ];
-                            }
+                        if (preg_match('/(\d{2}\/\d{2}\/(\d{4}))/', $linea, $matchYear)) {
+                            $yearEstadoCuenta = $matchYear[2];
                         }
-                    } else if ($banco === 'SANTANDER'){
-                        // Verificamos que la fila tenga al menos 3 celdas (Fecha, Concepto, Cargo).
-                        if (isset($fila[1], $fila[4], $fila[5], $fila[8])) {
-                            $textoConcepto = $fila[4];
-                            // El Regex para encontrar el pedimento que ya conocemos.
-                            $patron = '/\s*\n*\r*CGO\s*IMP\s*CE\s*TE\s*\n*\r*/';
 
-                            if (preg_match($patron, $textoConcepto, $match)) {
-                                // Si es una fila de pedimento válida, devolvemos un array limpio y estructurado.
-                                return
-                                [
-                                    'pedimento' => $fila[8],
-                                    'fecha_str' => \Carbon\Carbon::createFromFormat('dmY', $fila[1])->format('Y-m-d'),
-                                    'cargo_str' => $fila[5],
-                                ];
-                            }
+                        // Verifica en si se obtuvo el PEDMTO
+                        if (preg_match($patron, $linea, $matchPedimento)) {
+                            // Match para la fecha (Ej. 02-03)
+                            preg_match('/\d{2}-\d{2}/', $linea, $matchFecha);
+                            // Match para el cargo (Ej. $ 366.00)
+                            preg_match('/\$\s*([0-9.,]+)/', $linea, $matchCargo);
+
+                            $fechaPedimentoEstadoCuenta = $matchFecha[0] . "-{$yearEstadoCuenta}";
+                            // Como es un registro correcto, se guarda en el arreglo
+                            $tablaDeDatos[] =
+                            [
+                                'pedimento' => $matchPedimento[1],
+                                'fecha_str' => \Carbon\Carbon::createFromFormat('d-m-Y', $fechaPedimentoEstadoCuenta)->format('Y-m-d'),
+                                'cargo_str' => $matchCargo[1],
+                            ];
                         }
                     }
 
-                    return null; // Si no es una fila de pedimento, la marcamos para ser eliminada.
-                })->filter(); // El método filter() elimina todos los resultados 'null'.
+                    else if ($banco === 'SANTANDER') {
+                        // Se busca en el texto si existe "CGO IMP CE TE"
+                        $patron = "/(.*CGO\s*IMP\s*CE\s*TE.*)/";
+                        // Si el patron existe, eso significa que esta linea contiene toda la informacion que buscamos
+                        if (preg_match($patron, $linea, $match)) {
+
+                            // Se extrae el pedimento, Fecha, y Cargo
+                            preg_match('/(\b\d{7}\b)/', $linea, $matchPedimento);
+                            preg_match('/(\b\d{8}\b)/', $linea, $matchFecha);
+                            preg_match_all('/(\b\d[0-9,.]+\b)/', $linea, $matchCargo);
+
+                            // Como es un registro correcto, se guarda en el arreglo
+                            $tablaDeDatos[] =
+                            [
+                                'pedimento' => $matchPedimento[0],
+                                'fecha_str' => \Carbon\Carbon::createFromFormat('dmY', $matchFecha[0])->format('Y-m-d'),
+                                'cargo_str' => $matchCargo[0][5],
+                            ];
+                        }
+                    }
+                }
+                unset($parser);
+                unset($pdf);
+                unset($textoPdf);
+                unset($config);
+                gc_collect_cycles();
+                $pu = memory_get_usage();
+                // Convertimos el array de datos crudos en una Colección de Laravel.
+                $coleccionDeFilas = collect($tablaDeDatos);
+
+                // Desarrollar logica de obtener la fecha minima y la fecha maxima de los pedimentos encontrados en el estado
+
+
+                Log::info("PDF: Se encontraron {$coleccionDeFilas->count()} filas con pedimentos en el estado de cuenta.");
+
+                // 3. Usamos filter() para limpiar la colección.
+                $operacionesLimpias = $coleccionDeFilas->filter(); // El método filter() elimina todos los resultados 'null'.
 
             } else { // --- Inicio para cuando el estado de cuenta es "EXTERNO"
 
@@ -792,19 +840,19 @@ class AuditoriaImpuestosController extends Controller
                 $mapaPedimentoAId = $this->construirMapaDePedimentos($numerosDePedimento, $patenteSucursal);
                 Log::info("Pedimentos encontrados en tabla 'pedimentos': ". count($mapaPedimentoAId));
 
+                $pu = memory_get_usage();
+
                 // 3. Hacemos UNA SOLA consulta a operaciones_importacion usando los IDs que encontramos
                 //    y creamos nuestro mapa final: num_pedimento => id_importacion
                 $mapaPedimentoAImportacionId = Importacion::where('operaciones_importacion.patente', $patenteSucursal)
                     ->whereIn('operaciones_importacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
-                    /* ->join('pedimiento', 'operaciones_importacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
-                    ->select('operaciones_importacion.id_importacion', 'pedimiento.num_pedimiento') */
                     ->orderBy('operaciones_importacion.created_at', 'desc')
                     ->get()
                     ->keyBy('id_pedimiento');
 
                 Log::info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_importacion': ". $mapaPedimentoAImportacionId->count());
 
-
+                $pu = memory_get_usage();
                 $mapaPedimentoAExportacionId = Exportacion::where('operaciones_exportacion.patente', $patenteSucursal)
                     ->whereIn('operaciones_exportacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
                    /*  ->join('pedimiento', 'operaciones_exportacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
@@ -815,7 +863,7 @@ class AuditoriaImpuestosController extends Controller
 
                 Log::info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_exportacion': ". $mapaPedimentoAExportacionId->count());
 
-
+                $pu = memory_get_usage();
                 // 3. Obtenemos todas las SC de una vez para la comparación de montos
                 $auditoriasSC = AuditoriaTotalSC::query()
                     ->whereIn('operacion_id', $mapaPedimentoAImportacionId->keys())
@@ -825,6 +873,7 @@ class AuditoriaImpuestosController extends Controller
                     ->keyBy('pedimento_id'); // Las indexamos por operacion_id para búsqueda rápida
                 Log::info("Facturas SC encontradas con relacion a Impuestos: ". $auditoriasSC->count());
 
+                $pu = memory_get_usage();
                 // PASO 5: Construir el array para las auditorías, usando nuestro mapa.
                 // Pasamos el mapa a la clausula `use` para que esté disponible dentro del `map`.
                 $datosParaAuditorias = $operacionesLimpias->map(function ($op)
@@ -873,6 +922,7 @@ class AuditoriaImpuestosController extends Controller
                     if (!$operacionId && !$pedimentoId) {
                         Log::warning("Omitiendo pedimento no encontrado en operaciones_importacion: {$pedimentoLimpio}");
                         return null; // Marcamos para ser filtrado
+
                     }
 
                     // Buscamos la SC correspondiente en nuestro mapa de SCs
@@ -885,22 +935,28 @@ class AuditoriaImpuestosController extends Controller
                     $montoImpuestoMXN = (float) filter_var($matchCargo[0], FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
                     $estado = $this->compararMontos($montoSCMXN, $montoImpuestoMXN, $tipoOperacion);
 
+                    // Aca hago una excepcion, y es que aqui en vez de ponerse -1 como valor Default al ser una "Sin SC!"
+                    // le pongo el monto de Impuesto completo, y esto es con el objetivo de mostrar toda la cantidad NO facturada
+                    // la cual creo que seria de utilidad conocerla
+                    $diferenciaSc = ($estado !== "Sin SC!") ? $montoSCMXN - $montoImpuestoMXN : $montoImpuestoMXN;
+
                     // Devolvemos el array completo, AHORA con el `operacion_id` correcto.
                     return
                     [
-                        'operacion_id'      => $operacionId,
-                        'pedimento_id'      => $id_pedimento_db,
-                        'operation_type'    => $tipoOperacion,
-                        'tipo_documento'    => 'impuestos',
-                        'concepto_llave'    => 'principal',
-                        'fecha_documento'   => $op['fecha_str'],
-                        'monto_total'       => (float) str_replace(',', '', $matchCargo[0] ?? '0'),
-                        'monto_total_mxn'   => (float) str_replace(',', '', $matchCargo[0] ?? '0'),
-                        'moneda_documento'  => 'MXN',
-                        'estado'            => $estado,
-                        'ruta_pdf'          => $rutaPdf,
-                        'created_at'        => now(),
-                        'updated_at'        => now(),
+                        'operacion_id'          => $operacionId,
+                        'pedimento_id'          => $id_pedimento_db,
+                        'operation_type'        => $tipoOperacion,
+                        'tipo_documento'        => 'impuestos',
+                        'concepto_llave'        => 'principal',
+                        'fecha_documento'       => $op['fecha_str'],
+                        'monto_total'           => (float) str_replace(',', '', $matchCargo[0] ?? '0'),
+                        'monto_total_mxn'       => (float) str_replace(',', '', $matchCargo[0] ?? '0'),
+                        'monto_diferencia_sc'   => $diferenciaSc,
+                        'moneda_documento'      => 'MXN',
+                        'estado'                => $estado,
+                        'ruta_pdf'              => $rutaPdf,
+                        'created_at'            => now(),
+                        'updated_at'            => now(),
                     ];
                 })->filter()->all(); // ->filter() elimina cualquier valor `null` que hayamos retornado en la verificación de seguridad.
 
@@ -918,6 +974,7 @@ class AuditoriaImpuestosController extends Controller
                             'fecha_documento',
                             'monto_total', // Asegúrate que estos nombres coincidan con tu migración
                             'monto_total_mxn',
+                            'monto_diferencia_sc',
                             'moneda_documento',
                             'estado',
                             'ruta_pdf',
@@ -928,6 +985,11 @@ class AuditoriaImpuestosController extends Controller
             }
             Log::info('¡Base de datos de operaciones actualizada con éxito!');
 
+            unset($mapaPedimentoAImportacionId);
+            unset($mapaPedimentoAExportacionId);
+            unset($mapaPedimentoAId);
+            unset($auditoriasSC);
+            gc_collect_cycles();
             // --- ¡NUEVA LÓGICA! ---
             // Guardamos la lista de pedimentos procesados en la tarea para que los siguientes comandos la usen.
             if ($operacionesLimpias->isNotEmpty()) {
@@ -1016,44 +1078,55 @@ class AuditoriaImpuestosController extends Controller
 
             $patenteSucursal = $sucursalesDiccionario[$sucursal];
 
+            // $mapaPorId es una variable auxiliar que sirve para hacer el mapeo de 'num_pedimiento' que se requiere
+            // en ambas variables de $mapaPedimentoAImportacionId/$mapaPedimentoAExportacionId
+            $mapaPorId = collect($mapaPedimentoAId)
+            ->keyBy('id_pedimiento');
+
+            $pu = memory_get_usage();
             // 2. MAPEADO EFICIENTE DE IDS
             // PROCESAR IMPORTACIONES
             $mapaPedimentoAImportacionId = Importacion::query()
-                ->join('pedimiento', 'operaciones_importacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
-                ->select('operaciones_importacion.id_importacion', 'pedimiento.num_pedimiento', 'pedimiento.id_pedimiento')
-                ->whereIn('pedimiento.num_pedimiento', $numerosDePedimento)
+                ->selectRaw('id_pedimiento, MAX(id_importacion) as id_importacion')
+                ->whereIn('operaciones_importacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
                 ->where('operaciones_importacion.patente', $patenteSucursal)
                 ->orderBy('operaciones_importacion.created_at', 'desc')
+                ->groupBy('id_pedimiento')
                 ->get()
-                ->map(function($operacion){
-                    return[
-                        'pedimento'      => $operacion->num_pedimiento,
-                        'id_operacion'   => $operacion->id_importacion,
-                        'id_pedimento'   => $operacion->id_pedimiento,
+                ->map(function($operacion) use ($mapaPorId) {
+                    $info = $mapaPorId->get($operacion->id_pedimiento);
+
+                    return [
+                        'pedimento'     => $info['num_pedimiento'] ?? null, // Recuperamos num_pedimiento
+                        'id_operacion'  => $operacion->id_importacion,
+                        'id_pedimento'  => $operacion->id_pedimiento,
                     ];
                 })
                 ->keyBy('pedimento');
-            Log::info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_importacion': ". $mapaPedimentoAImportacionId->count());
 
+            Log::info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_importacion': ". $mapaPedimentoAImportacionId->count());
+            $pu = memory_get_usage();
             // 2. MAPEADO EFICIENTE DE IDS
             // PROCESAR EXPORTACIONES
             $mapaPedimentoAExportacionId = Exportacion::query()
-                ->join('pedimiento', 'operaciones_exportacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
-                ->select('operaciones_exportacion.id_exportacion', 'pedimiento.num_pedimiento', 'pedimiento.id_pedimiento')
-                ->whereIn('pedimiento.num_pedimiento', $numerosDePedimento)
+                ->selectRaw('id_pedimiento, MAX(id_exportacion) as id_exportacion')
+                ->whereIn('operaciones_exportacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
                 ->where('operaciones_exportacion.patente', $patenteSucursal)
                 ->orderBy('operaciones_exportacion.created_at', 'desc')
+                ->groupBy('id_pedimiento')
                 ->get()
-                ->map(function($operacion){
-                    return[
-                        'pedimento'      => $operacion->num_pedimiento,
-                        'id_operacion'   => $operacion->id_exportacion,
-                        'id_pedimento'   => $operacion->id_pedimiento,
+                ->map(function($operacion) use ($mapaPorId) {
+                    $info = $mapaPorId->get($operacion->id_pedimiento);
+
+                    return [
+                        'pedimento'     => $info['num_pedimiento'] ?? null, // Recuperamos num_pedimiento
+                        'id_operacion'  => $operacion->id_exportacion,
+                        'id_pedimento'  => $operacion->id_pedimiento,
                     ];
                 })
                 ->keyBy('pedimento');
 
-
+            $pu = memory_get_usage();
             Log::info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_exportacion': ". $mapaPedimentoAExportacionId->count());
 
             // --- LOGICA PARA DETECTAR LOS NO ENCONTRADOS
@@ -1120,17 +1193,21 @@ class AuditoriaImpuestosController extends Controller
                 } else {
                     Log::info("¡Todos los pedimentos fueron encontrados y mapeados correctamente!");
                 }
+                $pu = memory_get_usage();
 
                 // CONSTRUIR EL ÍNDICE - EXPORTACIONES
                 Log::info("Iniciando mapeo de archivos de exportaciones.");
                 $indiceExportaciones = $this->construirIndiceFacturasParaMapeo($mapaPedimentoAExportacionId, $sucursal, 'exportaciones');
                 Log::info("Mapeo de exportaciones finalizado!");
 
+                $pu = memory_get_usage();
                 // --- OJO: Aqui se gastan muchos recursos en el mapeo!!!
                 // CONSTRUIR EL ÍNDICE - IMPORTACIONES
                 Log::info("Iniciando mapeo de archivos de importaciones.");
                 $indiceImportaciones = $this->construirIndiceFacturasParaMapeo($mapaPedimentoAImportacionId,  $sucursal, 'importaciones');
                 Log::info("Mapeo de importaciones finalizado!");
+
+                $pu = memory_get_usage();
             }
 
 
@@ -1144,6 +1221,8 @@ class AuditoriaImpuestosController extends Controller
                 'indices_exportacion'       => $indiceExportaciones ?? [],
 
             ];
+
+            $pu = memory_get_usage();
             // 3. GUARDAR EL ÍNDICE EN UN ARCHIVO PRIVADO CON NOMBRE HASHEADO
             // Usamos json_encode para convertir el array en un string JSON.
             // JSON_PRETTY_PRINT hace que el archivo sea fácil de leer para un humano.
@@ -1187,6 +1266,7 @@ class AuditoriaImpuestosController extends Controller
     // ,conversiones y condiciones que dependen de la SC como auxiliar.
     public function importarFacturasSCEnAuditoriasTotalesSC(string $tareaId)
     {
+        gc_collect_cycles();
         if (!$tareaId) {
             Log::error('Se requiere el ID de la tarea. Usa --tarea_id=X');
             return ['code' => 1, 'message' => new \Exception('Se requiere el ID de la tarea. Usa --tarea_id=X')];
@@ -1450,6 +1530,7 @@ class AuditoriaImpuestosController extends Controller
     // Se encarga de leer el archivo de TXT de los Fletes, obteniendo los montos y datos generales necesarios para la auditoria
     public function auditarFacturasDeFletes(string $tareaId)
     {
+        gc_collect_cycles();
         $tarea = AuditoriaTareas::find($tareaId);
         if (!$tarea || $tarea->status !== 'procesando') {
             Log::warning("Fletes: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.");
@@ -1581,26 +1662,27 @@ class AuditoriaImpuestosController extends Controller
                 $montoFleteMXN = (($datosFlete['moneda'] == "USD" && $datosFlete['total'] != -1) && $datosSC['tipo_cambio'] != -1) ? round($datosFlete['total'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosFlete['total'];
                 $montoSCMXN = $datosSC['monto_flete_sc_mxn'];
                 $estado = $this->compararMontos_Fletes($montoSCMXN, $montoFleteMXN);
-
+                $diferenciaSc = ($estado !== "Sin SC!") ? $montoSCMXN - $montoFleteMXN : $montoFleteMXN;
                 // Añadimos el resultado al array para el upsert masivo
                 $fletesParaGuardar[] =
                 [
-                    'operacion_id'      => $operacionId['id_operacion'],
-                    'pedimento_id'      => $pedimentoSucioYId['id_pedimiento'],
-                    'operation_type'    => $tipoOperacion,
-                    'tipo_documento'    => 'flete',
-                    'concepto_llave'    => 'principal',
-                    'folio'             => $datosFlete['folio'],
-                    'fecha_documento'   => date('Y-m-d', date_timestamp_get(DateTime::createFromFormat('d/m/Y', $datosFlete['fecha']))),
-                    'monto_total'       => $datosFlete['total'],
-                    'monto_total_mxn'   => $montoFleteMXN,
-                    'moneda_documento'  => $datosFlete['moneda'],
-                    'estado'            => $estado,
-                    'ruta_xml'          => $datosFlete['path_xml_tr'],
-                    'ruta_txt'          => $datosFlete['path_txt_tr'],
-                    'ruta_pdf'          => $datosFlete['path_pdf_tr'],
-                    'created_at'        => now(),
-                    'updated_at'        => now(),
+                    'operacion_id'          => $operacionId['id_operacion'],
+                    'pedimento_id'          => $pedimentoSucioYId['id_pedimiento'],
+                    'operation_type'        => $tipoOperacion,
+                    'tipo_documento'        => 'flete',
+                    'concepto_llave'        => 'principal',
+                    'folio'                 => $datosFlete['folio'],
+                    'fecha_documento'       => date('Y-m-d', date_timestamp_get(DateTime::createFromFormat('d/m/Y', $datosFlete['fecha']))),
+                    'monto_total'           => $datosFlete['total'],
+                    'monto_total_mxn'       => $montoFleteMXN,
+                    'monto_diferencia_sc'   => $diferenciaSc,
+                    'moneda_documento'      => $datosFlete['moneda'],
+                    'estado'                => $estado,
+                    'ruta_xml'              => $datosFlete['path_xml_tr'],
+                    'ruta_txt'              => $datosFlete['path_txt_tr'],
+                    'ruta_pdf'              => $datosFlete['path_pdf_tr'],
+                    'created_at'            => now(),
+                    'updated_at'            => now(),
                 ];
 
                 //$bar->advance();
@@ -1617,6 +1699,7 @@ class AuditoriaImpuestosController extends Controller
                         'fecha_documento',
                         'monto_total', // Asegúrate que estos nombres coincidan con tu migración
                         'monto_total_mxn',
+                        'monto_diferencia_sc',
                         'moneda_documento',
                         'estado',
                         'ruta_xml',
@@ -1648,6 +1731,7 @@ class AuditoriaImpuestosController extends Controller
     // Se encarga de leer el archivo de TXT de las LLCs, obteniendo los montos y datos generales necesarios para la auditoria
     public function auditarFacturasDeLLC(string $tareaId)
     {
+        gc_collect_cycles();
         $tarea = AuditoriaTareas::find($tareaId);
         if (!$tarea || $tarea->status !== 'procesando') {
             Log::warning("LLC: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.");
@@ -1759,7 +1843,7 @@ class AuditoriaImpuestosController extends Controller
                     //$bar->advance();
                     continue;
 
-                } elseif (!$datosSC && $rutaTxtLlc) {
+                } elseif (!$datosSC && $datosLlc) {
                     // Aqui es cuando hay LLC pero no existe SC para esta factura.\\
                     $datosSC =
                     [
@@ -1774,24 +1858,25 @@ class AuditoriaImpuestosController extends Controller
                 $montoSCMXN = $datosSC['monto_llc_sc_mxn'];
                 // --- FASE 4: Comparar y Preparar Datos ---
                 $estado = $this->compararMontos_LLC($montoSCMXN, $montoLLCMXN);
-
+                $diferenciaSc = ($estado !== "Sin SC!") ? $montoSCMXN - $montoLLCMXN : $montoLLCMXN;
                 $llcsParaGuardar[] =
                 [
-                    'operacion_id'      => $operacionId['id_operacion'],
-                    'pedimento_id'      => $pedimentoSucioYId['id_pedimiento'],
-                    'operation_type'    => $tipoOperacion,
-                    'tipo_documento'    => 'llc',
-                    'concepto_llave'    => 'principal',
-                    'folio'             => $datosLlc['folio'],
-                    'fecha_documento'   => $datosLlc['fecha'],
-                    'monto_total'       => $datosLlc['monto_total'],
-                    'monto_total_mxn'   => $montoLLCMXN,
-                    'moneda_documento'  => 'USD',
-                    'estado'            => $estado,
-                    'ruta_txt'          => $datosLlc['ruta_txt'],
-                    'ruta_pdf'          => $datosLlc['ruta_pdf'],
-                    'created_at'        => now(),
-                    'updated_at'        => now(),
+                    'operacion_id'          => $operacionId['id_operacion'],
+                    'pedimento_id'          => $pedimentoSucioYId['id_pedimiento'],
+                    'operation_type'        => $tipoOperacion,
+                    'tipo_documento'        => 'llc',
+                    'concepto_llave'        => 'principal',
+                    'folio'                 => $datosLlc['folio'],
+                    'fecha_documento'       => $datosLlc['fecha'],
+                    'monto_total'           => $datosLlc['monto_total'],
+                    'monto_total_mxn'       => $montoLLCMXN,
+                    'monto_diferencia_sc'   => $diferenciaSc,
+                    'moneda_documento'      => 'USD',
+                    'estado'                => $estado,
+                    'ruta_txt'              => $datosLlc['ruta_txt'],
+                    'ruta_pdf'              => $datosLlc['ruta_pdf'],
+                    'created_at'            => now(),
+                    'updated_at'            => now(),
                 ];
 
                 //$bar->advance();
@@ -1808,6 +1893,7 @@ class AuditoriaImpuestosController extends Controller
                         'fecha_documento',
                         'monto_total', // Asegúrate que estos nombres coincidan con tu migración
                         'monto_total_mxn',
+                        'monto_diferencia_sc',
                         'moneda_documento',
                         'estado',
                         'ruta_txt',
@@ -1837,6 +1923,7 @@ class AuditoriaImpuestosController extends Controller
     // Se encarga de leer el archivo de TXT de los Pagos de derecho, obteniendo los montos y datos generales necesarios para la auditoria
     public function auditarFacturasDePagosDeDerecho(string $tareaId)
     {
+        gc_collect_cycles();
         $tarea = AuditoriaTareas::find($tareaId);
         if (!$tarea || $tarea->status !== 'procesando') {
             Log::warning("Pagos derecho: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.");
@@ -1917,9 +2004,6 @@ class AuditoriaImpuestosController extends Controller
                 }
                 foreach ($rutasPdfs as $rutaPdf) {
 
-                    if($rutaPdf === "https://sistema.intactics.com/v2/uploads/3010233-Pago-GUIA-TRANSITO-3711-5001848-MERCADO-MK-.pdf"){
-                    $ao = 0;
-                    }
                     //Parseamos cada PDF encontrado.
                     $datosPago = $this->parsearPdfPagoDeDerecho($rutaPdf) ?? null;
 
@@ -1927,28 +2011,27 @@ class AuditoriaImpuestosController extends Controller
                         if (isset($datosPago['ruta_alternativa'])) {
                             $rutaPdf = $datosPago['ruta_alternativa'];
                         }
-                        if(!$datosPago['llave_pago'])
-                        {
-                            $ao = 0;
-                        }
+
+                        $diferenciaSc = 0; //Sujeto a cambios
                         // 4. Si obtuvimos datos, los acumulamos para el guardado masivo.
                         $pagosParaGuardar[] =
                         [
-                            'operacion_id'      => $operacionId['id_operacion'],
-                            'pedimento_id'      => $pedimentoSucioYId['id_pedimiento'],
-                            'operation_type'    => $tipoOperacion,
-                            'tipo_documento'    => 'pago_derecho',
-                            'concepto_llave'    => $datosPago['llave_pago'],
-                            'fecha_documento'   => $datosPago['fecha_pago'],
-                            'monto_total'       => $datosPago['monto_total'],
-                            'monto_total_mxn'   => $datosPago['monto_total'],
-                            'moneda_documento'  => 'MXN',
-                            'estado'            => $datosPago['tipo'],
-                            'llave_pago_pdd'    => $datosPago['llave_pago'],
-                            'num_operacion_pdd' => $datosPago['numero_operacion'],
-                            'ruta_pdf'          => $rutaPdf,
-                            'created_at'        => now(),
-                            'updated_at'        => now(),
+                            'operacion_id'          => $operacionId['id_operacion'],
+                            'pedimento_id'          => $pedimentoSucioYId['id_pedimiento'],
+                            'operation_type'        => $tipoOperacion,
+                            'tipo_documento'        => 'pago_derecho',
+                            'concepto_llave'        => $datosPago['llave_pago'],
+                            'fecha_documento'       => $datosPago['fecha_pago'],
+                            'monto_total'           => $datosPago['monto_total'],
+                            'monto_total_mxn'       => $datosPago['monto_total'],
+                            'monto_diferencia_sc'   => $diferenciaSc,
+                            'moneda_documento'      => 'MXN',
+                            'estado'                => $datosPago['tipo'],
+                            'llave_pago_pdd'        => $datosPago['llave_pago'],
+                            'num_operacion_pdd'     => $datosPago['numero_operacion'],
+                            'ruta_pdf'              => $rutaPdf,
+                            'created_at'            => now(),
+                            'updated_at'            => now(),
                         ];
                     }
                 }
@@ -1969,6 +2052,7 @@ class AuditoriaImpuestosController extends Controller
                         'fecha_documento',
                         'monto_total', // Asegúrate que estos nombres coincidan con tu migración
                         'monto_total_mxn',
+                        'monto_diferencia_sc',
                         'moneda_documento',
                         'estado',
                         'llave_pago_pdd',
@@ -1997,14 +2081,15 @@ class AuditoriaImpuestosController extends Controller
     //--- METODO EXPORTAR AUDITORIAS DEL ESTADO DE CUENTA A EXCEL
     // Se encarga de obtener todos los registros de las tablas de auditorias y auditorias_totales_sc y las exporta a un archivo de excel
     // el cual contendra unicamente los pedimentos encontrados dentro del estado de cuenta.
-    public function exportarAuditoriasAExcel(string $tareaId)
+    public function exportarAuditoriasFacturadasAExcel(string $tareaId, string $esReporteDeFacturasPendientes = null)
     {
+        gc_collect_cycles();
         $tarea = AuditoriaTareas::find($tareaId);
         if (!$tarea || $tarea->status !== 'procesando') {
             Log::warning("Pagos derecho: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.");
             return ['code' => 1, 'message' => new \Exception("Pagos derecho: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.")];
         }
-        Log::info('Iniciando la auditoría de Pagos de Derecho...');
+        Log::info('Iniciando ...');
        try {
             // --- FASE 1: Construir Índices en Memoria para Búsquedas Rápidas ---
             //Iniciamos con obtener el mapeo
@@ -2045,21 +2130,36 @@ class AuditoriaImpuestosController extends Controller
             // 2. Construimos la consulta desde Pedimento.
             $query = Pedimento::query()
                 // Usamos una clausura 'where' para agrupar las condiciones OR.
-                ->where(function ($q) use ($operacionIds, $pedimentoIds) {
+                ->where(function ($q) use ($operacionIds, $pedimentoIds, $esReporteDeFacturasPendientes) {
 
                     // BUSCA Pedimentos que tengan una 'auditoria'...
-                    $q->whereHas('auditorias', function ($auditQuery) use ($operacionIds, $pedimentoIds) {
+                    $q->whereHas('auditorias', function ($auditQuery) use ($operacionIds, $pedimentoIds, $esReporteDeFacturasPendientes) {
                         // ...cuyo 'operacion_id' O 'pedimento_id' esté en nuestras listas.
-                        $auditQuery->whereIn('operacion_id', $operacionIds)
-                                ->orWhereIn('pedimento_id', $pedimentoIds);
+
+                        if (isset($esReporteDeFacturasPendientes)) { // Si es de pendientes, entonces buscara los que no tengan factura.
+                            $auditQuery->where('estado', 'Sin SC!')
+                            ->whereIn('operacion_id', $operacionIds)
+                            ->orWhereIn('pedimento_id', $pedimentoIds);
+                        } else { // Si no, entonces buscara todos los demas
+                            $auditQuery->where('estado', '!=', 'Sin SC!')
+                            ->whereIn('operacion_id', $operacionIds)
+                            ->orWhereIn('pedimento_id', $pedimentoIds);
+                        }
+
                     });
 
-                    // O BUSCA Pedimentos que tengan una 'auditoriaTotalSC'...
-                    $q->orWhereHas('auditoriasTotalSC', function ($scQuery) use ($operacionIds, $pedimentoIds) {
-                        // ...cuyo 'operacion_id' O 'pedimento_id' esté en nuestras listas.
-                        $scQuery->whereIn('operacion_id', $operacionIds)
-                                ->orWhereIn('pedimento_id', $pedimentoIds);
-                    });
+                    if (isset($esReporteDeFacturasPendientes)) { // Si no es el reporte de Facturas pendientes, que entonces busque en la SC.
+                        $q->whereDoesntHave('auditoriasTotalSC');
+                    } else {
+                        // O BUSCA Pedimentos que tengan una 'auditoriaTotalSC'...
+                        $q->whereHas('auditoriasTotalSC', function ($scQuery) use ($operacionIds, $pedimentoIds) {
+                            // ...cuyo 'operacion_id' O 'pedimento_id' esté en nuestras listas.
+                            $scQuery->whereIn('operacion_id', $operacionIds)
+                                    ->orWhereIn('pedimento_id', $pedimentoIds);
+                        });
+                    }
+
+
                 })
                 // 3. Cargamos todas las relaciones que tu método de exportación necesitará.
                 // Esto es crucial para evitar el problema N+1 y asegurar un buen rendimiento.
@@ -2074,24 +2174,40 @@ class AuditoriaImpuestosController extends Controller
             $operacionesParaExportar = $query->get();
             // Creamos el nombre del archivo dinámicamente
             $fecha = now()->format('dmY');
-            $nombreArchivo = "RDI_{$sucursal}{$fecha}.xlsx";
+
+            // Si es el reporte de facturas pendientes, se le agregara el AF para distinguir que es el reporte de facturas pendientes
+            $nombreArchivo = (isset($esReporteDeFacturasPendientes)) ? "RDI_AF_{$sucursal}{$fecha}.xlsx" : "RDI_{$sucursal}{$fecha}.xlsx";
+
             $nombreUnico = Str::random(40) . '.xlsx'; // Genera un nombre aleatorio y seguro
             $rutaDeAlmacenamiento = "/reportes/{$nombreUnico}";
 
             // 2. Guardamos el archivo en el disco 'public', dentro de la carpeta 'reportes'
             Excel::store(new AuditoriaFacturadoExport($operacionesParaExportar), $rutaDeAlmacenamiento, 'public');
             Log::info("Reporte de impuestos almacenado para la tarea {$tareaId}");
+
             // 3. Actualizamos el registro de la tarea en la base de datos
             //    Asumo que tienes la variable $tarea disponible en este punto del comando.
             if (isset($tarea)) {
-                $tarea->update([
+
+                if (isset($esReporteDeFacturasPendientes)) {
+                    $tarea->update([
+                    // Guardamos la ruta relativa donde se almacenó el archivo
+                    'ruta_reporte_impuestos_pendientes'    => $rutaDeAlmacenamiento,
+
+                    // Guardamos el nombre amigable que usaremos para la descarga
+                    'nombre_reporte_pendientes'  => $nombreArchivo,
+                    ]);
+                } else {
+                    $tarea->update([
                     // Guardamos la ruta relativa donde se almacenó el archivo
                     'ruta_reporte_impuestos'    => $rutaDeAlmacenamiento,
 
                     // Guardamos el nombre amigable que usaremos para la descarga
                     'nombre_reporte_impuestos'  => $nombreArchivo,
-                ]);
+                    ]);
+                }
             }
+
             Log::info("El reporte de impuestos para la tarea {$tareaId} se ha exportado exitosamente!");
             return 0;
        } catch (\Exception $e) {
@@ -2106,6 +2222,19 @@ class AuditoriaImpuestosController extends Controller
        }
 
     }
+
+
+    //--- METODO EXPORTAR AUDITORIAS PENDIENTES DEL ESTADO DE CUENTA A EXCEL
+    // Se encarga de obtener todos los registros de las tablas de auditorias las cuales no tengan una SC y las exporta a un archivo de excel
+    // el cual contendra unicamente los pedimentos encontrados dentro del estado de cuenta.
+    public function exportarAuditoriasPendientesAExcel(string $tareaId)
+    {
+        gc_collect_cycles();
+        // Se reutiliza el metodo anterior, solo con la adicion de pasarle un parametro especificando
+        // un simple cambio de query, en donde solo se tomaran los registros sin SC.
+        $this->exportarAuditoriasFacturadasAExcel($tareaId, 'true');
+    }
+
 
     //--------------------------------------------------------------------------------------------------------------
     //----------------------------------- FINAL DE LOS COMMANDS - AuditoriaImpuestosController ----------------------------------
@@ -2124,6 +2253,7 @@ class AuditoriaImpuestosController extends Controller
      */
     private function construirIndiceFacturasParaMapeo(Collection $pedimentosOperacion, string $sucursal, string $tipoOperacion): array
     {
+        gc_collect_cycles();
         $indiceFacturas = [];
 
         $mapeoFacturas =
@@ -2158,7 +2288,8 @@ class AuditoriaImpuestosController extends Controller
                 //Resultados JSON del get
                 //$archivos_txt = json_decode($url_txt);
                 $archivos_pdf = collect($url_pdf->json());
-
+                unset($url_pdf);
+                gc_collect_cycles();
                 // Inicializamos la entrada para el pedimento actual
                 $indiceFacturas[$pedimento] = [
                     'tipo_operacion' => $tipoOperacion,
@@ -2195,8 +2326,10 @@ class AuditoriaImpuestosController extends Controller
                     // Asignamos la URL a la clave correcta según su extensión.
                     if ($extension === 'pdf') {
                         $agrupadorTemp[$nombreBase]['ruta_pdf'] = $url;
+
                     } elseif ($extension === 'xml') {
                         $agrupadorTemp[$nombreBase]['ruta_xml'] = $url;
+
                     }
 
                     // Obtenemos las rutas txt y su contenido
@@ -2280,6 +2413,12 @@ class AuditoriaImpuestosController extends Controller
             }
 
         }
+        unset($archivosFacturas);
+        unset($archivo);
+        unset($pedimentosOperacion);
+        unset($pedimento);
+        unset($operacionID);
+        gc_collect_cycles();
         //$bar->finish();
         return $indiceFacturas;
     }
@@ -2291,6 +2430,7 @@ class AuditoriaImpuestosController extends Controller
      */
     private function construirIndiceSC(array $indicesOperacion): array
     {
+        gc_collect_cycles();
         try {
 
             $indice = [];
@@ -2426,6 +2566,7 @@ class AuditoriaImpuestosController extends Controller
      */
     private function construirIndiceOperacionesFletes(array $indicesOperacion): array
     {
+        gc_collect_cycles();
         try {
             $indice = [];
 
@@ -2515,6 +2656,7 @@ class AuditoriaImpuestosController extends Controller
      */
     private function construirIndiceOperacionesLLCs(array $indicesOperacion): array
     {
+        gc_collect_cycles();
         try {
             $indice = [];
 
@@ -2623,6 +2765,7 @@ class AuditoriaImpuestosController extends Controller
      */
     private function construirIndiceOperacionesPagosDerecho(array $indicesOperacion): array
     {
+        gc_collect_cycles();
         try {
             $indice = [];
 
@@ -2692,6 +2835,7 @@ class AuditoriaImpuestosController extends Controller
         return ($esperado > $real) ? 'Pago de mas!' : 'Pago de menos!';
     }
 
+
     /**
      * Compara dos montos y devuelve el estado de la auditoría.
      * UTILIZADO EN [auditarFacturasDeFletes()]
@@ -2730,6 +2874,7 @@ class AuditoriaImpuestosController extends Controller
      */
     private function parsearXmlFlete(string $rutaXml): ?array
     {
+        gc_collect_cycles();
 
         try {
             //$arrContextOptions resuelve el siguiente error:
@@ -2837,6 +2982,7 @@ class AuditoriaImpuestosController extends Controller
      */
     private function construirMapaDePedimentos(array $pedimentosLimpios, string $patenteSucursal): array
     {
+        gc_collect_cycles();
         if (empty($pedimentosLimpios)) { return []; }
 
         // 1. Hacemos una única consulta a la BD para traer todos los registros
@@ -2908,10 +3054,18 @@ class AuditoriaImpuestosController extends Controller
      */
     private function parsearPdfPagoDeDerecho(string $rutaPdf): ?array
     {
+        gc_collect_cycles();
         try {
             $rutaAlternativa = null;
+            // Ahora utilizando Smalot!
+            $config = new \Smalot\PdfParser\Config();
+            // Whether to retain raw image data as content or discard it to save memory
+            $config->setRetainImageContent(false);
+            // Memory limit to use when de-compressing files, in bytes
+            $config->setDecodeMemoryLimit(10276800);
+
             // 1. Crear una instancia del Parser.
-            $parser = new Parser();
+            $parser = new Parser([], $config);
             try
             {
                 // 2. Parsear el archivo PDF. Esto devuelve un objeto Pdf.
@@ -2969,11 +3123,22 @@ class AuditoriaImpuestosController extends Controller
             elseif(str_contains($rutaPdf, 'INTACTICS')) { $datos['tipo'] = 'Intactics'; }
             else { $datos['tipo'] = 'Normal'; }
 
+            unset($config);
+            unset($parser);
+            unset($pdf);
+            unset($texto);
+            gc_collect_cycles();
+
             if ($datos['llave_pago']) return $datos;
             else return null;
 
         } catch(\Exception $e) {
             Log::error("Error al parsear el PDF: {$rutaPdf} - " . $e->getMessage());
+            unset($config);
+            unset($parser);
+            unset($pdf);
+            unset($texto);
+            gc_collect_cycles();
             return null;
         }
 

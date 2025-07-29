@@ -230,65 +230,45 @@ export default {
     VueCtkDateTimePicker,
   },
   props: {
+    // La prop 'initialFilters' es la fuente de verdad que viene del padre (con los datos de la URL)
+    initialFilters: { type: Object, default: () => ({}) },
     clientes: { type: Array, default: () => [] },
     selectedSucursal: { type: Object, default: null },
   },
   data() {
-    // --- Lógica para calcular las fechas ---
 
-    // 1. Obtenemos la fecha de hoy
-    const fechaFin = new Date();
-
-    // 2. Creamos una nueva fecha para el inicio y le restamos un mes
-    const fechaInicio = new Date();
-    //fechaInicio.setDate(fechaFin.getDate() - 1);
-
-    // 3. (Opcional pero recomendado) Formateamos las fechas a YYYY-MM-DD
-    //    Este formato es el estándar para los inputs de tipo 'date' en HTML.
-    const formatearFecha = (fecha) => fecha.toISOString().split("T")[0];
-
-    //Guardamos el estado inicial de los filtros
-    const initialFiltersState = {
-      pedimento: "",
-      operacion_id: "",
-      folio: "",
-      folio_tipo_documento: "",
-      estado: "",
-      estado_tipo_documento: "",
-      fecha_inicio: formatearFecha(fechaInicio),
-      fecha_fin: formatearFecha(fechaFin),
-      fecha_tipo_documento: "",
-      cliente_id: "",
-    };
     return {
       tareasCompletadas: [],
-      filters: {
-        //SECCION 1: Identificadores universales
-        pedimento: "",
-        operacion_id: "",
-
-        //SECCION 2: Identificadores de factura
-        folio: "",
-        folio_tipo_documento: "",
-
-        //SECCION 3: Estados
-        estado: "",
-        estado_tipo_documento: "",
-
-        //SECCION 4: Periodo de fecha
-        fecha_inicio: formatearFecha(fechaInicio),
-        fecha_fin: formatearFecha(fechaFin),
-        fecha_tipo_documento: "",
-
-        //SECCION 5: Involucrados
-        cliente_id: "",
-      },
+      // 'filters' se inicializa como un objeto vacío. Se llenará en el hook 'created'.
+      filters: { },
       // Creamos una copia inmutable para comparar después
-      initialFilters: Object.freeze(initialFiltersState),
+       baselineFilters: {},
     };
   },
 
+  /**
+   * El hook 'created' se ejecuta una sola vez cuando el componente
+   * se crea en memoria. Es el lugar perfecto para inicializar el estado
+   * a partir de las props.
+   */
+  created() {
+    // Creamos una copia de los filtros por defecto que definimos internamente
+    const defaultFilters = this.getDefaultFilters();
+
+    // Guardamos estos filtros por defecto como nuestra "línea base" inmutable.
+    // Esto es lo que el botón "Limpiar" usará siempre.
+    this.baselineFilters = Object.freeze({ ...defaultFilters });
+
+    // Ahora, fusionamos los filtros por defecto con los que vienen de la URL (props)
+    // para establecer el estado VISIBLE inicial.
+    const startingFilters = { ...defaultFilters, ...this.initialFilters };
+
+    // Establecemos el estado reactivo que el usuario verá y modificará.
+    this.filters = startingFilters;
+  },
+
   computed: {
+
     /**
      * Devuelve 'true' si algún filtro ha sido modificado
      * con respecto a su estado inicial.
@@ -296,7 +276,7 @@ export default {
     hasActiveFilters() {
       // Comparamos el objeto de filtros actual con el inicial.
       // JSON.stringify es una forma sencilla y efectiva de hacer una comparación profunda.
-      return JSON.stringify(this.filters) !== JSON.stringify(this.initialFilters);
+      return JSON.stringify(this.filters) !== JSON.stringify(this.baselineFilters);
     },
 
     // Se obtienen los clientes de la base de datos
@@ -340,12 +320,66 @@ export default {
       },
       immediate: true, // 'immediate: true' hace que se ejecute una vez cuando el componente se carga por primera vez.
     },
+
+    // Este watcher se ejecuta cuando el prop 'initialFilters' cambia
+    initialFilters: {
+        handler(newFiltersFromParent) {
+            // Actualiza el estado interno del FilterBar con los valores del padre
+            this.filters = { ...this.filters, ...newFiltersFromParent };
+        },
+        immediate: true, // Importante: ejecuta el watcher tan pronto como se monta el componente
+        deep: true       // Opcional: si los filtros son objetos anidados
+    },
+
     // Observador para el selector de periodos
     selectedPeriod(newPeriod) {
       this.setPeriod(newPeriod);
     },
   },
   methods: {
+
+     /**
+     * Centraliza la creación de los filtros por defecto.
+     * Esto hace el código más limpio.
+     */
+    getDefaultFilters(){
+        // --- Lógica para calcular las fechas ---
+
+        // 1. Obtenemos la fecha de hoy
+        const fechaFin = new Date();
+
+        // 2. Creamos una nueva fecha para el inicio y le restamos un mes
+        const fechaInicio = new Date();
+        //fechaInicio.setDate(fechaFin.getDate() - 1);
+
+        // 3. (Opcional pero recomendado) Formateamos las fechas a YYYY-MM-DD
+        //    Este formato es el estándar para los inputs de tipo 'date' en HTML.
+        const formatearFecha = (fecha) => fecha.toISOString().split("T")[0];
+
+        //Guardamos el estado inicial de los filtros
+        return {
+        //SECCION 1: Identificadores universales
+        pedimento: "",
+        operacion_id: "",
+
+        //SECCION 2: Identificadores de factura
+        folio: "",
+        folio_tipo_documento: "",
+
+        //SECCION 3: Estados
+        estado: "",
+        estado_tipo_documento: "",
+
+        //SECCION 4: Periodo de fecha
+        fecha_inicio: formatearFecha(fechaInicio),
+        fecha_fin: formatearFecha(fechaFin),
+        fecha_tipo_documento: "",
+
+        //SECCION 5: Involucrados
+        cliente_id: null,
+        };
+    },
+
     // Método que llama al backend
     fetchTareasCompletadas(sucursalId) {
       axios
@@ -399,7 +433,9 @@ export default {
     },
     clear() {
       // Limpia todos los filtros y el selector de periodo
-      this.filters = { ...this.initialFilters };
+      // Restaura los filtros al estado que tenían cuando se cargó la página.
+      this.filters = { ...this.baselineFilters };
+      this.filters.cliente_id = null;
       this.search();
     },
     setPeriod(period) {

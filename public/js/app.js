@@ -4827,6 +4827,72 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
 //
 //
 //
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 
  // ¡Importante! Importa el componente hijo
 
@@ -4869,7 +4935,7 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
       pagination: {},
       // Aquí guardaremos el resto de la info (links, total, etc.)
       clientes: [],
-      isLoading: true,
+      isLoading: false,
       // Un "extra" para mostrar un mensaje de "Cargando..."
       isModalVisible: false,
       // VARIABLE DE VISIBILIDAD - Modal
@@ -4878,7 +4944,9 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
       isImportModalVisible: false,
       // VARIABLE PARA VISIBILIDAD DE IMPORTACION - Modal
       // 3. Guardaremos el estado de los filtros aquí
-      activeFilters: {}
+      activeFilters: {},
+      //Cambio por Filtro botones
+      buttonStatusFilter: null // NUEVA VARIABLE: null = inactivo, 'string' = activo, Su uso es para guardar el estado de los botones filtro, y decide si se utiliza el estado del boton o si se utiliza el estado de filterBar
     };
   },
   computed: {
@@ -4894,34 +4962,52 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
         console.log("selectionComplete es false, devolviendo objeto vacío.");
         return {};
       }
-      var result = _objectSpread(_objectSpread({}, this.activeFilters), {}, {
+
+      // 1. Construye los filtros base con lo que venga del FilterBar
+      var baseFilters = _objectSpread(_objectSpread({}, this.activeFilters), {}, {
         sucursal_id: this.selectedSucursal.id,
         operation_type: this.selectedOperationType
       });
-      console.log("Resultado final de finalFilters:", JSON.parse(JSON.stringify(result)));
+
+      // 2. ¡LÓGICA CLAVE! Si hay un filtro de botón activo, este SOBREESCRIBE el estado.
+      if (this.buttonStatusFilter) {
+        //Cambio por Filtro botones
+        baseFilters.estado = this.buttonStatusFilter;
+      }
+      console.log("Resultado final de finalFilters:", JSON.parse(JSON.stringify(baseFilters)));
       console.log("--------------------------------------");
-      return result;
+      return baseFilters;
     }
   },
   // ...
   mounted: function mounted() {
     var _this = this;
     return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
-      var response, urlParams, sucursalId, operationType, foundSucursal, _t;
+      var response, urlParams, filtersFromUrl, sucursalId, operationType, foundSucursal, _t;
       return _regenerator().w(function (_context) {
         while (1) switch (_context.n) {
           case 0:
             _context.p = 0;
-            _this.isLoading = true;
             _context.n = 1;
             return axios.get("/auditoria/sucursales");
           case 1:
             response = _context.v;
             _this.sucursales = response.data;
+
+            // Leemos TODOS los parámetros de la URL y los convertimos a un objeto
             urlParams = new URLSearchParams(window.location.search);
-            sucursalId = urlParams.get("sucursal_id");
-            operationType = urlParams.get("operation_type");
-            if (sucursalId && operationType) {
+            filtersFromUrl = Object.fromEntries(urlParams.entries()); // Si los parámetros esenciales existen, procedemos a restaurar el estado
+            if (filtersFromUrl.sucursal_id && filtersFromUrl.operation_type) {
+              // Activamos el "cargando" ANTES de hacer nada más.
+              _this.isLoading = true;
+
+              // ESTABLECEMOS EL ESTADO DEL PADRE PRIMERO
+              // Esto llenará el prop que pasaremos a FilterBar
+              _this.activeFilters = filtersFromUrl;
+
+              // Restauramos las selecciones principales (sucursal y tipo de operación)
+              sucursalId = filtersFromUrl.sucursal_id;
+              operationType = filtersFromUrl.operation_type;
               foundSucursal = _this.sucursales.find(function (s) {
                 return s.id == sucursalId;
               }) || (sucursalId === "todos" ? {
@@ -4932,8 +5018,15 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
                 _this.selectedSucursal = foundSucursal;
 
                 // Llamamos a la lógica centralizada.
-                // El 'false' evita que se actualice la URL dos veces.
-                _this.selectOperationType(operationType);
+                _this.selectedOperationType = operationType;
+
+                // Ahora que el estado está restaurado, ejecutamos las búsquedas
+                _this.fetchOperationCounts(sucursalId);
+                _this.fetchClientes();
+                _this.fetchOperaciones(filtersFromUrl.page || 1);
+              } else {
+                // Si la sucursal de la URL no es válida, dejamos de cargar.
+                _this.isLoading = false;
               }
             }
             _context.n = 3;
@@ -4942,17 +5035,18 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
             _context.p = 2;
             _t = _context.v;
             console.error("Error crítico durante el montaje:", _t);
-          case 3:
-            _context.p = 3;
             _this.isLoading = false;
-            return _context.f(3);
-          case 4:
+          case 3:
             return _context.a(2);
         }
-      }, _callee, null, [[0, 2, 3, 4]]);
+      }, _callee, null, [[0, 2]]);
     }))();
   },
   methods: {
+    //Con el proposito de quitarle el (-) a el numero negativo
+    absoluteValue: function absoluteValue(number) {
+      return Math.abs(number);
+    },
     exportUrl: function exportUrl() {
       // Tomamos los filtros activos y los convertimos a un query string
       var params = new URLSearchParams(this.finalFilters).toString();
@@ -4985,7 +5079,10 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
     },
     selectSucursal: function selectSucursal(sucursal) {
       this.selectedSucursal = sucursal;
-      this.selectedOperationType = null; // Resetea la operación para forzar una nueva selección
+      //this.selectedOperationType = null; // Resetea la operación para forzar una nueva selección
+      if (this.selectedOperationType !== null) {
+        this.selectOperationType(this.selectedOperationType);
+      }
       this.fetchOperationCounts(sucursal.id); // Llama al nuevo método para obtener los conteos de Importacion/Exportacion o Ambos.
     },
     // Nuevo método para obtener los conteos de SC
@@ -5078,6 +5175,11 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
     },
     // Este método recibe los filtros de FilterBar y los guarda
     handleFilters: function handleFilters(filtersFromBar) {
+      // Cambio por Filtro botones
+      // Se vuelve nulo por default para reiniciar y volver a contemplar los filtros de FilterBar
+      this.buttonStatusFilter = null;
+
+      // Aplica los filtros que vienen del FilterBar
       this.activeFilters = filtersFromBar;
 
       // Actualizamos la URL con los nuevos filtros
@@ -5157,14 +5259,14 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
         _this6.auditTotalCount.ocupoActualizarContadores = true;
       });
     },
-    //Metodo para conservar filtros despues de haber presionado un boton de filtros con conteo.
+    // Metodo para conservar filtros despues de haber presionado un boton de filtros con conteo.
+    //Cambio por Filtro botones
     fetchOperacionesBotonesContadores: function fetchOperacionesBotonesContadores(estado) {
-      var oldEstado = this.finalFilters.estado;
-      this.finalFilters.estado = estado;
-      this.auditTotalCount.ocupoActualizarContadores = false;
-      this.fetchOperaciones();
-      //this.finalFilters.estado = oldEstado;
-      this.auditTotalCount.ocupoActualizarContadores = true;
+      // 1. Activa el modo de filtro por botón, guardando el estado deseado
+      this.buttonStatusFilter = estado;
+
+      // 2. Llama a la búsqueda principal (siempre a la página 1)
+      this.fetchOperaciones(1);
     }
   }
 });
@@ -5426,6 +5528,13 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
     VueCtkDateTimePicker: (vue_ctk_date_time_picker__WEBPACK_IMPORTED_MODULE_0___default())
   },
   props: {
+    // La prop 'initialFilters' es la fuente de verdad que viene del padre (con los datos de la URL)
+    initialFilters: {
+      type: Object,
+      "default": function _default() {
+        return {};
+      }
+    },
     clientes: {
       type: Array,
       "default": function _default() {
@@ -5438,56 +5547,33 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
     }
   },
   data: function data() {
-    // --- Lógica para calcular las fechas ---
-
-    // 1. Obtenemos la fecha de hoy
-    var fechaFin = new Date();
-
-    // 2. Creamos una nueva fecha para el inicio y le restamos un mes
-    var fechaInicio = new Date();
-    //fechaInicio.setDate(fechaFin.getDate() - 1);
-
-    // 3. (Opcional pero recomendado) Formateamos las fechas a YYYY-MM-DD
-    //    Este formato es el estándar para los inputs de tipo 'date' en HTML.
-    var formatearFecha = function formatearFecha(fecha) {
-      return fecha.toISOString().split("T")[0];
-    };
-
-    //Guardamos el estado inicial de los filtros
-    var initialFiltersState = {
-      pedimento: "",
-      operacion_id: "",
-      folio: "",
-      folio_tipo_documento: "",
-      estado: "",
-      estado_tipo_documento: "",
-      fecha_inicio: formatearFecha(fechaInicio),
-      fecha_fin: formatearFecha(fechaFin),
-      fecha_tipo_documento: "",
-      cliente_id: ""
-    };
     return {
       tareasCompletadas: [],
-      filters: {
-        //SECCION 1: Identificadores universales
-        pedimento: "",
-        operacion_id: "",
-        //SECCION 2: Identificadores de factura
-        folio: "",
-        folio_tipo_documento: "",
-        //SECCION 3: Estados
-        estado: "",
-        estado_tipo_documento: "",
-        //SECCION 4: Periodo de fecha
-        fecha_inicio: formatearFecha(fechaInicio),
-        fecha_fin: formatearFecha(fechaFin),
-        fecha_tipo_documento: "",
-        //SECCION 5: Involucrados
-        cliente_id: ""
-      },
+      // 'filters' se inicializa como un objeto vacío. Se llenará en el hook 'created'.
+      filters: {},
       // Creamos una copia inmutable para comparar después
-      initialFilters: Object.freeze(initialFiltersState)
+      baselineFilters: {}
     };
+  },
+  /**
+   * El hook 'created' se ejecuta una sola vez cuando el componente
+   * se crea en memoria. Es el lugar perfecto para inicializar el estado
+   * a partir de las props.
+   */
+  created: function created() {
+    // Creamos una copia de los filtros por defecto que definimos internamente
+    var defaultFilters = this.getDefaultFilters();
+
+    // Guardamos estos filtros por defecto como nuestra "línea base" inmutable.
+    // Esto es lo que el botón "Limpiar" usará siempre.
+    this.baselineFilters = Object.freeze(_objectSpread({}, defaultFilters));
+
+    // Ahora, fusionamos los filtros por defecto con los que vienen de la URL (props)
+    // para establecer el estado VISIBLE inicial.
+    var startingFilters = _objectSpread(_objectSpread({}, defaultFilters), this.initialFilters);
+
+    // Establecemos el estado reactivo que el usuario verá y modificará.
+    this.filters = startingFilters;
   },
   computed: {
     /**
@@ -5497,7 +5583,7 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
     hasActiveFilters: function hasActiveFilters() {
       // Comparamos el objeto de filtros actual con el inicial.
       // JSON.stringify es una forma sencilla y efectiva de hacer una comparación profunda.
-      return JSON.stringify(this.filters) !== JSON.stringify(this.initialFilters);
+      return JSON.stringify(this.filters) !== JSON.stringify(this.baselineFilters);
     },
     // Se obtienen los clientes de la base de datos
     // vue-select funciona mejor con un array de objetos
@@ -5539,12 +5625,61 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
       },
       immediate: true // 'immediate: true' hace que se ejecute una vez cuando el componente se carga por primera vez.
     },
+    // Este watcher se ejecuta cuando el prop 'initialFilters' cambia
+    initialFilters: {
+      handler: function handler(newFiltersFromParent) {
+        // Actualiza el estado interno del FilterBar con los valores del padre
+        this.filters = _objectSpread(_objectSpread({}, this.filters), newFiltersFromParent);
+      },
+      immediate: true,
+      // Importante: ejecuta el watcher tan pronto como se monta el componente
+      deep: true // Opcional: si los filtros son objetos anidados
+    },
     // Observador para el selector de periodos
     selectedPeriod: function selectedPeriod(newPeriod) {
       this.setPeriod(newPeriod);
     }
   },
   methods: {
+    /**
+    * Centraliza la creación de los filtros por defecto.
+    * Esto hace el código más limpio.
+    */
+    getDefaultFilters: function getDefaultFilters() {
+      // --- Lógica para calcular las fechas ---
+
+      // 1. Obtenemos la fecha de hoy
+      var fechaFin = new Date();
+
+      // 2. Creamos una nueva fecha para el inicio y le restamos un mes
+      var fechaInicio = new Date();
+      //fechaInicio.setDate(fechaFin.getDate() - 1);
+
+      // 3. (Opcional pero recomendado) Formateamos las fechas a YYYY-MM-DD
+      //    Este formato es el estándar para los inputs de tipo 'date' en HTML.
+      var formatearFecha = function formatearFecha(fecha) {
+        return fecha.toISOString().split("T")[0];
+      };
+
+      //Guardamos el estado inicial de los filtros
+      return {
+        //SECCION 1: Identificadores universales
+        pedimento: "",
+        operacion_id: "",
+        //SECCION 2: Identificadores de factura
+        folio: "",
+        folio_tipo_documento: "",
+        //SECCION 3: Estados
+        estado: "",
+        estado_tipo_documento: "",
+        //SECCION 4: Periodo de fecha
+        fecha_inicio: formatearFecha(fechaInicio),
+        fecha_fin: formatearFecha(fechaFin),
+        fecha_tipo_documento: "",
+        //SECCION 5: Involucrados
+        cliente_id: null
+      };
+    },
     // Método que llama al backend
     fetchTareasCompletadas: function fetchTareasCompletadas(sucursalId) {
       var _this = this;
@@ -5603,7 +5738,9 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
     },
     clear: function clear() {
       // Limpia todos los filtros y el selector de periodo
-      this.filters = _objectSpread({}, this.initialFilters);
+      // Restaura los filtros al estado que tenían cuando se cargó la página.
+      this.filters = _objectSpread({}, this.baselineFilters);
+      this.filters.cliente_id = null;
       this.search();
     },
     setPeriod: function setPeriod(period) {
@@ -5823,6 +5960,10 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
+//
+//
+//
+//
 
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
   props: {
@@ -5864,14 +6005,14 @@ __webpack_require__.r(__webpack_exports__);
         var estadoTexto = _this.getFacturaStatusText(Object.keys(_this.operacion.status_botones).find(function (key) {
           return _this.operacion.status_botones[key] === statusInfo;
         }), statusInfo);
-        return _this.isStatusRed(estadoTexto) && estadoTexto.toLowerCase() !== "sin sc!";
+        return _this.isStatusRed(estadoTexto) && String(estadoTexto).toLowerCase() !== "sin sc!";
       });
       if (hasCriticalRed) return "rojo";
       var hasPagoDeMas = statuses.some(function (statusInfo) {
         var estadoTexto = _this.getFacturaStatusText(Object.keys(_this.operacion.status_botones).find(function (key) {
           return _this.operacion.status_botones[key] === statusInfo;
         }), statusInfo);
-        return estadoTexto.toLowerCase() === "pago de mas!";
+        return String(estadoTexto).toLowerCase() === "pago de mas!";
       });
       if (hasPagoDeMas) return "amarillo";
 
@@ -5880,7 +6021,7 @@ __webpack_require__.r(__webpack_exports__);
         var estadoTexto = _this.getFacturaStatusText(Object.keys(_this.operacion.status_botones).find(function (key) {
           return _this.operacion.status_botones[key] === statusInfo;
         }), statusInfo);
-        return estadoTexto.toLowerCase() === "sin sc!";
+        return String(estadoTexto).toLowerCase() === "sin sc!";
       });
       if (hasSinSc) return "neutro"; // Estado neutro para fondo blanco
 
@@ -5889,7 +6030,7 @@ __webpack_require__.r(__webpack_exports__);
     cardBgClass: function cardBgClass() {
       switch (this.cardOverallState) {
         case "rojo":
-          return "border-2 border-red-600 bg-white";
+          return "border-4 border-red-600 bg-white";
         default:
           return "bg-white";
       }
@@ -5979,9 +6120,39 @@ __webpack_require__.r(__webpack_exports__);
         return "text-gray-800";
       }
     },
+    getStatusDiferenciaTextClass: function getStatusDiferenciaTextClass(info) {
+      var _info$datos$monto_dif, _info$datos, _info$datos$estado$to, _info$datos2;
+      if (!info) return "text-gray-800";
+      var valorDiferencia = (_info$datos$monto_dif = (_info$datos = info.datos) === null || _info$datos === void 0 ? void 0 : _info$datos.monto_diferencia_sc) !== null && _info$datos$monto_dif !== void 0 ? _info$datos$monto_dif : "N/A";
+      var estadoLower = (_info$datos$estado$to = (_info$datos2 = info.datos) === null || _info$datos2 === void 0 || (_info$datos2 = _info$datos2.estado) === null || _info$datos2 === void 0 ? void 0 : _info$datos2.toLowerCase()) !== null && _info$datos$estado$to !== void 0 ? _info$datos$estado$to : "N/A";
+      if (estadoLower === "N/A" || String(valorDiferencia) === "N/A") return "text-gray-800";
+      if (estadoLower.includes("sin sc")) {
+        return "text-gray-800 font-bold";
+      } else if (valorDiferencia < 0) {
+        return "text-red-700 font-bold";
+      } else {
+        return "text-green-700 font-bold";
+      }
+    },
+    getFacturaDiferenciaText: function getFacturaDiferenciaText(info) {
+      var _info$datos$monto_dif2, _info$datos3, _info$datos$estado$to2, _info$datos4;
+      if (!info) return "text-gray-800";
+      var valorDiferencia = (_info$datos$monto_dif2 = (_info$datos3 = info.datos) === null || _info$datos3 === void 0 ? void 0 : _info$datos3.monto_diferencia_sc) !== null && _info$datos$monto_dif2 !== void 0 ? _info$datos$monto_dif2 : "N/A";
+      var estadoLower = (_info$datos$estado$to2 = (_info$datos4 = info.datos) === null || _info$datos4 === void 0 || (_info$datos4 = _info$datos4.estado) === null || _info$datos4 === void 0 ? void 0 : _info$datos4.toLowerCase()) !== null && _info$datos$estado$to2 !== void 0 ? _info$datos$estado$to2 : "N/A";
+      if (estadoLower === "N/A" || String(valorDiferencia) === "N/A") return "N/A";
+      if (estadoLower.includes("sin sc")) {
+        return "+/- " + valorDiferencia + " MXN";
+      } else if (valorDiferencia < 0) {
+        return valorDiferencia + " MXN";
+      } else if (valorDiferencia == 0) {
+        return "=" + valorDiferencia + " MXN";
+      } else if (valorDiferencia > 0) {
+        return "+" + valorDiferencia + " MXN";
+      }
+    },
     getFacturaAuditoriaStatusText: function getFacturaAuditoriaStatusText(tipo, info) {
       var estadoTexto = this.getFacturaStatusText(tipo, info);
-      var estadoLower = estadoTexto.toLowerCase();
+      var estadoLower = String(estadoTexto).toLowerCase();
       if (estadoTexto) {
         if (tipo === "sc") {
           if (estadoLower.includes("coinciden") || estadoLower.includes("encontrada")) {
@@ -74550,7 +74721,10 @@ var render = function () {
             _vm._v(" "),
             _c(
               "div",
-              { staticClass: "grid grid-cols-1 md:grid-cols-4 gap-4 my-4" },
+              {
+                staticClass:
+                  "grid lg:grid-cols-5 sm:grid-cols-1 md:grid-cols-2 gap-4 my-4",
+              },
               [
                 _c(
                   "button",
@@ -74601,15 +74775,37 @@ var render = function () {
                       _vm._m(5),
                     ]),
                     _vm._v(" "),
-                    _c("span", { staticClass: "text-2xl font-bold" }, [
-                      _vm._v(
-                        "\n          " +
-                          _vm._s(_vm.auditCounts.balanceados.value) +
-                          " / " +
-                          _vm._s(_vm.auditTotalCount.total) +
-                          " (" +
-                          _vm._s(_vm.auditCounts.balanceados.percentage) +
-                          "%)\n      "
+                    _c("div", { staticClass: "flex flex-col items-end" }, [
+                      _c("span", { staticClass: "text-xl font-bold" }, [
+                        _vm._v(
+                          "\n              " +
+                            _vm._s(
+                              _vm._f("currency")(
+                                Math.abs(_vm.auditCounts.balanceados.delta_sum)
+                              )
+                            ) +
+                            "\n              "
+                        ),
+                        _c("span", { staticClass: "text-lg font-semibold" }, [
+                          _vm._v("MXN"),
+                        ]),
+                      ]),
+                      _vm._v(" "),
+                      _c(
+                        "div",
+                        {
+                          staticClass:
+                            "px-2 py-1 rounded bg-gray-300 text-blue-800 text-s font-medium mt-1",
+                        },
+                        [
+                          _vm._v(
+                            "\n              Facturas: " +
+                              _vm._s(_vm.auditCounts.balanceados.value) +
+                              " (" +
+                              _vm._s(_vm.auditCounts.balanceados.percentage) +
+                              "%)\n          "
+                          ),
+                        ]
                       ),
                     ]),
                   ]
@@ -74664,15 +74860,37 @@ var render = function () {
                       _vm._m(6),
                     ]),
                     _vm._v(" "),
-                    _c("span", { staticClass: "text-2xl font-bold" }, [
-                      _vm._v(
-                        "\n          " +
-                          _vm._s(_vm.auditCounts.pago_menos.value) +
-                          " / " +
-                          _vm._s(_vm.auditTotalCount.total) +
-                          " (" +
-                          _vm._s(_vm.auditCounts.pago_menos.percentage) +
-                          "%)\n      "
+                    _c("div", { staticClass: "flex flex-col items-end" }, [
+                      _c("span", { staticClass: "text-xl font-bold" }, [
+                        _vm._v(
+                          "\n             - " +
+                            _vm._s(
+                              _vm._f("currency")(
+                                Math.abs(_vm.auditCounts.pago_menos.delta_sum)
+                              )
+                            ) +
+                            "\n              "
+                        ),
+                        _c("span", { staticClass: "text-lg font-semibold" }, [
+                          _vm._v("MXN"),
+                        ]),
+                      ]),
+                      _vm._v(" "),
+                      _c(
+                        "div",
+                        {
+                          staticClass:
+                            "px-2 py-1 rounded bg-gray-300 text-blue-800 text-s font-medium mt-1",
+                        },
+                        [
+                          _vm._v(
+                            "\n              Facturas: " +
+                              _vm._s(_vm.auditCounts.pago_menos.value) +
+                              " (" +
+                              _vm._s(_vm.auditCounts.pago_menos.percentage) +
+                              "%)\n          "
+                          ),
+                        ]
                       ),
                     ]),
                   ]
@@ -74727,15 +74945,37 @@ var render = function () {
                       _vm._m(7),
                     ]),
                     _vm._v(" "),
-                    _c("span", { staticClass: "text-2xl font-bold" }, [
-                      _vm._v(
-                        "\n          " +
-                          _vm._s(_vm.auditCounts.pago_mas.value) +
-                          " / " +
-                          _vm._s(_vm.auditTotalCount.total) +
-                          " (" +
-                          _vm._s(_vm.auditCounts.pago_mas.percentage) +
-                          "%)\n      "
+                    _c("div", { staticClass: "flex flex-col items-end" }, [
+                      _c("span", { staticClass: "text-xl font-bold" }, [
+                        _vm._v(
+                          "\n              + " +
+                            _vm._s(
+                              _vm._f("currency")(
+                                Math.abs(_vm.auditCounts.pago_mas.delta_sum)
+                              )
+                            ) +
+                            "\n              "
+                        ),
+                        _c("span", { staticClass: "text-lg font-semibold" }, [
+                          _vm._v("MXN"),
+                        ]),
+                      ]),
+                      _vm._v(" "),
+                      _c(
+                        "div",
+                        {
+                          staticClass:
+                            "px-2 py-1 rounded bg-gray-300 text-blue-800 text-s font-medium mt-1",
+                        },
+                        [
+                          _vm._v(
+                            "\n              Facturas: " +
+                              _vm._s(_vm.auditCounts.pago_mas.value) +
+                              " (" +
+                              _vm._s(_vm.auditCounts.pago_mas.percentage) +
+                              "%)\n          "
+                          ),
+                        ]
                       ),
                     ]),
                   ]
@@ -74790,15 +75030,98 @@ var render = function () {
                       _vm._m(8),
                     ]),
                     _vm._v(" "),
+                    _c("div", { staticClass: "flex flex-col items-end" }, [
+                      _c("span", { staticClass: "text-xl font-bold" }, [
+                        _vm._v(
+                          "\n              +/- " +
+                            _vm._s(
+                              _vm._f("currency")(
+                                Math.abs(
+                                  _vm.auditCounts.no_facturados.delta_sum
+                                )
+                              )
+                            ) +
+                            "\n              "
+                        ),
+                        _c("span", { staticClass: "text-lg font-semibold" }, [
+                          _vm._v("MXN"),
+                        ]),
+                      ]),
+                      _vm._v(" "),
+                      _c(
+                        "div",
+                        {
+                          staticClass:
+                            "px-2 py-1 rounded bg-gray-300 text-blue-800 text-s font-medium mt-1",
+                        },
+                        [
+                          _vm._v(
+                            "\n              Facturas: " +
+                              _vm._s(_vm.auditCounts.no_facturados.value) +
+                              " (" +
+                              _vm._s(_vm.auditCounts.no_facturados.percentage) +
+                              "%)\n          "
+                          ),
+                        ]
+                      ),
+                    ]),
+                  ]
+                ),
+                _vm._v(" "),
+                _c(
+                  "button",
+                  {
+                    staticClass: "btn-operation bg-white",
+                    on: {
+                      click: function ($event) {
+                        return _vm.fetchOperacionesBotonesContadores(null)
+                      },
+                    },
+                  },
+                  [
+                    _c("div", { staticClass: "flex items-center" }, [
+                      _c(
+                        "div",
+                        {
+                          staticClass:
+                            "w-12 h-12 mr-4 bg-blue-900 rounded flex text-white items-center justify-center",
+                        },
+                        [
+                          _c(
+                            "svg",
+                            {
+                              staticClass: "w-8 h-8",
+                              attrs: {
+                                fill: "none",
+                                stroke: "currentColor",
+                                viewBox: "0 0 24 24",
+                              },
+                            },
+                            [
+                              _c("path", {
+                                attrs: {
+                                  stroke: "currentColor",
+                                  "stroke-linecap": "round",
+                                  "stroke-linejoin": "round",
+                                  "stroke-width": "2",
+                                  "fill-rule": "evenodd",
+                                  d: "M9 8h6m-6 4h6m-6 4h6M6 3v18l2-2 2 2 2-2 2 2 2-2 2 2V3l-2 2-2-2-2 2-2-2-2 2-2-2Z",
+                                  "clip-rule": "evenodd",
+                                },
+                              }),
+                            ]
+                          ),
+                        ]
+                      ),
+                      _vm._v(" "),
+                      _vm._m(9),
+                    ]),
+                    _vm._v(" "),
                     _c("span", { staticClass: "text-2xl font-bold" }, [
                       _vm._v(
                         "\n          " +
-                          _vm._s(_vm.auditCounts.no_facturados.value) +
-                          " / " +
                           _vm._s(_vm.auditTotalCount.total) +
-                          " (" +
-                          _vm._s(_vm.auditCounts.no_facturados.percentage) +
-                          "%)\n      "
+                          "\n      "
                       ),
                     ]),
                   ]
@@ -74820,6 +75143,7 @@ var render = function () {
               attrs: {
                 "selected-sucursal": _vm.selectedSucursal,
                 clientes: _vm.clientes,
+                "initial-filters": _vm.activeFilters,
               },
               on: { "apply-filters": _vm.handleFilters },
             }),
@@ -74957,7 +75281,7 @@ var staticRenderFns = [
     var _h = _vm.$createElement
     var _c = _vm._self._c || _h
     return _c("div", { staticClass: "text-left" }, [
-      _c("span", { staticClass: "font-bold text-lg" }, [_vm._v("Balanceados")]),
+      _c("span", { staticClass: "font-bold text-lg" }, [_vm._v("Saldados")]),
     ])
   },
   function () {
@@ -74987,6 +75311,16 @@ var staticRenderFns = [
     return _c("div", { staticClass: "text-left" }, [
       _c("span", { staticClass: "font-bold text-lg" }, [
         _vm._v("No facturados"),
+      ]),
+    ])
+  },
+  function () {
+    var _vm = this
+    var _h = _vm.$createElement
+    var _c = _vm._self._c || _h
+    return _c("div", { staticClass: "text-left" }, [
+      _c("span", { staticClass: "font-bold text-lg" }, [
+        _vm._v("Total de auditorias"),
       ]),
     ])
   },
@@ -75913,6 +76247,24 @@ var render = function () {
                             ),
                           ]
                         ),
+                        _vm._v(" "),
+                        tipo !== "sc"
+                          ? _c(
+                              "p",
+                              { class: _vm.getStatusDiferenciaTextClass(info) },
+                              [
+                                _vm._v(
+                                  "\n               " +
+                                    _vm._s(
+                                      _vm._f("currency")(
+                                        _vm.getFacturaDiferenciaText(info)
+                                      )
+                                    ) +
+                                    "\n            "
+                                ),
+                              ]
+                            )
+                          : _vm._e(),
                         _vm._v(" "),
                         info.datos
                           ? _c("p", { staticClass: "text-gray-400" }, [
@@ -88502,6 +88854,8 @@ Vue.component('upload-form', (__webpack_require__(/*! ./components/UploadForm.vu
  * asegurando que siempre tengan 2 decimales.
  */
 Vue.filter('currency', function (value) {
+  var currencySymbol = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '$';
+  var decimalPlaces = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 2;
   // Si el valor no es un número, lo devolvemos tal cual (ej. 'N/A')
   if (typeof value !== 'number') {
     var parsedValue = parseFloat(value);
@@ -88511,7 +88865,8 @@ Vue.filter('currency', function (value) {
     value = parsedValue;
   }
   // toFixed(2) es el método de JavaScript que hace toda la magia.
-  return value.toFixed(2);
+  var formattedValue = value.toFixed(decimalPlaces).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return "".concat(currencySymbol).concat(formattedValue);
 });
 var app = new Vue({
   el: '#app'

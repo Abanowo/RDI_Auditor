@@ -31,7 +31,9 @@ class CreateAuditoriasTable extends Migration
             // Montos
             $table->decimal('monto_total', 14, 2)->nullable()->comment('Monto en la moneda original del documento');
             $table->decimal('monto_total_mxn', 14, 2)->nullable()->comment('Valor estandarizado a MXN para cálculos');
+            $table->string('monto_diferencia_sc', 14, 2)->nullable()->comment('Diferencia positiva o negativa de la auditoria');
             $table->string('moneda_documento', 3)->nullable();
+
 
             // Estado y Datos Específicos
             $table->string('estado')->nullable()->comment('Estatus de la factura (Ej: Pendiente, Conciliado)');

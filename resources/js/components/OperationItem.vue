@@ -96,6 +96,10 @@
               >
                 {{ getFacturaStatusText(tipo, info) }}
               </p>
+              <p v-if="tipo !== 'sc'"
+              :class="getStatusDiferenciaTextClass(info)">
+                 {{ getFacturaDiferenciaText(info) | currency  }}
+              </p>
               <p v-if="info.datos" class="text-gray-400">
                 {{ info.datos.fecha_documento }}
               </p>
@@ -145,7 +149,7 @@ export default {
           ),
           statusInfo
         );
-        return this.isStatusRed(estadoTexto) && estadoTexto.toLowerCase() !== "sin sc!";
+        return this.isStatusRed(estadoTexto) && String(estadoTexto).toLowerCase() !== "sin sc!";
       });
 
       if (hasCriticalRed) return "rojo";
@@ -157,7 +161,7 @@ export default {
           ),
           statusInfo
         );
-        return estadoTexto.toLowerCase() === "pago de mas!";
+        return String(estadoTexto).toLowerCase() === "pago de mas!";
       });
 
       if (hasPagoDeMas) return "amarillo";
@@ -170,7 +174,7 @@ export default {
           ),
           statusInfo
         );
-        return estadoTexto.toLowerCase() === "sin sc!";
+        return String(estadoTexto).toLowerCase() === "sin sc!";
       });
 
       if (hasSinSc) return "neutro"; // Estado neutro para fondo blanco
@@ -181,7 +185,7 @@ export default {
     cardBgClass() {
       switch (this.cardOverallState) {
         case "rojo":
-          return "border-2 border-red-600 bg-white";
+          return "border-4 border-red-600 bg-white";
         default:
           return "bg-white";
       }
@@ -212,6 +216,7 @@ export default {
       }
       return info.datos ? info.datos.estado : "No Encontrado";
     },
+
 
     isStatusRed(estado) {
       if (!estado) return false;
@@ -286,9 +291,43 @@ export default {
       }
     },
 
+    getStatusDiferenciaTextClass(info) {
+      if (!info) return "text-gray-800";
+      const valorDiferencia = info.datos?.monto_diferencia_sc ?? "N/A";
+      const estadoLower = info.datos?.estado?.toLowerCase() ?? "N/A";
+
+      if(estadoLower === "N/A" || String(valorDiferencia) === "N/A") return "text-gray-800";
+
+      if (estadoLower.includes("sin sc")) {
+        return "text-gray-800 font-bold";
+      } else if (valorDiferencia < 0) {
+        return "text-red-700 font-bold";
+      } else {
+        return "text-green-700 font-bold";
+      }
+    },
+
+    getFacturaDiferenciaText(info) {
+      if (!info) return "text-gray-800";
+      const valorDiferencia = info.datos?.monto_diferencia_sc ?? "N/A";
+      const estadoLower = info.datos?.estado?.toLowerCase() ?? "N/A";
+
+      if(estadoLower === "N/A" || String(valorDiferencia) === "N/A") return "N/A";
+
+      if (estadoLower.includes("sin sc")) {
+        return "+/- " + valorDiferencia + " MXN";
+      } else if (valorDiferencia < 0) {
+        return valorDiferencia + " MXN";
+      } else if (valorDiferencia == 0) {
+        return  "=" + valorDiferencia + " MXN";
+      } else if (valorDiferencia > 0) {
+        return "+" + valorDiferencia + " MXN";
+      }
+    },
+
     getFacturaAuditoriaStatusText(tipo, info) {
       const estadoTexto = this.getFacturaStatusText(tipo, info);
-      const estadoLower = estadoTexto.toLowerCase();
+      const estadoLower = String(estadoTexto).toLowerCase();
       if (estadoTexto) {
         if (tipo === "sc") {
           if (estadoLower.includes("coinciden") || estadoLower.includes("encontrada")) {

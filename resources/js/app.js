@@ -35,7 +35,7 @@ Vue.component('upload-form', require('./components/UploadForm.vue').default);
  * Filtro global para formatear números como moneda,
  * asegurando que siempre tengan 2 decimales.
  */
-Vue.filter('currency', function (value) {
+Vue.filter('currency', function (value, currencySymbol = '$', decimalPlaces = 2) {
   // Si el valor no es un número, lo devolvemos tal cual (ej. 'N/A')
   if (typeof value !== 'number') {
     const parsedValue = parseFloat(value);
@@ -45,7 +45,8 @@ Vue.filter('currency', function (value) {
     value = parsedValue;
   }
   // toFixed(2) es el método de JavaScript que hace toda la magia.
-  return value.toFixed(2);
+  const formattedValue = value.toFixed(decimalPlaces).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return `${currencySymbol}${formattedValue}`;
 });
 const app = new Vue({
     el: '#app',

@@ -23,6 +23,8 @@
           </button>
         </div>
       </div>
+
+      <!-- Fila de Tipos de Operación (solo visible si se ha seleccionado una sucursal) -->
       <div v-if="selectedSucursal" class="my-6">
         <div class="w-full md:w-2/5 flex gap-4 my-6">
           <!-- Botón Importación -->
@@ -146,16 +148,18 @@
 
         <div class="justify-end md:w-2/5 flex gap-4 my-6"></div>
       </div>
-      <!-- Fila de Tipos de Operación (solo visible si se ha seleccionado una sucursal) -->
     </div>
 
+    <!-- SECCION DE PANEL DE AUDITORIAS -->
     <div v-if="selectionComplete">
       <div class="flex justify-between items-center my-6">
         <h1 class="text-3xl font-bold text-theme-dark">
           Auditoría de Pago por Cuenta del Cliente
         </h1>
 
+        <!-- Fila de boton de Exportacion (Archivos) y Subida de Estados de cuenta -->
         <div class="flex items-center space-x-4">
+          <!-- Botón Exportar reporte  -->
           <button
             @click="exportUrl"
             class="w-64 bg-green-600 text-white text-center font-bold py-4 px-4 rounded-md shadow-sm hover:opacity-90 flex items-center justify-center"
@@ -179,6 +183,7 @@
             </div>
           </button>
 
+          <!-- Botón Subir estados de cuenta  -->
           <button
             class="w-72 bg-blue-600 text-white font-bold py-4 px-4 rounded-lg shadow hover:opacity-90 flex items-center justify-center"
             @click="isImportModalVisible = true"
@@ -203,7 +208,8 @@
           </button>
         </div>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 my-4">
+      <!-- Fila de botones de contador y porcentaje de efectividad -->
+      <div class="grid lg:grid-cols-5 sm:grid-cols-1 md:grid-cols-2 gap-4 my-4">
 
         <!-- Botón Balanceados -->
         <button class="btn-operation bg-white"
@@ -224,40 +230,50 @@
               </svg>
             </div>
             <div class="text-left">
-              <span class="font-bold text-lg">Balanceados</span>
+              <span class="font-bold text-lg">Saldados</span>
             </div>
           </div>
-          <span class="text-2xl font-bold">
-            {{ auditCounts.balanceados.value }} / {{ auditTotalCount.total }} ({{ auditCounts.balanceados.percentage }}%)
-        </span>
+          <div class="flex flex-col items-end">
+
+            <span class="text-xl font-bold">
+                {{ Math.abs(auditCounts.balanceados.delta_sum) | currency  }}
+                <span class="text-lg font-semibold">MXN</span>
+            </span>
+
+            <div class="px-2 py-1 rounded bg-gray-300 text-blue-800 text-s font-medium mt-1">
+                Facturas: {{ auditCounts.balanceados.value }} ({{ auditCounts.balanceados.percentage }}%)
+            </div>
+
+          </div>
         </button>
 
         <!-- Botón Pago de menos -->
         <button class="btn-operation bg-white"
-        @click="fetchOperacionesBotonesContadores(auditCounts.pago_menos.label)"
-        >
-          <div class="flex items-center">
-            <div
-              class="w-12 h-12 mr-4 bg-red-700 rounded flex text-white items-center justify-center"
-            >
-              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M4 4.5V19a1 1 0 0 0 1 1h15M7 10l4 4 4-4 5 5m0 0h-3.207M20 15v-3.207"
-                />
-              </svg>
+        @click="fetchOperacionesBotonesContadores(auditCounts.pago_menos.label)">
+
+        <div class="flex items-center">
+            <div class="w-12 h-12 mr-4 bg-red-700 rounded flex text-white items-center justify-center">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4.5V19a1 1 0 0 0 1 1h15M7 10l4 4 4-4 5 5m0 0h-3.207M20 15v-3.207" />
+                </svg>
+            </div>
+            <div class="text-left">
+                <span class="font-bold text-lg">Pagos de menos</span>
+            </div>
+        </div>
+
+        <div class="flex flex-col items-end">
+
+            <span class="text-xl font-bold">
+               - {{ Math.abs(auditCounts.pago_menos.delta_sum) | currency  }}
+                <span class="text-lg font-semibold">MXN</span>
+            </span>
+
+            <div class="px-2 py-1 rounded bg-gray-300 text-blue-800 text-s font-medium mt-1">
+                Facturas: {{ auditCounts.pago_menos.value }} ({{ auditCounts.pago_menos.percentage }}%)
             </div>
 
-            <div class="text-left">
-              <span class="font-bold text-lg">Pagos de menos</span>
-            </div>
-          </div>
-           <span class="text-2xl font-bold">
-            {{ auditCounts.pago_menos.value }} / {{ auditTotalCount.total }} ({{ auditCounts.pago_menos.percentage }}%)
-        </span>
+        </div>
         </button>
 
         <!-- Botón Pago de mas -->
@@ -283,9 +299,18 @@
               <span class="font-bold text-lg">Pagos de más</span>
             </div>
           </div>
-          <span class="text-2xl font-bold">
-            {{ auditCounts.pago_mas.value }} / {{ auditTotalCount.total }} ({{ auditCounts.pago_mas.percentage }}%)
-        </span>
+          <div class="flex flex-col items-end">
+
+            <span class="text-xl font-bold">
+                + {{ Math.abs(auditCounts.pago_mas.delta_sum) | currency  }}
+                <span class="text-lg font-semibold">MXN</span>
+            </span>
+
+            <div class="px-2 py-1 rounded bg-gray-300 text-blue-800 text-s font-medium mt-1">
+                Facturas: {{ auditCounts.pago_mas.value }} ({{ auditCounts.pago_mas.percentage }}%)
+            </div>
+
+          </div>
         </button>
 
         <!-- Botón No facturado -->
@@ -311,8 +336,48 @@
               <span class="font-bold text-lg">No facturados</span>
             </div>
           </div>
+           <div class="flex flex-col items-end">
+
+            <span class="text-xl font-bold">
+                +/- {{ Math.abs(auditCounts.no_facturados.delta_sum) | currency }}
+                <span class="text-lg font-semibold">MXN</span>
+            </span>
+
+            <div class="px-2 py-1 rounded bg-gray-300 text-blue-800 text-s font-medium mt-1">
+                Facturas: {{ auditCounts.no_facturados.value }} ({{ auditCounts.no_facturados.percentage }}%)
+            </div>
+
+          </div>
+        </button>
+
+        <!-- Botón Totales -->
+        <button class="btn-operation bg-white"
+        @click="fetchOperacionesBotonesContadores(null)"
+        >
+          <div class="flex items-center">
+            <div
+              class="w-12 h-12 mr-4 bg-blue-900 rounded flex text-white items-center justify-center"
+            >
+
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  fill-rule="evenodd"
+                  d="M9 8h6m-6 4h6m-6 4h6M6 3v18l2-2 2 2 2-2 2 2 2-2 2 2V3l-2 2-2-2-2 2-2-2-2 2-2-2Z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </div>
+
+            <div class="text-left">
+              <span class="font-bold text-lg">Total de auditorias</span>
+            </div>
+          </div>
            <span class="text-2xl font-bold">
-            {{ auditCounts.no_facturados.value }} / {{ auditTotalCount.total }} ({{ auditCounts.no_facturados.percentage }}%)
+            {{ auditTotalCount.total }}
         </span>
         </button>
       </div>
@@ -323,6 +388,7 @@
         :selected-sucursal="selectedSucursal"
         :clientes="clientes"
         @apply-filters="handleFilters"
+        :initial-filters="activeFilters"
       />
       <div v-if="isLoading" class="text-center text-gray-500 mt-10">
         <p>Cargando operaciones...</p>
@@ -390,12 +456,14 @@ export default {
       operaciones: [], // Aquí guardaremos la lista que viene en la llave "data" del JSON
       pagination: {}, // Aquí guardaremos el resto de la info (links, total, etc.)
       clientes: [],
-      isLoading: true, // Un "extra" para mostrar un mensaje de "Cargando..."
+      isLoading: false, // Un "extra" para mostrar un mensaje de "Cargando..."
       isModalVisible: false, // VARIABLE DE VISIBILIDAD - Modal
       modalAuditData: null, // VARIABLE PARA DATOS - Modal
       isImportModalVisible: false, // VARIABLE PARA VISIBILIDAD DE IMPORTACION - Modal
       // 3. Guardaremos el estado de los filtros aquí
       activeFilters: {},
+      //Cambio por Filtro botones
+      buttonStatusFilter: null, // NUEVA VARIABLE: null = inactivo, 'string' = activo, Su uso es para guardar el estado de los botones filtro, y decide si se utiliza el estado del boton o si se utiliza el estado de filterBar
     };
   },
   computed: {
@@ -417,30 +485,50 @@ export default {
         return {};
       }
 
-      const result = {
-        ...this.activeFilters,
-        sucursal_id: this.selectedSucursal.id,
-        operation_type: this.selectedOperationType,
-      };
+      // 1. Construye los filtros base con lo que venga del FilterBar
+        const baseFilters = {
+            ...this.activeFilters,
+            sucursal_id: this.selectedSucursal.id,
+            operation_type: this.selectedOperationType,
+        };
 
-      console.log("Resultado final de finalFilters:", JSON.parse(JSON.stringify(result)));
+        // 2. ¡LÓGICA CLAVE! Si hay un filtro de botón activo, este SOBREESCRIBE el estado.
+        if (this.buttonStatusFilter) {  //Cambio por Filtro botones
+            baseFilters.estado = this.buttonStatusFilter;
+        }
+
+      console.log("Resultado final de finalFilters:", JSON.parse(JSON.stringify(baseFilters)));
       console.log("--------------------------------------");
 
-      return result;
+      return baseFilters;
     },
   },
   // ...
   async mounted() {
     try {
-      this.isLoading = true;
+
+      // Obtenemos las sucursales
       const response = await axios.get("/auditoria/sucursales");
       this.sucursales = response.data;
 
+      // Leemos TODOS los parámetros de la URL y los convertimos a un objeto
       const urlParams = new URLSearchParams(window.location.search);
-      const sucursalId = urlParams.get("sucursal_id");
-      const operationType = urlParams.get("operation_type");
+      const filtersFromUrl = Object.fromEntries(urlParams.entries());
 
-      if (sucursalId && operationType) {
+      // Si los parámetros esenciales existen, procedemos a restaurar el estado
+      if (filtersFromUrl.sucursal_id && filtersFromUrl.operation_type) {
+
+        // Activamos el "cargando" ANTES de hacer nada más.
+        this.isLoading = true;
+
+        // ESTABLECEMOS EL ESTADO DEL PADRE PRIMERO
+        // Esto llenará el prop que pasaremos a FilterBar
+        this.activeFilters = filtersFromUrl;
+
+        // Restauramos las selecciones principales (sucursal y tipo de operación)
+        const sucursalId = filtersFromUrl.sucursal_id;
+        const operationType = filtersFromUrl.operation_type;
+
         let foundSucursal =
           this.sucursales.find((s) => s.id == sucursalId) ||
           (sucursalId === "todos" ? { id: "todos", nombre: "Todas" } : null);
@@ -449,17 +537,27 @@ export default {
           this.selectedSucursal = foundSucursal;
 
           // Llamamos a la lógica centralizada.
-          // El 'false' evita que se actualice la URL dos veces.
-          this.selectOperationType(operationType);
+            this.selectedOperationType = operationType;
+
+            // Ahora que el estado está restaurado, ejecutamos las búsquedas
+            this.fetchOperationCounts(sucursalId);
+            this.fetchClientes();
+            this.fetchOperaciones(filtersFromUrl.page || 1);
+        } else {
+            // Si la sucursal de la URL no es válida, dejamos de cargar.
+            this.isLoading = false;
         }
       }
     } catch (error) {
       console.error("Error crítico durante el montaje:", error);
-    } finally {
       this.isLoading = false;
     }
   },
   methods: {
+    //Con el proposito de quitarle el (-) a el numero negativo
+    absoluteValue(number) {
+      return Math.abs(number);
+    },
     exportUrl() {
       // Tomamos los filtros activos y los convertimos a un query string
       const params = new URLSearchParams(this.finalFilters).toString();
@@ -495,7 +593,10 @@ export default {
     },
     selectSucursal(sucursal) {
       this.selectedSucursal = sucursal;
-      this.selectedOperationType = null; // Resetea la operación para forzar una nueva selección
+      //this.selectedOperationType = null; // Resetea la operación para forzar una nueva selección
+      if(this.selectedOperationType !== null){
+        this.selectOperationType(this.selectedOperationType);
+      }
       this.fetchOperationCounts(sucursal.id); // Llama al nuevo método para obtener los conteos de Importacion/Exportacion o Ambos.
     },
 
@@ -587,6 +688,11 @@ export default {
 
     // Este método recibe los filtros de FilterBar y los guarda
     handleFilters(filtersFromBar) {
+      // Cambio por Filtro botones
+      // Se vuelve nulo por default para reiniciar y volver a contemplar los filtros de FilterBar
+      this.buttonStatusFilter = null;
+
+      // Aplica los filtros que vienen del FilterBar
       this.activeFilters = filtersFromBar;
 
       // Actualizamos la URL con los nuevos filtros
@@ -670,14 +776,14 @@ export default {
         });
     },
 
-    //Metodo para conservar filtros despues de haber presionado un boton de filtros con conteo.
+    // Metodo para conservar filtros despues de haber presionado un boton de filtros con conteo.
+    //Cambio por Filtro botones
     fetchOperacionesBotonesContadores(estado) {
-        const oldEstado = this.finalFilters.estado;
-        this.finalFilters.estado = estado;
-        this.auditTotalCount.ocupoActualizarContadores = false;
-        this.fetchOperaciones();
-        //this.finalFilters.estado = oldEstado;
-        this.auditTotalCount.ocupoActualizarContadores = true;
+        // 1. Activa el modo de filtro por botón, guardando el estado deseado
+        this.buttonStatusFilter = estado;
+
+        // 2. Llama a la búsqueda principal (siempre a la página 1)
+        this.fetchOperaciones(1);
     }
 
   },
