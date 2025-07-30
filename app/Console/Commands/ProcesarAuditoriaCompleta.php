@@ -112,10 +112,10 @@ class ProcesarAuditoriaCompleta extends Command
             Log::info("--- [FIN] Procesamiento de Pagos de derecho."); */
 
             // 8. Llama a cada comando en secuencia, pasándole el ID de la tarea
-            gc_collect_cycles();
+            /* gc_collect_cycles();
             $this->info("--- [INICIO] Exportando auditorias facturadas a Excel para Tarea #{$tarea->id} ---");
             Log::info("Tarea #{$tarea->id}: Ejecutando comando de Exportacion de auditorias...");
-            $status = (new AuditoriaImpuestosController())->exportarAuditoriasFacturadasAExcel($tarea->id);  //Exportacion a Excel
+            $status = (new AuditoriaImpuestosController())->exportarAuditoriasFacturadasAExcel($tarea->id);  //Exportacion a Excel - Facturados
             if($status['code'] > 0) throw $status['message'];
 
             $this->info("--- [FIN] Exportacion de auditorias facturadas a Excel.");
@@ -125,11 +125,21 @@ class ProcesarAuditoriaCompleta extends Command
             gc_collect_cycles();
             $this->info("--- [INICIO] Exportando auditorias pendientes a Excel para Tarea #{$tarea->id} ---");
             Log::info("Tarea #{$tarea->id}: Ejecutando comando de Exportacion de auditorias...");
-            $status = (new AuditoriaImpuestosController())->exportarAuditoriasPendientesAExcel($tarea->id);  //Exportacion a Excel
+            $status = (new AuditoriaImpuestosController())->exportarAuditoriasPendientesAExcel($tarea->id);  //Exportacion a Excel - Pendientes
             if($status['code'] > 0) throw $status['message'];
 
             $this->info("--- [FIN] Exportacion de auditorias pendientes a Excel.");
-            Log::info("--- [FIN] Exportacion de auditorias pendientes a Excel.");
+            Log::info("--- [FIN] Exportacion de auditorias pendientes a Excel."); */
+
+            // 10. Llama a cada comando en secuencia, pasándole el ID de la tarea
+            gc_collect_cycles();
+            $this->info("--- [INICIO] Enviando correo de reportes a destinatario para Tarea #{$tarea->id} ---");
+            Log::info("Tarea #{$tarea->id}: Ejecutando comando de Envio de correo de reportes...");
+            $status = (new AuditoriaImpuestosController())->enviarReportesPorCorreo($tarea->id);  //Envio de correo
+            if($status['code'] > 0) throw $status['message'];
+
+            $this->info("--- [FIN] Enviando correo de reportes.");
+            Log::info("--- [FIN] Enviando correo de reportes.");
 
             //6. Si todos los comandos terminan bien, marca la tarea como completada
             $tarea->update(['status' => 'completado', 'resultado' => 'Proceso de auditoría finalizado con éxito.']);

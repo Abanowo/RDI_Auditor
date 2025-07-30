@@ -13,6 +13,7 @@ use App\Models\Empresas;
 use App\Models\Auditoria;
 use App\Models\AuditoriaTareas;
 use App\Models\AuditoriaTotalSC;
+use App\Mail\EnviarReportesAuditoriaMail;
 
 use Symfony\Component\Process\Process;
 use Symfony\Component\Process\Exception\ProcessFailedException;
@@ -26,6 +27,7 @@ use Illuminate\Support\Facades\Config; // Otra forma de acceder
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Database\Capsule\Manager;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -2233,6 +2235,38 @@ class AuditoriaImpuestosController extends Controller
         // Se reutiliza el metodo anterior, solo con la adicion de pasarle un parametro especificando
         // un simple cambio de query, en donde solo se tomaran los registros sin SC.
         $this->exportarAuditoriasFacturadasAExcel($tareaId, 'true');
+        return 0;
+    }
+
+
+    /**
+     * Envía los reportes de una tarea de auditoría por correo.
+     *
+     * @param int $id El ID de la AuditoriaTarea
+     * @param string $destinatario El correo electrónico del destinatario
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function enviarReportesPorCorreo(string $tareaId)
+    {
+        try {
+            $destinatario = "daniel.gomez@intactics.com";
+            // Buscamos la tarea en la base de datos. Si no la encuentra, falla.
+            $tarea = AuditoriaTareas::findOrFail($tareaId);
+
+            // Usamos la fachada Mail de Laravel para enviar el correo.
+            // Pasamos la instancia de la tarea a nuestro Mailable.
+            Mail::to($destinatario)->send(new EnviarReportesAuditoriaMail($tarea));
+
+            // Devolvemos una respuesta de éxito.
+            return 0;
+
+        } catch (\Exception $e) {
+            // Si algo sale mal (ej. el correo no es válido, el archivo no existe, etc.)
+            // registramos el error y devolvemos una respuesta de error.
+            Log::error('Fallo al enviar correo de reporte: ' . $e->getMessage());
+
+             return ['code' => 1, 'message' => new \Exception('No se pudo enviar el correo. Por favor, revisa los logs del sistema.')];
+        }
     }
 
 
