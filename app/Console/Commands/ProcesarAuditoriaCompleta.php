@@ -36,7 +36,7 @@ class ProcesarAuditoriaCompleta extends Command
             $status = null;
 
             // 1. Llama a cada comando en secuencia, pasándole el ID de la tarea
-            /* gc_collect_cycles();
+            gc_collect_cycles();
             $this->info("--- [INICIO] Procesando Impuestos (Fase 1) para Tarea #{$tarea->id} ---");
             Log::info("Tarea #{$tarea->ids}: Ejecutando comando de Impuestos...");
             $status = (new AuditoriaImpuestosController())->importarImpuestosEnAuditorias($tarea->id); //Impuestos Fase (1)
@@ -109,10 +109,10 @@ class ProcesarAuditoriaCompleta extends Command
             if($status['code'] > 0) throw $status['message'];
 
             $this->info("--- [FIN] Procesamiento de Pagos de derecho.");
-            Log::info("--- [FIN] Procesamiento de Pagos de derecho."); */
+            Log::info("--- [FIN] Procesamiento de Pagos de derecho.");
 
             // 8. Llama a cada comando en secuencia, pasándole el ID de la tarea
-            /* gc_collect_cycles();
+            gc_collect_cycles();
             $this->info("--- [INICIO] Exportando auditorias facturadas a Excel para Tarea #{$tarea->id} ---");
             Log::info("Tarea #{$tarea->id}: Ejecutando comando de Exportacion de auditorias...");
             $status = (new AuditoriaImpuestosController())->exportarAuditoriasFacturadasAExcel($tarea->id);  //Exportacion a Excel - Facturados
@@ -129,7 +129,7 @@ class ProcesarAuditoriaCompleta extends Command
             if($status['code'] > 0) throw $status['message'];
 
             $this->info("--- [FIN] Exportacion de auditorias pendientes a Excel.");
-            Log::info("--- [FIN] Exportacion de auditorias pendientes a Excel."); */
+            Log::info("--- [FIN] Exportacion de auditorias pendientes a Excel.");
 
             // 10. Llama a cada comando en secuencia, pasándole el ID de la tarea
             gc_collect_cycles();
