@@ -33,6 +33,8 @@ class CreateAuditoriasTareasTable extends Migration
             // Columnas adicionales para gestionar el estado de la tarea
             $table->string('status')->default('pendiente')->comment('pendiente, procesando, completado, fallido');
             $table->text('resultado')->nullable()->comment('Guarda mensajes de éxito o error del proceso');
+            $table->integer('periodo_meses')->unsigned()->nullable();
+            $table->date('fecha_documento')->nullable();
 
             //Rutas de los reportes
             $table->text('mapeo_completo_facturas')->nullable()->comment('Ruta del mapeo de todos los archivos de factura Importacion/Exportacion');

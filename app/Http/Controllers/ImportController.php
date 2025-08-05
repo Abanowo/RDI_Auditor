@@ -41,6 +41,7 @@ class ImportController extends Controller
             [
             'banco'                 => $datosValidados['banco'],
             'sucursal'              => $datosValidados['sucursal'],
+            'periodo_meses'         => '4',
             'nombre_archivo'        => $nombreArchivo,
             'ruta_estado_de_cuenta' => $rutaPrincipal,
             'rutas_extras'          => json_encode($rutasExtras),

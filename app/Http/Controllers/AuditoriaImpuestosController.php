@@ -682,6 +682,7 @@ class AuditoriaImpuestosController extends Controller
 
         // 2. Usa los datos del registro de la tarea
         $rutaPdf = storage_path('app/' . $tarea->ruta_estado_de_cuenta);
+        $periodoMeses = $tarea->periodo_meses;
         $banco = $tarea->banco;
         $sucursal = $tarea->sucursal;
 
@@ -789,23 +790,30 @@ class AuditoriaImpuestosController extends Controller
                 // Convertimos el array de datos crudos en una Colección de Laravel.
                 $coleccionDeFilas = collect($tablaDeDatos);
 
+                $fechas = array_map(function ($fila) {
+                    return \Carbon\Carbon::parse($fila['fecha_str']);
+                }, $tablaDeDatos);
+
+                $fecha_fin = collect($fechas)->max()->addDays(1)->format('Y-m-d');
+                $fecha_inicio = \Carbon\Carbon::parse($fecha_fin)->subMonths($periodoMeses)->format('Y-m-d');
+                $tarea->update(['fecha_documento' => $fecha_fin]);
                 // Desarrollar logica de obtener la fecha minima y la fecha maxima de los pedimentos encontrados en el estado
 
 
                 Log::info("PDF: Se encontraron {$coleccionDeFilas->count()} filas con pedimentos en el estado de cuenta.");
 
-                // 3. Usamos filter() para limpiar la colección.
+                // Usamos filter() para limpiar la colección.
                 $operacionesLimpias = $coleccionDeFilas->filter(); // El método filter() elimina todos los resultados 'null'.
 
             } else { // --- Inicio para cuando el estado de cuenta es "EXTERNO"
 
-                // 1. Crear una instancia de nuestro importador
+                // Crear una instancia de nuestro importador
                 $import = new LecturaEstadoCuentaExcel();
 
-                // 2. Importar el archivo usando la clase
+                // Importar el archivo usando la clase
                 Excel::import($import,  $rutaPdf);
 
-                // 3. Obtener la colección ya procesada y filtrada desde nuestro importador
+                // Obtener la colección ya procesada y filtrada desde nuestro importador
                 $operacionesLimpias = $import->getProcessedData();
 
                 // ¡Listo! $coleccionDeFilas ya contiene los datos como los necesitas.
@@ -847,6 +855,7 @@ class AuditoriaImpuestosController extends Controller
                 // 3. Hacemos UNA SOLA consulta a operaciones_importacion usando los IDs que encontramos
                 //    y creamos nuestro mapa final: num_pedimento => id_importacion
                 $mapaPedimentoAImportacionId = Importacion::where('operaciones_importacion.patente', $patenteSucursal)
+                    ->whereBetween('operaciones_importacion.created_at', [$fecha_inicio, $fecha_fin])
                     ->whereIn('operaciones_importacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
                     ->orderBy('operaciones_importacion.created_at', 'desc')
                     ->get()
@@ -856,9 +865,8 @@ class AuditoriaImpuestosController extends Controller
 
                 $pu = memory_get_usage();
                 $mapaPedimentoAExportacionId = Exportacion::where('operaciones_exportacion.patente', $patenteSucursal)
+                    ->whereBetween('operaciones_exportacion.created_at', [$fecha_inicio, $fecha_fin])
                     ->whereIn('operaciones_exportacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
-                   /*  ->join('pedimiento', 'operaciones_exportacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
-                    ->select('operaciones_exportacion.id_exportacion', 'pedimiento.num_pedimiento') */
                     ->orderBy('operaciones_exportacion.created_at', 'desc')
                     ->get()
                     ->keyBy('id_pedimiento');
@@ -868,6 +876,7 @@ class AuditoriaImpuestosController extends Controller
                 $pu = memory_get_usage();
                 // 3. Obtenemos todas las SC de una vez para la comparación de montos
                 $auditoriasSC = AuditoriaTotalSC::query()
+                    ->whereBetween('fecha_documento', [$fecha_inicio, $fecha_fin])
                     ->whereIn('operacion_id', $mapaPedimentoAImportacionId->keys())
                     ->orWhereIn('operacion_id', $mapaPedimentoAExportacionId->keys())
                     ->orWhereIn('pedimento_id', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
@@ -918,7 +927,7 @@ class AuditoriaImpuestosController extends Controller
                     }
 
                     if (!$operacionId) { // Si no esta ni en Importacion o en Exportacion, que lo guarde por pedimento_id
-                        $tipoOperacion = "N/A";
+                        $tipoOperacion = Pedimento::class;
                     }
 
                     if (!$operacionId && !$pedimentoId) {
@@ -940,7 +949,7 @@ class AuditoriaImpuestosController extends Controller
                     // Aca hago una excepcion, y es que aqui en vez de ponerse -1 como valor Default al ser una "Sin SC!"
                     // le pongo el monto de Impuesto completo, y esto es con el objetivo de mostrar toda la cantidad NO facturada
                     // la cual creo que seria de utilidad conocerla
-                    $diferenciaSc = ($estado !== "Sin SC!") ? $montoSCMXN - $montoImpuestoMXN : $montoImpuestoMXN;
+                    $diferenciaSc = ($estado !== "Sin SC!" || $estado !== "Sin operacion!") ? $montoSCMXN - $montoImpuestoMXN : $montoImpuestoMXN;
 
                     // Devolvemos el array completo, AHORA con el `operacion_id` correcto.
                     return
@@ -1041,6 +1050,10 @@ class AuditoriaImpuestosController extends Controller
         Log::info("--- [INICIO] Mapeo de facturas para Tarea #{$tarea->id} ---");
 
         try {
+            $fecha_fin = $tarea->fecha_documento;
+            $periodoMeses = $tarea->periodo_meses;
+            $fecha_inicio = \Carbon\Carbon::parse($fecha_fin)->subMonths($periodoMeses)->format('Y-m-d');
+
             $sucursal = $tarea->sucursal;
             $pedimentosJson = $tarea->pedimentos_procesados;
             $pedimentos = $pedimentosJson ? json_decode($pedimentosJson, true) : [];
@@ -1090,8 +1103,9 @@ class AuditoriaImpuestosController extends Controller
             // PROCESAR IMPORTACIONES
             $mapaPedimentoAImportacionId = Importacion::query()
                 ->selectRaw('id_pedimiento, MAX(id_importacion) as id_importacion')
-                ->whereIn('operaciones_importacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
+                ->whereBetween('operaciones_importacion.created_at', [$fecha_inicio, $fecha_fin])
                 ->where('operaciones_importacion.patente', $patenteSucursal)
+                ->whereIn('operaciones_importacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
                 ->orderBy('operaciones_importacion.created_at', 'desc')
                 ->groupBy('id_pedimiento')
                 ->get()
@@ -1112,8 +1126,9 @@ class AuditoriaImpuestosController extends Controller
             // PROCESAR EXPORTACIONES
             $mapaPedimentoAExportacionId = Exportacion::query()
                 ->selectRaw('id_pedimiento, MAX(id_exportacion) as id_exportacion')
-                ->whereIn('operaciones_exportacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
+                ->whereBetween('operaciones_exportacion.created_at', [$fecha_inicio, $fecha_fin])
                 ->where('operaciones_exportacion.patente', $patenteSucursal)
+                ->whereIn('operaciones_exportacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
                 ->orderBy('operaciones_exportacion.created_at', 'desc')
                 ->groupBy('id_pedimiento')
                 ->get()
@@ -1624,11 +1639,11 @@ class AuditoriaImpuestosController extends Controller
                 }
 
                 if (!$operacionId) { //Si no esta ni en Importacion o en Exportacion, que lo guarde por pedimento_id
-                    $tipoOperacion = "N/A";
+                    $tipoOperacion =  Pedimento::class;
                 }
 
-                if (!$operacionId && !$pedimentoId) {
-                    Log::warning("Se omitió la SC del pedimento '{$pedimento}' porque no se encontró una operación de importación asociada.");
+                if (!$operacionId) {
+                    Log::warning("Se omitió la SC del pedimento '{$pedimentoLimpio}' porque no se encontró una operación de importación asociada.");
                     //$bar->advance();
                     continue; // Si no hay operación, no podemos guardar la SC
                 }
@@ -1664,7 +1679,7 @@ class AuditoriaImpuestosController extends Controller
                 $montoFleteMXN = (($datosFlete['moneda'] == "USD" && $datosFlete['total'] != -1) && $datosSC['tipo_cambio'] != -1) ? round($datosFlete['total'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosFlete['total'];
                 $montoSCMXN = $datosSC['monto_flete_sc_mxn'];
                 $estado = $this->compararMontos_Fletes($montoSCMXN, $montoFleteMXN);
-                $diferenciaSc = ($estado !== "Sin SC!") ? $montoSCMXN - $montoFleteMXN : $montoFleteMXN;
+                $diferenciaSc = ($estado !== "Sin SC!" || $estado !== "Sin operacion!") ? $montoSCMXN - $montoFleteMXN : $montoFleteMXN;
                 // Añadimos el resultado al array para el upsert masivo
                 $fletesParaGuardar[] =
                 [
@@ -1828,11 +1843,11 @@ class AuditoriaImpuestosController extends Controller
                 }
 
                 if (!$operacionId) { // Si no esta ni en Importacion o en Exportacion, que lo guarde por pedimento_id
-                    $tipoOperacion = "N/A";
+                    $tipoOperacion = Pedimento::class;
                 }
 
-                if (!$operacionId && !$pedimentoId) {
-                    Log::warning("Se omitió la SC del pedimento '{$pedimento}' porque no se encontró una operación de importación asociada.");
+                if (!$operacionId) {
+                    Log::warning("Se omitió la SC del pedimento '{$pedimentoLimpio}' porque no se encontró una operación de importación asociada.");
                     //$bar->advance();
                     continue; // Si no hay operación, no podemos guardar la SC
                 }
@@ -1860,7 +1875,7 @@ class AuditoriaImpuestosController extends Controller
                 $montoSCMXN = $datosSC['monto_llc_sc_mxn'];
                 // --- FASE 4: Comparar y Preparar Datos ---
                 $estado = $this->compararMontos_LLC($montoSCMXN, $montoLLCMXN);
-                $diferenciaSc = ($estado !== "Sin SC!") ? $montoSCMXN - $montoLLCMXN : $montoLLCMXN;
+                $diferenciaSc = ($estado !== "Sin SC!"|| $estado !== "Sin operacion!") ? $montoSCMXN - $montoLLCMXN : $montoLLCMXN;
                 $llcsParaGuardar[] =
                 [
                     'operacion_id'          => $operacionId['id_operacion'],
@@ -1990,11 +2005,11 @@ class AuditoriaImpuestosController extends Controller
                 }
 
                 if (!$operacionId) { // Si no esta ni en Importacion o en Exportacion, que lo guarde por pedimento_id
-                    $tipoOperacion = "N/A";
+                    $tipoOperacion = Pedimento::class;
                 }
 
-                if (!$operacionId && !$pedimentoId) {
-                    Log::warning("Se omitió la SC del pedimento '{$pedimento}' porque no se encontró una operación de importación asociada.");
+                if (!$operacionId) {
+                    Log::warning("Se omitió la SC del pedimento '{$pedimentoLimpio}' porque no se encontró una operación de importación asociada.");
                     //$bar->advance();
                     continue; // Si no hay operación, no podemos guardar la SC
                 }
@@ -2855,13 +2870,14 @@ class AuditoriaImpuestosController extends Controller
 
 
     // Se encarga de hacer la comparativa de montos
-    private function compararMontos(float $esperado, float $real, string $tipoOperacion): string
+    private function compararMontos(float $esperado, float $real, $tipoOperacion): string
     {
-        if($esperado == -1){
+        if(strpos(strtolower($tipoOperacion), 'pedimento')) {return "Sin operacion!"; }
+        if($esperado == -1) {
              return strpos(strtolower($tipoOperacion), 'importacion') ? 'IMPO' : 'EXPO';
         }
-        if($esperado == -1.1){ return 'Sin SC!'; }
-        if($real == -1){ return 'Sin Impuesto!'; } //Este IF es practicamente imposible, pero lo pongo para seguir el formato.
+        if($esperado == -1.1) { return 'Sin SC!'; }
+        if($real == -1) { return 'Sin Impuesto!'; } //Este IF es practicamente imposible, pero lo pongo para seguir el formato.
         // Usamos una pequeña tolerancia (epsilon) para comparar números flotantes
         // y evitar problemas de precisión.
         if (abs($esperado - $real) < 0.001) { return 'Coinciden!'; }

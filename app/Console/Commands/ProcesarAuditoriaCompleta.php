@@ -145,7 +145,7 @@ class ProcesarAuditoriaCompleta extends Command
             $tarea->update(['status' => 'completado', 'resultado' => 'Proceso de auditoría finalizado con éxito.']);
             $this->info("¡Orquestación de la Tarea #{$tarea->id} completada con éxito!");
             $tarea->refresh();
-            //Storage::delete($tarea->mapeo_completo_facturas);
+            Storage::delete($tarea->mapeo_completo_facturas);
 
         } catch (\Exception $e) {
             // Si algún comando falla, la excepción lanzada será capturada aquí.
@@ -156,7 +156,7 @@ class ProcesarAuditoriaCompleta extends Command
             gc_collect_cycles();
             // Opcional: puedes añadir un resultado más específico del orquestador si lo deseas.
             $tarea->refresh()->update(['resultado' => 'La orquestación se detuvo debido a un fallo en un subproceso. ' . $e->getMessage()]);
-            //Storage::delete($tarea->mapeo_completo_facturas);
+            Storage::delete($tarea->mapeo_completo_facturas);
         }
 
         return 0;

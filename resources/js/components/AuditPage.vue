@@ -236,7 +236,7 @@
           <div class="flex flex-col items-end">
 
             <span class="text-xl font-bold">
-                {{ Math.abs(auditCounts.balanceados.delta_sum) | currency  }}
+                {{ Math.abs(auditCounts.balanceados.delta_sum ? auditCounts.balanceados.delta_sum : 0) | currency  }}
                 <span class="text-lg font-semibold">MXN</span>
             </span>
 
@@ -265,7 +265,7 @@
         <div class="flex flex-col items-end">
 
             <span class="text-xl font-bold">
-               - {{ Math.abs(auditCounts.pago_menos.delta_sum) | currency  }}
+               - {{ Math.abs(auditCounts.pago_menos.delta_sum ? auditCounts.pago_menos.delta_sum : 0) | currency  }}
                 <span class="text-lg font-semibold">MXN</span>
             </span>
 
@@ -302,7 +302,7 @@
           <div class="flex flex-col items-end">
 
             <span class="text-xl font-bold">
-                + {{ Math.abs(auditCounts.pago_mas.delta_sum) | currency  }}
+                + {{ Math.abs(auditCounts.pago_mas.delta_sum ? auditCounts.pago_mas.delta_sum : 0) | currency  }}
                 <span class="text-lg font-semibold">MXN</span>
             </span>
 
@@ -339,7 +339,7 @@
            <div class="flex flex-col items-end">
 
             <span class="text-xl font-bold">
-                +/- {{ Math.abs(auditCounts.no_facturados.delta_sum) | currency }}
+                +/- {{ Math.abs(auditCounts.no_facturados.delta_sum ? auditCounts.no_facturados.delta_sum : 0) | currency }}
                 <span class="text-lg font-semibold">MXN</span>
             </span>
 

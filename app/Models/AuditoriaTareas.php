@@ -31,5 +31,7 @@ class AuditoriaTareas extends Model
         'nombre_reporte_pendientes',
         'status',
         'resultado',
+        'fecha_documento',
+        'periodo_meses'
     ];
 }

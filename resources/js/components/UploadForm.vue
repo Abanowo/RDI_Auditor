@@ -74,7 +74,7 @@
         <select
           id="sucursal"
           v-model="selectedSucursal"
-          class="mt-1 block w-full pl-3 pr-10 py-2 text-base focus:outline-none focus:ring-2 focus:ring-theme-primary sm:text-sm rounded-md transition-all duration-300"
+          class="mt-1 block w-full border-2 border-gray-300 pl-3 pr-10 py-2 text-base focus:outline-none focus:ring-2  sm:text-sm rounded-md transition-all duration-300"
           :class="selectedSucursal ? 'border-green-500 border-2' : 'border-gray-300'"
         >
           <option value="" disabled>Selecciona una sucursal</option>
@@ -93,7 +93,7 @@
         <select
           id="bank"
           v-model="selectedBank"
-          class="mt-1 block w-full pl-3 pr-10 py-2 text-base focus:outline-none focus:ring-2 focus:ring-theme-primary sm:text-sm rounded-md transition-all duration-300"
+          class="mt-1 block w-full border-2 border-gray-300 pl-3 pr-10 py-2 text-base focus:outline-none focus:ring-2 sm:text-sm rounded-md transition-all duration-300"
           :class="selectedBank ? 'border-green-500 border-2' : 'border-gray-300'"
         >
           <option value="" disabled>Selecciona un banco</option>

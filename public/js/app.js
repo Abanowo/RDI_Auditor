@@ -74781,7 +74781,11 @@ var render = function () {
                           "\n              " +
                             _vm._s(
                               _vm._f("currency")(
-                                Math.abs(_vm.auditCounts.balanceados.delta_sum)
+                                Math.abs(
+                                  _vm.auditCounts.balanceados.delta_sum
+                                    ? _vm.auditCounts.balanceados.delta_sum
+                                    : 0
+                                )
                               )
                             ) +
                             "\n              "
@@ -74866,7 +74870,11 @@ var render = function () {
                           "\n             - " +
                             _vm._s(
                               _vm._f("currency")(
-                                Math.abs(_vm.auditCounts.pago_menos.delta_sum)
+                                Math.abs(
+                                  _vm.auditCounts.pago_menos.delta_sum
+                                    ? _vm.auditCounts.pago_menos.delta_sum
+                                    : 0
+                                )
                               )
                             ) +
                             "\n              "
@@ -74951,7 +74959,11 @@ var render = function () {
                           "\n              + " +
                             _vm._s(
                               _vm._f("currency")(
-                                Math.abs(_vm.auditCounts.pago_mas.delta_sum)
+                                Math.abs(
+                                  _vm.auditCounts.pago_mas.delta_sum
+                                    ? _vm.auditCounts.pago_mas.delta_sum
+                                    : 0
+                                )
                               )
                             ) +
                             "\n              "
@@ -75038,6 +75050,8 @@ var render = function () {
                               _vm._f("currency")(
                                 Math.abs(
                                   _vm.auditCounts.no_facturados.delta_sum
+                                    ? _vm.auditCounts.no_facturados.delta_sum
+                                    : 0
                                 )
                               )
                             ) +
@@ -76517,7 +76531,7 @@ var render = function () {
                 },
               ],
               staticClass:
-                "mt-1 block w-full pl-3 pr-10 py-2 text-base focus:outline-none focus:ring-2 focus:ring-theme-primary sm:text-sm rounded-md transition-all duration-300",
+                "mt-1 block w-full border-2 border-gray-300 pl-3 pr-10 py-2 text-base focus:outline-none focus:ring-2  sm:text-sm rounded-md transition-all duration-300",
               class: _vm.selectedSucursal
                 ? "border-green-500 border-2"
                 : "border-gray-300",
@@ -76581,7 +76595,7 @@ var render = function () {
                 },
               ],
               staticClass:
-                "mt-1 block w-full pl-3 pr-10 py-2 text-base focus:outline-none focus:ring-2 focus:ring-theme-primary sm:text-sm rounded-md transition-all duration-300",
+                "mt-1 block w-full border-2 border-gray-300 pl-3 pr-10 py-2 text-base focus:outline-none focus:ring-2 sm:text-sm rounded-md transition-all duration-300",
               class: _vm.selectedBank
                 ? "border-green-500 border-2"
                 : "border-gray-300",
