@@ -6030,7 +6030,7 @@ __webpack_require__.r(__webpack_exports__);
     cardBgClass: function cardBgClass() {
       switch (this.cardOverallState) {
         case "rojo":
-          return "border-4 border-red-600 bg-white";
+          return "border-2 border-red-600 bg-white";
         default:
           return "bg-white";
       }

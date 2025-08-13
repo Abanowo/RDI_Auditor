@@ -24,11 +24,11 @@ class CreateAuditoriasTareasTable extends Migration
 
             //Rutas de archivos subidos
             $table->string('ruta_estado_de_cuenta');
-            $table->json('rutas_extras')->nullable();
+            $table->text('rutas_extras')->nullable();
 
             //Pedimentos utilizados para esta tarea
-            $table->json('pedimentos_procesados')->nullable();
-            $table->json('pedimentos_descartados')->nullable();
+            $table->text('pedimentos_procesados')->nullable();
+            $table->text('pedimentos_descartados')->nullable();
 
             // Columnas adicionales para gestionar el estado de la tarea
             $table->string('status')->default('pendiente')->comment('pendiente, procesando, completado, fallido');

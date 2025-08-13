@@ -26,7 +26,7 @@ class CreateAuditoriasTotalesScTable extends Migration
             $table->string('operation_type')->nullable()->comment('Aqui se pone el modelo Importacion/Exportacion');
             $table->string('folio')->nullable()->comment('Consistente con la tabla de auditorías');
             $table->date('fecha_documento')->nullable()->comment('Consistente con la tabla de auditorías');
-            $table->json('desglose_conceptos')->nullable()->comment('Guarda el desglose de montos de la factura SC');
+            $table->text('desglose_conceptos')->nullable()->comment('Guarda el desglose de montos de la factura SC');
 
             //Rutas
             $table->string('ruta_txt')->nullable();

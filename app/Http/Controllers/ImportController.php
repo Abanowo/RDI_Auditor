@@ -44,7 +44,7 @@ class ImportController extends Controller
             'periodo_meses'         => '4',
             'nombre_archivo'        => $nombreArchivo,
             'ruta_estado_de_cuenta' => $rutaPrincipal,
-            'rutas_extras'          => json_encode($rutasExtras),
+            'rutas_extras'          => $rutasExtras,
             'status'                => 'pendiente', // La tarea empieza como pendiente
             ]);
 
