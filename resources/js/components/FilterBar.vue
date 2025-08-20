@@ -300,8 +300,16 @@ export default {
       set(newValue) {
         // SET: Se activa cuando el usuario cambia la fecha en el picker.
         // Actualiza tus filtros y cambia el selector a 'Personalizado'.
-        this.filters.fecha_inicio = newValue.start;
-        this.filters.fecha_fin = newValue.end;
+        if (!newValue) {
+            // Si el usuario limpia el rango, también limpiamos los filtros
+            this.filters.fecha_inicio = this.baselineFilters.fecha_inicio;
+            this.filters.fecha_fin = this.baselineFilters.fecha_fin;
+            this.selectedPeriod = null; // o como prefieras manejarlo
+            return;
+        }
+
+        this.filters.fecha_inicio = newValue.start ?? '';
+        this.filters.fecha_fin = newValue.end ?? '';
         this.selectedPeriod = "custom";
       },
     },

@@ -389,7 +389,7 @@
         :clientes="clientes"
         @apply-filters="handleFilters"
         :initial-filters="activeFilters"
-      />
+        />
       <div v-if="isLoading" class="text-center text-gray-500 mt-10">
         <p>Cargando operaciones...</p>
       </div>
@@ -506,47 +506,31 @@ export default {
   // ...
   async mounted() {
     try {
+      this.isLoading = true;
 
-      // Obtenemos las sucursales
+      // 1. Obtenemos las sucursales primero, es un dato esencial
       const response = await axios.get("/auditoria/sucursales");
       this.sucursales = response.data;
 
-      // Leemos TODOS los parámetros de la URL y los convertimos a un objeto
-      const urlParams = new URLSearchParams(window.location.search);
-      const filtersFromUrl = Object.fromEntries(urlParams.entries());
+      // 2. Intentamos inicializar el estado a partir de la URL de forma separada
+      this.initializeStateFromUrl();
 
-      // Si los parámetros esenciales existen, procedemos a restaurar el estado
-      if (filtersFromUrl.sucursal_id && filtersFromUrl.operation_type) {
+      // 3. Verificamos qué se inicializó y actuamos en consecuencia
+      if (this.selectedSucursal) {
+        // Si hay sucursal, siempre cargamos los conteos de operación
+        this.fetchOperationCounts(this.selectedSucursal.id);
 
-        // Activamos el "cargando" ANTES de hacer nada más.
-        this.isLoading = true;
-
-        // ESTABLECEMOS EL ESTADO DEL PADRE PRIMERO
-        // Esto llenará el prop que pasaremos a FilterBar
-        this.activeFilters = filtersFromUrl;
-
-        // Restauramos las selecciones principales (sucursal y tipo de operación)
-        const sucursalId = filtersFromUrl.sucursal_id;
-        const operationType = filtersFromUrl.operation_type;
-
-        let foundSucursal =
-          this.sucursales.find((s) => s.id == sucursalId) ||
-          (sucursalId === "todos" ? { id: "todos", nombre: "Todas" } : null);
-
-        if (foundSucursal) {
-          this.selectedSucursal = foundSucursal;
-
-          // Llamamos a la lógica centralizada.
-            this.selectedOperationType = operationType;
-
-            // Ahora que el estado está restaurado, ejecutamos las búsquedas
-            this.fetchOperationCounts(sucursalId);
-            this.fetchClientes();
-            this.fetchOperaciones(filtersFromUrl.page || 1);
+        if (this.selectedOperationType) {
+          // Si también hay tipo de operación, cargamos todo lo demás
+          this.fetchClientes();
+          this.fetchOperaciones(this.activeFilters.page || 1);
         } else {
-            // Si la sucursal de la URL no es válida, dejamos de cargar.
-            this.isLoading = false;
+          // Si solo hay sucursal, dejamos de cargar y esperamos al usuario
+          this.isLoading = false;
         }
+      } else {
+        // Si no hay ni sucursal en la URL, no hacemos nada más
+        this.isLoading = false;
       }
     } catch (error) {
       console.error("Error crítico durante el montaje:", error);
@@ -554,6 +538,31 @@ export default {
     }
   },
   methods: {
+    /**
+     * MÉTODO MODIFICADO: Lee la URL y establece cualquier estado que encuentre.
+     */
+    initializeStateFromUrl() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const filtersFromUrl = Object.fromEntries(urlParams.entries());
+      this.activeFilters = filtersFromUrl; // Guardamos todos los filtros de la URL
+
+      // Intenta establecer la sucursal si existe el parámetro
+      const sucursalId = filtersFromUrl.sucursal_id;
+      if (sucursalId) {
+        const foundSucursal =
+          this.sucursales.find(s => String(s.id) === sucursalId) ||
+          (sucursalId === 'todos' ? { id: 'todos', nombre: 'Todas' } : null);
+        if (foundSucursal) {
+          this.selectedSucursal = foundSucursal;
+        }
+      }
+
+      // Intenta establecer el tipo de operación si existe el parámetro
+      const operationType = filtersFromUrl.operation_type;
+      if (operationType) {
+        this.selectedOperationType = operationType;
+      }
+    },
     //Con el proposito de quitarle el (-) a el numero negativo
     absoluteValue(number) {
       return Math.abs(number);
