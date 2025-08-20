@@ -154,6 +154,7 @@ class ProcesarAuditoriaCompleta extends Command
             $this->error("Falló la orquestación de la Tarea #{$tarea->id}: " . $e->getMessage());
             Log::error("Fallo en orquestación Tarea #{$tarea->id}: " . $e->getMessage());
             gc_collect_cycles();
+            (new AuditoriaImpuestosController())->enviarErrorDeReportePorCorreo($tarea, $e);
             // Opcional: puedes añadir un resultado más específico del orquestador si lo deseas.
             $tarea->refresh()->update(['resultado' => 'La orquestación se detuvo debido a un fallo en un subproceso. ' . $e->getMessage()]);
             Storage::delete($tarea->mapeo_completo_facturas);

@@ -14,7 +14,7 @@ use App\Models\Auditoria;
 use App\Models\AuditoriaTareas;
 use App\Models\AuditoriaTotalSC;
 use App\Mail\EnviarReportesAuditoriaMail;
-
+use App\Mail\EnviarFalloReporteAuditoriaMail;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 
@@ -578,78 +578,6 @@ class AuditoriaImpuestosController extends Controller
     }
 
 
-
-    //
-    //
-    /**
-     * Procesa un archivo PDF para extraer su contenido tabular usando smalot/pdfparser.
-     *
-     * @param string $rutaPdf La ruta completa al archivo PDF.
-     * @return array La tabla de datos extraída como un array de arrays.
-     */
-    /* function procesarPdfConPdfParser(string $rutaPdf): array
-    {
-        try {
-            $parser = new Parser();
-            $pdf = $parser->parseFile($rutaPdf);
-            $paginas = $pdf->getPages();
-            $filasAgrupadas = [];
-
-            // 1. Iterar sobre cada página del PDF
-            foreach ($paginas as $pagina) {
-                // Obtenemos todos los objetos de texto con sus coordenadas
-                $textos = $pagina->getTextArray();
-
-                // 2. Agrupar textos en filas por su coordenada Y
-                foreach ($textos as $key => $texto) {
-                    // En esta versión, las coordenadas vienen en un array diferente,
-                    // así que necesitamos obtenerlas por separado.
-                    $coordenadas = $pagina->getDetails()['Resources']['Font']['F1'][$key]['y'];
-                    $y = $coordenadas; // La coordenada Y ya viene como el valor que necesitamos
-
-                    // El resto de la lógica de agrupación y ordenamiento sigue igual...
-                    $claveFila = round($y / 5) * 5;
-
-                    // Creamos un objeto simple para mantener la estructura
-                    $filasAgrupadas[$claveFila][] = (object)[
-                        'texto' => $texto,
-                        'x' => $pagina->getDetails()['Resources']['Font']['F1'][$key]['x']
-                    ];
-                }
-            }
-
-            // 3. Ordenar las filas de arriba hacia abajo (las coordenadas Y más altas primero)
-            krsort($filasAgrupadas);
-
-            $tablaFinal = [];
-            foreach ($filasAgrupadas as $filaTextos) {
-
-                // 4. Ordenar las columnas de izquierda a derecha (por coordenada X)
-                usort($filaTextos, function ($a, $b) {
-                    return $a->x <=> $b->x;
-                });
-
-                // 5. Extraer el texto de cada celda
-                $filaLimpia = array_map(function ($obj) {
-                    return $obj->texto;
-                }, $filaTextos);
-
-                if (count(array_filter($filaLimpia)) > 0) {
-                    $tablaFinal[] = $filaLimpia;
-                }
-            }
-
-            return $tablaFinal;
-
-        } catch (\Exception $e) {
-            // Manejar cualquier error durante el parseo
-            Log::error("Error al procesar PDF con smalot/pdfparser: " . $e->getMessage());
-            return []; // Devolver un array vacío en caso de error
-        }
-    } */
-
-
-
     //--------------------------------------------------------------------------------------------------------------
     //----------------------------------- INICIO DE LOS COMMANDS - AuditoriaImpuestosController ---------------------------------
     //--------------------------------------------------------------------------------------------------------------
@@ -808,7 +736,7 @@ class AuditoriaImpuestosController extends Controller
             } else { // --- Inicio para cuando el estado de cuenta es "EXTERNO"
 
                 // Crear una instancia de nuestro importador
-                $import = new LecturaEstadoCuentaExcel();
+                $import = new LecturaEstadoCuentaExcel($tarea);
 
                 // Importar el archivo usando la clase
                 Excel::import($import,  $rutaPdf);
@@ -816,6 +744,13 @@ class AuditoriaImpuestosController extends Controller
                 // Obtener la colección ya procesada y filtrada desde nuestro importador
                 $operacionesLimpias = $import->getProcessedData();
 
+                $fechas = array_map(function ($fila) {
+                    return \Carbon\Carbon::parse($fila['fecha_str']);
+                }, $operacionesLimpias->toArray());
+
+                $fecha_fin = collect($fechas)->max()->addDays(1)->format('Y-m-d');
+                $fecha_inicio = \Carbon\Carbon::parse($fecha_fin)->subMonths($periodoMeses)->format('Y-m-d');
+                $tarea->update(['fecha_documento' => $fecha_fin]);
                 // ¡Listo! $coleccionDeFilas ya contiene los datos como los necesitas.
                 // Ahora puedes hacer lo que quieras con esta colección.
             }
@@ -823,7 +758,7 @@ class AuditoriaImpuestosController extends Controller
 
             if ($operacionesLimpias->isEmpty()) {
                 Log::info('No se encontraron operaciones válidas para procesar.');
-                return 0;
+                return ['code' => 0, 'message' => 'completado'];
             }
             $sucursalesDiccionario = [
             'NOG'     => 3711 , //NOGALES, NOG
@@ -949,7 +884,7 @@ class AuditoriaImpuestosController extends Controller
                     // Aca hago una excepcion, y es que aqui en vez de ponerse -1 como valor Default al ser una "Sin SC!"
                     // le pongo el monto de Impuesto completo, y esto es con el objetivo de mostrar toda la cantidad NO facturada
                     // la cual creo que seria de utilidad conocerla
-                    $diferenciaSc = ($estado !== "Sin SC!" || $estado !== "Sin operacion!") ? $montoSCMXN - $montoImpuestoMXN : $montoImpuestoMXN;
+                    $diferenciaSc = ($estado !== "Sin SC!" && $estado !== "Sin operacion!") ? round($montoSCMXN - $montoImpuestoMXN, 2) : $montoImpuestoMXN;
 
                     // Devolvemos el array completo, AHORA con el `operacion_id` correcto.
                     return
@@ -1011,13 +946,13 @@ class AuditoriaImpuestosController extends Controller
             // --- FIN DE LA NUEVA LÓGICA ---
 
             Log::info("Procesamiento de Impuestos para la Tarea #{$tareaId} finalizado.");
-            return 0;
+            return ['code' => 0, 'message' => 'completado'];
 
         } catch (ProcessFailedException $exception) {
             Log::error('Falló el script de Python: ' . $exception->getErrorOutput());
             return ['code' => 1, 'message' => new \Exception('Falló el script de Python: ' . $exception->getErrorOutput())];
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             // 5. Si algo falla, marca la tarea como 'fallido' y guarda el error
             $tarea->update(
                 [
@@ -1025,7 +960,7 @@ class AuditoriaImpuestosController extends Controller
                     'resultado' => $e->getMessage()
                 ]);
             Log::error("Falló la tarea #{$tarea->id}: " . $e->getMessage());
-            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage())];
+            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage() )];
         }
     }
 
@@ -1060,7 +995,7 @@ class AuditoriaImpuestosController extends Controller
 
             if (empty($pedimentos)) {
                 Log::info("Fletes: No hay pedimentos en la Tarea #{$tareaId} para procesar.");
-                return 0;
+                return ['code' => 0, 'message' => 'completado'];
             }
             Log::info("Procesando Facturas SC para Tarea #{$tarea->id} en la sucursal: {$sucursal}");
 
@@ -1267,12 +1202,12 @@ class AuditoriaImpuestosController extends Controller
             Log::info("Ruta del mapeo guardada en la Tarea #{$tarea->id}.");
 
             Log::info("--- [FIN] Mapeo de facturas completado con éxito. ---");
-            return 0;
+            return ['code' => 0, 'message' => 'completado'];
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error("Fallo en Tarea #{$tarea->id} [reporte:mapear-facturas]: " . $e->getMessage());
             $tarea->update(['status' => 'fallido', 'resultado' => 'Error al generar el mapeo de facturas.' . $e->getMessage() ]);
-            return ['code' => 1, 'message' => new \Exception("Fallo en Tarea #{$tarea->id} [reporte:mapear-facturas]: " . $e->getMessage())];
+            return ['code' => 1, 'message' => new \Exception("Fallo en Tarea #{$tarea->id} [reporte:mapear-facturas]: " . $e->getMessage() )];
         }
     }
 
@@ -1314,7 +1249,7 @@ class AuditoriaImpuestosController extends Controller
 
             if (empty($pedimentos)) {
                 Log::info("SC: No hay pedimentos en la Tarea #{$tareaId} para procesar.");
-                return 0;
+                return ['code' => 0, 'message' => 'completado'];
             }
             Log::info("Procesando Facturas SC para Tarea #{$tarea->id} en la sucursal: {$sucursal}");
             //$mapasPedimento - Contienen todos los pedimentos del estado de cuenta, encontrados en Importacion/Exportacion
@@ -1361,7 +1296,7 @@ class AuditoriaImpuestosController extends Controller
                 //Borramos el anterior
                 Storage::delete($rutaMapeo);
 
-                return 0;
+                return ['code' => 0, 'message' => 'completado'];
             }
             Log::info("Se encontraron " . count($indiceSC) . " facturas SC en los archivos.");
             // 4. PREPARAR DATOS PARA GUARDAR EN 'auditorias_totales_sc'
@@ -1374,7 +1309,7 @@ class AuditoriaImpuestosController extends Controller
             foreach ($indiceSC as $pedimento => $datosSC) {
 
                 // Buscamos el id_importacion en nuestro mapa
-                $pedimentoReal = $mapaPedimentoAId[$pedimento];
+                $pedimentoReal = $mapaPedimentoAId[$pedimento] ?? null;
                 $tipoOperacion = Importacion::class;
 
                 //Se verifica si la operacion ID esta en Importacion
@@ -1389,7 +1324,7 @@ class AuditoriaImpuestosController extends Controller
                     $tipoOperacion = "N/A";
                 }
 
-                if (!$operacionId && !$pedimentoId) {
+                if (!$operacionId) {
                     Log::warning("Se omitió la SC del pedimento '{$pedimento}' porque no se encontró una operación de importación asociada.");
                     //$bar->advance();
                     continue; // Si no hay operación, no podemos guardar la SC
@@ -1496,6 +1431,7 @@ class AuditoriaImpuestosController extends Controller
                 //Borramos el anterior
                 Storage::delete($rutaMapeo);
                 Log::info("SCs guardadas, actualizadas y registradas con exito!");
+                return ['code' => 0, 'message' => 'completado'];
             }
             else {
 
@@ -1531,14 +1467,14 @@ class AuditoriaImpuestosController extends Controller
             }
 
         }
-        catch (\Exception $e) {
+        catch (\Throwable $e) {
             $tarea->update(
                 [
                     'status' => 'fallido',
                     'resultado' => $e->getMessage()
                 ]);
             Log::error("Error al procesar SC para la Tarea #{$tareaId}: " . $e->getMessage());
-            return ['code' => 1, 'message' => new \Exception("Error al procesar SC para la Tarea #{$tareaId}: " . $e->getMessage())]; // Lanzamos la excepción para que el orquestador la atrape
+            return ['code' => 1, 'message' => new \Exception("Error al procesar SC para la Tarea #{$tareaId}: " . $e->getMessage() )]; // Lanzamos la excepción para que el orquestador la atrape
         }
     }
 
@@ -1575,7 +1511,7 @@ class AuditoriaImpuestosController extends Controller
 
             if (empty($pedimentos)) {
                 Log::info("Fletes: No hay pedimentos en la Tarea #{$tareaId} para procesar.");
-                return 0;
+                return ['code' => 0, 'message' => 'completado'];
             }
             Log::info("Procesando Facturas de Fletes para Tarea #{$tarea->id} en la sucursal: {$sucursal}");
 
@@ -1679,7 +1615,7 @@ class AuditoriaImpuestosController extends Controller
                 $montoFleteMXN = (($datosFlete['moneda'] == "USD" && $datosFlete['total'] != -1) && $datosSC['tipo_cambio'] != -1) ? round($datosFlete['total'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosFlete['total'];
                 $montoSCMXN = $datosSC['monto_flete_sc_mxn'];
                 $estado = $this->compararMontos_Fletes($montoSCMXN, $montoFleteMXN);
-                $diferenciaSc = ($estado !== "Sin SC!" || $estado !== "Sin operacion!") ? $montoSCMXN - $montoFleteMXN : $montoFleteMXN;
+                $diferenciaSc = ($estado !== "Sin SC!" && $estado !== "Sin operacion!") ? round($montoSCMXN - $montoFleteMXN, 2) : $montoFleteMXN;
                 // Añadimos el resultado al array para el upsert masivo
                 $fletesParaGuardar[] =
                 [
@@ -1729,17 +1665,16 @@ class AuditoriaImpuestosController extends Controller
             }
 
             Log::info("\nAuditoría de Fletes finalizada.");
-            return 0;
-        } catch (\Exception $e) {
+            return ['code' => 0, 'message' => 'completado'];
+        } catch (\Throwable $e) {
             // 5. Si algo falla, marca la tarea como 'fallido' y guarda el error
             $tarea->update(
                 [
                     'status' => 'fallido',
                     'resultado' => $e->getMessage()
                 ]);
-
             Log::error("Falló la tarea #{$tarea->id}: " . $e->getMessage());
-            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage())];
+            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage() )];
         }
     }
 
@@ -1776,7 +1711,7 @@ class AuditoriaImpuestosController extends Controller
 
             if (empty($pedimentos)) {
                 Log::info("LLC: No hay pedimentos en la Tarea #{$tareaId} para procesar.");
-                return 0;
+                return ['code' => 0, 'message' => 'completado'];
             }
             Log::info("Procesando Facturas de LLC para Tarea #{$tarea->id} en la sucursal: {$sucursal}");
 
@@ -1875,7 +1810,7 @@ class AuditoriaImpuestosController extends Controller
                 $montoSCMXN = $datosSC['monto_llc_sc_mxn'];
                 // --- FASE 4: Comparar y Preparar Datos ---
                 $estado = $this->compararMontos_LLC($montoSCMXN, $montoLLCMXN);
-                $diferenciaSc = ($estado !== "Sin SC!"|| $estado !== "Sin operacion!") ? $montoSCMXN - $montoLLCMXN : $montoLLCMXN;
+                $diferenciaSc = ($estado !== "Sin SC!" && $estado !== "Sin operacion!") ? round($montoSCMXN - $montoLLCMXN, 2) : $montoLLCMXN;
                 $llcsParaGuardar[] =
                 [
                     'operacion_id'          => $operacionId['id_operacion'],
@@ -1921,17 +1856,16 @@ class AuditoriaImpuestosController extends Controller
             }
 
             Log::info("\nAuditoría de LLC finalizada.");
-            return 0;
-        } catch (\Exception $e) {
+            return ['code' => 0, 'message' => 'completado'];
+        } catch (\Throwable $e) {
             // 5. Si algo falla, marca la tarea como 'fallido' y guarda el error
             $tarea->update(
                 [
                     'status' => 'fallido',
                     'resultado' => $e->getMessage()
                 ]);
-
             Log::error("Falló la tarea #{$tarea->id}: " . $e->getMessage());
-            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage())];
+            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage() )];
         }
     }
 
@@ -1967,7 +1901,7 @@ class AuditoriaImpuestosController extends Controller
 
             if (empty($pedimentos)) {
                 Log::info("Pagos de derecho: No hay pedimentos en la Tarea #{$tareaId} para procesar.");
-                return 0;
+                return ['code' => 0, 'message' => 'completado'];
             }
             Log::info("Procesando Facturas de Pagos de derecho para Tarea #{$tarea->id} en la sucursal: {$sucursal}");
 
@@ -2081,9 +2015,9 @@ class AuditoriaImpuestosController extends Controller
             }
 
             Log::info("\nAuditoría de Pagos de Derecho finalizada.");
-            return 0;
+            return ['code' => 0, 'message' => 'completado'];
         }
-        catch (\Exception $e) {
+        catch (\Throwable $e) {
             // 5. Si algo falla, marca la tarea como 'fallido' y guarda el error
             $tarea->update(
                 [
@@ -2091,7 +2025,7 @@ class AuditoriaImpuestosController extends Controller
                     'resultado' => $e->getMessage()
                 ]);
             Log::error("Falló la tarea #{$tarea->id}: " . $e->getMessage());
-            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage())];
+            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage() )];
         }
     }
 
@@ -2127,7 +2061,7 @@ class AuditoriaImpuestosController extends Controller
 
             if (empty($pedimentos)) {
                 Log::info("Exportacion: No hay pedimentos en la Tarea #{$tareaId} para procesar.");
-                return 0;
+                return ['code' => 0, 'message' => 'completado'];
             }
             Log::info("Procesando la Exportacion a Excel para Tarea #{$tarea->id} en la sucursal: {$sucursal}");
 
@@ -2226,8 +2160,8 @@ class AuditoriaImpuestosController extends Controller
             }
 
             Log::info("El reporte de impuestos para la tarea {$tareaId} se ha exportado exitosamente!");
-            return 0;
-       } catch (\Exception $e) {
+            return ['code' => 0, 'message' => 'completado'];
+       } catch (\Throwable $e) {
             // 5. Si algo falla, marca la tarea como 'fallido' y guarda el error
             $tarea->update(
                 [
@@ -2235,7 +2169,7 @@ class AuditoriaImpuestosController extends Controller
                     'resultado' => $e->getMessage()
                 ]);
             Log::error("Falló la tarea #{$tarea->id}: " . $e->getMessage());
-            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage())];
+            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage() )];
        }
 
     }
@@ -2249,8 +2183,25 @@ class AuditoriaImpuestosController extends Controller
         gc_collect_cycles();
         // Se reutiliza el metodo anterior, solo con la adicion de pasarle un parametro especificando
         // un simple cambio de query, en donde solo se tomaran los registros sin SC.
-        $this->exportarAuditoriasFacturadasAExcel($tareaId, 'true');
-        return 0;
+        try {
+            $this->exportarAuditoriasFacturadasAExcel($tareaId, 'true');
+            return ['code' => 0, 'message' => 'completado'];
+
+        } catch (\Throwable $e) {
+            // 5. Si algo falla, marca la tarea como 'fallido' y guarda el error
+            $tarea->update(
+                [
+                    'status' => 'fallido',
+                    'resultado' => $e->getMessage()
+                ]);
+
+            // 2. Llama a tu nueva función para notificar el error
+
+
+            Log::error("Falló la tarea #{$tarea->id}: " . $e->getMessage());
+            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage() )];
+        }
+
     }
 
 
@@ -2273,18 +2224,38 @@ class AuditoriaImpuestosController extends Controller
             Mail::to($destinatario)->send(new EnviarReportesAuditoriaMail($tarea));
 
             // Devolvemos una respuesta de éxito.
-            return 0;
+            return ['code' => 0, 'message' => 'completado'];
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             // Si algo sale mal (ej. el correo no es válido, el archivo no existe, etc.)
             // registramos el error y devolvemos una respuesta de error.
             Log::error('Fallo al enviar correo de reporte: ' . $e->getMessage());
-
              return ['code' => 1, 'message' => new \Exception('No se pudo enviar el correo. Por favor, revisa los logs del sistema.')];
         }
     }
 
+    /**
+     * Envía una notificación por correo cuando una tarea de auditoría falla.
+     *
+     * @param \App\Models\AuditoriaTareas $tarea La tarea que falló.
+     * @param \Throwable $exception La excepción que se capturó.
+     * @return void
+     */
+    public function enviarErrorDeReportePorCorreo(AuditoriaTareas $tarea, \Throwable $exception)
+    {
+        try {
+            $destinatario = "daniel.gomez@intactics.com"; // O config('app.admin_email')
 
+            // Usamos nuestro nuevo Mailable, pasándole la tarea y la excepción.
+            Mail::to($destinatario)->send(new EnviarFalloReporteAuditoriaMail($tarea, $exception));
+
+            Log::info("Correo de notificación de error enviado para la Tarea #{$tarea->id}.");
+
+        } catch (\Throwable $e) {
+            // Si incluso el envío del correo falla, solo lo registramos para no crear un bucle infinito.
+            Log::critical("¡FALLO CRÍTICO! No se pudo enviar el correo de notificación de error para la Tarea #{$tarea->id}: " . $e->getMessage() );
+        }
+    }
     //--------------------------------------------------------------------------------------------------------------
     //----------------------------------- FINAL DE LOS COMMANDS - AuditoriaImpuestosController ----------------------------------
     //--------------------------------------------------------------------------------------------------------------
@@ -2453,8 +2424,8 @@ class AuditoriaImpuestosController extends Controller
                 // Es una buena práctica eliminar la referencia al final del bucle.
                 unset($operacion);
                 // --- HASTA ACA TERMINA EL FOREACH
-            } catch (\Exception $e) {
-                Log::error("Ocurrió un error procesando la operacion ID ({$tipoOperacion}) {$operacionID['id_operacion']}: " . $e->getMessage());
+            } catch (\Throwable $e) {
+                Log::error("Ocurrió un error procesando la operacion ID ({$tipoOperacion}) {$operacionID['id_operacion']}: " . $e->getMessage() );
                 // Aseguramos que haya una entrada para este pedimento aunque falle, para evitar errores posteriores.
                 if (!isset($indiceFacturas[$pedimento])) {
                      $indiceFacturas[$pedimento] = ['error' => $e->getMessage()];
@@ -2507,7 +2478,7 @@ class AuditoriaImpuestosController extends Controller
                 }
                 try {   //Cuando la URL esta mal construida, lo que se hace es buscar por medio del get el txt
                     $contenido = file_get_contents($facturaSC['ruta_txt']);
-                } catch (\Exception $th) {
+                } catch (\Throwable $th) {
 
                     $operacionID = $datos['operacion_id'];
                     $url_txt = Http::withoutVerifying()->get("https://sistema.intactics.com/v3/operaciones/{$datos['tipo_operacion']}/{$operacionID}/get-files-txt-momentaneo");
@@ -2602,8 +2573,8 @@ class AuditoriaImpuestosController extends Controller
                 }
                 //$bar->advance();
             }
-        } catch (\Exception $e) {
-            Log::error("Error buscando archivo para pedimento {$pedimento}: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error("Error buscando archivo para pedimento {$pedimento}: " . $e->getMessage() );
 
         }
         return $indice;
@@ -2642,7 +2613,7 @@ class AuditoriaImpuestosController extends Controller
                     }
                     try {   //Cuando la URL esta mal construida, lo que se hace es buscar por medio del get el txt
                         $contenido = file_get_contents($facturaFlete['ruta_txt']);
-                    } catch (\Exception $th) {
+                    } catch (\Throwable $th) {
 
                         $operacionID = $datos['operacion_id'];
                         $url_txt = Http::withoutVerifying()->get("https://sistema.intactics.com/v3/operaciones/{$datos['tipo_operacion']}/{$operacionID}/get-files-txt-momentaneo");
@@ -2691,8 +2662,8 @@ class AuditoriaImpuestosController extends Controller
                 }
                 //$bar->advance();
             }
-        } catch (\Exception $e) {
-            Log::error("Error buscando archivo para pedimento {$pedimento}: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error("Error buscando archivo para pedimento {$pedimento}: " . $e->getMessage() );
         }
 
         return $indice;
@@ -2742,7 +2713,7 @@ class AuditoriaImpuestosController extends Controller
                             ],
                         ];
                         $contenido = file_get_contents($facturaLLC['ruta_txt'], false, stream_context_create($arrContextOptions));
-                    } catch (\Exception $th) {
+                    } catch (\Throwable $th) {
                         // En las LLC no se verificara si existe el archivo dentro del GET del files-txt-momentaneo
                         // debido a que no existe o no se presenta dentro del JSON. Por lo tanto, si no existe el url construido
                         // con anterioridad, simplemente continuara con el siguiente archivo.
@@ -2799,8 +2770,8 @@ class AuditoriaImpuestosController extends Controller
                 }
                 //$bar->advance();
             }
-        } catch (\Exception $e) {
-            Log::error("Error buscando archivo para pedimento {$pedimento}: " . $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error("Error buscando archivo para pedimento {$pedimento}: " . $e->getMessage() );
         }
 
         //$bar->finish();
@@ -2850,8 +2821,8 @@ class AuditoriaImpuestosController extends Controller
                 }
             }
 
-            catch (\Exception $e) {
-                Log::error("Error construyendo el índice de Pagos de Derecho: " . $e->getMessage());
+            catch (\Throwable $e) {
+                Log::error("Error construyendo el índice de Pagos de Derecho: " . $e->getMessage() );
             }
         //$bar->finish();
         return $indice;
@@ -2904,7 +2875,7 @@ class AuditoriaImpuestosController extends Controller
 
     /**
      * Compara dos montos y devuelve el estado de la auditoría.
-     * UTILIZADO EN [auditarFacturasDeFletes()]
+     * UTILIZADO EN [auditarFacturasDeLLC()]
      */
     private function compararMontos_LLC(float $esperado, float $real): string
     {
@@ -2947,8 +2918,8 @@ class AuditoriaImpuestosController extends Controller
                     'total'  => (float) $xml['Total'],
                     'moneda' => (string) $xml['Moneda'],
                 ];
-            } catch (\Exception $e) {
-                Log::error("Error al parsear el XML {$rutaXml}: " . $e->getMessage());
+            } catch (\Throwable $e) {
+                Log::error("Error al parsear el XML {$rutaXml}: " . $e->getMessage() );
                 return
                 [
                     'total'  => -1,
@@ -3168,10 +3139,15 @@ class AuditoriaImpuestosController extends Controller
             }
 
             // Lógica para determinar el 'tipo' (Normal, Medio, etc.) basado en el nombre del archivo
-            if(str_contains($rutaPdf, 'MEDIO')) { $datos['tipo'] = 'Medio Pago'; }
-            elseif(str_contains($rutaPdf, '-2')) { $datos['tipo'] = 'Segundo Pago'; }
-            elseif(str_contains($rutaPdf, 'INTACTICS')) { $datos['tipo'] = 'Intactics'; }
-            else { $datos['tipo'] = 'Normal'; }
+            if(str_contains($rutaPdf, 'MEDIO')) {
+                $datos['tipo'] = 'Medio Pago';
+            } elseif(str_contains($rutaPdf, '-2')) {
+                $datos['tipo'] = 'Segundo Pago';
+            } elseif(str_contains($rutaPdf, 'INTACTICS')) {
+                $datos['tipo'] = 'Intactics';
+            } else {
+                $datos['tipo'] = 'Normal';
+            }
 
             unset($config);
             unset($parser);
@@ -3182,8 +3158,8 @@ class AuditoriaImpuestosController extends Controller
             if ($datos['llave_pago']) return $datos;
             else return null;
 
-        } catch(\Exception $e) {
-            Log::error("Error al parsear el PDF: {$rutaPdf} - " . $e->getMessage());
+        } catch(\Throwable $e) {
+            Log::error("Error al parsear el PDF: {$rutaPdf} - " . $e->getMessage() );
             unset($config);
             unset($parser);
             unset($pdf);
@@ -3198,6 +3174,208 @@ class AuditoriaImpuestosController extends Controller
 
     //--------------------------------------------------------------------------------------------------------------
     //------------------------------ FINAL DE LOS METODOS AUXILIARES - AuditoriaImpuestosController -----------------------------
+    //--------------------------------------------------------------------------------------------------------------
+
+    //================================================================================================================================================================
+
+    //--------------------------------------------------------------------------------------------------------------
+    //------------------------------ INICIO DE LOS METODOS PRINCIPALES - DocumentoController -----------------------------
+    //--------------------------------------------------------------------------------------------------------------
+
+    /**
+     * Muestra un documento local (ej. impuestos) desde el storage.
+     */
+    public function mostrarDocumentoLocal(Request $request, string $tipo, int $id)
+    {
+        $factura = Auditoria::findOrFail($id);
+        $rutaAbsoluta = $factura->ruta_pdf;
+
+        // Verificamos que la ruta exista y que el archivo sea legible.
+        if (!$rutaAbsoluta || !is_file($rutaAbsoluta) || !is_readable($rutaAbsoluta)) {
+             abort(404, 'El archivo local no fue encontrado o no se puede leer.');
+        }
+
+        // ✅ PASO 1: Detectamos la extensión del archivo dinámicamente.
+        $extension = strtolower(pathinfo($rutaAbsoluta, PATHINFO_EXTENSION));
+
+        // PASO 2: Si la petición solo quiere información, devolvemos la extensión.
+        if ($request->has('info')) {
+            return response()->json(['tipo_archivo' => $extension]);
+        }
+
+        // PASO 3: Si no es una petición de info, servimos el archivo con el Content-Type correcto.
+        $contenido = file_get_contents($rutaAbsoluta);
+        $nombreArchivo = basename($rutaAbsoluta);
+
+        // Mapeo de extensiones a tipos MIME para las cabeceras HTTP.
+        $mimeTypes = [
+            'pdf'  => 'application/pdf',
+            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'xls'  => 'application/vnd.ms-excel',
+            // Puedes añadir más tipos de archivo aquí si es necesario
+        ];
+
+        // Usamos el tipo MIME correspondiente a la extensión, o un tipo genérico si no se encuentra.
+        $contentType = $mimeTypes[$extension] ?? 'application/octet-stream';
+
+        return response($contenido, 200, [
+            'Content-Type' => $contentType,
+            'Content-Disposition' => 'inline; filename="' . $nombreArchivo . '"',
+        ]);
+    }
+
+    /**
+     * Actúa como un proxy para obtener y servir un documento desde una URL externa.
+     * Esto resuelve los problemas de CORS.
+     */
+    public function proxyDocumentoExterno(Request $request)
+    {
+        // Validamos que nos hayan enviado una URL.
+        $request->validate(['url' => 'required|url']);
+        $urlExterna = $request->input('url');
+
+        if ($request->has('info')) {
+            // Como tu regla de negocio dice que todas las facturas externas son PDF,
+            // podemos responder directamente sin necesidad de descargar el archivo.
+            return response()->json(['tipo_archivo' => 'pdf']);
+        }
+        try {
+            // Hacemos la petición desde nuestro servidor a la URL externa.
+            $response = Http::withoutVerifying()->get($urlExterna);
+
+            if ($response->failed()) {
+                abort(502, 'No se pudo obtener el documento desde el servidor de origen.');
+            }
+
+            // Servimos el contenido del PDF al navegador con las cabeceras correctas.
+            return response($response->body(), 200, [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="' . basename($urlExterna) . '"',
+            ]);
+
+        } catch (\Throwable $e) {
+            abort(500, 'Ocurrió un error al procesar el documento externo.');
+        }
+    }
+
+    public function mostrarPdf(Request $request)
+    {
+        // 1. Validamos que nos lleguen los parámetros 'tipo' e 'id'
+        $request->validate(
+            [
+                'tipo' => 'required|string',
+                'id' => 'required|integer', // <-- Cambiamos 'id' por 'uuid' y validamos que sea un UUID
+            ]);
+
+        $tipo = $request->input('tipo');
+        $uuid = $request->input('id'); // <-- Usamos el uuid
+        $record = null;
+
+        // 2. Buscamos el registro por UUID en la tabla correcta
+        if ($tipo === 'sc') {
+            $record = AuditoriaTotalSC::where('id', $uuid)->first(); // <-- Buscamos por 'uuid'
+        } else {
+            $record = Auditoria::where('id', $uuid)->first(); // <-- Buscamos por 'uuid'
+        }
+
+        // Si no se encontró el registro en la BD, devolvemos error
+        if (!$record) { abort(404, 'Registro no encontrado en la base de datos.'); }
+
+        // 3. Obtenemos la ruta absoluta del PDF desde el registro
+        $rutaCompleta = $record->ruta_pdf;
+
+        // 4. Verificamos si el archivo existe en esa ruta (¡requiere permisos de red!)
+        if (!$rutaCompleta || !file_exists($rutaCompleta)) { abort(404, 'Documento no encontrado en la ubicación física.'); }
+
+        // 5. Si todo está bien, Laravel sirve el archivo al navegador
+        return response()->file($rutaCompleta);
+    }
+
+     /**
+     * Inicia la descarga de un reporte de auditoría asociado a una tarea.
+     *
+     * @param  \App\Models\AuditoriaTareas $tarea La tarea obtenida automáticamente por Laravel.
+     * @param  string $tipo El tipo de reporte ('facturado' o 'pendiente') que viene de la URL.
+     * @return \Symfony\Component\HttpFoundation\StreamedResponse|\Illuminate\Http\Response
+     */
+    public function descargarReporteAuditoria(AuditoriaTareas $tarea, string $tipo)
+    {
+        // 1. Inicializamos las variables que contendrán la ruta y el nombre del archivo.
+        $rutaGuardada = null;
+        $nombreDescarga = null;
+
+        // 2. Decidimos qué archivo servir basándonos en el parámetro $tipo de la URL.
+        if ($tipo === 'facturado') {
+            $rutaGuardada = $tarea->ruta_reporte_impuestos;
+            $nombreDescarga = $tarea->nombre_reporte_impuestos;
+        } elseif ($tipo === 'pendiente') {
+            $rutaGuardada = $tarea->ruta_reporte_impuestos_pendientes;
+            $nombreDescarga = $tarea->nombre_reporte_pendientes;
+        }
+
+        // 3. Verificamos que el archivo realmente exista en nuestro disco 'public'.
+        if (!$rutaGuardada || !Storage::disk('public')->exists($rutaGuardada)) {
+            // Si no existe, devolvemos un error 404 (No Encontrado).
+            abort(404, 'El archivo solicitado no existe o ha sido eliminado.');
+        }
+
+        // 4. Usamos el método download() de Storage para iniciar la descarga.
+        return Storage::disk('public')->download($rutaGuardada, $nombreDescarga);
+    }
+
+    //--------------------------------------------------------------------------------------------------------------
+    //------------------------------ FIN DE LOS METODOS PRINCIPALES - DocumentoController -----------------------------
+    //--------------------------------------------------------------------------------------------------------------
+
+    //================================================================================================================================================================
+
+    //--------------------------------------------------------------------------------------------------------------
+    //------------------------------ INICIO DE LOS METODOS PRINCIPALES - ImportController -----------------------------
+    //--------------------------------------------------------------------------------------------------------------
+
+    public function procesarEstadoDeCuenta(Request $request)
+    {
+        $datosValidados = $request->validate(
+            [
+            'estado_de_cuenta' => 'required|file', // Aceptamos cualquier archivo
+            'banco' => 'required|string',
+            'sucursal' => 'required|string',
+            'archivos_extras.*' => 'nullable|file', // Para los archivos extra (opcional)
+            ]);
+
+        // 1. Guardamos el estado de cuenta principal
+        $rutaPrincipal = $request->file('estado_de_cuenta')->store('operaciones/estados_de_cuenta');
+
+        // 2. Guardamos los archivos extra si existen
+        $rutasExtras = [];
+        if ($request->hasFile('archivos_extras')) {
+            foreach ($request->file('archivos_extras') as $file) {
+                $rutasExtras[] = $file->store('importaciones/extras');
+            }
+        }
+
+        $nombreArchivo = $datosValidados['estado_de_cuenta']->getClientOriginalName();
+        // 3. Creamos el registro de la nueva tarea en la base de datos
+        AuditoriaTareas::create(
+            [
+            'banco'                 => $datosValidados['banco'],
+            'sucursal'              => $datosValidados['sucursal'],
+            'periodo_meses'         => '4',
+            'nombre_archivo'        => $nombreArchivo,
+            'ruta_estado_de_cuenta' => $rutaPrincipal,
+            'rutas_extras'          => $rutasExtras,
+            'status'                => 'pendiente', // La tarea empieza como pendiente
+            ]);
+
+        // 4. Devolvemos una respuesta inmediata y exitosa al usuario
+        return response()->json(
+            [
+            'message' => '¡Solicitud recibida! El procesamiento ha comenzado y se te notificará al completarse.'
+            ], 202); // 202 Accepted
+    }
+
+    //--------------------------------------------------------------------------------------------------------------
+    //------------------------------ FIN DE LOS METODOS PRINCIPALES - ImportController -----------------------------
     //--------------------------------------------------------------------------------------------------------------
 
     //================================================================================================================================================================

@@ -43,7 +43,7 @@ class EnviarReportesAuditoriaMail extends Mailable
         $rutaReportePendientes = $this->tarea->ruta_reporte_impuestos_pendientes;
 
         // Construimos el correo
-         $email = $this->subject('Reporte de Auditoría de Impuestos')
+         $email = $this->subject('Reporte de Auditoría de Impuestos - ' . $this->tarea->nombre_archivo)
             ->view('cuerpo_correo_reporte_auditoria'); // Usaremos una vista de Blade para el cuerpo del correo
 
         // Adjuntamos el primer reporte si existe
