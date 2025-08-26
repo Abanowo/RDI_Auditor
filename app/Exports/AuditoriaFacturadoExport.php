@@ -21,7 +21,7 @@ class AuditoriaFacturadoExport implements WithMultipleSheets
                 'SC' => new SCSheet($this->operaciones),
                 'Impuestos' => new ImpuestosSheet($this->operaciones),
                 'Fletes' => new FletesSheet($this->operaciones),
-                'LLC' => new LlcSheet($this->operaciones),
+                'LLC' => new LLCSheet($this->operaciones),
                 'Pagos_derecho' => new PagosDerechoSheet($this->operaciones),
                 // ... y así sucesivamente para las demás hojas */
             ];
