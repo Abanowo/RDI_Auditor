@@ -2181,26 +2181,9 @@ class AuditoriaImpuestosController extends Controller
     public function exportarAuditoriasPendientesAExcel(string $tareaId)
     {
         gc_collect_cycles();
-        // Se reutiliza el metodo anterior, solo con la adicion de pasarle un parametro especificando
-        // un simple cambio de query, en donde solo se tomaran los registros sin SC.
-        try {
-            $this->exportarAuditoriasFacturadasAExcel($tareaId, 'true');
-            return ['code' => 0, 'message' => 'completado'];
 
-        } catch (\Throwable $e) {
-            // 5. Si algo falla, marca la tarea como 'fallido' y guarda el error
-            $tarea->update(
-                [
-                    'status' => 'fallido',
-                    'resultado' => $e->getMessage()
-                ]);
-
-            // 2. Llama a tu nueva función para notificar el error
-
-
-            Log::error("Falló la tarea #{$tarea->id}: " . $e->getMessage());
-            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage() )];
-        }
+        $this->exportarAuditoriasFacturadasAExcel($tareaId, 'true');
+        return ['code' => 0, 'message' => 'completado'];
 
     }
 
