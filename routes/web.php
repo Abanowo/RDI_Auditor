@@ -17,17 +17,20 @@ use Illuminate\Support\Facades\Route;
 // Esta única ruta manejará tanto la carga inicial de la página como las peticiones de datos.
 
 //Rutas de ImportController
-Route::post('/importar-estado-de-cuenta', [ImportController::class, 'procesarEstadoDeCuenta'])->name('import.process');
+Route::post('/importar-estado-de-cuenta', [AuditoriaImpuestosController::class, 'procesarEstadoDeCuenta'])->name('import.process');
+
+//ANTHONY, AQUI CAMBIA LA RUTA PARA QUE SE ADAPTE TU PROYECTO
+Route::post('/auditoria/ejecutar-comando', [AuditoriaImpuestosController::class, 'ejecutarComandoDeTareaEnCola']);
 
 //Rutas de DocumentoController
-Route::get('/documentos/ver', [DocumentoController::class, 'mostrarPdf'])->name('documentos.ver');
+Route::get('/documentos/ver', [AuditoriaImpuestosController::class, 'mostrarPdf'])->name('documentos.ver');
 // La ruta ahora espera un ID de tarea y una cadena de texto ('facturado' o 'pendiente').
 // Ruta para servir archivos locales (impuestos) por su tipo e ID
-Route::get('/documentos/ver/{tipo}/{id}', [DocumentoController::class, 'mostrarDocumentoLocal'])->name('documentos.local.mostrar');
+Route::get('/documentos/ver/{tipo}/{id}', [AuditoriaImpuestosController::class, 'mostrarDocumentoLocal'])->name('documentos.local.mostrar');
 // Nueva ruta para servir como proxy para URLs externas
-Route::get('/documentos/proxy', [DocumentoController::class, 'proxyDocumentoExterno'])->name('documentos.externo.proxy');
+Route::get('/documentos/proxy', [AuditoriaImpuestosController::class, 'proxyDocumentoExterno'])->name('documentos.externo.proxy');
 // La ruta ahora espera un ID de tarea y una cadena de texto ('facturado' o 'pendiente').
-Route::get('/documentos/reporte-auditoria/{tarea}/{tipo}', [DocumentoController::class, 'descargarReporteAuditoria'])->name('reportes.auditoria.descargar');
+Route::get('/documentos/reporte-auditoria/{tarea}/{tipo}', [AuditoriaImpuestosController::class, 'descargarReporteAuditoria'])->name('reportes.auditoria.descargar');
 
 //Rutas de AuditoriaImpuestosController
 // Rutas API para los filtros del frontend

@@ -284,7 +284,11 @@ export default {
         .then((response) => {
           // Si todo fue bien...
           this.isLoading = false;
+          //ACA TAMBIEN CAMBIA LA RUTA SI ES NECESARIO
+          axios.post("/auditoria/ejecutar-comando");
+
           alert(response.data.message); // Mostramos el mensaje de éxito
+
           // Opcional: podrías recargar la lista de auditorías o redirigir
           // window.location.href = '/auditoria';
         })

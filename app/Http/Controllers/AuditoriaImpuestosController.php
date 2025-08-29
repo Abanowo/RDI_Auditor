@@ -30,6 +30,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Database\Capsule\Manager;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Artisan;
 
 use Smalot\PdfParser\Parser;
 use Maatwebsite\Excel\Facades\Excel;
@@ -3357,6 +3358,16 @@ class AuditoriaImpuestosController extends Controller
             ], 202); // 202 Accepted
     }
 
+    public function ejecutarComandoDeTareaEnCola(Request $request) {
+        //ACA NO SE SI LE PONGAS PARAMETROS DISTINTOS EN TU ENTORNO DEL SOL, ACA TE DEJO COMENTADO EL COMANDO
+        // QUE ME COMPARTISTE EN CASO DE QUE ESE ES EL QUE USES PARA INICIAR LA AUDITORIA.
+
+        //Artisan::call('mail:send', [
+        //    'user' => $user, '--queue' => 'default'
+        //]);
+
+        Artisan::call('reporte:auditar');
+    }
     //--------------------------------------------------------------------------------------------------------------
     //------------------------------ FIN DE LOS METODOS PRINCIPALES - ImportController -----------------------------
     //--------------------------------------------------------------------------------------------------------------
