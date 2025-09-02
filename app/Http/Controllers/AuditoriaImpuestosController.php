@@ -76,7 +76,7 @@ class AuditoriaImpuestosController extends Controller
             $statuses = [
                 'pago_mas'      => 'Pago de mas!',
                 'pago_menos'    => 'Pago de menos!',
-                'balanceados'   => 'Coinciden!',
+                'balanceados'   => 'Saldados!',
                 'no_facturados' => 'Sin SC!',
             ];
 
@@ -141,7 +141,7 @@ class AuditoriaImpuestosController extends Controller
                 'total' => $totalFacturas
             ];
 
-        // --- TERMINA LA LÓGICA DE CONTEO ---
+            // --- TERMINA LA LÓGICA DE CONTEO ---
 
 
             $resultadosPaginados = $query
@@ -154,7 +154,6 @@ class AuditoriaImpuestosController extends Controller
             $resultadosPaginados->getCollection()->transform(function ($pedimento) use ($filters) {
                 return $this->transformarOperacion($pedimento, $filters);
             });
-
             // Convierte el objeto paginador a un array.
             // Esto nos da la estructura base con 'data', 'links', y 'meta' de la paginación.
             $responseData = $resultadosPaginados->toArray();
@@ -236,7 +235,7 @@ class AuditoriaImpuestosController extends Controller
             if (!empty($filters['folio'])) $documentFilters['folio'] = ['value' => $filters['folio'], 'type' => $filters['folio_tipo_documento'] ?? 'any'];
             if (!empty($filters['estado'])) $documentFilters['estado'] = ['value' => $filters['estado'], 'type' => $filters['estado_tipo_documento'] ?? 'any'];
             if (!empty($filters['fecha_inicio'])) $documentFilters['fecha'] = ['value' => $filters['fecha_inicio'], 'type' => $filters['fecha_tipo_documento'] ?? 'any'];
-
+            if (!empty($filters['estado_tipo_documento']) && empty($filters['estado'])) $documentFilters['estado'] = ['value' => null, 'type' => $filters['estado_tipo_documento']];
             // Si no hay ningún filtro de documento, no hacemos nada más.
             if (empty($documentFilters)) {
                 return; // Termina la clausura aquí
@@ -282,12 +281,37 @@ class AuditoriaImpuestosController extends Controller
                     });
                 } else { // CASO: El tipo es 'any' (Cualquier Tipo)
                     $q->where(function ($orQuery) use ($values, $filters) {
+                        $tieneDeEstadoSaldado = isset($values['estado']) ? $values['estado'] === 'Saldados!' : false;
+                        // Este if es para cuando se presiona el boton de "Saldado" en el frontend, y la funcion de esto es que
+                        // "Me traiga exclusivamente todos los registros que en ninguna de sus facturas tenga algo distinto a "Coinciden!""
+                        // De forma en que solo mostrara registros verdes y correctos en su balance.
+                        if ($tieneDeEstadoSaldado) {
 
-                    // Busca en 'auditorias'
-                    $orQuery->orWhereHas('auditorias', function ($auditQuery) use ($values, $filters) {
+                            // 1. Debe tener AL MENOS UNA factura con estado "Coinciden!".
+                            $orQuery->orWhereHas('auditorias', function ($auditQuery) {
+                                $auditQuery->where('monto_diferencia_sc', 0);
+
+                                if (isset($values['folio'])) {
+                                    $auditQuery->where('folio', 'like', "%{$values['folio']}%");
+                                }
+
+                                if (isset($values['fecha'])) {
+                                    $auditQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
+                                }
+                            })
+                            // 2. Y NO DEBE TENER NINGUNA factura con estado DIFERENTE a "Coinciden!".
+                            ->whereDoesntHave('auditorias', function ($auditQuery) {
+                                //$auditQuery->where('estado', '!=', $label);
+                                $auditQuery->whereNotIn('estado', ['Coinciden!', 'Normal', 'Segundo Pago', 'Medio Pago']);
+                            });
+
+                        } else {
+
+                            // Busca en 'auditorias'
+                        $orQuery->orWhereHas('auditorias', function ($auditQuery) use ($values, $filters) {
 
                             if (isset($values['estado'])){
-                            $auditQuery->where('estado', $values['estado']);
+                                $auditQuery->where('estado', $values['estado']);
                             }
 
                             if (isset($values['folio'])) {
@@ -313,13 +337,12 @@ class AuditoriaImpuestosController extends Controller
                                     $scQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
                                 }
                             });
-                        } else if ($values['estado'] === 'SC Encontrada') {
+                            } else if ($values['estado'] === 'SC Encontrada') {
 
-                            // O busca en 'auditoriasTotalSC'
-                            $orQuery->orWhereHas('auditoriasTotalSC');
+                                // O busca en 'auditoriasTotalSC'
+                                $orQuery->orWhereHas('auditoriasTotalSC');
+                            }
                         }
-
-
                     });
                 }
             }
@@ -347,7 +370,6 @@ class AuditoriaImpuestosController extends Controller
                 ->orWhereHas('exportacion', $applyRelationshipFilters);
             });
         }
-
         return $query;
     }
 
@@ -385,7 +407,11 @@ class AuditoriaImpuestosController extends Controller
         $tipos_a_auditar = ['impuestos', 'flete', 'llc', 'pago_derecho'];
         foreach ($tipos_a_auditar as $tipo) {
             $facturas = $auditorias->where('tipo_documento', $tipo);
-            if ($facturas->isEmpty()) {
+            if ($facturas->isEmpty() && $tipo === "impuestos") {
+                $status_botones[$tipo]['estado'] = 'rojo';
+                $status_botones[$tipo]['datos'] = null;
+            }
+            else if ($facturas->isEmpty()) {
                 $status_botones[$tipo]['estado'] = 'gris';
                 $status_botones[$tipo]['datos'] = null;
             } else {

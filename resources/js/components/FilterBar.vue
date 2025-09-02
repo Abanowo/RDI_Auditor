@@ -70,14 +70,21 @@
               <option value="pago_derecho">Pago Derecho</option>
             </select>
           </div>
-          <v-select
+
+          <v-multiselect
             v-model="filters.cliente_id"
             :options="clienteOptions"
             label="nombre"
             :reduce="(cliente) => cliente.id"
             placeholder="Buscar Cliente..."
             class="w-full pt-3"
-          ></v-select>
+            id="cliente"
+            track-by="id"
+            :multiple="false"
+            :searchable="true"
+            :preselect-first="false"
+          ></v-multiselect>
+
         </div>
       </fieldset>
 
@@ -104,7 +111,7 @@
               v-model="filters.fecha_tipo_documento"
               class="block w-full py-2 border-gray-300 rounded-md shadow-sm text-sm"
             >
-              <option value="">Cualquier Tipo</option>
+              <option value="">Todas las facturas - Por periodo</option>
               <option value="sc">SC</option>
               <option value="impuestos">Impuestos</option>
               <option value="flete">Flete</option>
@@ -221,11 +228,15 @@ import { es } from "date-fns/locale";
 import VueCtkDateTimePicker from "vue-ctk-date-time-picker";
 import "vue-ctk-date-time-picker/dist/vue-ctk-date-time-picker.css";
 
+import vMultiselect from "vue-multiselect";
+import "vue-multiselect/dist/vue-multiselect.min.css"
+
 import vSelect from "vue-select";
 import "vue-select/dist/vue-select.css";
 
 export default {
   components: {
+    vMultiselect,
     vSelect,
     VueCtkDateTimePicker,
   },
@@ -381,10 +392,10 @@ export default {
         //SECCION 4: Periodo de fecha
         fecha_inicio: formatearFecha(fechaInicio),
         fecha_fin: formatearFecha(fechaFin),
-        fecha_tipo_documento: "",
+        fecha_tipo_documento: "impuestos",
 
         //SECCION 5: Involucrados
-        cliente_id: null,
+        cliente_id: "",
         };
     },
 

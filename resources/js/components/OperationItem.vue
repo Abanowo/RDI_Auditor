@@ -209,10 +209,17 @@ export default {
 
   methods: {
     getFacturaStatusText(tipo, info) {
+
       if (tipo === "sc") {
+
         return info.datos && info.datos.desglose_conceptos
           ? "SC Encontrada"
           : "No Encontrado";
+
+      } else if (tipo === "impuestos" && info.estado === "rojo") {
+
+        return "Sin operacion!";
+
       }
       return info.datos ? info.datos.estado : "No Encontrado";
     },
