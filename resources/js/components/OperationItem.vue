@@ -318,7 +318,9 @@ export default {
       if (!info) return "text-gray-800";
       const valorDiferencia = info.datos?.monto_diferencia_sc ?? "N/A";
       const estadoLower = info.datos?.estado?.toLowerCase() ?? "N/A";
-
+      if (estadoLower === "expo" || estadoLower === "impo") {
+        return "";
+      }
       if(estadoLower === "N/A" || String(valorDiferencia) === "N/A") return "N/A";
 
       if (estadoLower.includes("sin sc")) {
