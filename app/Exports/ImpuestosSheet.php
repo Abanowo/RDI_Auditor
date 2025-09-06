@@ -21,7 +21,7 @@ use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class ImpuestosSheet implements FromCollection, WithHeadings,WithTitle, WithMapping,
-WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents
+WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents, WithStrictNullComparison
 {
     protected $operaciones;
     public function __construct(Collection $operaciones)
