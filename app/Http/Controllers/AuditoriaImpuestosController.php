@@ -1337,6 +1337,10 @@ class AuditoriaImpuestosController extends Controller
 
                 // Buscamos el id_importacion en nuestro mapa
                 $pedimentoReal = $mapaPedimentoAId[$pedimento] ?? null;
+                if (!$pedimentoReal) {
+                     Log::warning("Se omitió la SC del pedimento '{$pedimento}' porque no se encontró una operación de importación asociada.");
+                    continue; // Si no hay operación, no podemos guardar la SC
+                }
                 $tipoOperacion = Importacion::class;
 
                 //Se verifica si la operacion ID esta en Importacion
@@ -3392,7 +3396,7 @@ class AuditoriaImpuestosController extends Controller
         //    'user' => $user, '--queue' => 'default'
         //]);
 
-        Artisan::call('reporte:auditar');
+        //Artisan::call('reporte:auditar');
     }
     //--------------------------------------------------------------------------------------------------------------
     //------------------------------ FIN DE LOS METODOS PRINCIPALES - ImportController -----------------------------
