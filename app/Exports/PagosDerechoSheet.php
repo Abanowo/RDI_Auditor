@@ -40,7 +40,7 @@ WithStrictNullComparison
     {
 
         // Usamos flatMap para "desenrollar" los pagos de derecho
-        return $this->operaciones->flatMap(function ($pedimento) {
+        $data = $this->operaciones->flatMap(function ($pedimento) {
             // 1. Primero, determinamos de forma segura cuál operación existe
             $operacion = $pedimento->importacion ?? $pedimento->exportacion;
 
@@ -71,6 +71,48 @@ WithStrictNullComparison
                 ];
             });
         });
+
+
+        // --- Calcular sumatorias ---
+        $totalMontoFactura = 0;
+        $totalMontoFacturaMxn = 0;
+        $totalMontoSc = 0;
+        $totalMontoScMxn = 0;
+
+        foreach ($data as $row) {
+            $factura = $row['pago_derecho'] ?? null;
+            $sc = $row['sc'] ?? null;
+
+            $totalMontoFactura += (float) optional($factura)->monto_total;
+            $totalMontoFacturaMxn += (float) optional($factura)->monto_total_mxn;
+
+            if ($sc) {
+                $desgloseSc = $sc->desglose_conceptos;
+                $totalMontoSc += (float)($desgloseSc['montos']['pago_derecho'] ?? 0);
+                $totalMontoScMxn += (float)($desgloseSc['montos']['pago_derecho_mxn'] ?? 0);
+            }
+        }
+
+        $data->push([
+            'pedimento' => 'TOTALES',
+            'cliente'   => (object) ['nombre' => ''],
+            'pago_derecho' => (object) [
+                'monto_total' => $totalMontoFactura,
+                'monto_total_mxn' => $totalMontoFacturaMxn,
+            ],
+            'sc' => (object) [
+                'desglose_conceptos' => [
+                    'montos' => [
+                        'pago_derecho' => $totalMontoSc,
+                        'pago_derecho_mxn' => $totalMontoScMxn,
+                    ]
+                ],
+                'folio' => '',
+                'ruta_pdf' => null
+            ]
+        ]);
+
+        return $data;
     }
 
     public function title(): string
@@ -95,6 +137,22 @@ WithStrictNullComparison
      */
     public function map($row): array
     {
+        $esTotales = isset($row['pedimento']) && $row['pedimento'] === 'TOTALES';
+
+        if ($esTotales) {
+            return [
+                '', // Fecha
+                'Totales:',
+                '', // Cliente
+                (float) optional($row['pago_derecho'])->monto_total,
+                (float) optional($row['pago_derecho'])->monto_total_mxn,
+                (float) optional($row['sc'])->desglose_conceptos['montos']['pago_derecho'] ?? 0,
+                (float) optional($row['sc'])->desglose_conceptos['montos']['pago_derecho_mxn'] ?? 0,
+                '', '', '', '', '' // resto de columnas vacías
+            ];
+        }
+
+
         $facturaPDDs = $row['pago_derecho']; // Ahora es un solo pago de derecho por fila
         $sc = $row['sc'];
         $cliente = $row['cliente'] ?? null;

@@ -39,7 +39,7 @@ WithStrictNullComparison
     public function collection()
     {
         // Usamos map para transformar cada pedimento y luego filter para limpiar los nulos.
-        return $this->operaciones->map(function ($pedimento) {
+        $data = $this->operaciones->map(function ($pedimento) {
             // Primero, nos aseguramos de que las relaciones necesarias existan para evitar errores.
             if (!$pedimento->importacion || !$pedimento->importacion->auditorias) {
                 if (!$pedimento->exportacion || !$pedimento->exportacion->auditorias) {
@@ -82,6 +82,46 @@ WithStrictNullComparison
             ];
         })->filter(); // Eliminamos todas las entradas que devolvieron null.
 
+        // --- Calcular sumatorias ---
+        $totalMontoFactura = 0;
+        $totalMontoFacturaMxn = 0;
+        $totalMontoSc = 0;
+        $totalMontoScMxn = 0;
+
+        foreach ($data as $row) {
+            $factura = $row['flete'] ?? null;
+            $sc = $row['sc'] ?? null;
+
+            $totalMontoFactura += (float) optional($factura)->monto_total;
+            $totalMontoFacturaMxn += (float) optional($factura)->monto_total_mxn;
+
+            if ($sc) {
+                $desgloseSc = $sc->desglose_conceptos;
+                $totalMontoSc += (float)($desgloseSc['montos']['flete'] ?? 0);
+                $totalMontoScMxn += (float)($desgloseSc['montos']['flete_mxn'] ?? 0);
+            }
+        }
+
+        $data->push([
+            'pedimento' => 'TOTALES',
+            'cliente'   => (object) ['nombre' => ''],
+            'flete' => (object) [
+                'monto_total' => $totalMontoFactura,
+                'monto_total_mxn' => $totalMontoFacturaMxn,
+            ],
+            'sc' => (object) [
+                'desglose_conceptos' => [
+                    'montos' => [
+                        'flete' => $totalMontoSc,
+                        'flete_mxn' => $totalMontoScMxn,
+                    ]
+                ],
+                'folio' => '',
+                'ruta_pdf' => null
+            ]
+        ]);
+
+        return $data;
     }
 
     public function title(): string
@@ -106,6 +146,22 @@ WithStrictNullComparison
      */
     public function map($row): array
     {
+        $esTotales = isset($row['pedimento']) && $row['pedimento'] === 'TOTALES';
+
+        if ($esTotales) {
+            return [
+                '', // Fecha
+                'Totales:',
+                '', // Cliente
+                (float) optional($row['flete'])->monto_total,
+                (float) optional($row['flete'])->monto_total_mxn,
+                (float) optional($row['sc'])->desglose_conceptos['montos']['flete'] ?? 0,
+                (float) optional($row['sc'])->desglose_conceptos['montos']['flete_mxn'] ?? 0,
+                '', '', '', '', '' // resto de columnas vacías
+            ];
+        }
+
+
         $facturaFletes = $row['flete'] ?? null;
         $sc = $row['sc'] ?? null;
         $cliente = $row['cliente'] ?? null;

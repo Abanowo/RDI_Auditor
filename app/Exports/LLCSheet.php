@@ -39,7 +39,7 @@ WithStrictNullComparison
     public function collection()
     {
         // Usamos map para transformar cada pedimento y luego filter para limpiar los nulos.
-        return $this->operaciones->map(function ($pedimento) {
+        $data = $this->operaciones->map(function ($pedimento) {
             // Primero, nos aseguramos de que las relaciones necesarias existan para evitar errores.
             if (!$pedimento->importacion || !$pedimento->importacion->auditorias) {
                 if (!$pedimento->exportacion || !$pedimento->exportacion->auditorias) {
@@ -81,6 +81,49 @@ WithStrictNullComparison
             ];
         })->filter(); // Eliminamos todas las entradas que devolvieron null.
 
+
+        // --- Calcular sumatorias ---
+        $totalMontoFactura = 0;
+        $totalMontoFacturaMxn = 0;
+        $totalMontoSc = 0;
+        $totalMontoScMxn = 0;
+
+        foreach ($data as $row) {
+            $factura = $row['llc'] ?? null;
+            $sc = $row['sc'] ?? null;
+
+            $totalMontoFactura += (float) optional($factura)->monto_total;
+            $totalMontoFacturaMxn += (float) optional($factura)->monto_total_mxn;
+
+            if ($sc) {
+                $desgloseSc = $sc->desglose_conceptos;
+                $totalMontoSc += (float)($desgloseSc['montos']['llc'] ?? 0);
+                $totalMontoScMxn += (float)($desgloseSc['montos']['llc_mxn'] ?? 0);
+            }
+        }
+
+        $data->push([
+            'pedimento' => 'TOTALES',
+            'cliente'   => (object) ['nombre' => ''],
+            'llc' => (object) [
+                'monto_total' => $totalMontoFactura,
+                'monto_total_mxn' => $totalMontoFacturaMxn,
+            ],
+            'sc' => (object) [
+                'desglose_conceptos' => [
+                    'montos' => [
+                        'llc' => $totalMontoSc,
+                        'llc_mxn' => $totalMontoScMxn,
+                    ]
+                ],
+                'folio' => '',
+                'ruta_pdf' => null
+            ]
+        ]);
+
+        return $data;
+
+
     }
 
     public function title(): string
@@ -105,6 +148,21 @@ WithStrictNullComparison
      */
     public function map($row): array
     {
+        $esTotales = isset($row['pedimento']) && $row['pedimento'] === 'TOTALES';
+
+        if ($esTotales) {
+            return [
+                '', // Fecha
+                'Totales',
+                '', // Cliente
+                (float) optional($row['llc'])->monto_total,
+                (float) optional($row['llc'])->monto_total_mxn,
+                (float) optional($row['sc'])->desglose_conceptos['montos']['llc'] ?? 0,
+                (float) optional($row['sc'])->desglose_conceptos['montos']['llc_mxn'] ?? 0,
+                '', '', '', '', '' // resto de columnas vacías
+            ];
+        }
+
         $facturaLLCs = $row['llc'] ?? null;
         $sc = $row['sc'] ?? null;
         $cliente = $row['cliente'] ?? null;
