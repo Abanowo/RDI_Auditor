@@ -636,7 +636,7 @@ class AuditoriaImpuestosController extends Controller
 
 
         // 2. Usa los datos del registro de la tarea
-        $rutaPdf = str_replace('operaciones/estados_de_cuenta/', '', $tarea->ruta_estado_de_cuenta);
+        $rutaPdf = storage_path('app/' . $tarea->ruta_estado_de_cuenta);
         $periodoMeses = $tarea->periodo_meses;
         $banco = $tarea->banco;
         $sucursal = $tarea->sucursal;
@@ -912,7 +912,8 @@ class AuditoriaImpuestosController extends Controller
                     // le pongo el monto de Impuesto completo, y esto es con el objetivo de mostrar toda la cantidad NO facturada
                     // la cual creo que seria de utilidad conocerla
                     $diferenciaSc = ($estado !== "Sin SC!" && $estado !== "Sin operacion!") ? round($montoSCMXN - $montoImpuestoMXN, 2) : $montoImpuestoMXN;
-
+                    $rutaPdfASubir = str_replace(storage_path('operaciones/estados_de_cuenta/'), '', $tarea->ruta_estado_de_cuenta);
+                    $rutaPdfASubir = str_replace('operaciones/estados_de_cuenta/', '', $rutaPdfASubir);
                     // Devolvemos el array completo, AHORA con el `operacion_id` correcto.
                     return
                     [
@@ -927,7 +928,7 @@ class AuditoriaImpuestosController extends Controller
                         'monto_diferencia_sc'   => $diferenciaSc,
                         'moneda_documento'      => 'MXN',
                         'estado'                => $estado,
-                        'ruta_pdf'              => $rutaPdf,
+                        'ruta_pdf'              => $rutaPdfASubir,
                         'created_at'            => now(),
                         'updated_at'            => now(),
                     ];
