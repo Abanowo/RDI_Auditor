@@ -636,7 +636,7 @@ class AuditoriaImpuestosController extends Controller
 
 
         // 2. Usa los datos del registro de la tarea
-        $rutaPdf = storage_path('app/' . $tarea->ruta_estado_de_cuenta);
+        $rutaPdf = str_replace('operaciones/estados_de_cuenta/', '', $tarea->ruta_estado_de_cuenta);
         $periodoMeses = $tarea->periodo_meses;
         $banco = $tarea->banco;
         $sucursal = $tarea->sucursal;
