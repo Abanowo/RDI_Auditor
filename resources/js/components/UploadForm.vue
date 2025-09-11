@@ -285,7 +285,7 @@ export default {
           // Si todo fue bien...
           this.isLoading = false;
           //ACA TAMBIEN CAMBIA LA RUTA SI ES NECESARIO
-          axios.post("/auditoria/ejecutar-comando");
+          //axios.post("/auditoria/ejecutar-comando");
 
           alert(response.data.message); // Mostramos el mensaje de éxito
 

@@ -161,7 +161,7 @@
                   <div class="flex space-x-4 text-sm mt-2 pt-2 border-t">
                     <a
                       v-if="ruta_reporte_impuestos"
-                      :href="getDownloadUrl(id, 'facturado')"
+                      :href="getDownloadUrl(id, 'facturado', ruta_reporte_impuestos)"
                       @click.stop
                       target="_blank"
                       class="font-medium hover:underline"
@@ -169,7 +169,7 @@
                     >
                     <a
                       v-if="ruta_reporte_impuestos_pendientes"
-                      :href="getDownloadUrl(id, 'pendiente')"
+                      :href="getDownloadUrl(id, 'pendiente', ruta_reporte_impuestos_pendientes)"
                       @click.stop
                       target="_blank"
                       class="font-medium hover:underline"
@@ -404,6 +404,7 @@ export default {
       axios
         .get("/auditoria/tareas-completadas", { params: { sucursal_id: sucursalId } })
         .then((response) => {
+            console.log("respuesta: ", response.data)
           this.tareasCompletadas = response.data;
         })
         .catch((error) => {
@@ -412,8 +413,9 @@ export default {
         });
     },
     // Genera la URL de descarga correcta
-    getDownloadUrl(tareaId, tipoReporte) {
+    getDownloadUrl(tareaId, tipoReporte, rutaArchivo) {
       // Asegúrate que esta ruta coincida con la que definiste en tu archivo de rutas para el DocumentoController
+      const nombreArchivo = rutaArchivo.replace("/reporte/", "");
       return `/documentos/reporte-auditoria/${tareaId}/${tipoReporte}`;
     },
     // Formatea la fecha
