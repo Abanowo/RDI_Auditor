@@ -191,6 +191,11 @@ class AuditoriaImpuestosController extends Controller
         $patenteSucursal = $filters['sucursal_id'] === 'todos' ? 'todos' : $sucursalesDiccionario[$filters['sucursal_id']];
         // 1. La consulta empieza desde el modelo Pedimento.
         $query = Pedimento::query();
+        if (!isset($filters['fecha_inicio'])) {
+            $filters['fecha_inicio'] = now()->subMonthNoOverflow();
+            $filters['fecha_fin'] = now();
+        }
+
 
         // 2. Filtro por Número de Pedimento
         $query->when($filters['pedimento'] ?? null, function ($q, $val) {
@@ -238,6 +243,8 @@ class AuditoriaImpuestosController extends Controller
             if (!empty($filters['estado_tipo_documento']) && empty($filters['estado'])) $documentFilters['estado'] = ['value' => null, 'type' => $filters['estado_tipo_documento']];
             // Si no hay ningún filtro de documento, no hacemos nada más.
             if (empty($documentFilters)) {
+                //$q->whereHas('auditorias');
+                //$q->orWhereHas('auditoriasTotalSC');
                 return; // Termina la clausura aquí
             }
 

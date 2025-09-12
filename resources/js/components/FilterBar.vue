@@ -301,28 +301,20 @@ export default {
      * para el v-model del date-time-picker.
      */
     dateRange: {
-      get() {
+    get() {
         // GET: Devuelve el rango en el formato que el picker espera.
         return {
-          start: this.filters.fecha_inicio,
-          end: this.filters.fecha_fin,
+          start: this.filters.fecha_inicio || '',
+          end: this.filters.fecha_fin || '',
         };
       },
-      set(newValue) {
+    set(newValue) {
         // SET: Se activa cuando el usuario cambia la fecha en el picker.
         // Actualiza tus filtros y cambia el selector a 'Personalizado'.
-        if (!newValue) {
-            // Si el usuario limpia el rango, también limpiamos los filtros
-            this.filters.fecha_inicio = this.baselineFilters.fecha_inicio;
-            this.filters.fecha_fin = this.baselineFilters.fecha_fin;
-            this.selectedPeriod = null; // o como prefieras manejarlo
-            return;
-        }
+        this.filters.fecha_inicio = newValue ? newValue.start : '';
+        this.filters.fecha_fin = newValue ? newValue.end : '';
+    },
 
-        this.filters.fecha_inicio = newValue.start ?? '';
-        this.filters.fecha_fin = newValue.end ?? '';
-        this.selectedPeriod = "custom";
-      },
     },
   },
   watch: {
@@ -345,6 +337,10 @@ export default {
         handler(newFiltersFromParent) {
             // Actualiza el estado interno del FilterBar con los valores del padre
             this.filters = { ...this.filters, ...newFiltersFromParent };
+            this.dateRange = {
+            start: this.filters.fecha_inicio || null,
+            end: this.filters.fecha_fin || null,
+        };
         },
         immediate: true, // Importante: ejecuta el watcher tan pronto como se monta el componente
         deep: true       // Opcional: si los filtros son objetos anidados
@@ -353,6 +349,11 @@ export default {
     // Observador para el selector de periodos
     selectedPeriod(newPeriod) {
       this.setPeriod(newPeriod);
+    },
+
+    dateRange(newPeriod) {
+      this.filters.fecha_inicio = newPeriod ? newPeriod.start : "";
+      this.filters.fecha_fin = newPeriod ? newPeriod.end : "";
     },
   },
   methods: {
@@ -390,8 +391,8 @@ export default {
         estado_tipo_documento: "",
 
         //SECCION 4: Periodo de fecha
-        fecha_inicio: formatearFecha(fechaInicio),
-        fecha_fin: formatearFecha(fechaFin),
+        fecha_inicio: "",
+        fecha_fin: "",
         fecha_tipo_documento: "impuestos",
 
         //SECCION 5: Involucrados

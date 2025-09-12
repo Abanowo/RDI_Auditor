@@ -5626,24 +5626,15 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
       get: function get() {
         // GET: Devuelve el rango en el formato que el picker espera.
         return {
-          start: this.filters.fecha_inicio,
-          end: this.filters.fecha_fin
+          start: this.filters.fecha_inicio || '',
+          end: this.filters.fecha_fin || ''
         };
       },
       set: function set(newValue) {
-        var _newValue$start, _newValue$end;
         // SET: Se activa cuando el usuario cambia la fecha en el picker.
         // Actualiza tus filtros y cambia el selector a 'Personalizado'.
-        if (!newValue) {
-          // Si el usuario limpia el rango, también limpiamos los filtros
-          this.filters.fecha_inicio = this.baselineFilters.fecha_inicio;
-          this.filters.fecha_fin = this.baselineFilters.fecha_fin;
-          this.selectedPeriod = null; // o como prefieras manejarlo
-          return;
-        }
-        this.filters.fecha_inicio = (_newValue$start = newValue.start) !== null && _newValue$start !== void 0 ? _newValue$start : '';
-        this.filters.fecha_fin = (_newValue$end = newValue.end) !== null && _newValue$end !== void 0 ? _newValue$end : '';
-        this.selectedPeriod = "custom";
+        this.filters.fecha_inicio = newValue ? newValue.start : '';
+        this.filters.fecha_fin = newValue ? newValue.end : '';
       }
     }
   },
@@ -5666,6 +5657,10 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
       handler: function handler(newFiltersFromParent) {
         // Actualiza el estado interno del FilterBar con los valores del padre
         this.filters = _objectSpread(_objectSpread({}, this.filters), newFiltersFromParent);
+        this.dateRange = {
+          start: this.filters.fecha_inicio || null,
+          end: this.filters.fecha_fin || null
+        };
       },
       immediate: true,
       // Importante: ejecuta el watcher tan pronto como se monta el componente
@@ -5674,6 +5669,10 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
     // Observador para el selector de periodos
     selectedPeriod: function selectedPeriod(newPeriod) {
       this.setPeriod(newPeriod);
+    },
+    dateRange: function dateRange(newPeriod) {
+      this.filters.fecha_inicio = newPeriod ? newPeriod.start : "";
+      this.filters.fecha_fin = newPeriod ? newPeriod.end : "";
     }
   },
   methods: {
@@ -5709,8 +5708,8 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
         estado: "",
         estado_tipo_documento: "",
         //SECCION 4: Periodo de fecha
-        fecha_inicio: formatearFecha(fechaInicio),
-        fecha_fin: formatearFecha(fechaFin),
+        fecha_inicio: "",
+        fecha_fin: "",
         fecha_tipo_documento: "impuestos",
         //SECCION 5: Involucrados
         cliente_id: ""
