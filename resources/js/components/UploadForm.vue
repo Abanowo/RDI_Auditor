@@ -288,9 +288,8 @@ export default {
           //axios.post("/auditoria/ejecutar-comando");
 
           alert(response.data.message); // Mostramos el mensaje de éxito
-
-          // Opcional: podrías recargar la lista de auditorías o redirigir
-          // window.location.href = '/auditoria';
+          // 2. Extraemos el valor del parámetro 'page'.
+          this.$emit('upload-success');
         })
         .catch((error) => {
           // Si algo falló en el backend...

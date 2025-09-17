@@ -381,7 +381,11 @@
         </span>
         </button>
       </div>
-      <ImportModal :show="isImportModalVisible" @close="isImportModalVisible = false" />
+      <ImportModal
+        :show="isImportModalVisible"
+        @close="isImportModalVisible = false"
+        @trigger-update="fetchOperaciones"
+      />
 
       <FilterBar
         ref="filterBar"

@@ -17,7 +17,10 @@
       </div>
 
       <div class="p-6 overflow-y-auto flex-grow flex justify-center items-center">
-        <UploadForm @upload-success="handleUploadSuccess" />
+        <UploadForm
+            @close="close"
+            @upload-success="handleUploadSuccess"
+        />
       </div>
     </div>
   </div>
@@ -42,6 +45,7 @@ export default {
       // Cuando el form nos avise que tuvo éxito, también cerramos el modal.
       // Podríamos también avisarle a la página principal que recargue la lista.
       this.close();
+      this.$emit('trigger-update', 1);
     },
   },
 };

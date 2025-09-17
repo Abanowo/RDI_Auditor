@@ -4893,6 +4893,10 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
 //
 //
 //
+//
+//
+//
+//
 
  // ¡Importante! Importa el componente hijo
 
@@ -5849,6 +5853,9 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
+//
+//
+//
 
  // Asumiendo que tu form se llama así
 
@@ -5871,6 +5878,7 @@ __webpack_require__.r(__webpack_exports__);
       // Cuando el form nos avise que tuvo éxito, también cerramos el modal.
       // Podríamos también avisarle a la página principal que recargue la lista.
       this.close();
+      this.$emit('trigger-update', 1);
     }
   }
 });
@@ -6602,9 +6610,8 @@ __webpack_require__.r(__webpack_exports__);
         //axios.post("/auditoria/ejecutar-comando");
 
         alert(response.data.message); // Mostramos el mensaje de éxito
-
-        // Opcional: podrías recargar la lista de auditorías o redirigir
-        // window.location.href = '/auditoria';
+        // 2. Extraemos el valor del parámetro 'page'.
+        _this2.$emit('upload-success');
       })["catch"](function (error) {
         var _error$response;
         // Si algo falló en el backend...
@@ -75219,6 +75226,7 @@ var render = function () {
                 close: function ($event) {
                   _vm.isImportModalVisible = false
                 },
+                "trigger-update": _vm.fetchOperaciones,
               },
             }),
             _vm._v(" "),
@@ -76122,7 +76130,10 @@ var render = function () {
                 },
                 [
                   _c("UploadForm", {
-                    on: { "upload-success": _vm.handleUploadSuccess },
+                    on: {
+                      close: _vm.close,
+                      "upload-success": _vm.handleUploadSuccess,
+                    },
                   }),
                 ],
                 1
