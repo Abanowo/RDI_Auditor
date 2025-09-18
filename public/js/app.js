@@ -5622,6 +5622,17 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
     clienteOptions: function clienteOptions() {
       return this.clientes;
     },
+    clienteSeleccionado: {
+      get: function get() {
+        var _this = this;
+        return this.clientes.filter(function (item) {
+          return item.id === _this.filters.cliente_id;
+        });
+      },
+      set: function set(nuevoCliente) {
+        this.filters.cliente_id = nuevoCliente ? nuevoCliente.id : '';
+      }
+    },
     /**
      * Esta propiedad computada actúa como un puente (getter/setter)
      * para el v-model del date-time-picker.
@@ -5721,17 +5732,17 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
     },
     // Método que llama al backend
     fetchTareasCompletadas: function fetchTareasCompletadas(sucursalId) {
-      var _this = this;
+      var _this2 = this;
       axios.get("/auditoria/tareas-completadas", {
         params: {
           sucursal_id: sucursalId
         }
       }).then(function (response) {
         console.log("respuesta: ", response.data);
-        _this.tareasCompletadas = response.data;
+        _this2.tareasCompletadas = response.data;
       })["catch"](function (error) {
         console.error("Error al obtener tareas completadas:", error);
-        _this.tareasCompletadas = [];
+        _this2.tareasCompletadas = [];
       });
     },
     // Genera la URL de descarga correcta
@@ -5754,10 +5765,10 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
     },
     // Reinicia la selección del dropdown
     limpiarSeleccionReporte: function limpiarSeleccionReporte() {
-      var _this2 = this;
+      var _this3 = this;
       setTimeout(function () {
-        if (_this2.$refs.reporteSelect) {
-          _this2.$refs.reporteSelect.clearSelection();
+        if (_this3.$refs.reporteSelect) {
+          _this3.$refs.reporteSelect.clearSelection();
         }
       }, 50);
     },
@@ -5781,7 +5792,7 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
       // Limpia todos los filtros y el selector de periodo
       // Restaura los filtros al estado que tenían cuando se cargó la página.
       this.filters = _objectSpread({}, this.baselineFilters);
-      this.filters.cliente_id = null;
+      this.filters.cliente_id = '';
       this.search();
     },
     setPeriod: function setPeriod(period) {
@@ -75675,18 +75686,18 @@ var render = function () {
                       return cliente.id
                     },
                     placeholder: "Buscar Cliente...",
-                    id: "cliente",
+                    id: "id",
                     "track-by": "id",
                     multiple: false,
                     searchable: true,
                     "preselect-first": false,
                   },
                   model: {
-                    value: _vm.filters.cliente_id,
+                    value: _vm.clienteSeleccionado,
                     callback: function ($$v) {
-                      _vm.$set(_vm.filters, "cliente_id", $$v)
+                      _vm.clienteSeleccionado = $$v
                     },
-                    expression: "filters.cliente_id",
+                    expression: "clienteSeleccionado",
                   },
                 }),
               ],

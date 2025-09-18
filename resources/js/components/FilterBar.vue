@@ -72,13 +72,13 @@
           </div>
 
           <v-multiselect
-            v-model="filters.cliente_id"
+            v-model="clienteSeleccionado"
             :options="clienteOptions"
             label="nombre"
             :reduce="(cliente) => cliente.id"
             placeholder="Buscar Cliente..."
             class="w-full pt-3"
-            id="cliente"
+            id="id"
             track-by="id"
             :multiple="false"
             :searchable="true"
@@ -296,6 +296,17 @@ export default {
       return this.clientes;
     },
 
+    clienteSeleccionado: {
+        get() {
+            return this.clientes.filter(item => {
+                return item.id === this.filters.cliente_id;
+            });
+        },
+        set(nuevoCliente) {
+            this.filters.cliente_id = nuevoCliente ? nuevoCliente.id : '';
+        },
+    },
+
     /**
      * Esta propiedad computada actúa como un puente (getter/setter)
      * para el v-model del date-time-picker.
@@ -457,7 +468,7 @@ export default {
       // Limpia todos los filtros y el selector de periodo
       // Restaura los filtros al estado que tenían cuando se cargó la página.
       this.filters = { ...this.baselineFilters };
-      this.filters.cliente_id = null;
+      this.filters.cliente_id = '';
       this.search();
     },
     setPeriod(period) {
