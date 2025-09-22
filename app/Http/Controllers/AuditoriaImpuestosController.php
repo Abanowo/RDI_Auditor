@@ -28,8 +28,10 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Capsule\Manager;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\Artisan;
 
 use Smalot\PdfParser\Parser;
@@ -178,6 +180,16 @@ class AuditoriaImpuestosController extends Controller
     {
         $filters = $request->query();
         $operationType = $filters['operation_type'] ?? 'todos';
+    // --- PREPARACIÓN INICIAL DE FILTROS ---
+    if (!isset($filters['fecha_inicio'])) {
+        $filters['fecha_inicio'] = now()->subMonthNoOverflow()->format('Y-m-d H:i:s');
+        $filters['fecha_fin'] = now()->format('Y-m-d H:i:s');
+    }
+
+     // --- LÓGICA DE PRE-FILTRADO ---
+    // Este closure contiene los filtros que se pueden aplicar a las tablas de operaciones
+    // ANTES de que se unan, para reducir drásticamente el tamaño del dataset.
+    $applyPreFilters = function ($query) use ($filters) {
         $sucursalesDiccionario = [
             1     => 3711 , //NOGALES, NOG
             2     => 3849 , //TIJUANA, TIJ
@@ -186,55 +198,61 @@ class AuditoriaImpuestosController extends Controller
             5     => 3711 , //MANZANILLO, ZLO
             11    => 3577 , //REYNOSA, NL, LAR, LDO
             12    => 1864 , //VERACRUZ, ZLO
-            ];
+        ];
+        $sucursalId = $filters['sucursal_id'] ?? null;
+        $patenteSucursal = ($sucursalId && $sucursalId !== 'todos') ? ($sucursalesDiccionario[$sucursalId] ?? null) : null;
 
-        $patenteSucursal = $filters['sucursal_id'] === 'todos' ? 'todos' : $sucursalesDiccionario[$filters['sucursal_id']];
-        // 1. La consulta empieza desde el modelo Pedimento.
-        $query = Pedimento::query();
-        if (!isset($filters['fecha_inicio'])) {
-            $filters['fecha_inicio'] = now()->subMonthNoOverflow();
-            $filters['fecha_fin'] = now();
-        }
+        $query->when($sucursalId && $sucursalId !== 'todos', fn($q) => $q->where('sucursal', $sucursalId));
+        $query->when($patenteSucursal, fn($q) => $q->where('patente', $patenteSucursal));
+        $query->when($filters['cliente_id'] ?? null, fn($q, $id) => $q->where('id_cliente', $id));
+    };
 
+    // --- CONSTRUCCIÓN DE LA CONSULTA BASE ---
+    if ($operationType === 'importacion' || $operationType === 'todos') {
+        $importacionesQuery = Importacion::select('id_importacion as operacion_id', 'id_pedimiento', 'updated_at', 'id_cliente', 'sucursal', 'patente', DB::raw("'importacion' as operation_type"));
+        $applyPreFilters($importacionesQuery);
+    }
+    if ($operationType === 'exportacion' || $operationType === 'todos') {
+        $exportacionesQuery = Exportacion::select('id_exportacion as operacion_id', 'id_pedimiento', 'updated_at', 'id_cliente', 'sucursal', 'patente', DB::raw("'exportacion' as operation_type"));
+        $applyPreFilters($exportacionesQuery);
+    }
 
-        // 2. Filtro por Número de Pedimento
-        $query->when($filters['pedimento'] ?? null, function ($q, $val) {
-            $q->where('num_pedimiento', 'like', "%{$val}%");
-        });
+    // --- SELECCIÓN DE LA ESTRATEGIA DE CONSULTA ---
+    switch ($operationType) {
+        case 'importacion':
+            $operacionesCombinadas = $importacionesQuery;
+            break;
+        case 'exportacion':
+            $operacionesCombinadas = $exportacionesQuery;
+            break;
+        default: // 'todos'
+            $operacionesCombinadas = $importacionesQuery->unionAll($exportacionesQuery);
+            break;
+    }
 
-        // 3. Esta clausura contiene TODAS las condiciones que debe cumplir la OPERACIÓN (Impo/Expo)
-        $applyRelationshipFilters = function (Builder $q) use ($filters, $patenteSucursal, $operationType) {
+    // El resto de la lógica es la misma, pero ahora opera sobre un conjunto de datos mucho más pequeño.
+    $maxFechaSubquery = DB::query()
+        ->fromSub($operacionesCombinadas, 'op_all')
+        ->select('id_pedimiento', DB::raw('MAX(updated_at) as max_updated_at'))
+        ->whereNotNull('id_pedimiento')
+        ->groupBy('id_pedimiento');
 
-            // --- Filtros que aplican DIRECTAMENTE a la tabla de operación (rápidos) ---
-            $q->when($filters['sucursal_id'] ?? null, function ($subQ, $id) use ($patenteSucursal) {
-                if ($id && $id !== 'todos') {
-                    $subQ->where('sucursal', $id);
-                }
-            });
+    $query = Pedimento::query();
 
-            $q->when($patenteSucursal ?? null, function ($subQ, $id){
-                if ($id && $id !== 'todos') {
-                $subQ->where('patente', $id);
-                }
-            });
+    $query->when($filters['pedimento'] ?? null, fn ($q, $val) => $q->where('num_pedimiento', 'like', "%{$val}%"));
 
-            if ($operationType === 'importacion') {
-                $q->when($filters['cliente_id'] ?? null, function ($subQ, $id) use ($operationType) {
-                    $subQ->where('operaciones_importacion.id_cliente', $id);
-                });
-            } else if ($operationType === 'exportacion') {
-                $q->when($filters['cliente_id'] ?? null, function ($subQ, $id) use ($operationType) {
-                    $subQ->where('operaciones_exportacion.id_cliente', $id);
-                });
-            } else {
-                $q->when($filters['cliente_id'] ?? null, function ($subQ, $id) {
-                    $subQ->where('id_cliente', $id);
-                });
-            }
+    $query->joinSub($operacionesCombinadas, 'op_reciente', function ($join) {
+        $join->on('pedimiento.id_pedimiento', '=', 'op_reciente.id_pedimiento');
+    })
+    ->joinSub($maxFechaSubquery, 'op_max_fecha', function ($join) {
+        $join->on('op_reciente.id_pedimiento', '=', 'op_max_fecha.id_pedimiento')
+             ->on('op_reciente.updated_at', '=', 'op_max_fecha.max_updated_at');
+    });
 
-
+    // Paso 4: Definir y aplicar la lógica de filtrado.
+    // ¡IMPORTANTE! Los filtros ahora se aplican a la tabla virtual 'op_reciente'.
+    $applyRelationshipFilters = function (Builder $q) use ($filters) {
             // --- LÓGICA DE FILTRADO REFACTORIZADA ---
-
             // Unificamos todos los filtros de documentos en un solo array para procesarlos.
             $documentFilters = [];
             if (!empty($filters['folio'])) $documentFilters['folio'] = ['value' => $filters['folio'], 'type' => $filters['folio_tipo_documento'] ?? 'any'];
@@ -355,28 +373,10 @@ class AuditoriaImpuestosController extends Controller
             }
         };
 
-        // 4. Aplicamos el conjunto de filtros a la relación correcta (Impo/Expo/Ambas)
-        if ($operationType === 'importacion') {
-            //$query->whereHas('importacion', $applyRelationshipFilters);
-
-            $query->join('operaciones_importacion', 'operaciones_importacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
-                 ->where(function ($subQ) use ($applyRelationshipFilters) {
-                    $applyRelationshipFilters($subQ);
-                });
-
-        } elseif ($operationType === 'exportacion') {
-            //$query->whereHas('exportacion', $applyRelationshipFilters);
-
-            $query->join('operaciones_exportacion', 'operaciones_exportacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
-                 ->where(function ($subQ) use ($applyRelationshipFilters) {
-                    $applyRelationshipFilters($subQ);
-                });
-        } else { // 'todos'
-            $query->where(function ($q) use ($applyRelationshipFilters) {
-                $q->whereHas('importacion', $applyRelationshipFilters)
-                ->orWhereHas('exportacion', $applyRelationshipFilters);
-            });
-        }
+         // Aplicamos la closure de filtros a la consulta principal.
+        $query->where(function ($subQ) use ($applyRelationshipFilters) {
+            $applyRelationshipFilters($subQ);
+        });
         return $query;
     }
 
@@ -384,61 +384,84 @@ class AuditoriaImpuestosController extends Controller
     //Metodo para mapear lo que se mostrara en la pagina
     private function transformarOperacion($pedimento, $filters)
     {
-        // Los datos ahora vienen de las relaciones del modelo Importacion
-        // Determinamos si el pedimento tiene una operación de importación o exportación cargada
         $operationType = $filters['operation_type'] ?? 'todos';
         $operacion = null;
 
-        // Con esta lógica, forzamos a que se use la relación correcta
-        // según el filtro que el usuario seleccionó.
+        // Forzar operación según filtro
         if ($operationType === 'importacion') {
             $operacion = $pedimento->importacion;
         } elseif ($operationType === 'exportacion') {
             $operacion = $pedimento->exportacion;
-        } else { // Para el caso 'todos', mantenemos la prioridad de importación
+        } else { // 'todos'
+            // ⚡ Si existen ambas, priorizamos importación
             $operacion = $pedimento->importacion ?? $pedimento->exportacion;
         }
-        // Si por alguna razón no hay operación, no devolvemos nada.
+
+        // ⚠️ Caso crítico: no se encontró operación
         if (!$operacion) {
-            return null;
+            return [
+                'id'            => null,
+                'tipo_operacion'=> 'Sin operación',
+                'pedimento'     => $pedimento->num_pedimiento,
+                'cliente'       => null,
+                'cliente_id'    => null,
+                'fecha_edc'     => null,
+                'status_botones'=> [
+                    'sc'           => ['estado' => 'rojo', 'datos' => null], // <- rojo
+                    'impuestos'    => ['estado' => 'rojo', 'datos' => null],
+                    'flete'        => ['estado' => 'rojo', 'datos' => null],
+                    'llc'          => ['estado' => 'rojo', 'datos' => null],
+                    'pago_derecho' => ['estado' => 'rojo', 'datos' => null],
+                ],
+            ];
         }
 
+        // ✅ Caso normal: existe operación
         $auditorias = $operacion->auditorias;
-        $sc = $operacion->auditoriasTotalSC; // .first() porque es hasOne
+        $sc = $operacion->auditoriasTotalSC;
 
-        // El resto de la lógica de transformación permanece igual...
         $status_botones = [];
-        $status_botones['sc']['estado'] = $sc ? 'verde' : 'gris';
-        $status_botones['sc']['datos'] = $sc;
+        $status_botones['sc'] = [
+            'estado' => $sc ? 'verde' : 'gris',
+            'datos'  => $sc,
+        ];
 
         $tipos_a_auditar = ['impuestos', 'flete', 'llc', 'pago_derecho'];
         foreach ($tipos_a_auditar as $tipo) {
             $facturas = $auditorias->where('tipo_documento', $tipo);
-            if ($facturas->isEmpty() && $tipo === "impuestos") {
-                $status_botones[$tipo]['estado'] = 'rojo';
-                $status_botones[$tipo]['datos'] = null;
+
+            if ($facturas->isEmpty()) {
+                // rojo solo para impuestos faltantes, gris para los demás
+                $status_botones[$tipo] = [
+                    'estado' => $tipo === 'impuestos' ? 'rojo' : 'gris',
+                    'datos'  => null,
+                ];
+                continue;
             }
-            else if ($facturas->isEmpty()) {
-                $status_botones[$tipo]['estado'] = 'gris';
-                $status_botones[$tipo]['datos'] = null;
-            } else {
-                $facturaPrincipal = $facturas->first();
-                $status_botones[$tipo]['estado'] = 'verde';
-                $status_botones[$tipo]['datos'] = $facturas->count() > 1 ? $facturas->values()->all() : $facturaPrincipal;
-                if (str_contains(optional($facturaPrincipal)->ruta_pdf, 'No encontrado')) {
-                    $status_botones[$tipo]['estado'] = 'rojo';
-                }
+
+            // ✅ Se encontraron facturas
+            $facturaPrincipal = $facturas->first();
+            $estado = 'verde';
+
+            // ⚠️ Excepción: factura encontrada pero con PDF defectuoso
+            if (str_contains(optional($facturaPrincipal)->ruta_pdf, 'No encontrado')) {
+                $estado = 'rojo';
             }
+
+            $status_botones[$tipo] = [
+                'estado' => $estado,
+                'datos'  => $facturas->count() > 1 ? $facturas->values()->all() : $facturaPrincipal,
+            ];
         }
 
         return [
-            'id' => $operacion->getKey(), // ID de importacion o exportacion
-            'tipo_operacion' => $operacion instanceof \App\Models\Importacion ? 'Importación' : 'Exportación',
-            'pedimento' => $pedimento->num_pedimiento,
-            'cliente' => optional($operacion->cliente)->nombre,
-            'cliente_id' => optional($operacion->cliente)->id,
-            'fecha_edc' => optional($auditorias->where('tipo_documento', 'impuestos')->first())->fecha_documento,
-            'status_botones' => $status_botones,
+            'id'            => $operacion->getKey(),
+            'tipo_operacion'=> $operacion instanceof \App\Models\Importacion ? 'Importación' : 'Exportación',
+            'pedimento'     => $pedimento->num_pedimiento,
+            'cliente'       => optional($operacion->cliente)->nombre,
+            'cliente_id'    => optional($operacion->cliente)->id,
+            'fecha_edc'     => optional($auditorias->where('tipo_documento', 'impuestos')->first())->fecha_documento,
+            'status_botones'=> $status_botones,
         ];
     }
 
@@ -824,9 +847,9 @@ class AuditoriaImpuestosController extends Controller
                 // 3. Hacemos UNA SOLA consulta a operaciones_importacion usando los IDs que encontramos
                 //    y creamos nuestro mapa final: num_pedimento => id_importacion
                 $mapaPedimentoAImportacionId = Importacion::where('operaciones_importacion.patente', $patenteSucursal)
-                    ->whereBetween('operaciones_importacion.created_at', [$fecha_inicio, $fecha_fin])
+                    ->whereBetween('operaciones_importacion.updated_at', [$fecha_inicio, $fecha_fin])
                     ->whereIn('operaciones_importacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
-                    ->orderBy('operaciones_importacion.created_at', 'desc')
+                    ->orderBy('operaciones_importacion.updated_at', 'desc')
                     ->get()
                     ->keyBy('id_pedimiento');
 
@@ -834,9 +857,9 @@ class AuditoriaImpuestosController extends Controller
 
                 $pu = memory_get_usage();
                 $mapaPedimentoAExportacionId = Exportacion::where('operaciones_exportacion.patente', $patenteSucursal)
-                    ->whereBetween('operaciones_exportacion.created_at', [$fecha_inicio, $fecha_fin])
+                    ->whereBetween('operaciones_exportacion.updated_at', [$fecha_inicio, $fecha_fin])
                     ->whereIn('operaciones_exportacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
-                    ->orderBy('operaciones_exportacion.created_at', 'desc')
+                    ->orderBy('operaciones_exportacion.updated_at', 'desc')
                     ->get()
                     ->keyBy('id_pedimiento');
 
@@ -3028,27 +3051,29 @@ class AuditoriaImpuestosController extends Controller
         gc_collect_cycles();
         if (empty($pedimentosLimpios)) { return []; }
 
-        // 1. Hacemos una única consulta a la BD para traer todos los registros
-        //    que POTENCIALMENTE contienen nuestros números.
-        $query = Pedimento::query();
         $regexPattern = implode('|', $pedimentosLimpios);
 
-            // Obtenemos solo las columnas que necesitamos
-        $posiblesCoincidencias =
-        $query->where('num_pedimiento', 'REGEXP', $regexPattern)
+        // Subquery: obtener el id más reciente por cada registro que haga match con el REGEXP
+        $subquery = DB::table('pedimiento as p2')
+            ->select(DB::raw('MAX(p2.id_pedimiento)'))
+            ->whereRaw("p2.num_pedimiento REGEXP ?", [$regexPattern])
+            ->groupBy(DB::raw("REGEXP_SUBSTR(p2.num_pedimiento, '[0-9]{7}')"));
+
+        // Query principal usando solo los id del subquery
+        $posiblesCoincidencias = Pedimento::query()
+            ->whereIn('id_pedimiento', $subquery)
             ->where(function ($q) use ($patenteSucursal) {
-            $q->whereHas('importacion', function ($importQuery) use ($patenteSucursal) {
-                $importQuery->where('patente', $patenteSucursal);
-            })
-            ->orWhere(function ($q2) use ($patenteSucursal) {
-                // Si no hay importación, buscar en exportación
-                $q2->whereDoesntHave('importacion')
-                ->whereHas('exportacion', function ($exportQuery) use ($patenteSucursal) {
-                    $exportQuery->where('patente', $patenteSucursal);
+                $q->whereHas('importacion', function ($importQuery) use ($patenteSucursal) {
+                    $importQuery->where('patente', $patenteSucursal);
+                })
+                ->orWhere(function ($q2) use ($patenteSucursal) {
+                    $q2->whereDoesntHave('importacion')
+                        ->whereHas('exportacion', function ($exportQuery) use ($patenteSucursal) {
+                            $exportQuery->where('patente', $patenteSucursal);
+                        });
                 });
-            });
-        })
-        ->get();
+            })
+            ->get();
 
         // 1. Creamos un mapa de los pedimentos que nos falta por encontrar.
         //    Usamos array_flip para que la búsqueda y eliminación sea instantánea.
