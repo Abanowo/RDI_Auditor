@@ -212,7 +212,8 @@
       <div class="grid lg:grid-cols-5 sm:grid-cols-1 md:grid-cols-2 gap-4 my-4">
 
         <!-- Botón Balanceados -->
-        <button class="btn-operation bg-white"
+        <button class="btn-operation bg-white focus:ring-blue-500"
+        :class="{'ring-2 ring-blue-600': buttonStatusFilter === 'Saldados!'}"
         @click="fetchOperacionesBotonesContadores(auditCounts.balanceados.label)"
         >
           <div class="flex items-center">
@@ -248,7 +249,8 @@
         </button>
 
         <!-- Botón Pago de menos -->
-        <button class="btn-operation bg-white"
+        <button class="btn-operation bg-white focus:ring-blue-500"
+        :class="{'ring-2 ring-blue-600': buttonStatusFilter === 'Pago de menos!'}"
         @click="fetchOperacionesBotonesContadores(auditCounts.pago_menos.label)">
 
         <div class="flex items-center">
@@ -277,7 +279,8 @@
         </button>
 
         <!-- Botón Pago de mas -->
-        <button class="btn-operation bg-white"
+        <button class="btn-operation bg-white focus:ring-blue-500"
+        :class="{'ring-2 ring-blue-600': buttonStatusFilter === 'Pago de mas!'}"
         @click="fetchOperacionesBotonesContadores(auditCounts.pago_mas.label)"
         >
           <div class="flex items-center">
@@ -314,7 +317,8 @@
         </button>
 
         <!-- Botón No facturado -->
-        <button class="btn-operation bg-white"
+        <button class="btn-operation bg-white focus:ring-blue-500"
+        :class="{'ring-2 ring-blue-600': buttonStatusFilter === 'Sin SC!'}"
         @click="fetchOperacionesBotonesContadores(auditCounts.no_facturados.label)"
         >
           <div class="flex items-center">

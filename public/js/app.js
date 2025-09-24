@@ -4897,6 +4897,10 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
 //
 //
 //
+//
+//
+//
+//
 
  // ¡Importante! Importa el componente hijo
 
@@ -74817,7 +74821,11 @@ var render = function () {
                 _c(
                   "button",
                   {
-                    staticClass: "btn-operation bg-white",
+                    staticClass: "btn-operation bg-white focus:ring-blue-500",
+                    class: {
+                      "ring-2 ring-blue-600":
+                        _vm.buttonStatusFilter === "Saldados!",
+                    },
                     on: {
                       click: function ($event) {
                         return _vm.fetchOperacionesBotonesContadores(
@@ -74906,7 +74914,11 @@ var render = function () {
                 _c(
                   "button",
                   {
-                    staticClass: "btn-operation bg-white",
+                    staticClass: "btn-operation bg-white focus:ring-blue-500",
+                    class: {
+                      "ring-2 ring-blue-600":
+                        _vm.buttonStatusFilter === "Pago de menos!",
+                    },
                     on: {
                       click: function ($event) {
                         return _vm.fetchOperacionesBotonesContadores(
@@ -74995,7 +75007,11 @@ var render = function () {
                 _c(
                   "button",
                   {
-                    staticClass: "btn-operation bg-white",
+                    staticClass: "btn-operation bg-white focus:ring-blue-500",
+                    class: {
+                      "ring-2 ring-blue-600":
+                        _vm.buttonStatusFilter === "Pago de mas!",
+                    },
                     on: {
                       click: function ($event) {
                         return _vm.fetchOperacionesBotonesContadores(
@@ -75084,7 +75100,11 @@ var render = function () {
                 _c(
                   "button",
                   {
-                    staticClass: "btn-operation bg-white",
+                    staticClass: "btn-operation bg-white focus:ring-blue-500",
+                    class: {
+                      "ring-2 ring-blue-600":
+                        _vm.buttonStatusFilter === "Sin SC!",
+                    },
                     on: {
                       click: function ($event) {
                         return _vm.fetchOperacionesBotonesContadores(
