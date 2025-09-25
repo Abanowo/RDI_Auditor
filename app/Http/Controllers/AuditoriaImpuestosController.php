@@ -206,9 +206,9 @@ class AuditoriaImpuestosController extends Controller
         $sucursalId = $filters['sucursal_id'] ?? null;
         $patenteSucursal = ($sucursalId && $sucursalId !== 'todos') ? ($sucursalesDiccionario[$sucursalId] ?? null) : null;
 
-        $query->when($sucursalId && $sucursalId !== 'todos', fn($q) => $q->where('sucursal', $sucursalId));
-        $query->when($patenteSucursal, fn($q) => $q->where('patente', $patenteSucursal));
-        $query->when($filters['cliente_id'] ?? null, fn($q, $id) => $q->where('id_cliente', $id));
+        $query->when($sucursalId && $sucursalId !== 'todos', function($q, $sucursalId) { return $q->where('sucursal', $sucursalId); });
+        $query->when($patenteSucursal, function($q, $patenteSucursal) { return $q->where('patente', $patenteSucursal); });
+        $query->when($filters['cliente_id'] ?? null, function($q, $id) { return $q->where('id_cliente', $id); });
     };
 
     // --- CONSTRUCCIÓN DE LA CONSULTA BASE ---
