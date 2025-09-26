@@ -206,8 +206,11 @@ class AuditoriaImpuestosController extends Controller
         $sucursalId = $filters['sucursal_id'] ?? null;
         $patenteSucursal = ($sucursalId && $sucursalId !== 'todos') ? ($sucursalesDiccionario[$sucursalId] ?? null) : null;
 
-        $query->when($sucursalId && $sucursalId !== 'todos', function($q, $sucursalId) { return $q->where('sucursal', $sucursalId); });
-        $query->when($patenteSucursal, function($q, $patenteSucursal) { return $q->where('patente', $patenteSucursal); });
+        $query->when($sucursalId && $sucursalId !== 'todos' && $patenteSucursal, function($q) use ( $sucursalId, $patenteSucursal) {
+            return $q->where('sucursal', $sucursalId)
+                    ->where('patente', $patenteSucursal);
+        });
+
         $query->when($filters['cliente_id'] ?? null, function($q, $id) { return $q->where('id_cliente', $id); });
     };
 
@@ -243,7 +246,7 @@ class AuditoriaImpuestosController extends Controller
 
     $query = Pedimento::query();
 
-    $query->when($filters['pedimento'] ?? null, fn ($q, $val) => $q->where('num_pedimiento', 'like', "%{$val}%"));
+    $query->when($filters['pedimento'] ?? null, function ($q, $val) { return $q->where('num_pedimiento', 'like', "%{$val}%"); });
 
     $query->joinSub($operacionesCombinadas, 'op_reciente', function ($join) {
         $join->on('pedimiento.id_pedimiento', '=', 'op_reciente.id_pedimiento');
@@ -401,11 +404,11 @@ class AuditoriaImpuestosController extends Controller
         } elseif ($operationType === 'exportacion') {
             $operacion = $pedimento->exportacion;
         } else { // 'todos'
-            // ⚡ Si existen ambas, priorizamos importación
+            // Si existen ambas, priorizamos importación
             $operacion = $pedimento->importacion ?? $pedimento->exportacion;
         }
 
-        // ⚠️ Caso crítico: no se encontró operación
+        // Caso crítico: no se encontró operación
         if (!$operacion) {
             return [
                 'id'            => null,
@@ -2246,8 +2249,7 @@ class AuditoriaImpuestosController extends Controller
     {
         gc_collect_cycles();
 
-        $this->exportarAuditoriasFacturadasAExcel($tareaId, 'true');
-        return ['code' => 0, 'message' => 'completado'];
+        return $this->exportarAuditoriasFacturadasAExcel($tareaId, 'true');
 
     }
 
@@ -3061,15 +3063,9 @@ class AuditoriaImpuestosController extends Controller
 
         $regexPattern = implode('|', $pedimentosLimpios);
 
-        // Subquery: obtener el id más reciente por cada registro que haga match con el REGEXP
-        $subquery = DB::table('pedimiento as p2')
-            ->select(DB::raw('MAX(p2.id_pedimiento)'))
-            ->whereRaw("p2.num_pedimiento REGEXP ?", [$regexPattern])
-            ->groupBy(DB::raw("REGEXP_SUBSTR(p2.num_pedimiento, '[0-9]{7}')"));
-
         // Query principal usando solo los id del subquery
         $posiblesCoincidencias = Pedimento::query()
-            ->whereIn('id_pedimiento', $subquery)
+            ->whereRaw("num_pedimiento REGEXP ?", [$regexPattern])
             ->where(function ($q) use ($patenteSucursal, $numeroSucursal) {
                 $q->whereHas('importacion', function ($importQuery) use ($patenteSucursal, $numeroSucursal) {
                     $importQuery->where('patente', $patenteSucursal)
@@ -3087,14 +3083,39 @@ class AuditoriaImpuestosController extends Controller
             })
             ->get();
 
+        //    Agrupamos los resultados en PHP por el pedimento base de 7 dígitos
+        //      usando preg_match para extraerlos de cada num_pedimiento.
+        $agrupados = [];
+
+        foreach ($posiblesCoincidencias as $registro) {
+            preg_match_all('/\d{7}/', $registro->num_pedimiento, $matches);
+            foreach ($matches[0] as $pedimentoBase) {
+                // Si aún no hemos guardado nada para este pedimento, o si este es más reciente → lo guardamos
+                if (!isset($agrupados[$pedimentoBase]) || $registro->id_pedimiento > $agrupados[$pedimentoBase]->id_pedimiento) {
+                    $agrupados[$pedimentoBase] = $registro;
+                }
+            }
+        }
+
         // 1. Creamos un mapa de los pedimentos que nos falta por encontrar.
         //    Usamos array_flip para que la búsqueda y eliminación sea instantánea.
         $pedimentosPorEncontrar = array_flip($pedimentosLimpios);
 
         //Ahora, procesamos los resultados en PHP para crear el mapa definitivo.
         $mapaFinal = [];
+
+        // 4️⃣ - Recorremos el agrupado para construir el resultado final
+        foreach ($agrupados as $pedimentoBase => $registro) {
+            if (isset($pedimentosPorEncontrar[$pedimentoBase])) {
+                $mapaFinal[$pedimentoBase] = [
+                    'id_pedimiento'  => $registro->id_pedimiento,
+                    'num_pedimiento' => $registro->num_pedimiento,
+                ];
+                unset($pedimentosPorEncontrar[$pedimentoBase]);
+            }
+        }
         // 2. Recorremos los resultados de la BD UNA SOLA VEZ.
-        foreach ($posiblesCoincidencias as $pedimentoSucio) {
+        /* foreach ($posiblesCoincidencias as $pedimentoSucio) {
             // Si ya no quedan pedimentos por buscar, salimos del bucle para máxima eficiencia.
             if (empty($pedimentosPorEncontrar)) { break; }
 
@@ -3116,13 +3137,12 @@ class AuditoriaImpuestosController extends Controller
                 }
             }
         }
-
+ */
         // 5. (Opcional) Al final, lo que quede en $pedimentosPorEncontrar son los que no se encontraron.
         //    Podemos lanzar los warnings de forma mucho más eficiente.
         foreach (array_keys($pedimentosPorEncontrar) as $pedimentoNoEncontrado) {
             Log::warning('Omitiendo pedimento no encontrado en tabla \'pedimiento\': ' . $pedimentoNoEncontrado);
         }
-
         return $mapaFinal;
     }
 

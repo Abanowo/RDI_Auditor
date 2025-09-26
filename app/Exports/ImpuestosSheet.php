@@ -204,7 +204,7 @@ WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents, 
         [
             optional($facturaImpuestos)->fecha_documento,
             $pedimento,
-            $cliente->nombre,
+            optional($cliente)->nombre,
             (float) optional($facturaImpuestos)->monto_total,
             (float) optional($facturaImpuestos)->monto_total_mxn,
             $montoSc,

@@ -203,7 +203,7 @@ WithStrictNullComparison
         [
             optional($facturaFletes)->fecha_documento,
             $pedimento,
-            $cliente->nombre,
+            optional($cliente)->nombre,
             (float) $facturaFletes->monto_total,
             (float) $facturaFletes->monto_total_mxn,
             $montoSc,
