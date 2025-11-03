@@ -455,7 +455,7 @@ class AuditoriaImpuestosController extends Controller
             $estado = 'verde';
 
             // ⚠️ Excepción: factura encontrada pero con PDF defectuoso
-            if (str_contains(optional($facturaPrincipal)->ruta_pdf, 'No encontrado')) {
+            if (str::contains(optional($facturaPrincipal)->ruta_pdf, 'No encontrado')) {
                 $estado = 'rojo';
             }
 
@@ -1170,7 +1170,7 @@ class AuditoriaImpuestosController extends Controller
                     $pedimentoObtenido = $pedimentoSucio->num_pedimiento;
 
                     foreach ($pedimentosPorEncontrar as $pedimentoLimpio => $cantidad) {
-                        if (str_contains($pedimentoObtenido, $pedimentoLimpio)) {
+                        if (str::contains($pedimentoObtenido, $pedimentoLimpio)) {
                             // ----- INICIO DE LA CORRECCIÓN -----
 
                             // a. Mapeamos la coincidencia (opcional, igual que antes)
@@ -2200,7 +2200,8 @@ class AuditoriaImpuestosController extends Controller
             $rutaDeAlmacenamiento = "/reportes/{$nombreUnico}";
 
             // 2. Guardamos el archivo en el disco 'public', dentro de la carpeta 'reportes'
-            Excel::store(new AuditoriaFacturadoExport($operacionesParaExportar), $rutaDeAlmacenamiento, 'public');
+            $pedimentosDescartados = $tarea->pedimentos_descartados;
+            Excel::store(new AuditoriaFacturadoExport($operacionesParaExportar, $pedimentosDescartados), $rutaDeAlmacenamiento, 'public');
             Log::info("Reporte de impuestos almacenado para la tarea {$tareaId}");
 
             // 3. Actualizamos el registro de la tarea en la base de datos
@@ -2264,7 +2265,7 @@ class AuditoriaImpuestosController extends Controller
     public function enviarReportesPorCorreo(string $tareaId)
     {
         try {
-            $destinatario = "daniel.gomez@intactics.com";
+            $destinatario = "carlos.perez@intactics.com";
             // Buscamos la tarea en la base de datos. Si no la encuentra, falla.
             $tarea = AuditoriaTareas::findOrFail($tareaId);
 
@@ -3025,7 +3026,7 @@ class AuditoriaImpuestosController extends Controller
                 $lineaNombreBuscada = '[movPRODUCTONOMBRE]' . $concepto;
 
                 // 4. Verificamos si el concepto actual está en este bloque.
-                if (str_contains($bloque, $lineaNombreBuscada)) {
+                if (str::contains($bloque, $lineaNombreBuscada)) {
                     // ¡Encontrado! Ahora extraemos su precio.
                     if (preg_match('/\[movPRODUCTOPRECIO\](.*)/', $bloque, $matches)) {
                         $precio = trim($matches[1]);
@@ -3123,7 +3124,7 @@ class AuditoriaImpuestosController extends Controller
 
             // 3. Revisamos cuáles de los pedimentos PENDIENTES están en el string sucio actual.
             foreach ($pedimentosPorEncontrar as $pedimentoLimpio => $value) {
-                if (str_contains($pedimentoObtenido, $pedimentoLimpio)) {
+                if (str::contains($pedimentoObtenido, $pedimentoLimpio)) {
                     // ¡Coincidencia! La guardamos en el resultado final.
                     $mapaFinal[$pedimentoLimpio] =
                     [
@@ -3182,7 +3183,7 @@ class AuditoriaImpuestosController extends Controller
             $texto = $pdf->getText();
 
             //Si el valor esta vacio, o si es un pago de derecho de Banamex (es a cuenta del cliente, por lo que lo descartamos)
-            if ($texto === '' || str_contains($texto, 'citibanamex')) { return null; }
+            if ($texto === '' || str::contains($texto, 'citibanamex')) { return null; }
             // --- FIN DEL CAMBIO ---
             $datos = [];
 
@@ -3190,7 +3191,7 @@ class AuditoriaImpuestosController extends Controller
                 $datos['ruta_alternativa'] = $rutaAlternativa;
             }
             // Lógica para detectar el tipo de banco y aplicar el Regex correcto
-            if (str_contains($texto, 'Creando Oportunidades')) {   // Es BBVA
+            if (str::contains($texto, 'Creando Oportunidades')) {   // Es BBVA
                 // Regex para BBVA
                 preg_match('/No\.\s*de\s*Operaci.n:\s*(\d+)/', $texto, $matchOp);
                 preg_match('/Llave\s*de\s*Pago:\s*([A-Z0-9]+)/', $texto, $matchLlave);
@@ -3218,11 +3219,11 @@ class AuditoriaImpuestosController extends Controller
             }
 
             // Lógica para determinar el 'tipo' (Normal, Medio, etc.) basado en el nombre del archivo
-            if(str_contains($rutaPdf, 'MEDIO')) {
+            if(str::contains($rutaPdf, 'MEDIO')) {
                 $datos['tipo'] = 'Medio Pago';
-            } elseif(str_contains($rutaPdf, '-2')) {
+            } elseif(str::contains($rutaPdf, '-2')) {
                 $datos['tipo'] = 'Segundo Pago';
-            } elseif(str_contains($rutaPdf, 'INTACTICS')) {
+            } elseif(str::contains($rutaPdf, 'INTACTICS')) {
                 $datos['tipo'] = 'Intactics';
             } else {
                 $datos['tipo'] = 'Normal';

@@ -356,7 +356,7 @@ class ImportarOperacionesCommand extends Command
 
             // 3. Revisamos cuáles de los pedimentos PENDIENTES están en el string sucio actual.
             foreach ($pedimentosPorEncontrar as $pedimentoLimpio => $value) {
-                if (str_contains($pedimentoObtenido, $pedimentoLimpio)) {
+                if (str::contains($pedimentoObtenido, $pedimentoLimpio)) {
                     // ¡Coincidencia! La guardamos en el resultado final.
                     $mapaFinal[$pedimentoLimpio] =
                     [

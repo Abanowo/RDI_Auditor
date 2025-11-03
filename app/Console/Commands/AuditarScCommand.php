@@ -422,7 +422,7 @@ class AuditarScCommand extends Command
                 $lineaNombreBuscada = '[movPRODUCTONOMBRE]' . $concepto;
 
                 // 4. Verificamos si el concepto actual está en este bloque.
-                if (str_contains($bloque, $lineaNombreBuscada)) {
+                if (str::contains($bloque, $lineaNombreBuscada)) {
                     // ¡Encontrado! Ahora extraemos su precio.
                     if (preg_match('/\[movPRODUCTOPRECIO\](.*)/', $bloque, $matches)) {
                         $precio = trim($matches[1]);

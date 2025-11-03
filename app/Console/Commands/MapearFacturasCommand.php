@@ -133,7 +133,7 @@ class MapearFacturasCommand extends Command
                 $pedimentoObtenido = $pedimentoSucio->num_pedimiento;
 
                 foreach ($pedimentosPorEncontrar as $pedimentoLimpio => $cantidad) {
-                    if (str_contains($pedimentoObtenido, $pedimentoLimpio)) {
+                    if (str::contains($pedimentoObtenido, $pedimentoLimpio)) {
                         // ----- INICIO DE LA CORRECCIÓN -----
 
                         // a. Mapeamos la coincidencia (opcional, igual que antes)
@@ -376,7 +376,7 @@ class MapearFacturasCommand extends Command
 
             // 3. Revisamos cuáles de los pedimentos PENDIENTES están en el string sucio actual.
             foreach ($pedimentosPorEncontrar as $pedimentoLimpio => $value) {
-                if (str_contains($pedimentoObtenido, $pedimentoLimpio)) {
+                if (Str::contains($pedimentoObtenido, $pedimentoLimpio)) {
                     // ¡Coincidencia! La guardamos en el resultado final.
                     $mapaFinal[$pedimentoLimpio] =
                     [

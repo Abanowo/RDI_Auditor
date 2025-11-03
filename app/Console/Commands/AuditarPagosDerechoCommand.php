@@ -254,12 +254,12 @@ class AuditarPagosDerechoCommand extends Command
             $texto = $pdf->getText();
 
             //Si el valor esta vacio, o si es un pago de derecho de Banamex (es a cuenta del cliente, por lo que lo descartamos)
-            if ($texto === '' || str_contains($texto, 'citibanamex')) { return null; }
+            if ($texto === '' || str::contains($texto, 'citibanamex')) { return null; }
             // --- FIN DEL CAMBIO ---
             $datos = [];
 
             // Lógica para detectar el tipo de banco y aplicar el Regex correcto
-            if (str_contains($texto, 'Creando Oportunidades')) {   // Es BBVA
+            if (str::contains($texto, 'Creando Oportunidades')) {   // Es BBVA
                 // Regex para BBVA
                 preg_match('/No\.\s*de\s*Operaci.n:\s*(\d+)/', $texto, $matchOp);
                 preg_match('/Llave\s*de\s*Pago:\s*([A-Z0-9]+)/', $texto, $matchLlave);
@@ -287,9 +287,9 @@ class AuditarPagosDerechoCommand extends Command
             }
 
             // Lógica para determinar el 'tipo' (Normal, Medio, etc.) basado en el nombre del archivo
-            if(str_contains($rutaPdf, 'MEDIO')) { $datos['tipo'] = 'Medio Pago'; }
-            elseif(str_contains($rutaPdf, '-2')) { $datos['tipo'] = 'Segundo Pago'; }
-            elseif(str_contains($rutaPdf, 'INTACTICS')) { $datos['tipo'] = 'Intactics'; }
+            if(str::contains($rutaPdf, 'MEDIO')) { $datos['tipo'] = 'Medio Pago'; }
+            elseif(str::contains($rutaPdf, '-2')) { $datos['tipo'] = 'Segundo Pago'; }
+            elseif(str::contains($rutaPdf, 'INTACTICS')) { $datos['tipo'] = 'Intactics'; }
             else { $datos['tipo'] = 'Normal'; }
 
             return $datos;
