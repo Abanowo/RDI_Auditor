@@ -2201,9 +2201,8 @@ class AuditoriaImpuestosController extends Controller
 
             // 2. Guardamos el archivo en el disco 'public', dentro de la carpeta 'reportes'
             $pedimentosDescartados = $tarea->pedimentos_descartados;
-            Excel::store(new AuditoriaFacturadoExport($operacionesParaExportar, $pedimentosDescartados), $rutaDeAlmacenamiento, 'public');
+            Excel::store(new AuditoriaFacturadoExport($operacionesParaExportar, $pedimentosDescartados), $rutaDeAlmacenamiento, 'storageOldProject');            Log::info("Reporte de impuestos almacenado para la tarea {$tareaId}");
             Log::info("Reporte de impuestos almacenado para la tarea {$tareaId}");
-
             // 3. Actualizamos el registro de la tarea en la base de datos
             //    Asumo que tienes la variable $tarea disponible en este punto del comando.
             if (isset($tarea)) {
