@@ -76,16 +76,16 @@ class AuditoriaImpuestosController extends Controller
 
             // Define los estados y obtén el conteo para cada uno, clonando la consulta de auditorías.
             $statuses = [
-                'pago_mas'      => 'Pago de mas!',
-                'pago_menos'    => 'Pago de menos!',
-                'balanceados'   => 'Saldados!',
+                'pago_mas' => 'Pago de mas!',
+                'pago_menos' => 'Pago de menos!',
+                'balanceados' => 'Saldados!',
                 'no_facturados' => 'Sin SC!',
             ];
 
             $conteos = [];
             $sumasDiferencias = [];
             foreach ($statuses as $key => $label) {
-                if($key === 'balanceados') {
+                if ($key === 'balanceados') {
 
                     // Para 'balanceados', contamos los PEDIMENTOS "puros".
                     // Un pedimento es "puro" si tiene facturas 'Coinciden!' y NINGUNA con otro estado.
@@ -97,11 +97,11 @@ class AuditoriaImpuestosController extends Controller
                             $operationQuery->whereHas('auditoriasRecientes', function ($auditQuery) {
                                 $auditQuery->where('monto_diferencia_sc', 0);
                             })
-                            // 2. Y NO DEBE TENER NINGUNA factura con estado DIFERENTE a "Coinciden!".
-                            ->whereDoesntHave('auditoriasRecientes', function ($auditQuery) use ($label) {
-                                //$auditQuery->where('estado', '!=', $label);
-                                $auditQuery->whereNotIn('estado', ['Coinciden!', 'Normal', 'Segundo Pago', 'Medio Pago']);
-                            });
+                                // 2. Y NO DEBE TENER NINGUNA factura con estado DIFERENTE a "Coinciden!".
+                                ->whereDoesntHave('auditoriasRecientes', function ($auditQuery) use ($label) {
+                                    //$auditQuery->where('estado', '!=', $label);
+                                    $auditQuery->whereNotIn('estado', ['Coinciden!', 'Normal', 'Segundo Pago', 'Medio Pago']);
+                                });
                         };
 
                         // Aplicamos la lógica a la relación de importación O a la de exportación.
@@ -133,11 +133,11 @@ class AuditoriaImpuestosController extends Controller
                 $sumatoriaDiferencia = $sumasDiferencias[$key];
                 // Añadimos un nuevo elemento al arreglo (esto crea los índices numéricos 0, 1, 2...)
                 $statsArray[] = [
-                    'key'        => $key,
-                    'label'      => $label,
-                    'value'      => $valor,
+                    'key' => $key,
+                    'label' => $label,
+                    'value' => $valor,
                     'percentage' => $porcentaje,
-                    'delta_sum'  => $sumatoriaDiferencia,
+                    'delta_sum' => $sumatoriaDiferencia,
                 ];
             }
 
@@ -184,88 +184,94 @@ class AuditoriaImpuestosController extends Controller
     {
         $filters = $request->query();
         $operationType = $filters['operation_type'] ?? 'todos';
-    // --- PREPARACIÓN INICIAL DE FILTROS ---
-    if (!isset($filters['fecha_inicio'])) {
-        $filters['fecha_inicio'] = now()->subMonthNoOverflow()->format('Y-m-d H:i:s');
-        $filters['fecha_fin'] = now()->format('Y-m-d H:i:s');
-    }
+        // --- PREPARACIÓN INICIAL DE FILTROS ---
+        if (!isset($filters['fecha_inicio'])) {
+            $filters['fecha_inicio'] = now()->subMonthNoOverflow()->format('Y-m-d H:i:s');
+            $filters['fecha_fin'] = now()->format('Y-m-d H:i:s');
+        }
 
-     // --- LÓGICA DE PRE-FILTRADO ---
-    // Este closure contiene los filtros que se pueden aplicar a las tablas de operaciones
-    // ANTES de que se unan, para reducir drásticamente el tamaño del dataset.
-    $applyPreFilters = function ($query) use ($filters) {
-        $sucursalesDiccionario = [
-            1     => 3711 , //NOGALES, NOG
-            2     => 3849 , //TIJUANA, TIJ
-            3     => 3711 , //LAREDO, NL, LAR, LDO
-            4     => 1038 , //MEXICALI, MXL
-            5     => 3711 , //MANZANILLO, ZLO
-            11    => 3577 , //REYNOSA, NL, LAR, LDO
-            12    => 1864 , //VERACRUZ, ZLO
-        ];
-        $sucursalId = $filters['sucursal_id'] ?? null;
-        $patenteSucursal = ($sucursalId && $sucursalId !== 'todos') ? ($sucursalesDiccionario[$sucursalId] ?? null) : null;
+        // --- LÓGICA DE PRE-FILTRADO ---
+        // Este closure contiene los filtros que se pueden aplicar a las tablas de operaciones
+        // ANTES de que se unan, para reducir drásticamente el tamaño del dataset.
+        $applyPreFilters = function ($query) use ($filters) {
+            $sucursalesDiccionario = [
+                1 => 3711, //NOGALES, NOG
+                2 => 3849, //TIJUANA, TIJ
+                3 => 3711, //LAREDO, NL, LAR, LDO
+                4 => 1038, //MEXICALI, MXL
+                5 => 3711, //MANZANILLO, ZLO
+                11 => 3577, //REYNOSA, NL, LAR, LDO
+                12 => 1864, //VERACRUZ, ZLO
+            ];
+            $sucursalId = $filters['sucursal_id'] ?? null;
+            $patenteSucursal = ($sucursalId && $sucursalId !== 'todos') ? ($sucursalesDiccionario[$sucursalId] ?? null) : null;
 
-        $query->when($sucursalId && $sucursalId !== 'todos' && $patenteSucursal, function($q) use ( $sucursalId, $patenteSucursal) {
-            return $q->where('sucursal', $sucursalId)
+            $query->when($sucursalId && $sucursalId !== 'todos' && $patenteSucursal, function ($q) use ($sucursalId, $patenteSucursal) {
+                return $q->where('sucursal', $sucursalId)
                     ->where('patente', $patenteSucursal);
-        });
+            });
 
-        $query->when($filters['cliente_id'] ?? null, function($q, $id) { return $q->where('id_cliente', $id); });
-    };
+            $query->when($filters['cliente_id'] ?? null, function ($q, $id) {
+                return $q->where('id_cliente', $id); });
+        };
 
-    // --- CONSTRUCCIÓN DE LA CONSULTA BASE ---
-    if ($operationType === 'importacion' || $operationType === 'todos') {
-        $importacionesQuery = Importacion::select('id_importacion as operacion_id', 'id_pedimiento', 'created_at', 'id_cliente', 'sucursal', 'patente', DB::raw("'importacion' as operation_type"));
-        $applyPreFilters($importacionesQuery);
-    }
-    if ($operationType === 'exportacion' || $operationType === 'todos') {
-        $exportacionesQuery = Exportacion::select('id_exportacion as operacion_id', 'id_pedimiento', 'created_at', 'id_cliente', 'sucursal', 'patente', DB::raw("'exportacion' as operation_type"));
-        $applyPreFilters($exportacionesQuery);
-    }
+        // --- CONSTRUCCIÓN DE LA CONSULTA BASE ---
+        if ($operationType === 'importacion' || $operationType === 'todos') {
+            $importacionesQuery = Importacion::select('id_importacion as operacion_id', 'id_pedimiento', 'created_at', 'id_cliente', 'sucursal', 'patente', DB::raw("'importacion' as operation_type"));
+            $applyPreFilters($importacionesQuery);
+        }
+        if ($operationType === 'exportacion' || $operationType === 'todos') {
+            $exportacionesQuery = Exportacion::select('id_exportacion as operacion_id', 'id_pedimiento', 'created_at', 'id_cliente', 'sucursal', 'patente', DB::raw("'exportacion' as operation_type"));
+            $applyPreFilters($exportacionesQuery);
+        }
 
-    // --- SELECCIÓN DE LA ESTRATEGIA DE CONSULTA ---
-    switch ($operationType) {
-        case 'importacion':
-            $operacionesCombinadas = $importacionesQuery;
-            break;
-        case 'exportacion':
-            $operacionesCombinadas = $exportacionesQuery;
-            break;
-        default: // 'todos'
-            $operacionesCombinadas = $importacionesQuery->unionAll($exportacionesQuery);
-            break;
-    }
+        // --- SELECCIÓN DE LA ESTRATEGIA DE CONSULTA ---
+        switch ($operationType) {
+            case 'importacion':
+                $operacionesCombinadas = $importacionesQuery;
+                break;
+            case 'exportacion':
+                $operacionesCombinadas = $exportacionesQuery;
+                break;
+            default: // 'todos'
+                $operacionesCombinadas = $importacionesQuery->unionAll($exportacionesQuery);
+                break;
+        }
 
-    // El resto de la lógica es la misma, pero ahora opera sobre un conjunto de datos mucho más pequeño.
-    $maxFechaSubquery = DB::query()
-        ->fromSub($operacionesCombinadas, 'op_all')
-        ->select('id_pedimiento', DB::raw('MAX(created_at) as max_created_at'))
-        ->whereNotNull('id_pedimiento')
-        ->groupBy('id_pedimiento');
+        // El resto de la lógica es la misma, pero ahora opera sobre un conjunto de datos mucho más pequeño.
+        $maxFechaSubquery = DB::query()
+            ->fromSub($operacionesCombinadas, 'op_all')
+            ->select('id_pedimiento', DB::raw('MAX(created_at) as max_created_at'))
+            ->whereNotNull('id_pedimiento')
+            ->groupBy('id_pedimiento');
 
-    $query = Pedimento::query();
+        $query = Pedimento::query();
 
-    $query->when($filters['pedimento'] ?? null, function ($q, $val) { return $q->where('num_pedimiento', 'like', "%{$val}%"); });
+        $query->when($filters['pedimento'] ?? null, function ($q, $val) {
+            return $q->where('num_pedimiento', 'like', "%{$val}%"); });
 
-    $query->joinSub($operacionesCombinadas, 'op_reciente', function ($join) {
-        $join->on('pedimiento.id_pedimiento', '=', 'op_reciente.id_pedimiento');
-    })
-    ->joinSub($maxFechaSubquery, 'op_max_fecha', function ($join) {
-        $join->on('op_reciente.id_pedimiento', '=', 'op_max_fecha.id_pedimiento')
-             ->on('op_reciente.created_at', '=', 'op_max_fecha.max_created_at');
-    });
+        $query->joinSub($operacionesCombinadas, 'op_reciente', function ($join) {
+            $join->on('pedimiento.id_pedimiento', '=', 'op_reciente.id_pedimiento');
+        })
+            ->joinSub($maxFechaSubquery, 'op_max_fecha', function ($join) {
+                $join->on('op_reciente.id_pedimiento', '=', 'op_max_fecha.id_pedimiento')
+                    ->on('op_reciente.created_at', '=', 'op_max_fecha.max_created_at');
+            });
 
-    // Paso 4: Definir y aplicar la lógica de filtrado.
-    // ¡IMPORTANTE! Los filtros ahora se aplican a la tabla virtual 'op_reciente'.
-    $applyRelationshipFilters = function (Builder $q) use ($filters) {
+        // Paso 4: Definir y aplicar la lógica de filtrado.
+        // ¡IMPORTANTE! Los filtros ahora se aplican a la tabla virtual 'op_reciente'.
+        $applyRelationshipFilters = function (Builder $q) use ($filters) {
             // --- LÓGICA DE FILTRADO REFACTORIZADA ---
             // Unificamos todos los filtros de documentos en un solo array para procesarlos.
             $documentFilters = [];
-            if (!empty($filters['folio'])) $documentFilters['folio'] = ['value' => $filters['folio'], 'type' => $filters['folio_tipo_documento'] ?? 'any'];
-            if (!empty($filters['estado'])) $documentFilters['estado'] = ['value' => $filters['estado'], 'type' => $filters['estado_tipo_documento'] ?? 'any'];
-            if (!empty($filters['fecha_inicio'])) $documentFilters['fecha'] = ['value' => $filters['fecha_inicio'], 'type' => $filters['fecha_tipo_documento'] ?? 'any'];
-            if (!empty($filters['estado_tipo_documento']) && empty($filters['estado'])) $documentFilters['estado'] = ['value' => null, 'type' => $filters['estado_tipo_documento']];
+            if (!empty($filters['folio']))
+                $documentFilters['folio'] = ['value' => $filters['folio'], 'type' => $filters['folio_tipo_documento'] ?? 'any'];
+            if (!empty($filters['estado']))
+                $documentFilters['estado'] = ['value' => $filters['estado'], 'type' => $filters['estado_tipo_documento'] ?? 'any'];
+            if (!empty($filters['fecha_inicio']))
+                $documentFilters['fecha'] = ['value' => $filters['fecha_inicio'], 'type' => $filters['fecha_tipo_documento'] ?? 'any'];
+            if (!empty($filters['estado_tipo_documento']) && empty($filters['estado']))
+                $documentFilters['estado'] = ['value' => null, 'type' => $filters['estado_tipo_documento']];
 
             // Si no hay ningún filtro de documento, no hacemos nada más.
             if (empty($documentFilters)) {
@@ -300,7 +306,7 @@ class AuditoriaImpuestosController extends Controller
                     $q->whereHas('auditoriasRecientes', function ($auditQuery) use ($values, $type, $filters) {
                         $auditQuery->where('tipo_documento', $type);
 
-                        if (isset($values['estado'])){
+                        if (isset($values['estado'])) {
                             $auditQuery->where('estado', $values['estado']);
                         }
 
@@ -332,47 +338,47 @@ class AuditoriaImpuestosController extends Controller
                                     $auditQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
                                 }
                             })
-                            // 2. Y NO DEBE TENER NINGUNA factura con estado DIFERENTE a "Coinciden!".
-                            ->whereDoesntHave('auditoriasRecientes', function ($auditQuery) {
-                                //$auditQuery->where('estado', '!=', $label);
-                                $auditQuery->whereNotIn('estado', ['Coinciden!', 'Normal', 'Segundo Pago', 'Medio Pago']);
-                            });
+                                // 2. Y NO DEBE TENER NINGUNA factura con estado DIFERENTE a "Coinciden!".
+                                ->whereDoesntHave('auditoriasRecientes', function ($auditQuery) {
+                                    //$auditQuery->where('estado', '!=', $label);
+                                    $auditQuery->whereNotIn('estado', ['Coinciden!', 'Normal', 'Segundo Pago', 'Medio Pago']);
+                                });
 
                         } else {
 
                             // Busca en 'auditorias'
-                        $orQuery->orWhereHas('auditoriasRecientes', function ($auditQuery) use ($values, $filters) {
+                            $orQuery->orWhereHas('auditoriasRecientes', function ($auditQuery) use ($values, $filters) {
 
-                            if (isset($values['estado'])){
-                                $auditQuery->where('estado', $values['estado']);
-                            }
-
-                            if (isset($values['folio'])) {
-                                $auditQuery->where('folio', 'like', "%{$values['folio']}%");
-                            }
-
-                            if (isset($values['fecha'])) {
-                                $auditQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
-                            }
-                            // Nota 23-09-2025 en documento nube: Aca ocurre un comportamiento que es muy improbable que ocurra pero igual le hago mencion, en donde cuando se selecciona
-                            // un "Estado" en los filtros, y en el "Tipo estado" lo dejas como cualquiera (any), y lo mismo con "Tipo fecha" (any)
-                            // lo que ocurre es que se busquen unicamente los que tengan esa fecha y los que tengan ese estado, ocasionando en que
-                            // resulte en que se descarten las auditorias que deberia de mostrarse.
-                        });
-
-                            if (!isset($values['estado'])) {
-
-                            // O busca en 'auditoriasTotalSC' (solo para folio y fecha)
-                            $orQuery->orWhereHas('auditoriasTotalSC', function ($scQuery) use ($values, $filters) {
+                                if (isset($values['estado'])) {
+                                    $auditQuery->where('estado', $values['estado']);
+                                }
 
                                 if (isset($values['folio'])) {
-                                    $scQuery->where('folio', 'like', "%{$values['folio']}%");
+                                    $auditQuery->where('folio', 'like', "%{$values['folio']}%");
                                 }
 
                                 if (isset($values['fecha'])) {
-                                    $scQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
+                                    $auditQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
                                 }
+                                // Nota 23-09-2025 en documento nube: Aca ocurre un comportamiento que es muy improbable que ocurra pero igual le hago mencion, en donde cuando se selecciona
+                                // un "Estado" en los filtros, y en el "Tipo estado" lo dejas como cualquiera (any), y lo mismo con "Tipo fecha" (any)
+                                // lo que ocurre es que se busquen unicamente los que tengan esa fecha y los que tengan ese estado, ocasionando en que
+                                // resulte en que se descarten las auditorias que deberia de mostrarse.
                             });
+
+                            if (!isset($values['estado'])) {
+
+                                // O busca en 'auditoriasTotalSC' (solo para folio y fecha)
+                                $orQuery->orWhereHas('auditoriasTotalSC', function ($scQuery) use ($values, $filters) {
+
+                                    if (isset($values['folio'])) {
+                                        $scQuery->where('folio', 'like', "%{$values['folio']}%");
+                                    }
+
+                                    if (isset($values['fecha'])) {
+                                        $scQuery->whereBetween('fecha_documento', [$values['fecha'], $filters['fecha_fin'] ?? $values['fecha']]);
+                                    }
+                                });
                             } else if ($values['estado'] === 'SC Encontrada') {
 
                                 // O busca en 'auditoriasTotalSC'
@@ -384,7 +390,7 @@ class AuditoriaImpuestosController extends Controller
             }
         };
 
-         // Aplicamos la closure de filtros a la consulta principal.
+        // Aplicamos la closure de filtros a la consulta principal.
         $query->where(function ($subQ) use ($applyRelationshipFilters) {
             $applyRelationshipFilters($subQ);
         });
@@ -411,17 +417,17 @@ class AuditoriaImpuestosController extends Controller
         // Caso crítico: no se encontró operación
         if (!$operacion) {
             return [
-                'id'            => null,
-                'tipo_operacion'=> 'Sin operación',
-                'pedimento'     => $pedimento->num_pedimiento,
-                'cliente'       => null,
-                'cliente_id'    => null,
-                'fecha_edc'     => null,
-                'status_botones'=> [
-                    'sc'           => ['estado' => 'rojo', 'datos' => null], // <- rojo
-                    'impuestos'    => ['estado' => 'rojo', 'datos' => null],
-                    'flete'        => ['estado' => 'rojo', 'datos' => null],
-                    'llc'          => ['estado' => 'rojo', 'datos' => null],
+                'id' => null,
+                'tipo_operacion' => 'Sin operación',
+                'pedimento' => $pedimento->num_pedimiento,
+                'cliente' => null,
+                'cliente_id' => null,
+                'fecha_edc' => null,
+                'status_botones' => [
+                    'sc' => ['estado' => 'rojo', 'datos' => null], // <- rojo
+                    'impuestos' => ['estado' => 'rojo', 'datos' => null],
+                    'flete' => ['estado' => 'rojo', 'datos' => null],
+                    'llc' => ['estado' => 'rojo', 'datos' => null],
                     'pago_derecho' => ['estado' => 'rojo', 'datos' => null],
                 ],
             ];
@@ -434,7 +440,7 @@ class AuditoriaImpuestosController extends Controller
         $status_botones = [];
         $status_botones['sc'] = [
             'estado' => $sc ? 'verde' : 'gris',
-            'datos'  => $sc,
+            'datos' => $sc,
         ];
 
         $tipos_a_auditar = ['impuestos', 'flete', 'llc', 'pago_derecho'];
@@ -445,7 +451,7 @@ class AuditoriaImpuestosController extends Controller
                 // rojo solo para impuestos faltantes, gris para los demás
                 $status_botones[$tipo] = [
                     'estado' => $tipo === 'impuestos' ? 'rojo' : 'gris',
-                    'datos'  => null,
+                    'datos' => null,
                 ];
                 continue;
             }
@@ -461,18 +467,18 @@ class AuditoriaImpuestosController extends Controller
 
             $status_botones[$tipo] = [
                 'estado' => $estado,
-                'datos'  => $facturas->count() > 1 ? $facturas->values()->all() : $facturaPrincipal,
+                'datos' => $facturas->count() > 1 ? $facturas->values()->all() : $facturaPrincipal,
             ];
         }
 
         return [
-            'id'            => $operacion->getKey(),
-            'tipo_operacion'=> $operacion instanceof \App\Models\Importacion ? 'Importación' : 'Exportación',
-            'pedimento'     => $pedimento->num_pedimiento,
-            'cliente'       => optional($operacion->cliente)->nombre,
-            'cliente_id'    => optional($operacion->cliente)->id,
-            'fecha_edc'     => optional($auditorias->where('tipo_documento', 'impuestos')->first())->fecha_documento,
-            'status_botones'=> $status_botones,
+            'id' => $operacion->getKey(),
+            'tipo_operacion' => $operacion instanceof \App\Models\Importacion ? 'Importación' : 'Exportación',
+            'pedimento' => $pedimento->num_pedimiento,
+            'cliente' => optional($operacion->cliente)->nombre,
+            'cliente_id' => optional($operacion->cliente)->id,
+            'fecha_edc' => optional($auditorias->where('tipo_documento', 'impuestos')->first())->fecha_documento,
+            'status_botones' => $status_botones,
         ];
     }
 
@@ -485,27 +491,27 @@ class AuditoriaImpuestosController extends Controller
         // Ahora, cargamos las relaciones que necesitamos para la transformación
         // La ruta es más larga, pero es la forma correcta: pedimento -> importacion -> auditorias/totalSc
         $resultados = $query->with([
-                'importacion' => function ($q) {
-                    $q->with(['auditoriasRecientes', 'auditoriasTotalSC', 'cliente', 'getSucursal']);
-                },
-                'exportacion' => function ($q) {
-                    $q->with(['auditoriasRecientes', 'auditoriasTotalSC', 'cliente', 'getSucursal']);
-                }
-            ])->get();
+            'importacion' => function ($q) {
+                $q->with(['auditoriasRecientes', 'auditoriasTotalSC', 'cliente', 'getSucursal']);
+            },
+            'exportacion' => function ($q) {
+                $q->with(['auditoriasRecientes', 'auditoriasTotalSC', 'cliente', 'getSucursal']);
+            }
+        ])->get();
         // Creamos el nombre del archivo dinámicamente
         $fecha = now()->format('dmY');
 
-        if($filtrosGET['sucursal_id'] !== 'todos') {
+        if ($filtrosGET['sucursal_id'] !== 'todos') {
 
             $nombreSucursal = Sucursales::find($filtrosGET['sucursal_id'])->toArray();
 
             $sucursalesDiccionario = [
-            "Nogales"     => "NOG" ,
-            "Tijuana"     => "TIJ" ,
-            "Laredo"      => "NL"  ,
-            "Reynosa"     => "REY" ,
-            "Mexicali"    => "MXL" ,
-            "Manzanillo"  => "ZLO" ,
+                "Nogales" => "NOG",
+                "Tijuana" => "TIJ",
+                "Laredo" => "NL",
+                "Reynosa" => "REY",
+                "Mexicali" => "MXL",
+                "Manzanillo" => "ZLO",
             ];
             $serieSucursal = $sucursalesDiccionario[$nombreSucursal['nombre']];
             $fileName = "RDI_{$serieSucursal}{$fecha}.xlsx";
@@ -529,7 +535,7 @@ class AuditoriaImpuestosController extends Controller
     }
 
 
-     /**
+    /**
      * Devuelve una lista de todos los clientes (empresas).
      */
     public function getClientes(Request $request)
@@ -571,12 +577,12 @@ class AuditoriaImpuestosController extends Controller
         $sucursalId = $request->input('sucursal_id');
         $sucursalNombre = ($sucursalId !== 'todos') ? Sucursales::find($sucursalId)->nombre : null;
         $sucursalesDiccionario = [
-         "Nogales"     => "NOG" ,
-         "Tijuana"     => "TIJ" ,
-         "Laredo"      => "NL"  ,
-         "Reynosa"     => "REY" ,
-         "Mexicali"    => "MXL" ,
-         "Manzanillo"  => "ZLO" ,
+            "Nogales" => "NOG",
+            "Tijuana" => "TIJ",
+            "Laredo" => "NL",
+            "Reynosa" => "REY",
+            "Mexicali" => "MXL",
+            "Manzanillo" => "ZLO",
         ];
         $serieSucursal = isset($sucursalesDiccionario[$sucursalNombre]) ? $sucursalesDiccionario[$sucursalNombre] : null;
         $tareas = AuditoriaTareas::query()
@@ -687,10 +693,11 @@ class AuditoriaImpuestosController extends Controller
 
         if (!file_exists($rutaPdf)) {
             $tarea->update(
-            [
-                'status' => 'fallido',
-                'resultado' => "Ruta pdf no encontrada: ({$rutaPdf})"
-            ]);
+                [
+                    'status' => 'fallido',
+                    'resultado' => "Ruta pdf no encontrada: ({$rutaPdf})"
+                ]
+            );
             return ['code' => 1, 'message' => new \Exception("Ruta pdf no encontrada: ({$rutaPdf})")];
         }
 
@@ -748,15 +755,13 @@ class AuditoriaImpuestosController extends Controller
                             $fechaPedimentoEstadoCuenta = $matchFecha[0] . "-{$yearEstadoCuenta}";
                             // Como es un registro correcto, se guarda en el arreglo
                             $tablaDeDatos[] =
-                            [
-                                'pedimento' => $matchPedimento[1],
-                                'fecha_str' => \Carbon\Carbon::createFromFormat('d-m-Y', $fechaPedimentoEstadoCuenta)->format('Y-m-d'),
-                                'cargo_str' => $matchCargo[1],
-                            ];
+                                [
+                                    'pedimento' => $matchPedimento[1],
+                                    'fecha_str' => \Carbon\Carbon::createFromFormat('d-m-Y', $fechaPedimentoEstadoCuenta)->format('Y-m-d'),
+                                    'cargo_str' => $matchCargo[1],
+                                ];
                         }
-                    }
-
-                    else if ($banco === 'SANTANDER') {
+                    } else if ($banco === 'SANTANDER') {
                         // Se busca en el texto si existe "CGO IMP CE TE"
                         $patron = "/(.*CGO\s*IMP\s*CE\s*TE.*)/";
                         // Si el patron existe, eso significa que esta linea contiene toda la informacion que buscamos
@@ -769,11 +774,11 @@ class AuditoriaImpuestosController extends Controller
 
                             // Como es un registro correcto, se guarda en el arreglo
                             $tablaDeDatos[] =
-                            [
-                                'pedimento' => $matchPedimento[0],
-                                'fecha_str' => \Carbon\Carbon::createFromFormat('dmY', $matchFecha[0])->format('Y-m-d'),
-                                'cargo_str' => $matchCargo[0][5],
-                            ];
+                                [
+                                    'pedimento' => $matchPedimento[0],
+                                    'fecha_str' => \Carbon\Carbon::createFromFormat('dmY', $matchFecha[0])->format('Y-m-d'),
+                                    'cargo_str' => $matchCargo[0][5],
+                                ];
                         }
                     }
                 }
@@ -807,7 +812,7 @@ class AuditoriaImpuestosController extends Controller
                 $import = new LecturaEstadoCuentaExcel($tarea);
 
                 // Importar el archivo usando la clase
-                Excel::import($import,  $rutaPdf);
+                Excel::import($import, $rutaPdf);
 
                 // Obtener la colección ya procesada y filtrada desde nuestro importador
                 $operacionesLimpias = $import->getProcessedData();
@@ -829,29 +834,30 @@ class AuditoriaImpuestosController extends Controller
                 return ['code' => 0, 'message' => 'completado'];
             }
             $sucursalesDiccionario = [
-            'NOG'     => [1, 3711] , //NOGALES, NOG
-            'TIJ'     => [2, 3849] , //TIJUANA, TIJ
-            'NL'      => [3, 3711], //LAREDO, NL, LAR, LDO
-            'MXL'     => [4, 1038] , //MEXICALI, MXL
-            'ZLO'     => [5, 3711] , //MANZANILLO, ZLO
-            'REY'     => [11, 3577] , //REYNOSA, NL, LAR, LDO
-            'VRZ'     => [12, 1864] , //VERACRUZ, ZLO
+                'NOG' => [1, 3711], //NOGALES, NOG
+                'TIJ' => [2, 3849], //TIJUANA, TIJ
+                'NL' => [3, 3711], //LAREDO, NL, LAR, LDO
+                'MXL' => [4, 1038], //MEXICALI, MXL
+                'ZLO' => [5, 3711], //MANZANILLO, ZLO
+                'REY' => [11, 3577], //REYNOSA, NL, LAR, LDO
+                'VRZ' => [12, 1864], //VERACRUZ, ZLO
             ];
             $patenteSucursal = $sucursalesDiccionario[$sucursal][1];
             $numeroSucursal = $sucursalesDiccionario[$sucursal][0];
             // Preparamos un array con TODOS los registros que vamos a guardar/actualizar
-            $datosParaOperaciones = $operacionesLimpias->map(function ($op){ return ['pedimento' => $op['pedimento']];} )->all(); // ->all() lo convierte de nuevo a un array simple
+            $datosParaOperaciones = $operacionesLimpias->map(function ($op) {
+                return ['pedimento' => $op['pedimento']]; })->all(); // ->all() lo convierte de nuevo a un array simple
 
-            Log::info("Se identificaron ". count($datosParaOperaciones) . "/{$operacionesLimpias->count()} operaciones válidas para procesar.");
+            Log::info("Se identificaron " . count($datosParaOperaciones) . "/{$operacionesLimpias->count()} operaciones válidas para procesar.");
             // --- Llamamos a upsert UNA SOLA VEZ con todos los datos ---
             if (!empty($datosParaOperaciones)) {
                 // 1. Obtenemos todos los números de pedimento únicos del estado de cuenta
                 $numerosDePedimento = $operacionesLimpias->pluck('pedimento')->unique()->toArray();
-                Log::info("Pedimentos del estado de cuenta: ". count($datosParaOperaciones));
+                Log::info("Pedimentos del estado de cuenta: " . count($datosParaOperaciones));
                 // 2. Hacemos UNA SOLA consulta para obtener los IDs de esos pedimentos
                 //    y creamos un mapa: num_pedimento => id_pedimiento
                 $mapaPedimentoAId = $this->construirMapaDePedimentos($numerosDePedimento, $patenteSucursal, $numeroSucursal);
-                Log::info("Pedimentos encontrados en tabla 'pedimentos': ". count($mapaPedimentoAId));
+                Log::info("Pedimentos encontrados en tabla 'pedimentos': " . count($mapaPedimentoAId));
 
                 $pu = memory_get_usage();
 
@@ -865,7 +871,7 @@ class AuditoriaImpuestosController extends Controller
                     ->get()
                     ->keyBy('id_pedimiento');
 
-                Log::info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_importacion': ". $mapaPedimentoAImportacionId->count());
+                Log::info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_importacion': " . $mapaPedimentoAImportacionId->count());
 
                 $pu = memory_get_usage();
                 $mapaPedimentoAExportacionId = Exportacion::where(['operaciones_exportacion.patente' => $patenteSucursal, 'operaciones_exportacion.sucursal' => $numeroSucursal])
@@ -876,7 +882,7 @@ class AuditoriaImpuestosController extends Controller
                     ->get()
                     ->keyBy('id_pedimiento');
 
-                Log::info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_exportacion': ". $mapaPedimentoAExportacionId->count());
+                Log::info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_exportacion': " . $mapaPedimentoAExportacionId->count());
 
                 $pu = memory_get_usage();
                 // 3. Obtenemos todas las SC de una vez para la comparación de montos
@@ -887,13 +893,12 @@ class AuditoriaImpuestosController extends Controller
                     ->orWhereIn('pedimento_id', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
                     ->get()
                     ->keyBy('pedimento_id'); // Las indexamos por operacion_id para búsqueda rápida
-                Log::info("Facturas SC encontradas con relacion a Impuestos: ". $auditoriasSC->count());
+                Log::info("Facturas SC encontradas con relacion a Impuestos: " . $auditoriasSC->count());
 
                 $pu = memory_get_usage();
                 // PASO 5: Construir el array para las auditorías, usando nuestro mapa.
                 // Pasamos el mapa a la clausula `use` para que esté disponible dentro del `map`.
-                $datosParaAuditorias = $operacionesLimpias->map(function ($op)
-                use ($rutaPdf, $auditoriasSC, $mapaPedimentoAId, $mapaPedimentoAExportacionId, $mapaPedimentoAImportacionId, $tarea) {
+                $datosParaAuditorias = $operacionesLimpias->map(function ($op) use ($rutaPdf, $auditoriasSC, $mapaPedimentoAId, $mapaPedimentoAExportacionId, $mapaPedimentoAImportacionId, $tarea) {
 
                     $pedimentoLimpio = $op['pedimento'];
                     $pedimentoInfo = $mapaPedimentoAId[$pedimentoLimpio] ?? null;
@@ -959,25 +964,25 @@ class AuditoriaImpuestosController extends Controller
                     $rutaPdfASubir = str_replace('operaciones/estados_de_cuenta/', '', $rutaPdfASubir);
                     // Devolvemos el array completo, AHORA con el `operacion_id` correcto.
                     return
-                    [
-                        'operacion_id'          => $operacionId,
-                        'pedimento_id'          => $id_pedimento_db,
-                        'operation_type'        => $tipoOperacion,
-                        'tipo_documento'        => 'impuestos',
-                        'concepto_llave'        => 'principal',
-                        'fecha_documento'       => $op['fecha_str'],
-                        'monto_total'           => (float) str_replace(',', '', $matchCargo[0] ?? '0'),
-                        'monto_total_mxn'       => (float) str_replace(',', '', $matchCargo[0] ?? '0'),
-                        'monto_diferencia_sc'   => $diferenciaSc,
-                        'moneda_documento'      => 'MXN',
-                        'estado'                => $estado,
-                        'ruta_pdf'              => $rutaPdfASubir,
-                        'created_at'            => now(),
-                        'updated_at'            => now(),
-                    ];
+                        [
+                            'operacion_id' => $operacionId,
+                            'pedimento_id' => $id_pedimento_db,
+                            'operation_type' => $tipoOperacion,
+                            'tipo_documento' => 'impuestos',
+                            'concepto_llave' => 'principal',
+                            'fecha_documento' => $op['fecha_str'],
+                            'monto_total' => (float) str_replace(',', '', $matchCargo[0] ?? '0'),
+                            'monto_total_mxn' => (float) str_replace(',', '', $matchCargo[0] ?? '0'),
+                            'monto_diferencia_sc' => $diferenciaSc,
+                            'moneda_documento' => 'MXN',
+                            'estado' => $estado,
+                            'ruta_pdf' => $rutaPdfASubir,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ];
                 })->filter()->all(); // ->filter() elimina cualquier valor `null` que hayamos retornado en la verificación de seguridad.
 
-                Log::info("Pedimentos con impuestos listos para subir: ". count($datosParaAuditorias));
+                Log::info("Pedimentos con impuestos listos para subir: " . count($datosParaAuditorias));
 
 
 
@@ -996,7 +1001,8 @@ class AuditoriaImpuestosController extends Controller
                             'estado',
                             'ruta_pdf',
                             'updated_at'
-                        ]);
+                        ]
+                    );
                 }
                 Log::info('¡Guardado con éxito!');
             }
@@ -1029,9 +1035,10 @@ class AuditoriaImpuestosController extends Controller
                 [
                     'status' => 'fallido',
                     'resultado' => $e->getMessage()
-                ]);
+                ]
+            );
             Log::error("Falló la tarea #{$tarea->id}: " . $e->getMessage());
-            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage() )];
+            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage())];
         }
     }
 
@@ -1071,13 +1078,13 @@ class AuditoriaImpuestosController extends Controller
             Log::info("Procesando Facturas SC para Tarea #{$tarea->id} en la sucursal: {$sucursal}");
 
             $sucursalesDiccionario = [
-            'NOG'     => [1, 3711] , //NOGALES, NOG
-            'TIJ'     => [2, 3849] , //TIJUANA, TIJ
-            'NL'      => [3, 3711], //LAREDO, NL, LAR, LDO
-            'MXL'     => [4, 1038] , //MEXICALI, MXL
-            'ZLO'     => [5, 3711] , //MANZANILLO, ZLO
-            'REY'     => [11, 3577] , //REYNOSA, NL, LAR, LDO
-            'VRZ'     => [12, 1864] , //VERACRUZ, ZLO
+                'NOG' => [1, 3711], //NOGALES, NOG
+                'TIJ' => [2, 3849], //TIJUANA, TIJ
+                'NL' => [3, 3711], //LAREDO, NL, LAR, LDO
+                'MXL' => [4, 1038], //MEXICALI, MXL
+                'ZLO' => [5, 3711], //MANZANILLO, ZLO
+                'REY' => [11, 3577], //REYNOSA, NL, LAR, LDO
+                'VRZ' => [12, 1864], //VERACRUZ, ZLO
             ];
             $patenteSucursal = $sucursalesDiccionario[$sucursal][1];
             $numeroSucursal = $sucursalesDiccionario[$sucursal][0];
@@ -1086,13 +1093,13 @@ class AuditoriaImpuestosController extends Controller
 
             $mapaPedimentoAId = $this->construirMapaDePedimentos($numerosDePedimento, $patenteSucursal, $numeroSucursal);
             $numerosDePedimento = collect($mapaPedimentoAId)->pluck('num_pedimiento')->toArray();
-            Log::info("Pedimentos encontrados en tabla 'pedimentos': ". count($mapaPedimentoAId));
+            Log::info("Pedimentos encontrados en tabla 'pedimentos': " . count($mapaPedimentoAId));
 
 
             // $mapaPorId es una variable auxiliar que sirve para hacer el mapeo de 'num_pedimiento' que se requiere
             // en ambas variables de $mapaPedimentoAImportacionId/$mapaPedimentoAExportacionId
             $mapaPorId = collect($mapaPedimentoAId)
-            ->keyBy('id_pedimiento');
+                ->keyBy('id_pedimiento');
 
             $pu = memory_get_usage();
             // 2. MAPEADO EFICIENTE DE IDS
@@ -1106,18 +1113,18 @@ class AuditoriaImpuestosController extends Controller
                 ->orderBy('operaciones_importacion.created_at', 'desc')
                 ->groupBy('id_pedimiento')
                 ->get()
-                ->map(function($operacion) use ($mapaPorId) {
+                ->map(function ($operacion) use ($mapaPorId) {
                     $info = $mapaPorId->get($operacion->id_pedimiento);
 
                     return [
-                        'pedimento'     => $info['num_pedimiento'] ?? null, // Recuperamos num_pedimiento
-                        'id_operacion'  => $operacion->id_importacion,
-                        'id_pedimento'  => $operacion->id_pedimiento,
+                        'pedimento' => $info['num_pedimiento'] ?? null, // Recuperamos num_pedimiento
+                        'id_operacion' => $operacion->id_importacion,
+                        'id_pedimento' => $operacion->id_pedimiento,
                     ];
                 })
                 ->keyBy('pedimento');
 
-            Log::info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_importacion': ". $mapaPedimentoAImportacionId->count());
+            Log::info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_importacion': " . $mapaPedimentoAImportacionId->count());
             $pu = memory_get_usage();
             // 2. MAPEADO EFICIENTE DE IDS
             // PROCESAR EXPORTACIONES
@@ -1130,19 +1137,19 @@ class AuditoriaImpuestosController extends Controller
                 ->orderBy('operaciones_exportacion.created_at', 'desc')
                 ->groupBy('id_pedimiento')
                 ->get()
-                ->map(function($operacion) use ($mapaPorId) {
+                ->map(function ($operacion) use ($mapaPorId) {
                     $info = $mapaPorId->get($operacion->id_pedimiento);
 
                     return [
-                        'pedimento'     => $info['num_pedimiento'] ?? null, // Recuperamos num_pedimiento
-                        'id_operacion'  => $operacion->id_exportacion,
-                        'id_pedimento'  => $operacion->id_pedimiento,
+                        'pedimento' => $info['num_pedimiento'] ?? null, // Recuperamos num_pedimiento
+                        'id_operacion' => $operacion->id_exportacion,
+                        'id_pedimento' => $operacion->id_pedimiento,
                     ];
                 })
                 ->keyBy('pedimento');
 
             $pu = memory_get_usage();
-            Log::info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_exportacion': ". $mapaPedimentoAExportacionId->count());
+            Log::info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_exportacion': " . $mapaPedimentoAExportacionId->count());
 
             // --- LOGICA PARA DETECTAR LOS NO ENCONTRADOS
             //Esto lo hago debido a que hay pedimentos que estan bastante sucios que ni se pueden encontrar
@@ -1153,7 +1160,7 @@ class AuditoriaImpuestosController extends Controller
             // 1. Preparamos la búsqueda REGEXP para la base de datos
 
             $regexPattern = implode('|', array_unique($numerosDePedimento)); // Usamos array_unique para una query más corta
-            if(!empty($regexPattern)){
+            if (!empty($regexPattern)) {
                 $posiblesCoincidencias = Pedimento::where('num_pedimiento', 'REGEXP', $regexPattern)->get();
 
                 // 2. Creamos un mapa de los pedimentos que nos falta por encontrar.
@@ -1176,9 +1183,9 @@ class AuditoriaImpuestosController extends Controller
                             // a. Mapeamos la coincidencia (opcional, igual que antes)
                             if ($pedimentosPorEncontrar[$pedimentoLimpio] > 1) {
                                 $mapaNoEncontrados[$pedimentoLimpio] = [
-                                'id_pedimento' => $pedimentoSucio->id_pedimiento,
-                                'num_pedimiento' => $pedimentoObtenido,
-                            ];
+                                    'id_pedimento' => $pedimentoSucio->id_pedimiento,
+                                    'num_pedimiento' => $pedimentoObtenido,
+                                ];
                             }
 
 
@@ -1219,7 +1226,7 @@ class AuditoriaImpuestosController extends Controller
                 // --- OJO: Aqui se gastan muchos recursos en el mapeo!!!
                 // CONSTRUIR EL ÍNDICE - IMPORTACIONES
                 Log::info("Iniciando mapeo de archivos de importaciones.");
-                $indiceImportaciones = $this->construirIndiceFacturasParaMapeo($mapaPedimentoAImportacionId,  $sucursal, 'importaciones');
+                $indiceImportaciones = $this->construirIndiceFacturasParaMapeo($mapaPedimentoAImportacionId, $sucursal, 'importaciones');
                 Log::info("Mapeo de importaciones finalizado!");
 
                 $pu = memory_get_usage();
@@ -1227,15 +1234,15 @@ class AuditoriaImpuestosController extends Controller
 
 
             $mapeadoOperacionesID =
-            [
-                'pedimentos_totales'        => $mapaPedimentoAId ?? [],
-                'pedimentos_no_encontrados' => $mapaNoEncontrados ?? [],
-                'pedimentos_importacion'    => $mapaPedimentoAImportacionId ?? [],
-                'pedimentos_exportacion'    => $mapaPedimentoAExportacionId ?? [],
-                'indices_importacion'       => $indiceImportaciones ?? [],
-                'indices_exportacion'       => $indiceExportaciones ?? [],
+                [
+                    'pedimentos_totales' => $mapaPedimentoAId ?? [],
+                    'pedimentos_no_encontrados' => $mapaNoEncontrados ?? [],
+                    'pedimentos_importacion' => $mapaPedimentoAImportacionId ?? [],
+                    'pedimentos_exportacion' => $mapaPedimentoAExportacionId ?? [],
+                    'indices_importacion' => $indiceImportaciones ?? [],
+                    'indices_exportacion' => $indiceExportaciones ?? [],
 
-            ];
+                ];
 
             $pu = memory_get_usage();
             // 3. GUARDAR EL ÍNDICE EN UN ARCHIVO PRIVADO CON NOMBRE HASHEADO
@@ -1269,8 +1276,8 @@ class AuditoriaImpuestosController extends Controller
 
         } catch (\Throwable $e) {
             Log::error("Fallo en Tarea #{$tarea->id} [reporte:mapear-facturas]: " . $e->getMessage());
-            $tarea->update(['status' => 'fallido', 'resultado' => 'Error al generar el mapeo de facturas.' . $e->getMessage() ]);
-            return ['code' => 1, 'message' => new \Exception("Fallo en Tarea #{$tarea->id} [reporte:mapear-facturas]: " . $e->getMessage() )];
+            $tarea->update(['status' => 'fallido', 'resultado' => 'Error al generar el mapeo de facturas.' . $e->getMessage()]);
+            return ['code' => 1, 'message' => new \Exception("Fallo en Tarea #{$tarea->id} [reporte:mapear-facturas]: " . $e->getMessage())];
         }
     }
 
@@ -1303,7 +1310,7 @@ class AuditoriaImpuestosController extends Controller
 
             //Leemos y decodificamos el archivo JSON completo
             $contenidoJson = Storage::get($rutaMapeo);
-            $mapeadoFacturas = (array)json_decode($contenidoJson, true);
+            $mapeadoFacturas = (array) json_decode($contenidoJson, true);
 
             //Leemos los demas campos de la tarea
             $sucursal = $tarea->sucursal;
@@ -1351,10 +1358,11 @@ class AuditoriaImpuestosController extends Controller
 
                 //Actualizamos la ruta por la que ya tiene las auditorias
                 $tarea->fresh()->update(
-                [
-                    'mapeo_completo_facturas' => $rutaRelativa,
-                    'updated_at'              => now(),
-                ]);
+                    [
+                        'mapeo_completo_facturas' => $rutaRelativa,
+                        'updated_at' => now(),
+                    ]
+                );
 
                 //Borramos el anterior
                 Storage::delete($rutaMapeo);
@@ -1374,7 +1382,7 @@ class AuditoriaImpuestosController extends Controller
                 // Buscamos el id_importacion en nuestro mapa
                 $pedimentoReal = $mapaPedimentoAId[$pedimento] ?? null;
                 if (!$pedimentoReal) {
-                     Log::warning("Se omitió la SC del pedimento '{$pedimento}' porque no se encontró una operación de importación asociada.");
+                    Log::warning("Se omitió la SC del pedimento '{$pedimento}' porque no se encontró una operación de importación asociada.");
                     continue; // Si no hay operación, no podemos guardar la SC
                 }
                 $tipoOperacion = Importacion::class;
@@ -1383,7 +1391,7 @@ class AuditoriaImpuestosController extends Controller
                 $operacionId = $mapaPedimentoAImportacionId[$pedimentoReal['num_pedimiento']] ?? null;
 
                 if (!$operacionId) { //Si no, entonces busca en Exportacion
-                    $operacionId = $mapaPedimentoAExportacionId[$pedimentoReal['num_pedimiento']]  ?? null;
+                    $operacionId = $mapaPedimentoAExportacionId[$pedimentoReal['num_pedimiento']] ?? null;
                     $tipoOperacion = Exportacion::class;
                 }
 
@@ -1399,53 +1407,53 @@ class AuditoriaImpuestosController extends Controller
 
                 // Preparamos el desglose para guardarlo como JSON
                 $desgloseSC =
-                [
-                    'moneda' => $datosSC['moneda'],
-                    'tipo_cambio' => $datosSC['tipo_cambio'],
-                    'montos' =>
                     [
-                        'sc'                => $datosSC['monto_total_sc'],
-                        'sc_mxn'            => ($datosSC['moneda'] == "USD" && $datosSC['monto_total_sc'] != -1) ? round($datosSC['monto_total_sc'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_total_sc'],
+                        'moneda' => $datosSC['moneda'],
+                        'tipo_cambio' => $datosSC['tipo_cambio'],
+                        'montos' =>
+                            [
+                                'sc' => $datosSC['monto_total_sc'],
+                                'sc_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_total_sc'] != -1) ? round($datosSC['monto_total_sc'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_total_sc'],
 
-                        'impuestos'         => $datosSC['monto_impuestos'],
-                        'impuestos_mxn'     => ($datosSC['moneda'] == "USD" && $datosSC['monto_impuestos'] != -1) ? round($datosSC['monto_impuestos'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_impuestos'],
+                                'impuestos' => $datosSC['monto_impuestos'],
+                                'impuestos_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_impuestos'] != -1) ? round($datosSC['monto_impuestos'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_impuestos'],
 
-                        'pago_derecho'      => $datosSC['monto_total_pdd'],
-                        'pago_derecho_mxn'  => ($datosSC['moneda'] == "USD" && $datosSC['monto_total_pdd'] != -1) ? round($datosSC['monto_total_pdd'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_total_pdd'],
+                                'pago_derecho' => $datosSC['monto_total_pdd'],
+                                'pago_derecho_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_total_pdd'] != -1) ? round($datosSC['monto_total_pdd'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_total_pdd'],
 
-                        'llc'               => $datosSC['monto_llc'],
-                        'llc_mxn'           => ($datosSC['moneda'] == "USD" && $datosSC['monto_llc'] != -1) ? round($datosSC['monto_llc'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_llc'],
+                                'llc' => $datosSC['monto_llc'],
+                                'llc_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_llc'] != -1) ? round($datosSC['monto_llc'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_llc'],
 
-                        'flete'             => $datosSC['monto_flete'],
-                        'flete_mxn'         => ($datosSC['moneda'] == "USD" && $datosSC['monto_flete'] != -1) ? round($datosSC['monto_flete'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_flete'],
+                                'flete' => $datosSC['monto_flete'],
+                                'flete_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_flete'] != -1) ? round($datosSC['monto_flete'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_flete'],
 
-                        'maniobras'         => $datosSC['monto_maniobras'],
-                        'maniobras_mxn'     => ($datosSC['moneda'] == "USD" && $datosSC['monto_maniobras'] != -1) ? round($datosSC['monto_maniobras'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_maniobras'],
+                                'maniobras' => $datosSC['monto_maniobras'],
+                                'maniobras_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_maniobras'] != -1) ? round($datosSC['monto_maniobras'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_maniobras'],
 
-                        'muestras'          => $datosSC['monto_muestras'],
-                        'muestras_mxn'      => ($datosSC['moneda'] == "USD" && $datosSC['monto_muestras'] != -1) ? round($datosSC['monto_muestras'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_muestras'],
+                                'muestras' => $datosSC['monto_muestras'],
+                                'muestras_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_muestras'] != -1) ? round($datosSC['monto_muestras'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_muestras'],
 
-                        'termo'             => $datosSC['monto_termo'],
-                        'termo_mxn'         => ($datosSC['moneda'] == "USD" && $datosSC['monto_termo'] != -1) ? round($datosSC['monto_termo'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_termo'],
+                                'termo' => $datosSC['monto_termo'],
+                                'termo_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_termo'] != -1) ? round($datosSC['monto_termo'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_termo'],
 
-                        'rojos'             => $datosSC['monto_rojos'],
-                        'rojos_mxn'         => ($datosSC['moneda'] == "USD" && $datosSC['monto_rojos'] != -1) ? round($datosSC['monto_rojos'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_rojos'],
-                    ]
-                ];
+                                'rojos' => $datosSC['monto_rojos'],
+                                'rojos_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_rojos'] != -1) ? round($datosSC['monto_rojos'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_rojos'],
+                            ]
+                    ];
 
                 $auditoriasParaGuardar[] =
-                [
-                    'operacion_id'       => isset($operacionId['id_operacion']) ? $operacionId['id_operacion'] : null, // ¡La vinculación auxiliar correcta!
-                    'pedimento_id'       => isset($operacionId['id_pedimento']) ? $operacionId['id_pedimento'] : $pedimentoReal['id_pedimiento'], // ¡La vinculación correcta! REVISAR AQUI EN CASO DE QUE LAS SCs NO SE REFLEJEN BIEN
-                    'operation_type'     => $tipoOperacion,
-                    'folio'              => $datosSC['folio_sc'],
-                    'fecha_documento'    => $datosSC['fecha_sc'],
-                    'desglose_conceptos' => json_encode($desgloseSC),
-                    'ruta_txt'           => $datosSC['ruta_txt'],
-                    'ruta_pdf'           => $datosSC['ruta_pdf'],
-                    'created_at'         => now(),
-                    'updated_at'         => now(),
-                ];
+                    [
+                        'operacion_id' => isset($operacionId['id_operacion']) ? $operacionId['id_operacion'] : null, // ¡La vinculación auxiliar correcta!
+                        'pedimento_id' => isset($operacionId['id_pedimento']) ? $operacionId['id_pedimento'] : $pedimentoReal['id_pedimiento'], // ¡La vinculación correcta! REVISAR AQUI EN CASO DE QUE LAS SCs NO SE REFLEJEN BIEN
+                        'operation_type' => $tipoOperacion,
+                        'folio' => $datosSC['folio_sc'],
+                        'fecha_documento' => $datosSC['fecha_sc'],
+                        'desglose_conceptos' => json_encode($desgloseSC),
+                        'ruta_txt' => $datosSC['ruta_txt'],
+                        'ruta_pdf' => $datosSC['ruta_pdf'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
                 //$bar->advance();
             }
 
@@ -1466,10 +1474,10 @@ class AuditoriaImpuestosController extends Controller
 
                 // Aca lo que hacemos es, crear otro json en donde vendran todos los SC encontrados de los pedimentos del estado de cuenta
                 $auditoriasSC = AuditoriaTotalSC::query()
-                ->whereIn('operacion_id', $operacionesId)
-                ->orWhereIn('pedimento_id', array_keys($mapaPedimentoAId))
-                ->get()
-                ->keyBy('operacion_id');
+                    ->whereIn('operacion_id', $operacionesId)
+                    ->orWhereIn('pedimento_id', array_keys($mapaPedimentoAId))
+                    ->get()
+                    ->keyBy('operacion_id');
 
                 // Adjuntamos el nuevo arreglo y lo parseamos a JSON
                 $mapeadoFacturas['auditorias_sc'] = $auditoriasSC->toArray() ?? [];
@@ -1490,17 +1498,17 @@ class AuditoriaImpuestosController extends Controller
 
                 //Actualizamos la ruta por la que ya tiene las auditorias
                 $tarea->fresh()->update(
-                [
-                    'mapeo_completo_facturas' => $rutaRelativa,
-                    'updated_at'              => now(),
-                ]);
+                    [
+                        'mapeo_completo_facturas' => $rutaRelativa,
+                        'updated_at' => now(),
+                    ]
+                );
 
                 //Borramos el anterior
                 Storage::delete($rutaMapeo);
                 Log::info("SCs guardadas, actualizadas y registradas con exito!");
                 return ['code' => 0, 'message' => 'completado'];
-            }
-            else {
+            } else {
 
                 Log::info("No se encontraron SCs para guardar en la base de datos.");
                 $mapeadoFacturas['auditorias_sc'] = [];
@@ -1523,25 +1531,26 @@ class AuditoriaImpuestosController extends Controller
 
                 //Actualizamos la ruta por la que ya tiene las auditorias
                 $tarea->fresh()->update(
-                [
-                    'mapeo_completo_facturas' => $rutaRelativa,
-                    'updated_at'              => now(),
-                ]);
+                    [
+                        'mapeo_completo_facturas' => $rutaRelativa,
+                        'updated_at' => now(),
+                    ]
+                );
 
                 //Borramos el anterior
                 Storage::delete($rutaMapeo);
 
             }
 
-        }
-        catch (\Throwable $e) {
+        } catch (\Throwable $e) {
             $tarea->update(
                 [
                     'status' => 'fallido',
                     'resultado' => $e->getMessage()
-                ]);
+                ]
+            );
             Log::error("Error al procesar SC para la Tarea #{$tareaId}: " . $e->getMessage());
-            return ['code' => 1, 'message' => new \Exception("Error al procesar SC para la Tarea #{$tareaId}: " . $e->getMessage() )]; // Lanzamos la excepción para que el orquestador la atrape
+            return ['code' => 1, 'message' => new \Exception("Error al procesar SC para la Tarea #{$tareaId}: " . $e->getMessage())]; // Lanzamos la excepción para que el orquestador la atrape
         }
     }
 
@@ -1569,7 +1578,7 @@ class AuditoriaImpuestosController extends Controller
 
             //Leemos y decodificamos el archivo JSON completo
             $contenidoJson = Storage::get($rutaMapeo);
-            $mapeadoFacturas = (array)json_decode($contenidoJson, true);
+            $mapeadoFacturas = (array) json_decode($contenidoJson, true);
 
             //Leemos los demas campos de la tarea
             $sucursal = $tarea->sucursal;
@@ -1612,14 +1621,14 @@ class AuditoriaImpuestosController extends Controller
 
                 // Creamos la entrada en nuestro mapa.
                 $indiceSC[key($arrPedimento)] =
-                [
-                    'monto_flete_sc' => (float)$desglose['montos']['flete'],
-                    'monto_flete_sc_mxn' => (float)$desglose['montos']['flete_mxn'],
-                    'moneda' => $desglose['moneda'],
-                    // Accedemos al tipo de cambio. Usamos el 'null coalescing operator' (??)
-                    // para asignar un valor por defecto (ej. 1) si no se encuentra.
-                    'tipo_cambio' => (float)$desglose['tipo_cambio'] ?? 1.0,
-                ];
+                    [
+                        'monto_flete_sc' => (float) $desglose['montos']['flete'],
+                        'monto_flete_sc_mxn' => (float) $desglose['montos']['flete_mxn'],
+                        'moneda' => $desglose['moneda'],
+                        // Accedemos al tipo de cambio. Usamos el 'null coalescing operator' (??)
+                        // para asignar un valor por defecto (ej. 1) si no se encuentra.
+                        'tipo_cambio' => (float) $desglose['tipo_cambio'] ?? 1.0,
+                    ];
             }
 
             Log::info("Iniciando vinculacion de los " . count($mapaPedimentoAId) . " pedimentos.");
@@ -1642,7 +1651,7 @@ class AuditoriaImpuestosController extends Controller
                 }
 
                 if (!$operacionId) { //Si no esta ni en Importacion o en Exportacion, que lo guarde por pedimento_id
-                    $tipoOperacion =  Pedimento::class;
+                    $tipoOperacion = Pedimento::class;
                 }
 
                 if (!$operacionId) {
@@ -1663,10 +1672,10 @@ class AuditoriaImpuestosController extends Controller
                     //Aqui es cuando hay LLC pero no existe SC para esta factura.\\
                     $datosSC =
                         [
-                            'monto_flete_sc'     => -1,
+                            'monto_flete_sc' => -1,
                             'monto_flete_sc_mxn' => -1,
-                            'tipo_cambio'        => -1,
-                            'moneda'             => 'N/A',
+                            'tipo_cambio' => -1,
+                            'moneda' => 'N/A',
                         ];
                 }
                 // --- FASE 3: Procesar los archivos encontrados ---
@@ -1679,31 +1688,56 @@ class AuditoriaImpuestosController extends Controller
                 $datosFlete = array_merge($datosFlete, $this->parsearXmlFlete($datosFlete['path_xml_tr']) ?? [-1, 'N/A']);
 
 
+
                 $montoFleteMXN = (($datosFlete['moneda'] == "USD" && $datosFlete['total'] != -1) && $datosSC['tipo_cambio'] != -1) ? round($datosFlete['total'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosFlete['total'];
                 $montoSCMXN = $datosSC['monto_flete_sc_mxn'];
                 $estado = $this->compararMontos_Fletes($montoSCMXN, $montoFleteMXN);
                 $diferenciaSc = ($estado !== "Sin SC!" && $estado !== "Sin operacion!") ? round($montoSCMXN - $montoFleteMXN, 2) : $montoFleteMXN;
+
+                // 1. Limpieza inicial: Quitamos espacios en blanco al inicio y final
+                $fechaRaw = isset($datosFlete['fecha']) ? trim($datosFlete['fecha']) : null;
+                $fechaFormateada = null;
+
+                if ($fechaRaw) {
+                    // 2. Intentamos el formato estricto 'd/m/Y'
+                    $fechaObj = DateTime::createFromFormat('d/m/Y', $fechaRaw);
+
+                    if ($fechaObj !== false) {
+                        // ¡Éxito! Convertimos a formato base de datos
+                        $fechaFormateada = $fechaObj->format('Y-m-d');
+                    } else {
+                        // 3. Si el estricto falla, intentamos con Carbon
+                        // Carbon es capaz de arreglar separadores (guiones en vez de diagonales) u otros formatos
+                        try {
+                            $fechaFormateada = \Carbon\Carbon::parse($fechaRaw)->format('Y-m-d');
+                        } catch (\Throwable $e) {
+                            // 4. Si realmente es ilegible, registramos el error pero NO detenemos el proceso
+                            Log::warning("Fletes: No se pudo leer la fecha '{$fechaRaw}' en el pedimento {$pedimentoLimpio}. Se guardará como NULL.");
+                            $fechaFormateada = null;
+                        }
+                    }
+                }
                 // Añadimos el resultado al array para el upsert masivo
                 $fletesParaGuardar[] =
-                [
-                    'operacion_id'          => $operacionId['id_operacion'],
-                    'pedimento_id'          => $pedimentoSucioYId['id_pedimiento'],
-                    'operation_type'        => $tipoOperacion,
-                    'tipo_documento'        => 'flete',
-                    'concepto_llave'        => 'principal',
-                    'folio'                 => $datosFlete['folio'],
-                    'fecha_documento'       => date('Y-m-d', date_timestamp_get(DateTime::createFromFormat('d/m/Y', $datosFlete['fecha']))),
-                    'monto_total'           => $datosFlete['total'],
-                    'monto_total_mxn'       => $montoFleteMXN,
-                    'monto_diferencia_sc'   => $diferenciaSc,
-                    'moneda_documento'      => $datosFlete['moneda'],
-                    'estado'                => $estado,
-                    'ruta_xml'              => $datosFlete['path_xml_tr'],
-                    'ruta_txt'              => $datosFlete['path_txt_tr'],
-                    'ruta_pdf'              => $datosFlete['path_pdf_tr'],
-                    'created_at'            => now(),
-                    'updated_at'            => now(),
-                ];
+                    [
+                        'operacion_id' => $operacionId['id_operacion'],
+                        'pedimento_id' => $pedimentoSucioYId['id_pedimiento'],
+                        'operation_type' => $tipoOperacion,
+                        'tipo_documento' => 'flete',
+                        'concepto_llave' => 'principal',
+                        'folio' => $datosFlete['folio'],
+                        'fecha_documento' => $fechaFormateada,
+                        'monto_total' => $datosFlete['total'],
+                        'monto_total_mxn' => $montoFleteMXN,
+                        'monto_diferencia_sc' => $diferenciaSc,
+                        'moneda_documento' => $datosFlete['moneda'],
+                        'estado' => $estado,
+                        'ruta_xml' => $datosFlete['path_xml_tr'],
+                        'ruta_txt' => $datosFlete['path_txt_tr'],
+                        'ruta_pdf' => $datosFlete['path_pdf_tr'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
 
                 //$bar->advance();
             }
@@ -1726,7 +1760,8 @@ class AuditoriaImpuestosController extends Controller
                         'ruta_txt',
                         'ruta_pdf',
                         'updated_at'
-                    ]);
+                    ]
+                );
 
                 Log::info("¡Guardado con éxito!");
             }
@@ -1739,9 +1774,10 @@ class AuditoriaImpuestosController extends Controller
                 [
                     'status' => 'fallido',
                     'resultado' => $e->getMessage()
-                ]);
+                ]
+            );
             Log::error("Falló la tarea #{$tarea->id}: " . $e->getMessage());
-            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage() )];
+            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage())];
         }
     }
 
@@ -1769,7 +1805,7 @@ class AuditoriaImpuestosController extends Controller
 
             //Leemos y decodificamos el archivo JSON completo
             $contenidoJson = Storage::get($rutaMapeo);
-            $mapeadoFacturas = (array)json_decode($contenidoJson, true);
+            $mapeadoFacturas = (array) json_decode($contenidoJson, true);
 
             //Leemos los demas campos de la tarea
             $sucursal = $tarea->sucursal;
@@ -1812,14 +1848,14 @@ class AuditoriaImpuestosController extends Controller
 
                 // Creamos la entrada en nuestro mapa.
                 $indiceSC[key($arrPedimento)] =
-                [
-                    'monto_llc_sc' => (float)$desglose['montos']['llc'],
-                    'monto_llc_sc_mxn' => (float)$desglose['montos']['llc_mxn'],
-                    'moneda' => $desglose['moneda'],
-                    // Accedemos al tipo de cambio. Usamos el 'null coalescing operator' (??)
-                    // para asignar un valor por defecto (ej. 1) si no se encuentra.
-                    'tipo_cambio' => (float)$desglose['tipo_cambio'] ?? 1.0,
-                ];
+                    [
+                        'monto_llc_sc' => (float) $desglose['montos']['llc'],
+                        'monto_llc_sc_mxn' => (float) $desglose['montos']['llc_mxn'],
+                        'moneda' => $desglose['moneda'],
+                        // Accedemos al tipo de cambio. Usamos el 'null coalescing operator' (??)
+                        // para asignar un valor por defecto (ej. 1) si no se encuentra.
+                        'tipo_cambio' => (float) $desglose['tipo_cambio'] ?? 1.0,
+                    ];
             }
 
             Log::info("Iniciando vinculacion de los " . count($mapaPedimentoAId) . " pedimentos.");
@@ -1865,38 +1901,38 @@ class AuditoriaImpuestosController extends Controller
                 } elseif (!$datosSC && $datosLlc) {
                     // Aqui es cuando hay LLC pero no existe SC para esta factura.\\
                     $datosSC =
-                    [
-                        'monto_llc_sc'      => -1,
-                        'monto_llc_sc_mxn'  => -1,
-                        'tipo_cambio'       => -1,
-                        'moneda'            => 'N/A',
-                    ];
+                        [
+                            'monto_llc_sc' => -1,
+                            'monto_llc_sc_mxn' => -1,
+                            'tipo_cambio' => -1,
+                            'moneda' => 'N/A',
+                        ];
                 }
 
-                $montoLLCMXN = $datosSC['monto_llc_sc'] != -1 ?  round($datosLlc['monto_total'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : -1;
+                $montoLLCMXN = $datosSC['monto_llc_sc'] != -1 ? round($datosLlc['monto_total'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : -1;
                 $montoSCMXN = $datosSC['monto_llc_sc_mxn'];
                 // --- FASE 4: Comparar y Preparar Datos ---
                 $estado = $this->compararMontos_LLC($montoSCMXN, $montoLLCMXN);
                 $diferenciaSc = ($estado !== "Sin SC!" && $estado !== "Sin operacion!") ? round($montoSCMXN - $montoLLCMXN, 2) : $montoLLCMXN;
                 $llcsParaGuardar[] =
-                [
-                    'operacion_id'          => $operacionId['id_operacion'],
-                    'pedimento_id'          => $pedimentoSucioYId['id_pedimiento'],
-                    'operation_type'        => $tipoOperacion,
-                    'tipo_documento'        => 'llc',
-                    'concepto_llave'        => 'principal',
-                    'folio'                 => $datosLlc['folio'],
-                    'fecha_documento'       => $datosLlc['fecha'],
-                    'monto_total'           => $datosLlc['monto_total'],
-                    'monto_total_mxn'       => $montoLLCMXN,
-                    'monto_diferencia_sc'   => $diferenciaSc,
-                    'moneda_documento'      => 'USD',
-                    'estado'                => $estado,
-                    'ruta_txt'              => $datosLlc['ruta_txt'],
-                    'ruta_pdf'              => $datosLlc['ruta_pdf'],
-                    'created_at'            => now(),
-                    'updated_at'            => now(),
-                ];
+                    [
+                        'operacion_id' => $operacionId['id_operacion'],
+                        'pedimento_id' => $pedimentoSucioYId['id_pedimiento'],
+                        'operation_type' => $tipoOperacion,
+                        'tipo_documento' => 'llc',
+                        'concepto_llave' => 'principal',
+                        'folio' => $datosLlc['folio'],
+                        'fecha_documento' => $datosLlc['fecha'],
+                        'monto_total' => $datosLlc['monto_total'],
+                        'monto_total_mxn' => $montoLLCMXN,
+                        'monto_diferencia_sc' => $diferenciaSc,
+                        'moneda_documento' => 'USD',
+                        'estado' => $estado,
+                        'ruta_txt' => $datosLlc['ruta_txt'],
+                        'ruta_pdf' => $datosLlc['ruta_pdf'],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
 
                 //$bar->advance();
             }
@@ -1918,7 +1954,8 @@ class AuditoriaImpuestosController extends Controller
                         'ruta_txt',
                         'ruta_pdf',
                         'updated_at'
-                    ]);
+                    ]
+                );
                 Log::info("¡Guardado con éxito!");
             }
 
@@ -1930,9 +1967,10 @@ class AuditoriaImpuestosController extends Controller
                 [
                     'status' => 'fallido',
                     'resultado' => $e->getMessage()
-                ]);
+                ]
+            );
             Log::error("Falló la tarea #{$tarea->id}: " . $e->getMessage());
-            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage() )];
+            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage())];
         }
     }
 
@@ -1948,7 +1986,7 @@ class AuditoriaImpuestosController extends Controller
             return ['code' => 1, 'message' => new \Exception("Pagos derecho: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.")];
         }
         Log::info('Iniciando la auditoría de Pagos de Derecho...');
-       try {
+        try {
             // --- FASE 1: Construir Índices en Memoria para Búsquedas Rápidas ---
             //Iniciamos con obtener el mapeo
             $rutaMapeo = $tarea->mapeo_completo_facturas;
@@ -1959,7 +1997,7 @@ class AuditoriaImpuestosController extends Controller
 
             //Leemos y decodificamos el archivo JSON completo
             $contenidoJson = Storage::get($rutaMapeo);
-            $mapeadoFacturas = (array)json_decode($contenidoJson, true);
+            $mapeadoFacturas = (array) json_decode($contenidoJson, true);
 
             //Leemos los demas campos de la tarea
             $sucursal = $tarea->sucursal;
@@ -2033,24 +2071,24 @@ class AuditoriaImpuestosController extends Controller
                         $diferenciaSc = 0; //Sujeto a cambios
                         // 4. Si obtuvimos datos, los acumulamos para el guardado masivo.
                         $pagosParaGuardar[] =
-                        [
-                            'operacion_id'          => $operacionId['id_operacion'],
-                            'pedimento_id'          => $pedimentoSucioYId['id_pedimiento'],
-                            'operation_type'        => $tipoOperacion,
-                            'tipo_documento'        => 'pago_derecho',
-                            'concepto_llave'        => $datosPago['llave_pago'],
-                            'fecha_documento'       => $datosPago['fecha_pago'],
-                            'monto_total'           => $datosPago['monto_total'],
-                            'monto_total_mxn'       => $datosPago['monto_total'],
-                            'monto_diferencia_sc'   => $diferenciaSc,
-                            'moneda_documento'      => 'MXN',
-                            'estado'                => $datosPago['tipo'],
-                            'llave_pago_pdd'        => $datosPago['llave_pago'],
-                            'num_operacion_pdd'     => $datosPago['numero_operacion'],
-                            'ruta_pdf'              => $rutaPdf,
-                            'created_at'            => now(),
-                            'updated_at'            => now(),
-                        ];
+                            [
+                                'operacion_id' => $operacionId['id_operacion'],
+                                'pedimento_id' => $pedimentoSucioYId['id_pedimiento'],
+                                'operation_type' => $tipoOperacion,
+                                'tipo_documento' => 'pago_derecho',
+                                'concepto_llave' => $datosPago['llave_pago'],
+                                'fecha_documento' => $datosPago['fecha_pago'],
+                                'monto_total' => $datosPago['monto_total'],
+                                'monto_total_mxn' => $datosPago['monto_total'],
+                                'monto_diferencia_sc' => $diferenciaSc,
+                                'moneda_documento' => 'MXN',
+                                'estado' => $datosPago['tipo'],
+                                'llave_pago_pdd' => $datosPago['llave_pago'],
+                                'num_operacion_pdd' => $datosPago['numero_operacion'],
+                                'ruta_pdf' => $rutaPdf,
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ];
                     }
                 }
                 //$bar->advance();
@@ -2077,22 +2115,23 @@ class AuditoriaImpuestosController extends Controller
                         'num_operacion_pdd',
                         'ruta_pdf',
                         'updated_at'
-                    ]);
+                    ]
+                );
                 Log::info("¡Guardado con éxito!");
             }
 
             Log::info("\nAuditoría de Pagos de Derecho finalizada.");
             return ['code' => 0, 'message' => 'completado'];
-        }
-        catch (\Throwable $e) {
+        } catch (\Throwable $e) {
             // 5. Si algo falla, marca la tarea como 'fallido' y guarda el error
             $tarea->update(
                 [
                     'status' => 'fallido',
                     'resultado' => $e->getMessage()
-                ]);
+                ]
+            );
             Log::error("Falló la tarea #{$tarea->id}: " . $e->getMessage());
-            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage() )];
+            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage())];
         }
     }
 
@@ -2108,7 +2147,7 @@ class AuditoriaImpuestosController extends Controller
             return ['code' => 1, 'message' => new \Exception("Pagos derecho: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.")];
         }
         Log::info('Iniciando ...');
-       try {
+        try {
             // --- FASE 1: Construir Índices en Memoria para Búsquedas Rápidas ---
             //Iniciamos con obtener el mapeo
             $rutaMapeo = $tarea->mapeo_completo_facturas;
@@ -2119,7 +2158,7 @@ class AuditoriaImpuestosController extends Controller
 
             //Leemos y decodificamos el archivo JSON completo
             $contenidoJson = Storage::get($rutaMapeo);
-            $mapeadoFacturas = (array)json_decode($contenidoJson, true);
+            $mapeadoFacturas = (array) json_decode($contenidoJson, true);
 
             //Leemos los demas campos de la tarea
             $sucursal = $tarea->sucursal;
@@ -2153,15 +2192,15 @@ class AuditoriaImpuestosController extends Controller
                     // BUSCA Pedimentos que tengan una 'auditoria'...
                     $q->whereHas('auditoriasRecientes', function ($auditQuery) use ($operacionIds, $pedimentoIds, $esReporteDeFacturasPendientes) {
                         // ...cuyo 'operacion_id' O 'pedimento_id' esté en nuestras listas.
-
+    
                         if (isset($esReporteDeFacturasPendientes)) { // Si es de pendientes, entonces buscara los que no tengan factura.
                             $auditQuery->where('estado', 'Sin SC!')
-                            ->whereIn('operacion_id', $operacionIds)
-                            ->orWhereIn('pedimento_id', $pedimentoIds);
+                                ->whereIn('operacion_id', $operacionIds)
+                                ->orWhereIn('pedimento_id', $pedimentoIds);
                         } else { // Si no, entonces buscara todos los demas
                             $auditQuery->where('estado', '!=', 'Sin SC!')
-                            ->whereIn('operacion_id', $operacionIds)
-                            ->orWhereIn('pedimento_id', $pedimentoIds);
+                                ->whereIn('operacion_id', $operacionIds)
+                                ->orWhereIn('pedimento_id', $pedimentoIds);
                         }
 
                     });
@@ -2173,7 +2212,7 @@ class AuditoriaImpuestosController extends Controller
                         $q->whereHas('auditoriasTotalSC', function ($scQuery) use ($operacionIds, $pedimentoIds) {
                             // ...cuyo 'operacion_id' O 'pedimento_id' esté en nuestras listas.
                             $scQuery->whereIn('operacion_id', $operacionIds)
-                                    ->orWhereIn('pedimento_id', $pedimentoIds);
+                                ->orWhereIn('pedimento_id', $pedimentoIds);
                         });
                     }
 
@@ -2201,7 +2240,8 @@ class AuditoriaImpuestosController extends Controller
 
             // 2. Guardamos el archivo en el disco 'public', dentro de la carpeta 'reportes'
             $pedimentosDescartados = $tarea->pedimentos_descartados;
-            Excel::store(new AuditoriaFacturadoExport($operacionesParaExportar, $pedimentosDescartados), $rutaDeAlmacenamiento, 'storageOldProject');            Log::info("Reporte de impuestos almacenado para la tarea {$tareaId}");
+            Excel::store(new AuditoriaFacturadoExport($operacionesParaExportar, $pedimentosDescartados), $rutaDeAlmacenamiento, 'storageOldProject');
+            Log::info("Reporte de impuestos almacenado para la tarea {$tareaId}");
             Log::info("Reporte de impuestos almacenado para la tarea {$tareaId}");
             // 3. Actualizamos el registro de la tarea en la base de datos
             //    Asumo que tienes la variable $tarea disponible en este punto del comando.
@@ -2209,35 +2249,36 @@ class AuditoriaImpuestosController extends Controller
 
                 if (isset($esReporteDeFacturasPendientes)) {
                     $tarea->update([
-                    // Guardamos la ruta relativa donde se almacenó el archivo
-                    'ruta_reporte_impuestos_pendientes'    => $rutaDeAlmacenamiento,
+                        // Guardamos la ruta relativa donde se almacenó el archivo
+                        'ruta_reporte_impuestos_pendientes' => $rutaDeAlmacenamiento,
 
-                    // Guardamos el nombre amigable que usaremos para la descarga
-                    'nombre_reporte_pendientes'  => $nombreArchivo,
+                        // Guardamos el nombre amigable que usaremos para la descarga
+                        'nombre_reporte_pendientes' => $nombreArchivo,
                     ]);
                 } else {
                     $tarea->update([
-                    // Guardamos la ruta relativa donde se almacenó el archivo
-                    'ruta_reporte_impuestos'    => $rutaDeAlmacenamiento,
+                        // Guardamos la ruta relativa donde se almacenó el archivo
+                        'ruta_reporte_impuestos' => $rutaDeAlmacenamiento,
 
-                    // Guardamos el nombre amigable que usaremos para la descarga
-                    'nombre_reporte_impuestos'  => $nombreArchivo,
+                        // Guardamos el nombre amigable que usaremos para la descarga
+                        'nombre_reporte_impuestos' => $nombreArchivo,
                     ]);
                 }
             }
 
             Log::info("El reporte de impuestos para la tarea {$tareaId} se ha exportado exitosamente!");
             return ['code' => 0, 'message' => 'completado'];
-       } catch (\Throwable $e) {
+        } catch (\Throwable $e) {
             // 5. Si algo falla, marca la tarea como 'fallido' y guarda el error
             $tarea->update(
                 [
                     'status' => 'fallido',
                     'resultado' => $e->getMessage()
-                ]);
+                ]
+            );
             Log::error("Falló la tarea #{$tarea->id}: " . $e->getMessage());
-            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage() )];
-       }
+            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage())];
+        }
 
     }
 
@@ -2279,7 +2320,7 @@ class AuditoriaImpuestosController extends Controller
             // Si algo sale mal (ej. el correo no es válido, el archivo no existe, etc.)
             // registramos el error y devolvemos una respuesta de error.
             Log::error('Fallo al enviar correo de reporte: ' . $e->getMessage());
-             return ['code' => 1, 'message' => new \Exception('No se pudo enviar el correo. Por favor, revisa los logs del sistema.')];
+            return ['code' => 1, 'message' => new \Exception('No se pudo enviar el correo. Por favor, revisa los logs del sistema.')];
         }
     }
 
@@ -2302,7 +2343,7 @@ class AuditoriaImpuestosController extends Controller
 
         } catch (\Throwable $e) {
             // Si incluso el envío del correo falla, solo lo registramos para no crear un bucle infinito.
-            Log::critical("¡FALLO CRÍTICO! No se pudo enviar el correo de notificación de error para la Tarea #{$tarea->id}: " . $e->getMessage() );
+            Log::critical("¡FALLO CRÍTICO! No se pudo enviar el correo de notificación de error para la Tarea #{$tarea->id}: " . $e->getMessage());
         }
     }
     //--------------------------------------------------------------------------------------------------------------
@@ -2326,12 +2367,12 @@ class AuditoriaImpuestosController extends Controller
         $indiceFacturas = [];
 
         $mapeoFacturas =
-        [
-            'HONORARIOS-SC' => 'sc',
-            'TransporTactics' => 'flete',
-            'HONORARIOS-LLC' => 'llc',
-            'PAGOS-DE-DERECHOS' => 'pago_derecho',
-        ];
+            [
+                'HONORARIOS-SC' => 'sc',
+                'TransporTactics' => 'flete',
+                'HONORARIOS-LLC' => 'llc',
+                'PAGOS-DE-DERECHOS' => 'pago_derecho',
+            ];
         //$bar = $this->output->createProgressBar($pedimentosOperacion->count());
         //$bar->start();
 
@@ -2383,12 +2424,12 @@ class AuditoriaImpuestosController extends Controller
                     // Si aún no existe una entrada para este nombre base, la creamos.
                     if (!isset($agrupadorTemp[$nombreBase])) {
                         $agrupadorTemp[$nombreBase] = [
-                            'creation_date'  => $fechaCreacion,
-                            'update_date'    => $fechaActualizacion,
+                            'creation_date' => $fechaCreacion,
+                            'update_date' => $fechaActualizacion,
                             'tipo_documento' => $mapeoFacturas[$tipoJson], // Usamos el nombre amigable
-                            'ruta_pdf'       => null,
-                            'ruta_xml'       => null,
-                            'ruta_txt'       => null,
+                            'ruta_pdf' => null,
+                            'ruta_xml' => null,
+                            'ruta_txt' => null,
                         ];
                     }
 
@@ -2403,7 +2444,7 @@ class AuditoriaImpuestosController extends Controller
 
                     // Obtenemos las rutas txt y su contenido
                     if ($tipoJson != 'PAGOS-DE-DERECHOS') {
-                        switch($tipoJson){
+                        switch ($tipoJson) {
                             case 'HONORARIOS-SC':
                             case 'TransporTactics':
                                 $agrupadorTemp[$nombreBase]['ruta_txt'] = "https://sistema.intactics.com/v2/uploads/{$nombreBase}.txt";
@@ -2474,10 +2515,10 @@ class AuditoriaImpuestosController extends Controller
                 unset($operacion);
                 // --- HASTA ACA TERMINA EL FOREACH
             } catch (\Throwable $e) {
-                Log::error("Ocurrió un error procesando la operacion ID ({$tipoOperacion}) {$operacionID['id_operacion']}: " . $e->getMessage() );
+                Log::error("Ocurrió un error procesando la operacion ID ({$tipoOperacion}) {$operacionID['id_operacion']}: " . $e->getMessage());
                 // Aseguramos que haya una entrada para este pedimento aunque falle, para evitar errores posteriores.
                 if (!isset($indiceFacturas[$pedimento])) {
-                     $indiceFacturas[$pedimento] = ['error' => $e->getMessage()];
+                    $indiceFacturas[$pedimento] = ['error' => $e->getMessage()];
                 }
             }
 
@@ -2518,7 +2559,7 @@ class AuditoriaImpuestosController extends Controller
                 $facturaSC = $coleccionFacturas->first(function ($factura) {
                     // La condición es la misma que ya tenías.
                     return $factura['tipo_documento'] === 'sc' &&
-                           isset($factura['ruta_pdf']) && isset($factura['ruta_txt']);
+                        isset($factura['ruta_pdf']) && isset($factura['ruta_txt']);
                 });
 
                 if (!$facturaSC) {
@@ -2546,7 +2587,7 @@ class AuditoriaImpuestosController extends Controller
                     //error:1416F086:SSL routines:tls_process_server_certificate:certificate verify failed'
                     $arrContextOptions = [
                         "ssl" => [
-                            "verify_peer"      => false,
+                            "verify_peer" => false,
                             "verify_peer_name" => false,
                         ],
                     ];
@@ -2592,34 +2633,33 @@ class AuditoriaImpuestosController extends Controller
                     // Extraemos el tipo de cambio de [encTIPOCAMBIO] y en [cteIMPORTEEXTRA1]
                     $matchTCCount = preg_match('/\[cteIMPORTEEXTRA1\]([^\r\n]*)/', $contenido, $matchTC);
 
-                    if($matchTCCount == 0) {
+                    if ($matchTCCount == 0) {
                         preg_match('/\[encTIPOCAMBIO\]([^\r\n]*)/', $contenido, $matchTC);
-                    }
-                    elseif(($matchTC[1] == "1" && $matchMoneda[1] == "2")) {
+                    } elseif (($matchTC[1] == "1" && $matchMoneda[1] == "2")) {
                         preg_match('/\[encTIPOCAMBIO\]([^\r\n]*)/', $contenido, $matchTC);
                     }
 
                     $indice[$pedimento] =
-                    [
-                        'monto_impuestos'   => isset($matchM_Impuesto[1]) && strlen($matchM_Impuesto[1]) > 0 ? (float)trim($matchM_Impuesto[1]) : -1,
-                        'monto_flete'       => isset($matchM_Tr[1]) && strlen($matchM_Tr[1]) > 0 ? (float)trim($matchM_Tr[1]) : -1,
-                        'monto_llc'         => isset($matchM_LLC[1]) && strlen($matchM_LLC[1]) > 0 ? (float)trim($matchM_LLC[1]) : -1,
-                        'monto_total_pdd'   => isset($matchM_PDD[1]) && strlen($matchM_PDD[1]) > 0 ? (float)trim($matchM_PDD[1]) : -1,
-                        'monto_maniobras'   => isset($matchM_Man[1]) && strlen($matchM_Man[1]) > 0 ? (float)trim($matchM_Man[1]) : -1,
-                        'monto_muestras'    => isset($matchM_Mue[1]) && strlen($matchM_Mue[1]) > 0 ? (float)trim($matchM_Mue[1]) : -1,
+                        [
+                            'monto_impuestos' => isset($matchM_Impuesto[1]) && strlen($matchM_Impuesto[1]) > 0 ? (float) trim($matchM_Impuesto[1]) : -1,
+                            'monto_flete' => isset($matchM_Tr[1]) && strlen($matchM_Tr[1]) > 0 ? (float) trim($matchM_Tr[1]) : -1,
+                            'monto_llc' => isset($matchM_LLC[1]) && strlen($matchM_LLC[1]) > 0 ? (float) trim($matchM_LLC[1]) : -1,
+                            'monto_total_pdd' => isset($matchM_PDD[1]) && strlen($matchM_PDD[1]) > 0 ? (float) trim($matchM_PDD[1]) : -1,
+                            'monto_maniobras' => isset($matchM_Man[1]) && strlen($matchM_Man[1]) > 0 ? (float) trim($matchM_Man[1]) : -1,
+                            'monto_muestras' => isset($matchM_Mue[1]) && strlen($matchM_Mue[1]) > 0 ? (float) trim($matchM_Mue[1]) : -1,
 
-                        'folio_sc'          => isset($matchFolio[1]) ? trim($matchFolio[1]) : null,
-                        'fecha_sc'          => \Carbon\Carbon::parse(trim($facturaSC['update_date']))->format('Y-m-d'),
-                        //isset($matchFecha[2]) ? \Carbon\Carbon::parse(trim($matchFecha[1]))->format('Y-m-d') : now(), //ESTO PUEDES DECIRLE QUE TE LO IGUAL A NULL, NO HAY FECHA DENTRO DE LA SC
-                        'ruta_txt'          => $facturaSC['ruta_txt'],
-                        'ruta_pdf'          => $facturaSC['ruta_pdf'],
-                        'moneda'            => isset($matchMoneda[1]) && $matchMoneda[1] == "1" ? "MXN" : "USD",
-                        'tipo_cambio'       => isset($matchTC[1]) ? (float)trim($matchTC[1]) : 1.0,
-                        'monto_total_sc'    => isset($matchTotalSC[1]) && strlen($matchTotalSC[1]) > 0 ? (float)trim($matchTotalSC[1]) : -1,
-                    ];
+                            'folio_sc' => isset($matchFolio[1]) ? trim($matchFolio[1]) : null,
+                            'fecha_sc' => \Carbon\Carbon::parse(trim($facturaSC['update_date']))->format('Y-m-d'),
+                            //isset($matchFecha[2]) ? \Carbon\Carbon::parse(trim($matchFecha[1]))->format('Y-m-d') : now(), //ESTO PUEDES DECIRLE QUE TE LO IGUAL A NULL, NO HAY FECHA DENTRO DE LA SC
+                            'ruta_txt' => $facturaSC['ruta_txt'],
+                            'ruta_pdf' => $facturaSC['ruta_pdf'],
+                            'moneda' => isset($matchMoneda[1]) && $matchMoneda[1] == "1" ? "MXN" : "USD",
+                            'tipo_cambio' => isset($matchTC[1]) ? (float) trim($matchTC[1]) : 1.0,
+                            'monto_total_sc' => isset($matchTotalSC[1]) && strlen($matchTotalSC[1]) > 0 ? (float) trim($matchTotalSC[1]) : -1,
+                        ];
 
                     $aux = $this->extraerMultiplesConceptos($contenido);
-                    if($aux['monto_maniobras_2'] > $indice[$pedimento]['monto_maniobras']) {
+                    if ($aux['monto_maniobras_2'] > $indice[$pedimento]['monto_maniobras']) {
                         $indice[$pedimento]['monto_maniobras'] = $aux['monto_maniobras_2'];
                     }
 
@@ -2629,7 +2669,7 @@ class AuditoriaImpuestosController extends Controller
                 //$bar->advance();
             }
         } catch (\Throwable $e) {
-            Log::error("Error buscando archivo para pedimento {$pedimento}: " . $e->getMessage() );
+            Log::error("Error buscando archivo para pedimento {$pedimento}: " . $e->getMessage());
 
         }
         return $indice;
@@ -2649,57 +2689,57 @@ class AuditoriaImpuestosController extends Controller
             //$bar->start();
             foreach ($indicesOperacion as $pedimento => $datos) {
 
-                    //Si el archivo mapeado conto con un error no controlado, se continua, ignorandolo.
-                    if (isset($datos['error'])) {
+                //Si el archivo mapeado conto con un error no controlado, se continua, ignorandolo.
+                if (isset($datos['error'])) {
+                    //$bar->advance();
+                    continue;
+                }
+
+                $coleccionFacturas = collect($datos['facturas']);
+                $facturaFlete = $coleccionFacturas->first(function ($factura) {
+                    // La condición es la misma que ya tenías.
+                    return $factura['tipo_documento'] === 'flete' &&
+                        isset($factura['ruta_pdf']) && isset($factura['ruta_txt']) && isset($factura['ruta_xml']);
+                });
+
+                if (!$facturaFlete) {
+                    //$bar->advance();
+                    continue;
+                }
+                try {   //Cuando la URL esta mal construida, lo que se hace es buscar por medio del get el txt
+                    $contenido = file_get_contents($facturaFlete['ruta_txt']);
+                } catch (\Throwable $th) {
+
+                    $operacionID = $datos['operacion_id'];
+                    $url_txt = Http::withoutVerifying()->get("https://sistema.intactics.com/v3/operaciones/{$datos['tipo_operacion']}/{$operacionID}/get-files-txt-momentaneo");
+
+                    if (!$url_txt->successful()) {
+                        // Si la API falla para este ID, lo saltamos y continuamos con el siguiente.
+                        Log::warning("No se pudieron obtener los archivos para la importación ID: {$operacionID}");
                         //$bar->advance();
                         continue;
                     }
 
-                    $coleccionFacturas = collect($datos['facturas']);
-                    $facturaFlete = $coleccionFacturas->first(function ($factura) {
-                        // La condición es la misma que ya tenías.
-                        return $factura['tipo_documento'] === 'flete' &&
-                            isset($factura['ruta_pdf']) && isset($factura['ruta_txt']) && isset($factura['ruta_xml']);
-                    });
+                    $urls = json_decode($url_txt, true);
 
-                    if (!$facturaFlete) {
-                        //$bar->advance();
-                        continue;
-                    }
-                    try {   //Cuando la URL esta mal construida, lo que se hace es buscar por medio del get el txt
-                        $contenido = file_get_contents($facturaFlete['ruta_txt']);
-                    } catch (\Throwable $th) {
+                    //$arrContextOptions resuelve el siguiente error:
+                    //'file_get_contents(): SSL operation failed with code 1. OpenSSL Error messages:
+                    //error:1416F086:SSL routines:tls_process_server_certificate:certificate verify failed'
+                    $arrContextOptions = [
+                        "ssl" => [
+                            "verify_peer" => false,
+                            "verify_peer_name" => false,
+                        ],
+                    ];
+                    //$urls[0] - SC
+                    //$urls[2] - Flete
+                    $contenido = $urls ? file_get_contents('https://sistema.intactics.com' . $urls[2]['path'], false, stream_context_create($arrContextOptions)) : null;
+                }
 
-                        $operacionID = $datos['operacion_id'];
-                        $url_txt = Http::withoutVerifying()->get("https://sistema.intactics.com/v3/operaciones/{$datos['tipo_operacion']}/{$operacionID}/get-files-txt-momentaneo");
-
-                        if (!$url_txt->successful()) {
-                            // Si la API falla para este ID, lo saltamos y continuamos con el siguiente.
-                            Log::warning("No se pudieron obtener los archivos para la importación ID: {$operacionID}");
-                            //$bar->advance();
-                            continue;
-                        }
-
-                        $urls = json_decode($url_txt, true);
-
-                        //$arrContextOptions resuelve el siguiente error:
-                        //'file_get_contents(): SSL operation failed with code 1. OpenSSL Error messages:
-                        //error:1416F086:SSL routines:tls_process_server_certificate:certificate verify failed'
-                        $arrContextOptions = [
-                            "ssl" => [
-                                "verify_peer"      => false,
-                                "verify_peer_name" => false,
-                            ],
-                        ];
-                        //$urls[0] - SC
-                        //$urls[2] - Flete
-                        $contenido = $urls ?  file_get_contents('https://sistema.intactics.com' . $urls[2]['path'], false, stream_context_create($arrContextOptions)) : null;
-                    }
-
-                    if (!$contenido) {
-                        //$bar->advance();
-                        continue;
-                    }
+                if (!$contenido) {
+                    //$bar->advance();
+                    continue;
+                }
 
                 // Refinamiento: Regex más preciso para el pedimento en la observación.
                 if (preg_match('/\[encOBSERVACION\][^\d]*(?:\d{1,5}-)*([45]\d{6})/i', $contenido, $matches)) {
@@ -2707,18 +2747,18 @@ class AuditoriaImpuestosController extends Controller
                     preg_match('/\[encFOLIOVENTA\](.*?)(\r|\n)/', $contenido, $matchFolio);
                     $pedimento = $matches[1];
                     $indice[$pedimento] =
-                    [
-                        'folio' => isset($matchFolio[1]) ? trim($matchFolio[1]) : null,
-                        'path_txt_tr' => $facturaFlete['ruta_txt'],
-                        'path_xml_tr' => $facturaFlete['ruta_xml'],
-                        'path_pdf_tr' => $facturaFlete['ruta_pdf'],
-                        'fecha' => isset($matchFecha[1]) ? trim($matchFecha[1]) : null,
-                    ];
+                        [
+                            'folio' => isset($matchFolio[1]) ? trim($matchFolio[1]) : null,
+                            'path_txt_tr' => $facturaFlete['ruta_txt'],
+                            'path_xml_tr' => $facturaFlete['ruta_xml'],
+                            'path_pdf_tr' => $facturaFlete['ruta_pdf'],
+                            'fecha' => isset($matchFecha[1]) ? trim($matchFecha[1]) : null,
+                        ];
                 }
                 //$bar->advance();
             }
         } catch (\Throwable $e) {
-            Log::error("Error buscando archivo para pedimento {$pedimento}: " . $e->getMessage() );
+            Log::error("Error buscando archivo para pedimento {$pedimento}: " . $e->getMessage());
         }
 
         return $indice;
@@ -2739,47 +2779,47 @@ class AuditoriaImpuestosController extends Controller
             //$bar->start();
             foreach ($indicesOperacion as $pedimento => $datos) {
 
-                    //Si el archivo mapeado conto con un error no controlado, se continua, ignorandolo.
-                    if (isset($datos['error'])) {
-                        //$bar->advance();
-                        continue;
-                    }
+                //Si el archivo mapeado conto con un error no controlado, se continua, ignorandolo.
+                if (isset($datos['error'])) {
+                    //$bar->advance();
+                    continue;
+                }
 
-                    $coleccionFacturas = collect($datos['facturas']);
-                    $facturaLLC = $coleccionFacturas->first(function ($factura) {
-                        // La condición es la misma que ya tenías.
-                        return $factura['tipo_documento'] === 'llc' &&
-                            isset($factura['ruta_pdf']) && isset($factura['ruta_txt']);
-                    });
+                $coleccionFacturas = collect($datos['facturas']);
+                $facturaLLC = $coleccionFacturas->first(function ($factura) {
+                    // La condición es la misma que ya tenías.
+                    return $factura['tipo_documento'] === 'llc' &&
+                        isset($factura['ruta_pdf']) && isset($factura['ruta_txt']);
+                });
 
-                    if (!$facturaLLC) {
-                        //$bar->advance();
-                        continue;
-                    }
-                    try {
-                        // Cuando la URL esta mal construida, lo que se hace es buscar por medio del get el txt
-                        //$arrContextOptions resuelve el siguiente error:
-                        //'file_get_contents(): SSL operation failed with code 1. OpenSSL Error messages:
-                        //error:1416F086:SSL routines:tls_process_server_certificate:certificate verify failed'
-                        $arrContextOptions = [
-                            "ssl" => [
-                                "verify_peer"      => false,
-                                "verify_peer_name" => false,
-                            ],
-                        ];
-                        $contenido = file_get_contents($facturaLLC['ruta_txt'], false, stream_context_create($arrContextOptions));
-                    } catch (\Throwable $th) {
-                        // En las LLC no se verificara si existe el archivo dentro del GET del files-txt-momentaneo
-                        // debido a que no existe o no se presenta dentro del JSON. Por lo tanto, si no existe el url construido
-                        // con anterioridad, simplemente continuara con el siguiente archivo.
+                if (!$facturaLLC) {
+                    //$bar->advance();
+                    continue;
+                }
+                try {
+                    // Cuando la URL esta mal construida, lo que se hace es buscar por medio del get el txt
+                    //$arrContextOptions resuelve el siguiente error:
+                    //'file_get_contents(): SSL operation failed with code 1. OpenSSL Error messages:
+                    //error:1416F086:SSL routines:tls_process_server_certificate:certificate verify failed'
+                    $arrContextOptions = [
+                        "ssl" => [
+                            "verify_peer" => false,
+                            "verify_peer_name" => false,
+                        ],
+                    ];
+                    $contenido = file_get_contents($facturaLLC['ruta_txt'], false, stream_context_create($arrContextOptions));
+                } catch (\Throwable $th) {
+                    // En las LLC no se verificara si existe el archivo dentro del GET del files-txt-momentaneo
+                    // debido a que no existe o no se presenta dentro del JSON. Por lo tanto, si no existe el url construido
+                    // con anterioridad, simplemente continuara con el siguiente archivo.
 
-                        $contenido = null;
-                    }
+                    $contenido = null;
+                }
 
-                    if (!$contenido) {
-                        //$bar->advance();
-                        continue;
-                    }
+                if (!$contenido) {
+                    //$bar->advance();
+                    continue;
+                }
 
                 // Refinamiento: Regex más preciso para el pedimento en la observación.'/\[encOBSERVACION\][^\d]*(?:\d{1,5}-)*([45]\d{6})/i'
                 if (preg_match('/\[encPdfRemarksNote\d+\][^\d]*(?:Patente:\s*\d+\s*,\s*Pedimento:\s*)?(?:\d{1,5}-)*([45]\d{6})/i', $contenido, $matchPedimento)) {
@@ -2789,14 +2829,14 @@ class AuditoriaImpuestosController extends Controller
                     $lineas = file($facturaLLC['ruta_txt'], FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES, stream_context_create($arrContextOptions));
 
                     $datos =
-                    [
-                        'folio' => null,
-                        'fecha' => null,
-                        'monto_total' => 0.0,
-                        'ruta_txt' => $facturaLLC['ruta_txt'],
-                        'ruta_pdf' => $facturaLLC['ruta_pdf'],
+                        [
+                            'folio' => null,
+                            'fecha' => null,
+                            'monto_total' => 0.0,
+                            'ruta_txt' => $facturaLLC['ruta_txt'],
+                            'ruta_pdf' => $facturaLLC['ruta_pdf'],
 
-                    ];
+                        ];
 
                     $montoTotal = 0.0;
 
@@ -2826,7 +2866,7 @@ class AuditoriaImpuestosController extends Controller
                 //$bar->advance();
             }
         } catch (\Throwable $e) {
-            Log::error("Error buscando archivo para pedimento {$pedimento}: " . $e->getMessage() );
+            Log::error("Error buscando archivo para pedimento {$pedimento}: " . $e->getMessage());
         }
 
         //$bar->finish();
@@ -2873,12 +2913,10 @@ class AuditoriaImpuestosController extends Controller
                 }
 
                 //$bar->advance();
-                }
             }
-
-            catch (\Throwable $e) {
-                Log::error("Error construyendo el índice de Pagos de Derecho: " . $e->getMessage() );
-            }
+        } catch (\Throwable $e) {
+            Log::error("Error construyendo el índice de Pagos de Derecho: " . $e->getMessage());
+        }
         //$bar->finish();
         return $indice;
     }
@@ -2898,15 +2936,23 @@ class AuditoriaImpuestosController extends Controller
     // Se encarga de hacer la comparativa de montos
     private function compararMontos(float $esperado, float $real, $tipoOperacion): string
     {
-        if(strpos(strtolower($tipoOperacion), 'pedimento')) {return "Sin operacion!"; }
-        if($esperado == -1) {
-             return strpos(strtolower($tipoOperacion), 'importacion') ? 'IMPO' : 'EXPO';
+        if (strpos(strtolower($tipoOperacion), 'pedimento')) {
+            return "Sin operacion!";
         }
-        if($esperado == -1.1) { return 'Sin SC!'; }
-        if($real == -1) { return 'Sin Impuesto!'; } //Este IF es practicamente imposible, pero lo pongo para seguir el formato.
+        if ($esperado == -1) {
+            return strpos(strtolower($tipoOperacion), 'importacion') ? 'IMPO' : 'EXPO';
+        }
+        if ($esperado == -1.1) {
+            return 'Sin SC!';
+        }
+        if ($real == -1) {
+            return 'Sin Impuesto!';
+        } //Este IF es practicamente imposible, pero lo pongo para seguir el formato.
         // Usamos una pequeña tolerancia (epsilon) para comparar números flotantes
         // y evitar problemas de precisión.
-        if (abs($esperado - $real) < 0.001) { return 'Coinciden!'; }
+        if (abs($esperado - $real) < 0.001) {
+            return 'Coinciden!';
+        }
         //LA SC SIEMPRE DEBE DE TENER MAS CANTIDAD, SI TIENE MENOS, SIGNIFICA PERDIDA
         return ($esperado > $real) ? 'Pago de mas!' : 'Pago de menos!';
     }
@@ -2918,11 +2964,17 @@ class AuditoriaImpuestosController extends Controller
      */
     private function compararMontos_Fletes(float $esperado, float $real): string
     {
-        if($esperado == -1){ return 'Sin SC!'; }
-        if($real == -1){ return 'Sin Flete!'; }
+        if ($esperado == -1) {
+            return 'Sin SC!';
+        }
+        if ($real == -1) {
+            return 'Sin Flete!';
+        }
         // Usamos una pequeña tolerancia (epsilon) para comparar números flotantes
         // y evitar problemas de precisión.
-        if (abs($esperado - $real) < 0.001) { return 'Coinciden!'; }
+        if (abs($esperado - $real) < 0.001) {
+            return 'Coinciden!';
+        }
         //LA SC SIEMPRE DEBE DE TENER MAS CANTIDAD, SI TIENE MENOS, SIGNIFICA PERDIDA
         return ($esperado > $real) ? 'Pago de mas!' : 'Pago de menos!';
     }
@@ -2934,11 +2986,17 @@ class AuditoriaImpuestosController extends Controller
      */
     private function compararMontos_LLC(float $esperado, float $real): string
     {
-        if($esperado == -1){ return 'Sin SC!'; }
-        if($real == -1){ return 'Sin LLC!'; }
+        if ($esperado == -1) {
+            return 'Sin SC!';
+        }
+        if ($real == -1) {
+            return 'Sin LLC!';
+        }
         // Usamos una pequeña tolerancia (epsilon) para comparar números flotantes
         // y evitar problemas de precisión.
-        if (abs($esperado - $real) < 0.001) { return 'Coinciden!'; }
+        if (abs($esperado - $real) < 0.001) {
+            return 'Coinciden!';
+        }
         //LA SC SIEMPRE DEBE DE TENER MAS CANTIDAD, SI TIENE MENOS, SIGNIFICA PERDIDA
         return ($esperado > $real) ? 'Pago de mas!' : 'Pago de menos!';
     }
@@ -2957,30 +3015,30 @@ class AuditoriaImpuestosController extends Controller
             //'file_get_contents(): SSL operation failed with code 1. OpenSSL Error messages:
             //error:1416F086:SSL routines:tls_process_server_certificate:certificate verify failed'
             $arrContextOptions =
-            [
-                "ssl" =>
                 [
-                    "verify_peer"      => false,
-                    "verify_peer_name" => false,
-                ],
-            ];
+                    "ssl" =>
+                        [
+                            "verify_peer" => false,
+                            "verify_peer_name" => false,
+                        ],
+                ];
             // Usamos SimpleXMLElement, que es nativo de PHP.
             $xml = new \SimpleXMLElement(file_get_contents($rutaXml, false, stream_context_create($arrContextOptions)));
 
             // Devolvemos un array con los datos que nos interesan.
             return
                 [
-                    'total'  => (float) $xml['Total'],
+                    'total' => (float) $xml['Total'],
                     'moneda' => (string) $xml['Moneda'],
                 ];
-            } catch (\Throwable $e) {
-                Log::error("Error al parsear el XML {$rutaXml}: " . $e->getMessage() );
-                return
+        } catch (\Throwable $e) {
+            Log::error("Error al parsear el XML {$rutaXml}: " . $e->getMessage());
+            return
                 [
-                    'total'  => -1,
+                    'total' => -1,
                     'moneda' => 'N/A',
                 ];
-            }
+        }
     }
 
 
@@ -2997,18 +3055,18 @@ class AuditoriaImpuestosController extends Controller
     {
         // Un array con todos los conceptos que nos interesan.
         $conceptosBuscados =
-        [
-            'monto_maniobras_2' => 'MANIOBRAS EN ALMACEN FISCALIZADO',
-            'monto_termo' => 'CONTROLADOR DE TEMPERATURA (TERMOGRAFO)',
-            'monto_rojos' => 'RECONOCIMIENTO ADUANERO (ROJO)',
-            // Puedes agregar aquí todos los que necesites
-        ];
+            [
+                'monto_maniobras_2' => 'MANIOBRAS EN ALMACEN FISCALIZADO',
+                'monto_termo' => 'CONTROLADOR DE TEMPERATURA (TERMOGRAFO)',
+                'monto_rojos' => 'RECONOCIMIENTO ADUANERO (ROJO)',
+                // Puedes agregar aquí todos los que necesites
+            ];
         $resultados =
-        [
-            'monto_maniobras_2' => -1,
-            'monto_termo' => -1,
-            'monto_rojos' => -1,
-        ];
+            [
+                'monto_maniobras_2' => -1,
+                'monto_termo' => -1,
+                'monto_rojos' => -1,
+            ];
         // Hacemos una copia de los conceptos a buscar para poder modificarla.
         $conceptosPendientes = $conceptosBuscados;
 
@@ -3018,7 +3076,9 @@ class AuditoriaImpuestosController extends Controller
         // 2. Iteramos sobre cada bloque de producto encontrado.
         foreach ($bloques as $bloque) {
             // Si ya encontramos todos los conceptos, no tiene caso seguir recorriendo bloques.
-            if (empty($conceptosPendientes)) { break; }
+            if (empty($conceptosPendientes)) {
+                break;
+            }
 
             // 3. Dentro de cada bloque, iteramos sobre los conceptos que aún nos faltan por encontrar.
             foreach ($conceptosPendientes as $index => $concepto) {
@@ -3031,7 +3091,7 @@ class AuditoriaImpuestosController extends Controller
                         $precio = trim($matches[1]);
 
                         // 5. Guardamos el resultado usando el nombre del concepto como clave.
-                        $resultados[$index] = (float)$precio;
+                        $resultados[$index] = (float) $precio;
 
                         // 6. Eliminamos el concepto de la lista de pendientes para ser más eficientes.
                         unset($conceptosPendientes[$index]);
@@ -3059,7 +3119,9 @@ class AuditoriaImpuestosController extends Controller
     private function construirMapaDePedimentos(array $pedimentosLimpios, string $patenteSucursal, $numeroSucursal): array
     {
         gc_collect_cycles();
-        if (empty($pedimentosLimpios)) { return []; }
+        if (empty($pedimentosLimpios)) {
+            return [];
+        }
 
         $regexPattern = implode('|', $pedimentosLimpios);
 
@@ -3072,14 +3134,14 @@ class AuditoriaImpuestosController extends Controller
                         ->where('sucursal', $numeroSucursal)
                         ->whereNull('parent');
                 })
-            ->orWhere(function ($q2) use ($patenteSucursal, $numeroSucursal) {
-                $q2->whereDoesntHave('importacion')
-                    ->whereHas('exportacion', function ($exportQuery) use ($patenteSucursal, $numeroSucursal) {
-                        $exportQuery->where('patente', $patenteSucursal)
-                            ->where('sucursal', $numeroSucursal)
-                            ->whereNull('parent');
+                    ->orWhere(function ($q2) use ($patenteSucursal, $numeroSucursal) {
+                        $q2->whereDoesntHave('importacion')
+                            ->whereHas('exportacion', function ($exportQuery) use ($patenteSucursal, $numeroSucursal) {
+                                $exportQuery->where('patente', $patenteSucursal)
+                                    ->where('sucursal', $numeroSucursal)
+                                    ->whereNull('parent');
+                            });
                     });
-            });
             })
             ->get();
 
@@ -3108,7 +3170,7 @@ class AuditoriaImpuestosController extends Controller
         foreach ($agrupados as $pedimentoBase => $registro) {
             if (isset($pedimentosPorEncontrar[$pedimentoBase])) {
                 $mapaFinal[$pedimentoBase] = [
-                    'id_pedimiento'  => $registro->id_pedimiento,
+                    'id_pedimiento' => $registro->id_pedimiento,
                     'num_pedimiento' => $registro->num_pedimiento,
                 ];
                 unset($pedimentosPorEncontrar[$pedimentoBase]);
@@ -3166,8 +3228,7 @@ class AuditoriaImpuestosController extends Controller
 
             // 1. Crear una instancia del Parser.
             $parser = new Parser([], $config);
-            try
-            {
+            try {
                 // 2. Parsear el archivo PDF. Esto devuelve un objeto Pdf.
                 $pdf = $parser->parseFile($rutaPdf);
             } catch (\Throwable $th) {
@@ -3182,11 +3243,13 @@ class AuditoriaImpuestosController extends Controller
             $texto = $pdf->getText();
 
             //Si el valor esta vacio, o si es un pago de derecho de Banamex (es a cuenta del cliente, por lo que lo descartamos)
-            if ($texto === '' || str::contains($texto, 'citibanamex')) { return null; }
+            if ($texto === '' || str::contains($texto, 'citibanamex')) {
+                return null;
+            }
             // --- FIN DEL CAMBIO ---
             $datos = [];
 
-            if($rutaAlternativa){
+            if ($rutaAlternativa) {
                 $datos['ruta_alternativa'] = $rutaAlternativa;
             }
             // Lógica para detectar el tipo de banco y aplicar el Regex correcto
@@ -3199,11 +3262,10 @@ class AuditoriaImpuestosController extends Controller
 
                 $datos['numero_operacion'] = $matchOp[1] ?? null;
                 $datos['llave_pago'] = $matchLlave[1] ?? null;
-                $datos['monto_total'] = isset($matchMonto[1]) ? (float)str_replace(',', '', $matchMonto[1]) : 0;
+                $datos['monto_total'] = isset($matchMonto[1]) ? (float) str_replace(',', '', $matchMonto[1]) : 0;
                 $datos['fecha_pago'] = isset($matchFecha[1]) ? \Carbon\Carbon::createFromFormat('d/m/Y', $matchFecha[1])->format('Y-m-d') : null;
 
-            }
-            else {
+            } else {
                 // Asumimos que es Santander
                 // Leemos la "cadena mágica" de la segunda página
                 preg_match('/\|20002=(\d+)\|/', $texto, $matchOp);
@@ -3213,16 +3275,16 @@ class AuditoriaImpuestosController extends Controller
 
                 $datos['numero_operacion'] = $matchOp[1] ?? null;
                 $datos['llave_pago'] = $matchLlave[1] ?? null;
-                $datos['monto_total'] = isset($matchMonto[1]) ? (float)str_replace(',', '', $matchMonto[1]) : 0;
+                $datos['monto_total'] = isset($matchMonto[1]) ? (float) str_replace(',', '', $matchMonto[1]) : 0;
                 $datos['fecha_pago'] = isset($matchFecha[1]) ? \Carbon\Carbon::createFromFormat('Ymd', $matchFecha[1])->format('Y-m-d') : null;
             }
 
             // Lógica para determinar el 'tipo' (Normal, Medio, etc.) basado en el nombre del archivo
-            if(str::contains($rutaPdf, 'MEDIO')) {
+            if (str::contains($rutaPdf, 'MEDIO')) {
                 $datos['tipo'] = 'Medio Pago';
-            } elseif(str::contains($rutaPdf, '-2')) {
+            } elseif (str::contains($rutaPdf, '-2')) {
                 $datos['tipo'] = 'Segundo Pago';
-            } elseif(str::contains($rutaPdf, 'INTACTICS')) {
+            } elseif (str::contains($rutaPdf, 'INTACTICS')) {
                 $datos['tipo'] = 'Intactics';
             } else {
                 $datos['tipo'] = 'Normal';
@@ -3234,11 +3296,13 @@ class AuditoriaImpuestosController extends Controller
             unset($texto);
             gc_collect_cycles();
 
-            if ($datos['llave_pago']) return $datos;
-            else return null;
+            if ($datos['llave_pago'])
+                return $datos;
+            else
+                return null;
 
-        } catch(\Throwable $e) {
-            Log::error("Error al parsear el PDF: {$rutaPdf} - " . $e->getMessage() );
+        } catch (\Throwable $e) {
+            Log::error("Error al parsear el PDF: {$rutaPdf} - " . $e->getMessage());
             unset($config);
             unset($parser);
             unset($pdf);
@@ -3271,7 +3335,7 @@ class AuditoriaImpuestosController extends Controller
 
         // Verificamos que la ruta exista y que el archivo sea legible.
         if (!$rutaAbsoluta || !is_file($rutaAbsoluta) || !is_readable($rutaAbsoluta)) {
-             abort(404, 'El archivo local no fue encontrado o no se puede leer.');
+            abort(404, 'El archivo local no fue encontrado o no se puede leer.');
         }
 
         // ✅ PASO 1: Detectamos la extensión del archivo dinámicamente.
@@ -3288,9 +3352,9 @@ class AuditoriaImpuestosController extends Controller
 
         // Mapeo de extensiones a tipos MIME para las cabeceras HTTP.
         $mimeTypes = [
-            'pdf'  => 'application/pdf',
+            'pdf' => 'application/pdf',
             'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'xls'  => 'application/vnd.ms-excel',
+            'xls' => 'application/vnd.ms-excel',
             // Puedes añadir más tipos de archivo aquí si es necesario
         ];
 
@@ -3344,7 +3408,8 @@ class AuditoriaImpuestosController extends Controller
             [
                 'tipo' => 'required|string',
                 'id' => 'required|integer', // <-- Cambiamos 'id' por 'uuid' y validamos que sea un UUID
-            ]);
+            ]
+        );
 
         $tipo = $request->input('tipo');
         $uuid = $request->input('id'); // <-- Usamos el uuid
@@ -3358,19 +3423,23 @@ class AuditoriaImpuestosController extends Controller
         }
 
         // Si no se encontró el registro en la BD, devolvemos error
-        if (!$record) { abort(404, 'Registro no encontrado en la base de datos.'); }
+        if (!$record) {
+            abort(404, 'Registro no encontrado en la base de datos.');
+        }
 
         // 3. Obtenemos la ruta absoluta del PDF desde el registro
         $rutaCompleta = $record->ruta_pdf;
 
         // 4. Verificamos si el archivo existe en esa ruta (¡requiere permisos de red!)
-        if (!$rutaCompleta || !file_exists($rutaCompleta)) { abort(404, 'Documento no encontrado en la ubicación física.'); }
+        if (!$rutaCompleta || !file_exists($rutaCompleta)) {
+            abort(404, 'Documento no encontrado en la ubicación física.');
+        }
 
         // 5. Si todo está bien, Laravel sirve el archivo al navegador
         return response()->file($rutaCompleta);
     }
 
-     /**
+    /**
      * Inicia la descarga de un reporte de auditoría asociado a una tarea.
      *
      * @param  \App\Models\AuditoriaTareas $tarea La tarea obtenida automáticamente por Laravel.
@@ -3392,14 +3461,16 @@ class AuditoriaImpuestosController extends Controller
             $nombreDescarga = $tarea->nombre_reporte_pendientes;
         }
 
-        // 3. Verificamos que el archivo realmente exista en nuestro disco 'public'.
-        if (!$rutaGuardada || !Storage::disk('public')->exists($rutaGuardada)) {
+        // 3. Verificamos que el archivo realmente exista en nuestro disco 'storageOldProject'.
+        // --- CAMBIO AQUÍ: Usamos el disco correcto ---
+        if (!$rutaGuardada || !Storage::disk('storageOldProject')->exists($rutaGuardada)) {
             // Si no existe, devolvemos un error 404 (No Encontrado).
-            abort(404, 'El archivo solicitado no existe o ha sido eliminado.');
+            abort(404, 'El archivo solicitado no existe o ha sido eliminado del disco storageOldProject.');
         }
 
         // 4. Usamos el método download() de Storage para iniciar la descarga.
-        return Storage::disk('public')->download($rutaGuardada, $nombreDescarga);
+        // --- CAMBIO AQUÍ: Descargamos desde el disco correcto ---
+        return Storage::disk('storageOldProject')->download($rutaGuardada, $nombreDescarga);
     }
 
     //--------------------------------------------------------------------------------------------------------------
@@ -3416,11 +3487,12 @@ class AuditoriaImpuestosController extends Controller
     {
         $datosValidados = $request->validate(
             [
-            'estado_de_cuenta' => 'required|file', // Aceptamos cualquier archivo
-            'banco' => 'required|string',
-            'sucursal' => 'required|string',
-            'archivos_extras.*' => 'nullable|file', // Para los archivos extra (opcional)
-            ]);
+                'estado_de_cuenta' => 'required|file', // Aceptamos cualquier archivo
+                'banco' => 'required|string',
+                'sucursal' => 'required|string',
+                'archivos_extras.*' => 'nullable|file', // Para los archivos extra (opcional)
+            ]
+        );
 
         // 1. Guardamos el estado de cuenta principal
         $rutaPrincipal = $request->file('estado_de_cuenta')->store('operaciones/estados_de_cuenta');
@@ -3437,23 +3509,27 @@ class AuditoriaImpuestosController extends Controller
         // 3. Creamos el registro de la nueva tarea en la base de datos
         AuditoriaTareas::create(
             [
-            'banco'                 => $datosValidados['banco'],
-            'sucursal'              => $datosValidados['sucursal'],
-            'periodo_meses'         => '4',
-            'nombre_archivo'        => $nombreArchivo,
-            'ruta_estado_de_cuenta' => $rutaPrincipal,
-            'rutas_extras'          => $rutasExtras,
-            'status'                => 'pendiente', // La tarea empieza como pendiente
-            ]);
+                'banco' => $datosValidados['banco'],
+                'sucursal' => $datosValidados['sucursal'],
+                'periodo_meses' => '4',
+                'nombre_archivo' => $nombreArchivo,
+                'ruta_estado_de_cuenta' => $rutaPrincipal,
+                'rutas_extras' => $rutasExtras,
+                'status' => 'pendiente', // La tarea empieza como pendiente
+            ]
+        );
 
         // 4. Devolvemos una respuesta inmediata y exitosa al usuario
         return response()->json(
             [
-            'message' => '¡Solicitud recibida! El procesamiento ha comenzado y se te notificará al completarse.'
-            ], 202); // 202 Accepted
+                'message' => '¡Solicitud recibida! El procesamiento ha comenzado y se te notificará al completarse.'
+            ],
+            202
+        ); // 202 Accepted
     }
 
-    public function ejecutarComandoDeTareaEnCola(Request $request) {
+    public function ejecutarComandoDeTareaEnCola(Request $request)
+    {
         //ACA NO SE SI LE PONGAS PARAMETROS DISTINTOS EN TU ENTORNO DEL SOL, ACA TE DEJO COMENTADO EL COMANDO
         // QUE ME COMPARTISTE EN CASO DE QUE ESE ES EL QUE USES PARA INICIAR LA AUDITORIA.
 
