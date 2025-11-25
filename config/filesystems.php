@@ -48,10 +48,10 @@ return [
             'root' => storage_path('app'),
         ],
 
-        'storageOldProject' => [
+        'storageOldProyect' => [
             'driver' => 'local',
-            // Esta ruta apunta a: C:\xampp\htdocs\RDI_Auditor\storage\app\storageOldProject
-            'root' => storage_path('app/storageOldProject'),
+            // Esta ruta apunta a: C:\xampp\htdocs\RDI_Auditor\storage\app\storageOldProyect
+            'root' => storage_path('app/storageOldProyect'),
             'visibility' => 'public',
         ],
         'public' => [

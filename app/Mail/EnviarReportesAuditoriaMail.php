@@ -48,18 +48,18 @@ class EnviarReportesAuditoriaMail extends Mailable
 
         // Adjuntamos el primer reporte si existe
         // Verificamos que el archivo exista DENTRO del nuevo disco.
-        if (Storage::disk('storageOldProject')->exists($rutaReportePrincipal)) {
+        if (Storage::disk('storageOldProyect')->exists($rutaReportePrincipal)) {
 
             // Usamos attachFromStorageDisk para especificar el disco correcto
-            $email->attachFromStorageDisk('storageOldProject', $rutaReportePrincipal, $this->tarea->nombre_reporte_impuestos, [
+            $email->attachFromStorageDisk('storageOldProyect', $rutaReportePrincipal, $this->tarea->nombre_reporte_impuestos, [
                 'mime' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             ]);
         }
 
         // Adjuntamos el segundo reporte si existe
-        if (Storage::disk('storageOldProject')->exists($rutaReportePendientes)) {
+        if (Storage::disk('storageOldProyect')->exists($rutaReportePendientes)) {
 
-            $email->attachFromStorageDisk('storageOldProject', $rutaReportePendientes, $this->tarea->nombre_reporte_pendientes, [
+            $email->attachFromStorageDisk('storageOldProyect', $rutaReportePendientes, $this->tarea->nombre_reporte_pendientes, [
                 'mime' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             ]);
         }

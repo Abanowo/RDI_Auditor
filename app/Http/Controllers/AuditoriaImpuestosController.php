@@ -1694,25 +1694,29 @@ class AuditoriaImpuestosController extends Controller
                 $estado = $this->compararMontos_Fletes($montoSCMXN, $montoFleteMXN);
                 $diferenciaSc = ($estado !== "Sin SC!" && $estado !== "Sin operacion!") ? round($montoSCMXN - $montoFleteMXN, 2) : $montoFleteMXN;
 
-                // 1. Limpieza inicial: Quitamos espacios en blanco al inicio y final
+                // 1. Limpieza inicial: Quitamos espacios y aseguramos que no sea null
                 $fechaRaw = isset($datosFlete['fecha']) ? trim($datosFlete['fecha']) : null;
                 $fechaFormateada = null;
 
-                if ($fechaRaw) {
-                    // 2. Intentamos el formato estricto 'd/m/Y'
-                    $fechaObj = DateTime::createFromFormat('d/m/Y', $fechaRaw);
+                // Si la fecha viene como "03/11/2025,03/11/2025", la cortamos.
+                if ($fechaRaw && strpos($fechaRaw, ',') !== false) {
+                    $partes = explode(',', $fechaRaw);
+                    $fechaRaw = trim($partes[0]); // Nos quedamos solo con la primera: "03/11/2025"
+                }
 
-                    if ($fechaObj !== false) {
-                        // ¡Éxito! Convertimos a formato base de datos
-                        $fechaFormateada = $fechaObj->format('Y-m-d');
-                    } else {
-                        // 3. Si el estricto falla, intentamos con Carbon
-                        // Carbon es capaz de arreglar separadores (guiones en vez de diagonales) u otros formatos
+                if ($fechaRaw) {
+                    try {
+                        // 2. Carbon intenta adivinar la fecha de entrada
+                        // 3. Y forzamos la SALIDA al formato: Año-Mes-Día (Y-m-d) para la base de datos
+                        $fechaFormateada = \Carbon\Carbon::parse($fechaRaw)->format('Y-m-d');
+                    } catch (\Throwable $e) {
+                        // Si falla la inteligencia de Carbon, intentamos un último rescate manual
                         try {
-                            $fechaFormateada = \Carbon\Carbon::parse($fechaRaw)->format('Y-m-d');
-                        } catch (\Throwable $e) {
-                            // 4. Si realmente es ilegible, registramos el error pero NO detenemos el proceso
-                            Log::warning("Fletes: No se pudo leer la fecha '{$fechaRaw}' en el pedimento {$pedimentoLimpio}. Se guardará como NULL.");
+                            // Convertimos guiones o puntos en diagonales
+                            $fechaLimpia = str_replace(['-', '.'], '/', $fechaRaw);
+                            $fechaFormateada = \Carbon\Carbon::createFromFormat('d/m/Y', $fechaLimpia)->format('Y-m-d');
+                        } catch (\Throwable $e2) {
+                            Log::error("Fletes: Fecha ilegible '{$fechaRaw}' en pedimento {$pedimentoLimpio}.");
                             $fechaFormateada = null;
                         }
                     }
@@ -2240,7 +2244,7 @@ class AuditoriaImpuestosController extends Controller
 
             // 2. Guardamos el archivo en el disco 'public', dentro de la carpeta 'reportes'
             $pedimentosDescartados = $tarea->pedimentos_descartados;
-            Excel::store(new AuditoriaFacturadoExport($operacionesParaExportar, $pedimentosDescartados), $rutaDeAlmacenamiento, 'storageOldProject');
+            Excel::store(new AuditoriaFacturadoExport($operacionesParaExportar, $pedimentosDescartados), $rutaDeAlmacenamiento, 'storageOldProyect');
             Log::info("Reporte de impuestos almacenado para la tarea {$tareaId}");
             Log::info("Reporte de impuestos almacenado para la tarea {$tareaId}");
             // 3. Actualizamos el registro de la tarea en la base de datos
@@ -3461,16 +3465,16 @@ class AuditoriaImpuestosController extends Controller
             $nombreDescarga = $tarea->nombre_reporte_pendientes;
         }
 
-        // 3. Verificamos que el archivo realmente exista en nuestro disco 'storageOldProject'.
+        // 3. Verificamos que el archivo realmente exista en nuestro disco 'storageOldProyect'.
         // --- CAMBIO AQUÍ: Usamos el disco correcto ---
-        if (!$rutaGuardada || !Storage::disk('storageOldProject')->exists($rutaGuardada)) {
+        if (!$rutaGuardada || !Storage::disk('storageOldProyect')->exists($rutaGuardada)) {
             // Si no existe, devolvemos un error 404 (No Encontrado).
-            abort(404, 'El archivo solicitado no existe o ha sido eliminado del disco storageOldProject.');
+            abort(404, 'El archivo solicitado no existe o ha sido eliminado del disco storageOldProyect.');
         }
 
         // 4. Usamos el método download() de Storage para iniciar la descarga.
         // --- CAMBIO AQUÍ: Descargamos desde el disco correcto ---
-        return Storage::disk('storageOldProject')->download($rutaGuardada, $nombreDescarga);
+        return Storage::disk('storageOldProyect')->download($rutaGuardada, $nombreDescarga);
     }
 
     //--------------------------------------------------------------------------------------------------------------
