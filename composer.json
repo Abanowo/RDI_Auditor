@@ -8,7 +8,7 @@
     ],
     "license": "MIT",
     "require": {
-        "php": "^7.4.33",
+        "php": "^7.3.23",
         "doctrine/dbal": "2.*",
         "fideloper/proxy": "^4.2",
         "fruitcake/laravel-cors": "^2.0",
@@ -18,6 +18,7 @@
         "laravel/tinker": "^2.0",
         "laravel/ui": "^3.2",
         "maatwebsite/excel": "3.1.25",
+        "phpoffice/phpspreadsheet": "1.19.0",
         "smalot/pdfparser": "^2.12",
         "spatie/pdf-to-text": "^1.4",
         "spatie/regex": "^1.4",
@@ -40,9 +41,20 @@
         "symfony/symfony": "^5.4"
     },
     "config": {
+        "platform": {
+            "php": "7.3.23"
+        },
+        "audit": {
+            "ignore": {
+                "phpoffice/phpspreadsheet": "*"
+            }
+        },
         "optimize-autoloader": true,
         "preferred-install": "dist",
-        "sort-packages": true
+        "sort-packages": true,
+        "allow-plugins": {
+            "kylekatarnls/update-helper": true
+        }
     },
     "extra": {
         "laravel": {

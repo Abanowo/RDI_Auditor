@@ -473,7 +473,7 @@ class AuditoriaImpuestosController extends Controller
 
         return [
             'id' => $operacion->getKey(),
-            'tipo_operacion' => $operacion instanceof \App\Models\Importacion ? 'Importación' : 'Exportación',
+            'tipo_operacion' => $operacion instanceof Importacion ? 'Importación' : 'Exportación',
             'pedimento' => $pedimento->num_pedimiento,
             'cliente' => optional($operacion->cliente)->nombre,
             'cliente_id' => optional($operacion->cliente)->id,
@@ -712,7 +712,7 @@ class AuditoriaImpuestosController extends Controller
                 $config->setDecodeMemoryLimit(10276800);
 
                 // Se crea el objeto Parser, utilizando las configuraciones de antes para evitar memory leaks
-                $parser = new \Smalot\PdfParser\Parser([], $config);
+                $parser = new Parser([], $config);
                 $pdf = $parser->parseFile($rutaPdf);
                 $textoPdf = $pdf->getText();
 
@@ -2338,7 +2338,7 @@ class AuditoriaImpuestosController extends Controller
     public function enviarErrorDeReportePorCorreo(AuditoriaTareas $tarea, \Throwable $exception)
     {
         try {
-            $destinatario = "daniel.gomez@intactics.com"; // O config('app.admin_email')
+            $destinatario = "carlos.perez@intactics.com"; // O config('app.admin_email')
 
             // Usamos nuestro nuevo Mailable, pasándole la tarea y la excepción.
             Mail::to($destinatario)->send(new EnviarFalloReporteAuditoriaMail($tarea, $exception));
@@ -2610,7 +2610,8 @@ class AuditoriaImpuestosController extends Controller
                 // [^\d]*               -> salta cualquier cosa no numérica hasta el primer dígito
                 // (?:\d{1,5}-)*        -> acepta prefijos como "3711-" o "3711-3711-" repetidos (opcional)
                 // ([45]\d{6})          -> captura el pedimento: 7 dígitos empezando con 4 o 5
-                if (preg_match('/\[encOBSERVACION\][^\d]*(?:\d{1,5}-)*([45]\d{6})/i', $contenido, $matchesPedimento)) {
+                // Se agregó [4-7] para aceptar pedimentos que inician con 4, 5, 6 o 7
+                if (preg_match('/\[encOBSERVACION\][^\d]*(?:\d{1,5}-)*([4-7]\d{6})/i', $contenido, $matchesPedimento)) { 
 
                     $pedimento = trim($matchesPedimento[1]);
                     //[encTEXTOEXTRA1] = IMPUESTOS (EDC - SC)
@@ -2746,7 +2747,7 @@ class AuditoriaImpuestosController extends Controller
                 }
 
                 // Refinamiento: Regex más preciso para el pedimento en la observación.
-                if (preg_match('/\[encOBSERVACION\][^\d]*(?:\d{1,5}-)*([45]\d{6})/i', $contenido, $matches)) {
+                if (preg_match('/\[encOBSERVACION\][^\d]*(?:\d{1,5}-)*([4-7]\d{6})/i', $contenido, $matches)) { 
                     preg_match('/\[cteTEXTOEXTRA3\](.*?)(\r|\n)/', $contenido, $matchFecha);
                     preg_match('/\[encFOLIOVENTA\](.*?)(\r|\n)/', $contenido, $matchFolio);
                     $pedimento = $matches[1];
@@ -2826,7 +2827,7 @@ class AuditoriaImpuestosController extends Controller
                 }
 
                 // Refinamiento: Regex más preciso para el pedimento en la observación.'/\[encOBSERVACION\][^\d]*(?:\d{1,5}-)*([45]\d{6})/i'
-                if (preg_match('/\[encPdfRemarksNote\d+\][^\d]*(?:Patente:\s*\d+\s*,\s*Pedimento:\s*)?(?:\d{1,5}-)*([45]\d{6})/i', $contenido, $matchPedimento)) {
+                if (preg_match('/\[encPdfRemarksNote\d+\][^\d]*(?:Patente:\s*\d+\s*,\s*Pedimento:\s*)?(?:\d{1,5}-)*([4-7]\d{6})/i', $contenido, $matchPedimento)) { 
                     $pedimento = trim($matchPedimento[1]);
 
                     // Leemos todas las líneas del archivo en un array

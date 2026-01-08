@@ -95,25 +95,34 @@ WithStrictNullComparison
         $sc = $row['sc'] ?? null;
         $cliente = $row['cliente'] ?? null;
         $pedimento = $row['pedimento'] ?? null;
-        if ($sc) {
+        
+        $montoSc = 0;
+        $montoScMxn = 0;
+        $folioSc = '';
+        $pdfSc = '';
+        $monedaConTC = '';
 
+        if ($sc) {
             $desgloseSc = $sc->desglose_conceptos;
             $montosSc = $desgloseSc['montos'] ?? [];
             $montoSc = (float)($montosSc['sc'] ?? 0);
             $montoScMxn = (float)($montosSc['sc_mxn'] ?? 0);
             $folioSc = $sc->folio;
-            $nombreCliente = $cliente->nombre;
+            $nombreCliente = optional($cliente)->nombre; 
 
             if ($sc->ruta_pdf) {
                 $pdfSc = '=HYPERLINK("' . $sc->ruta_pdf . '", "Acceder PDF")';
             }
 
             $monedaConTC = $desgloseSc['moneda'] == "MXN" ? $desgloseSc['moneda'] : $desgloseSc['moneda']. " (" . number_format($desgloseSc['tipo_cambio'], 2) . " MXN)";
+        } else {
+             // Si no hay SC, definimos valores default para evitar variables indefinidas
+             $nombreCliente = optional($cliente)->nombre;
         }
 
         $resultado =
         [
-            $sc->fecha_documento,
+            optional($sc)->fecha_documento,
             $pedimento,
             $nombreCliente,
             $montoSc,

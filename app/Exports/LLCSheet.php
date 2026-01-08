@@ -199,17 +199,16 @@ WithStrictNullComparison
             ? '=HYPERLINK("' . $facturaLLCs->ruta_pdf . '", "Acceder PDF")'
             : 'Sin PDF!';
 
-        return
-        [
+        return [
             optional($facturaLLCs)->fecha_documento,
             $pedimento,
             optional($cliente)->nombre,
-            (float) $facturaLLCs->monto_total,
-            (float) $facturaLLCs->monto_total_mxn,
+            (float) optional($facturaLLCs)->monto_total,     // Agregado optional
+            (float) optional($facturaLLCs)->monto_total_mxn, // Agregado optional
             $montoSc,
             $montoScMxn,
             $monedaConTC,
-            $facturaLLCs->folio,
+            optional($facturaLLCs)->folio, // Agregado optional
             $folioSc,
             $estado,
             $pdfFactura,
