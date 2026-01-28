@@ -762,24 +762,41 @@ class AuditoriaImpuestosController extends Controller
                                 ];
                         }
                     } else if ($banco === 'SANTANDER') {
-                        // Se busca en el texto si existe "CGO IMP CE TE"
-                        $patron = "/(.*CGO\s*IMP\s*CE\s*TE.*)/";
-                        // Si el patron existe, eso significa que esta linea contiene toda la informacion que buscamos
-                        if (preg_match($patron, $linea, $match)) {
 
-                            // Se extrae el pedimento, Fecha, y Cargo
-                            preg_match('/(\b\d{7}\b)/', $linea, $matchPedimento);
-                            preg_match('/(\b\d{8}\b)/', $linea, $matchFecha);
-                            preg_match_all('/(\b\d[0-9,.]+\b)/', $linea, $matchCargo);
-
-                            // Como es un registro correcto, se guarda en el arreglo
-                            $tablaDeDatos[] =
-                                [
-                                    'pedimento' => $matchPedimento[0],
-                                    'fecha_str' => \Carbon\Carbon::createFromFormat('dmY', $matchFecha[0])->format('Y-m-d'),
-                                    'cargo_str' => $matchCargo[0][5],
-                                ];
+                        // Intento 1: Formato "Consulta de Movimientos" (Horizontal / Tabular)
+                        // Regex: Fecha(8d) ... TextoFijo ... Cargo ... Referencia(7d)
+                        if (preg_match('/(\d{8})\s+.*CGO\s*IMP\s*CE\s*TE\s+([0-9,.]+)\s+.*?\s+(\d{7})\b/', $linea, $matchesMovimientos)) {
+                            $tablaDeDatos[] = [
+                                'pedimento' => $matchesMovimientos[3], // Referencia (Pedimento)
+                                'fecha_str' => \Carbon\Carbon::createFromFormat('dmY', $matchesMovimientos[1])->format('Y-m-d'),
+                                'cargo_str' => $matchesMovimientos[2]  // Importe Cargo
+                            ];
                         }
+                        // Intento 2: Formato Clásico (Vertical / Desordenado)
+                        else {
+                            // Se busca en el texto si existe "CGO IMP CE TE"
+                            $patron = "/(.*CGO\s*IMP\s*CE\s*TE.*)/";
+                            // Si el patron existe, eso significa que esta linea contiene toda la informacion que buscamos
+                            if (preg_match($patron, $linea, $match)) {
+
+                                // Se extrae el pedimento, Fecha, y Cargo
+                                preg_match('/(\b\d{7}\b)/', $linea, $matchPedimento);
+                                preg_match('/(\b\d{8}\b)/', $linea, $matchFecha);
+                                preg_match_all('/(\b\d[0-9,.]+\b)/', $linea, $matchCargo);
+
+                                // Verificamos que existan los matches antes de acceder a los índices
+                                if (isset($matchPedimento[0]) && isset($matchFecha[0]) && isset($matchCargo[0])) {
+                                    $tablaDeDatos[] =
+                                        [
+                                            'pedimento' => $matchPedimento[0],
+                                            'fecha_str' => \Carbon\Carbon::createFromFormat('dmY', $matchFecha[0])->format('Y-m-d'),
+                                            // Usamos el índice 5 como fallback del formato antiguo, o el 0 si no hay tantos
+                                            'cargo_str' => $matchCargo[0][5] ?? $matchCargo[0][0],
+                                        ];
+                                }
+                            }
+                        }
+                        // --- FIN MODIFICACIÓN ---
                     }
                 }
                 unset($parser);
@@ -795,9 +812,12 @@ class AuditoriaImpuestosController extends Controller
                     return \Carbon\Carbon::parse($fila['fecha_str']);
                 }, $tablaDeDatos);
 
-                $fecha_fin = collect($fechas)->max()->addDays(1)->format('Y-m-d');
-                $fecha_inicio = \Carbon\Carbon::parse($fecha_fin)->subMonths($periodoMeses)->format('Y-m-d');
-                $tarea->update(['fecha_documento' => $fecha_fin]);
+                // Si no se encontraron fechas, evitar error en collect($fechas)->max()
+                if (!empty($fechas)) {
+                    $fecha_fin = collect($fechas)->max()->addDays(1)->format('Y-m-d');
+                    $fecha_inicio = \Carbon\Carbon::parse($fecha_fin)->subMonths($periodoMeses)->format('Y-m-d');
+                    $tarea->update(['fecha_documento' => $fecha_fin]);
+                }
                 // Desarrollar logica de obtener la fecha minima y la fecha maxima de los pedimentos encontrados en el estado
 
 
@@ -821,9 +841,11 @@ class AuditoriaImpuestosController extends Controller
                     return \Carbon\Carbon::parse($fila['fecha_str']);
                 }, $operacionesLimpias->toArray());
 
-                $fecha_fin = collect($fechas)->max()->addDays(1)->format('Y-m-d');
-                $fecha_inicio = \Carbon\Carbon::parse($fecha_fin)->subMonths($periodoMeses)->format('Y-m-d');
-                $tarea->update(['fecha_documento' => $fecha_fin]);
+                if (!empty($fechas)) {
+                    $fecha_fin = collect($fechas)->max()->addDays(1)->format('Y-m-d');
+                    $fecha_inicio = \Carbon\Carbon::parse($fecha_fin)->subMonths($periodoMeses)->format('Y-m-d');
+                    $tarea->update(['fecha_documento' => $fecha_fin]);
+                }
                 // ¡Listo! $coleccionDeFilas ya contiene los datos como los necesitas.
                 // Ahora puedes hacer lo que quieras con esta colección.
             }
@@ -846,7 +868,8 @@ class AuditoriaImpuestosController extends Controller
             $numeroSucursal = $sucursalesDiccionario[$sucursal][0];
             // Preparamos un array con TODOS los registros que vamos a guardar/actualizar
             $datosParaOperaciones = $operacionesLimpias->map(function ($op) {
-                return ['pedimento' => $op['pedimento']]; })->all(); // ->all() lo convierte de nuevo a un array simple
+                return ['pedimento' => $op['pedimento']];
+            })->all(); // ->all() lo convierte de nuevo a un array simple
 
             Log::info("Se identificaron " . count($datosParaOperaciones) . "/{$operacionesLimpias->count()} operaciones válidas para procesar.");
             // --- Llamamos a upsert UNA SOLA VEZ con todos los datos ---
@@ -863,8 +886,12 @@ class AuditoriaImpuestosController extends Controller
 
                 // 3. Hacemos UNA SOLA consulta a operaciones_importacion usando los IDs que encontramos
                 //    y creamos nuestro mapa final: num_pedimento => id_importacion
+                // Aseguramos que existan fechas definidas antes de consultar
+                $fecha_inicio_query = isset($fecha_inicio) ? $fecha_inicio : now()->subMonths(6)->format('Y-m-d');
+                $fecha_fin_query = isset($fecha_fin) ? $fecha_fin : now()->addDay()->format('Y-m-d');
+
                 $mapaPedimentoAImportacionId = Importacion::where(['operaciones_importacion.patente' => $patenteSucursal, 'operaciones_importacion.sucursal' => $numeroSucursal])
-                    ->whereBetween('operaciones_importacion.created_at', [$fecha_inicio, $fecha_fin])
+                    ->whereBetween('operaciones_importacion.created_at', [$fecha_inicio_query, $fecha_fin_query])
                     ->whereIn('operaciones_importacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
                     ->whereNull('parent')
                     ->orderBy('operaciones_importacion.created_at', 'desc')
@@ -875,7 +902,7 @@ class AuditoriaImpuestosController extends Controller
 
                 $pu = memory_get_usage();
                 $mapaPedimentoAExportacionId = Exportacion::where(['operaciones_exportacion.patente' => $patenteSucursal, 'operaciones_exportacion.sucursal' => $numeroSucursal])
-                    ->whereBetween('operaciones_exportacion.created_at', [$fecha_inicio, $fecha_fin])
+                    ->whereBetween('operaciones_exportacion.created_at', [$fecha_inicio_query, $fecha_fin_query])
                     ->whereIn('operaciones_exportacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
                     ->whereNull('parent')
                     ->orderBy('operaciones_exportacion.created_at', 'desc')
@@ -886,14 +913,22 @@ class AuditoriaImpuestosController extends Controller
 
                 $pu = memory_get_usage();
                 // 3. Obtenemos todas las SC de una vez para la comparación de montos
+                $idsImportacion = $mapaPedimentoAImportacionId->pluck('id_importacion')->toArray();
+                $idsExportacion = $mapaPedimentoAExportacionId->pluck('id_exportacion')->toArray();
+                $idsPedimentos  = Arr::pluck($mapaPedimentoAId, 'id_pedimiento');
+
                 $auditoriasSC = AuditoriaTotalSC::query()
-                    ->whereBetween('fecha_documento', [$fecha_inicio, $fecha_fin])
-                    ->whereIn('operacion_id', $mapaPedimentoAImportacionId->keys())
-                    ->orWhereIn('operacion_id', $mapaPedimentoAExportacionId->keys())
-                    ->orWhereIn('pedimento_id', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
+                    ->whereBetween('fecha_documento', [$fecha_inicio_query, $fecha_fin_query])
+                    ->where(function ($q) use ($idsImportacion, $idsExportacion, $idsPedimentos) {
+                        $q->whereIn('operacion_id', $idsImportacion)
+                            ->orWhereIn('operacion_id', $idsExportacion)
+                            ->orWhereIn('pedimento_id', $idsPedimentos);
+                    })
+                    // Importante: Si tienes SCs duplicadas por error, esto toma la más reciente
+                    ->orderBy('created_at', 'desc')
                     ->get()
-                    ->keyBy('pedimento_id'); // Las indexamos por operacion_id para búsqueda rápida
-                Log::info("Facturas SC encontradas con relacion a Impuestos: " . $auditoriasSC->count());
+                    // OJO: Indexamos por pedimento_id para que el loop de abajo ($operacionesLimpias->map) pueda encontrarlo fácil
+                    ->keyBy('pedimento_id');
 
                 $pu = memory_get_usage();
                 // PASO 5: Construir el array para las auditorías, usando nuestro mapa.
@@ -1091,9 +1126,9 @@ class AuditoriaImpuestosController extends Controller
             // 1. Obtenemos los números de pedimento de nuestro índice
             $numerosDePedimento = $pedimentos;
 
+            // Construimos el mapa validado por Sucursal y Patente
             $mapaPedimentoAId = $this->construirMapaDePedimentos($numerosDePedimento, $patenteSucursal, $numeroSucursal);
-            $numerosDePedimento = collect($mapaPedimentoAId)->pluck('num_pedimiento')->toArray();
-            Log::info("Pedimentos encontrados en tabla 'pedimentos': " . count($mapaPedimentoAId));
+            Log::info("Pedimentos encontrados en tabla 'pedimentos' (Validados por Sucursal): " . count($mapaPedimentoAId));
 
 
             // $mapaPorId es una variable auxiliar que sirve para hacer el mapeo de 'num_pedimiento' que se requiere
@@ -1151,7 +1186,7 @@ class AuditoriaImpuestosController extends Controller
             $pu = memory_get_usage();
             Log::info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_exportacion': " . $mapaPedimentoAExportacionId->count());
 
-            // --- LOGICA PARA DETECTAR LOS NO ENCONTRADOS
+            // --- LOGICA PARA DETECTAR LOS NO ENCONTRADOS 
             //Esto lo hago debido a que hay pedimentos que estan bastante sucios que ni se pueden encontrar
             //Un ejemplo es que haya dos registros con exactamente el mismo valor, pero con la diferencia de que tiene un carrete
             //un enter o una tabulacion en el registro, volviendola 'unica'. Y aqui lo que hare es mostrar esos pedimentos que
@@ -1159,79 +1194,68 @@ class AuditoriaImpuestosController extends Controller
 
             // 1. Preparamos la búsqueda REGEXP para la base de datos
 
-            $regexPattern = implode('|', array_unique($numerosDePedimento)); // Usamos array_unique para una query más corta
-            if (!empty($regexPattern)) {
-                $posiblesCoincidencias = Pedimento::where('num_pedimiento', 'REGEXP', $regexPattern)->get();
+            $pedimentosPorEncontrar = array_flip($numerosDePedimento); // Usamos las llaves para búsqueda rápida
+            $mapaNoEncontrados = [];
 
-                // 2. Creamos un mapa de los pedimentos que nos falta por encontrar.
-                //    OJO: Esta vez lo creamos a partir de la lista original CON duplicados.
-                $pedimentosPorEncontrar = array_count_values($numerosDePedimento);
-                $mapaNoEncontrados = [];
-
-                // 3. (LÓGICA CORREGIDA) Recorremos los resultados de la BD
-                foreach ($posiblesCoincidencias as $pedimentoSucio) {
-                    if (empty($pedimentosPorEncontrar)) {
-                        break;
-                    }
-
-                    $pedimentoObtenido = $pedimentoSucio->num_pedimiento;
-
-                    foreach ($pedimentosPorEncontrar as $pedimentoLimpio => $cantidad) {
-                        if (str::contains($pedimentoObtenido, $pedimentoLimpio)) {
-                            // ----- INICIO DE LA CORRECCIÓN -----
-
-                            // a. Mapeamos la coincidencia (opcional, igual que antes)
-                            if ($pedimentosPorEncontrar[$pedimentoLimpio] > 1) {
-                                $mapaNoEncontrados[$pedimentoLimpio] = [
-                                    'id_pedimento' => $pedimentoSucio->id_pedimiento,
-                                    'num_pedimiento' => $pedimentoObtenido,
-                                ];
-                            }
-
-
-                            // b. Restamos 1 al contador de este pedimento.
-                            $pedimentosPorEncontrar[$pedimentoLimpio]--;
-
-                            // c. Si ya encontramos todas las ocurrencias, lo eliminamos de la lista.
-                            if ($pedimentosPorEncontrar[$pedimentoLimpio] === 0) {
-                                unset($pedimentosPorEncontrar[$pedimentoLimpio]);
-                            }
-
-                            // d. Rompemos el bucle interno. Un pedimento sucio solo puede "satisfacer"
-                            //    a un pedimento limpio por pasada. Esto lo hace más rápido y correcto.
-                            break;
-
-                            // ----- FIN DE LA CORRECCIÓN -----
-                        }
-                    }
+            // 2. Iteramos sobre los que SÍ encontramos en el paso 1 (construirMapaDePedimentos)
+            // Si está en el mapa, es porque existe y pertenece a esta sucursal.
+            foreach ($mapaPedimentoAId as $pedimentoLimpio => $datos) {
+                if (isset($pedimentosPorEncontrar[$pedimentoLimpio])) {
+                    unset($pedimentosPorEncontrar[$pedimentoLimpio]); // Lo borramos de la lista de pendientes
                 }
-
-                // 5. Mostramos los que quedaron en la lista de pendientes. ESTO SÍ FUNCIONARÁ.
-                if (!empty($pedimentosPorEncontrar)) {
-                    $tarea->update([
-                        'pedimentos_descartados' => $pedimentosPorEncontrar
-                    ]);
-                    Log::warning("Subiendo pedimentos no encontrados!");
-                } else {
-                    Log::info("¡Todos los pedimentos fueron encontrados y mapeados correctamente!");
-                }
-                $pu = memory_get_usage();
-
-                // CONSTRUIR EL ÍNDICE - EXPORTACIONES
-                Log::info("Iniciando mapeo de archivos de exportaciones.");
-                $indiceExportaciones = $this->construirIndiceFacturasParaMapeo($mapaPedimentoAExportacionId, $sucursal, 'exportaciones');
-                Log::info("Mapeo de exportaciones finalizado!");
-
-                $pu = memory_get_usage();
-                // --- OJO: Aqui se gastan muchos recursos en el mapeo!!!
-                // CONSTRUIR EL ÍNDICE - IMPORTACIONES
-                Log::info("Iniciando mapeo de archivos de importaciones.");
-                $indiceImportaciones = $this->construirIndiceFacturasParaMapeo($mapaPedimentoAImportacionId, $sucursal, 'importaciones');
-                Log::info("Mapeo de importaciones finalizado!");
-
-                $pu = memory_get_usage();
             }
 
+            // 3. Lo que queda en $pedimentosPorEncontrar son los FALLIDOS (o de otra sucursal)
+            if (!empty($pedimentosPorEncontrar)) {
+                
+                // Intentamos buscar sus datos globales solo para tener referencia en el reporte,
+                // pero NO los quitamos de la lista de pendientes.
+                $keysPorEncontrar = array_keys($pedimentosPorEncontrar);
+                
+                // Usamos la misma lógica de Regex estricto para mapear el ID correcto
+                $regexPattern = implode('|', array_map(function($p) { return "[[:<:]]{$p}[[:>:]]"; }, $keysPorEncontrar));
+                
+                $busquedaGlobal = Pedimento::whereRaw("num_pedimiento REGEXP ?", [$regexPattern])->get();
+
+                foreach ($keysPorEncontrar as $pedimentoBuscado) {
+                    foreach ($busquedaGlobal as $registro) {
+                         if (preg_match("/\b" . preg_quote($pedimentoBuscado, '/') . "\b/", $registro->num_pedimiento)) {
+                             // Guardamos la info para el reporte, indicando que existe pero no calificó
+                             $mapaNoEncontrados[$pedimentoBuscado] = [
+                                 'id_pedimiento' => $registro->id_pedimiento,
+                                 'num_pedimiento' => $registro->num_pedimiento,
+                                 'status_extra' => 'Encontrado en otra sucursal o sin operación'
+                             ];
+                             // OJO: No hacemos break para permitir encontrar la mejor coincidencia si hubiera
+                         }
+                    }
+                }
+
+                // Guardamos en la BD para el reporte de Pendientes
+                $tarea->update([
+                    'pedimentos_descartados' => $pedimentosPorEncontrar // Aquí se guardan las claves
+                ]);
+                Log::warning("Subiendo " . count($pedimentosPorEncontrar) . " pedimentos no encontrados o de otra sucursal!");
+            } else {
+                Log::info("¡Todos los pedimentos fueron encontrados y mapeados correctamente!");
+            }
+            $pu = memory_get_usage();
+
+            // CONSTRUIR EL ÍNDICE - EXPORTACIONES
+            Log::info("Iniciando mapeo de archivos de exportaciones.");
+            $indiceExportaciones = $this->construirIndiceFacturasParaMapeo($mapaPedimentoAExportacionId, $sucursal, 'exportaciones');
+            Log::info("Mapeo de exportaciones finalizado!");
+
+            $pu = memory_get_usage();
+            // --- OJO: Aqui se gastan muchos recursos en el mapeo!!!
+            // CONSTRUIR EL ÍNDICE - IMPORTACIONES
+            Log::info("Iniciando mapeo de archivos de importaciones.");
+            $indiceImportaciones = $this->construirIndiceFacturasParaMapeo($mapaPedimentoAImportacionId, $sucursal, 'importaciones');
+            Log::info("Mapeo de importaciones finalizado!");
+
+            $pu = memory_get_usage();
+        
+        
 
             $mapeadoOperacionesID =
                 [
@@ -1411,34 +1435,34 @@ class AuditoriaImpuestosController extends Controller
                         'moneda' => $datosSC['moneda'],
                         'tipo_cambio' => $datosSC['tipo_cambio'],
                         'montos' =>
-                            [
-                                'sc' => $datosSC['monto_total_sc'],
-                                'sc_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_total_sc'] != -1) ? round($datosSC['monto_total_sc'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_total_sc'],
+                        [
+                            'sc' => $datosSC['monto_total_sc'],
+                            'sc_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_total_sc'] != -1) ? round($datosSC['monto_total_sc'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_total_sc'],
 
-                                'impuestos' => $datosSC['monto_impuestos'],
-                                'impuestos_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_impuestos'] != -1) ? round($datosSC['monto_impuestos'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_impuestos'],
+                            'impuestos' => $datosSC['monto_impuestos'],
+                            'impuestos_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_impuestos'] != -1) ? round($datosSC['monto_impuestos'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_impuestos'],
 
-                                'pago_derecho' => $datosSC['monto_total_pdd'],
-                                'pago_derecho_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_total_pdd'] != -1) ? round($datosSC['monto_total_pdd'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_total_pdd'],
+                            'pago_derecho' => $datosSC['monto_total_pdd'],
+                            'pago_derecho_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_total_pdd'] != -1) ? round($datosSC['monto_total_pdd'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_total_pdd'],
 
-                                'llc' => $datosSC['monto_llc'],
-                                'llc_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_llc'] != -1) ? round($datosSC['monto_llc'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_llc'],
+                            'llc' => $datosSC['monto_llc'],
+                            'llc_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_llc'] != -1) ? round($datosSC['monto_llc'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_llc'],
 
-                                'flete' => $datosSC['monto_flete'],
-                                'flete_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_flete'] != -1) ? round($datosSC['monto_flete'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_flete'],
+                            'flete' => $datosSC['monto_flete'],
+                            'flete_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_flete'] != -1) ? round($datosSC['monto_flete'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_flete'],
 
-                                'maniobras' => $datosSC['monto_maniobras'],
-                                'maniobras_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_maniobras'] != -1) ? round($datosSC['monto_maniobras'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_maniobras'],
+                            'maniobras' => $datosSC['monto_maniobras'],
+                            'maniobras_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_maniobras'] != -1) ? round($datosSC['monto_maniobras'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_maniobras'],
 
-                                'muestras' => $datosSC['monto_muestras'],
-                                'muestras_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_muestras'] != -1) ? round($datosSC['monto_muestras'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_muestras'],
+                            'muestras' => $datosSC['monto_muestras'],
+                            'muestras_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_muestras'] != -1) ? round($datosSC['monto_muestras'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_muestras'],
 
-                                'termo' => $datosSC['monto_termo'],
-                                'termo_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_termo'] != -1) ? round($datosSC['monto_termo'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_termo'],
+                            'termo' => $datosSC['monto_termo'],
+                            'termo_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_termo'] != -1) ? round($datosSC['monto_termo'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_termo'],
 
-                                'rojos' => $datosSC['monto_rojos'],
-                                'rojos_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_rojos'] != -1) ? round($datosSC['monto_rojos'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_rojos'],
-                            ]
+                            'rojos' => $datosSC['monto_rojos'],
+                            'rojos_mxn' => ($datosSC['moneda'] == "USD" && $datosSC['monto_rojos'] != -1) ? round($datosSC['monto_rojos'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosSC['monto_rojos'],
+                        ]
                     ];
 
                 $auditoriasParaGuardar[] =
@@ -1541,7 +1565,7 @@ class AuditoriaImpuestosController extends Controller
                 Storage::delete($rutaMapeo);
 
             }
-
+            
         } catch (\Throwable $e) {
             $tarea->update(
                 [
@@ -2196,7 +2220,7 @@ class AuditoriaImpuestosController extends Controller
                     // BUSCA Pedimentos que tengan una 'auditoria'...
                     $q->whereHas('auditoriasRecientes', function ($auditQuery) use ($operacionIds, $pedimentoIds, $esReporteDeFacturasPendientes) {
                         // ...cuyo 'operacion_id' O 'pedimento_id' esté en nuestras listas.
-    
+
                         if (isset($esReporteDeFacturasPendientes)) { // Si es de pendientes, entonces buscara los que no tengan factura.
                             $auditQuery->where('estado', 'Sin SC!')
                                 ->whereIn('operacion_id', $operacionIds)
@@ -2611,7 +2635,7 @@ class AuditoriaImpuestosController extends Controller
                 // (?:\d{1,5}-)*        -> acepta prefijos como "3711-" o "3711-3711-" repetidos (opcional)
                 // ([45]\d{6})          -> captura el pedimento: 7 dígitos empezando con 4 o 5
                 // Se agregó [4-7] para aceptar pedimentos que inician con 4, 5, 6 o 7
-                if (preg_match('/\[encOBSERVACION\][^\d]*(?:\d{1,5}-)*([4-7]\d{6})/i', $contenido, $matchesPedimento)) { 
+                if (preg_match('/\[encOBSERVACION\][^\d]*(?:\d{1,5}-)*([4-7]\d{6})/i', $contenido, $matchesPedimento)) {
 
                     $pedimento = trim($matchesPedimento[1]);
                     //[encTEXTOEXTRA1] = IMPUESTOS (EDC - SC)
@@ -2747,7 +2771,7 @@ class AuditoriaImpuestosController extends Controller
                 }
 
                 // Refinamiento: Regex más preciso para el pedimento en la observación.
-                if (preg_match('/\[encOBSERVACION\][^\d]*(?:\d{1,5}-)*([4-7]\d{6})/i', $contenido, $matches)) { 
+                if (preg_match('/\[encOBSERVACION\][^\d]*(?:\d{1,5}-)*([4-7]\d{6})/i', $contenido, $matches)) {
                     preg_match('/\[cteTEXTOEXTRA3\](.*?)(\r|\n)/', $contenido, $matchFecha);
                     preg_match('/\[encFOLIOVENTA\](.*?)(\r|\n)/', $contenido, $matchFolio);
                     $pedimento = $matches[1];
@@ -2827,7 +2851,7 @@ class AuditoriaImpuestosController extends Controller
                 }
 
                 // Refinamiento: Regex más preciso para el pedimento en la observación.'/\[encOBSERVACION\][^\d]*(?:\d{1,5}-)*([45]\d{6})/i'
-                if (preg_match('/\[encPdfRemarksNote\d+\][^\d]*(?:Patente:\s*\d+\s*,\s*Pedimento:\s*)?(?:\d{1,5}-)*([4-7]\d{6})/i', $contenido, $matchPedimento)) { 
+                if (preg_match('/\[encPdfRemarksNote\d+\][^\d]*(?:Patente:\s*\d+\s*,\s*Pedimento:\s*)?(?:\d{1,5}-)*([4-7]\d{6})/i', $contenido, $matchPedimento)) {
                     $pedimento = trim($matchPedimento[1]);
 
                     // Leemos todas las líneas del archivo en un array
@@ -3022,10 +3046,10 @@ class AuditoriaImpuestosController extends Controller
             $arrContextOptions =
                 [
                     "ssl" =>
-                        [
-                            "verify_peer" => false,
-                            "verify_peer_name" => false,
-                        ],
+                    [
+                        "verify_peer" => false,
+                        "verify_peer_name" => false,
+                    ],
                 ];
             // Usamos SimpleXMLElement, que es nativo de PHP.
             $xml = new \SimpleXMLElement(file_get_contents($rutaXml, false, stream_context_create($arrContextOptions)));
@@ -3128,9 +3152,13 @@ class AuditoriaImpuestosController extends Controller
             return [];
         }
 
-        $regexPattern = implode('|', $pedimentosLimpios);
+        // 1. QUERY SQL: Traemos todo lo que "se parezca" usando Word Boundaries.
+        // [[:<:]] y [[:>:]] en MySQL actúan como fronteras.
+        // Esto traerá tanto el registro que contiene "... 6000002" como el que contiene "... 60000020"
+        $regexPattern = implode('|', array_map(function($p) {
+            return "[[:<:]]{$p}[[:>:]]"; 
+        }, array_unique($pedimentosLimpios)));
 
-        // Query principal usando solo los id del subquery
         $posiblesCoincidencias = Pedimento::query()
             ->whereRaw("num_pedimiento REGEXP ?", [$regexPattern])
             ->where(function ($q) use ($patenteSucursal, $numeroSucursal) {
@@ -3139,77 +3167,50 @@ class AuditoriaImpuestosController extends Controller
                         ->where('sucursal', $numeroSucursal)
                         ->whereNull('parent');
                 })
-                    ->orWhere(function ($q2) use ($patenteSucursal, $numeroSucursal) {
-                        $q2->whereDoesntHave('importacion')
-                            ->whereHas('exportacion', function ($exportQuery) use ($patenteSucursal, $numeroSucursal) {
-                                $exportQuery->where('patente', $patenteSucursal)
-                                    ->where('sucursal', $numeroSucursal)
-                                    ->whereNull('parent');
-                            });
-                    });
+                ->orWhere(function ($q2) use ($patenteSucursal, $numeroSucursal) {
+                    $q2->whereDoesntHave('importacion')
+                        ->whereHas('exportacion', function ($exportQuery) use ($patenteSucursal, $numeroSucursal) {
+                            $exportQuery->where('patente', $patenteSucursal)
+                                ->where('sucursal', $numeroSucursal)
+                                ->whereNull('parent');
+                        });
+                });
             })
             ->get();
 
-        //    Agrupamos los resultados en PHP por el pedimento base de 7 dígitos
-        //      usando preg_match para extraerlos de cada num_pedimiento.
-        $agrupados = [];
-
-        foreach ($posiblesCoincidencias as $registro) {
-            preg_match_all('/\d{7}/', $registro->num_pedimiento, $matches);
-            foreach ($matches[0] as $pedimentoBase) {
-                // Si aún no hemos guardado nada para este pedimento, o si este es más reciente → lo guardamos
-                if (!isset($agrupados[$pedimentoBase]) || $registro->id_pedimiento > $agrupados[$pedimentoBase]->id_pedimiento) {
-                    $agrupados[$pedimentoBase] = $registro;
-                }
-            }
-        }
-
-        // 1. Creamos un mapa de los pedimentos que nos falta por encontrar.
-        //    Usamos array_flip para que la búsqueda y eliminación sea instantánea.
-        $pedimentosPorEncontrar = array_flip($pedimentosLimpios);
-
-        //Ahora, procesamos los resultados en PHP para crear el mapa definitivo.
         $mapaFinal = [];
 
-        // 4️⃣ - Recorremos el agrupado para construir el resultado final
-        foreach ($agrupados as $pedimentoBase => $registro) {
-            if (isset($pedimentosPorEncontrar[$pedimentoBase])) {
-                $mapaFinal[$pedimentoBase] = [
-                    'id_pedimiento' => $registro->id_pedimiento,
-                    'num_pedimiento' => $registro->num_pedimiento,
-                ];
-                unset($pedimentosPorEncontrar[$pedimentoBase]);
-            }
-        }
-        // 2. Recorremos los resultados de la BD UNA SOLA VEZ.
-        /* foreach ($posiblesCoincidencias as $pedimentoSucio) {
-            // Si ya no quedan pedimentos por buscar, salimos del bucle para máxima eficiencia.
-            if (empty($pedimentosPorEncontrar)) { break; }
-
-            $pedimentoObtenido = $pedimentoSucio->num_pedimiento;
-
-            // 3. Revisamos cuáles de los pedimentos PENDIENTES están en el string sucio actual.
-            foreach ($pedimentosPorEncontrar as $pedimentoLimpio => $value) {
-                if (str::contains($pedimentoObtenido, $pedimentoLimpio)) {
-                    // ¡Coincidencia! La guardamos en el resultado final.
-                    $mapaFinal[$pedimentoLimpio] =
-                    [
-                        'id_pedimiento' => $pedimentoSucio->id_pedimiento,
-                        'num_pedimiento' => $pedimentoObtenido,
-                    ];
-
-                    // 4. (La optimización clave) Eliminamos el pedimento de la lista de pendientes.
-                    //    Así, nunca más se volverá a buscar.
-                    unset($pedimentosPorEncontrar[$pedimentoLimpio]);
+        // 2. LÓGICA DE SEPARACIÓN (AQUÍ ESTÁ LA CLAVE)
+        // Recorremos CADA pedimento que estamos buscando (el limpio del Estado de Cuenta)
+        foreach ($pedimentosLimpios as $pedimentoBuscado) {
+            
+            // Lo buscamos dentro de TODOS los resultados que trajo la BD
+            foreach ($posiblesCoincidencias as $registro) {
+                
+                // Usamos una Regex Estricta con \b (Word Boundary)
+                // - Si buscamos "6000002":
+                //      \b6000002\b NO hará match con "60000020" (porque sigue un 0)
+                //      \b6000002\b SÍ hará match con "3711-6000002"
+                // - Si buscamos "60000020":
+                //      \b60000020\b SÍ hará match con "60000020"
+                
+                if (preg_match("/\b" . preg_quote($pedimentoBuscado, '/') . "\b/", $registro->num_pedimiento)) {
+                    
+                    // Encontramos su pareja exacta.
+                    // Si hay duplicados en BD, nos quedamos con el ID más alto (el más reciente)
+                    if (!isset($mapaFinal[$pedimentoBuscado]) || $registro->id_pedimiento > $mapaFinal[$pedimentoBuscado]['id_pedimiento']) {
+                        $mapaFinal[$pedimentoBuscado] = [
+                            'id_pedimiento' => $registro->id_pedimiento,
+                            'num_pedimiento' => $registro->num_pedimiento,
+                        ];
+                    }
+                    // IMPORTANTE: NO hacemos 'break' aquí, ni borramos de una lista,
+                    // permitimos que el bucle principal siga buscando los demás pedimentos
+                    // independientemente.
                 }
             }
         }
- */
-        // 5. (Opcional) Al final, lo que quede en $pedimentosPorEncontrar son los que no se encontraron.
-        //    Podemos lanzar los warnings de forma mucho más eficiente.
-        foreach (array_keys($pedimentosPorEncontrar) as $pedimentoNoEncontrado) {
-            Log::warning('Omitiendo pedimento no encontrado en tabla \'pedimiento\': ' . $pedimentoNoEncontrado);
-        }
+
         return $mapaFinal;
     }
 
@@ -3400,7 +3401,7 @@ class AuditoriaImpuestosController extends Controller
                 'Content-Type' => 'application/pdf',
                 'Content-Disposition' => 'inline; filename="' . basename($urlExterna) . '"',
             ]);
-
+            
         } catch (\Throwable $e) {
             abort(500, 'Ocurrió un error al procesar el documento externo.');
         }
