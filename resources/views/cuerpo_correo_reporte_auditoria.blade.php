@@ -34,7 +34,7 @@
             <div
                 style="padding: 10px; background-color: #FFFBE6; border: 1px solid #FFE58F; border-radius: 4px; margin-top: 15px;">
                 <strong style="color: #D46B08;">Aviso:</strong> Se descartaron los siguientes pedimentos (no se encontraron en
-                la base de datos):
+                la base de datos o su numero de patente está errónea):
                 <ul style="margin-top: 5px; padding-left: 20px;">
                     @foreach($lista_descartados as $pedimento)
                         <li>{{ $pedimento }}</li>
