@@ -20,20 +20,28 @@ use PhpOffice\PhpSpreadsheet\Style\Font;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class ImpuestosSheet implements FromCollection, WithHeadings,WithTitle, WithMapping,
+class ImpuestosSheet implements FromCollection, WithHeadings, WithTitle, WithMapping,
 WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents, WithStrictNullComparison
 {
     protected $operaciones;
-    public function __construct(Collection $operaciones)
+    protected $banco;    // Propiedad para identificar si es Santander
+    protected $urlSheet; // Propiedad para el link de GPC
+
+    /**
+     * @param Collection $operaciones
+     * @param string|null $banco
+     * @param string|null $urlSheet
+     */
+    public function __construct(Collection $operaciones, $banco = null, $urlSheet = null)
     {
         $this->operaciones = $operaciones;
+        $this->banco = $banco;
+        $this->urlSheet = $urlSheet;
     }
 
     /**
      * Define la consulta a la base de datos, incluyendo filtros.
      */
-
-    // El método collection() simplemente devuelve los datos que ya tenemos
     public function collection()
     {
         // Usamos map para transformar cada pedimento y luego filter para limpiar los nulos.
@@ -41,10 +49,10 @@ WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents, 
             // Primero, nos aseguramos de que las relaciones necesarias existan para evitar errores.
             if (!$pedimento->importacion || !$pedimento->importacion->auditorias) {
                 if (!$pedimento->exportacion || !$pedimento->exportacion->auditorias) {
-                return null;
+                    return null;
                 }
             }
-             // 1. Primero, determinamos de forma segura cuál operación existe
+            // 1. Primero, determinamos de forma segura cuál operación existe
             $operacion = $pedimento->importacion ?? $pedimento->exportacion;
 
             // Si por alguna razón un pedimento no tiene ni impo ni expo, lo saltamos
@@ -52,29 +60,25 @@ WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents, 
                 return null; // Será eliminado por ->filter() más adelante
             }
 
-            // CAMBIO CLAVE: Usamos firstWhere para obtener un único modelo o null.
+            // Usamos firstWhere para obtener un único modelo o null.
             // Esto buscará en la colección 'auditorias' el primer registro
             // donde 'tipo_documento' sea 'impuestos'.
             $facturaImpuestos = $operacion->auditorias->firstWhere('tipo_documento', 'impuestos');
 
             // Si no se encuentra una factura de impuestos para este pedimento, devolvemos null.
-            // El método ->filter() posterior se encargará de eliminar esta entrada.
             if (!$facturaImpuestos) {
                 return null;
             }
 
             // Obtenemos la factura SC (factura maestra) asociada.
-            // 2. Ahora que sabemos que $operacion existe, accedemos a sus relaciones de forma segura
             $sc = $operacion->auditoriasTotalSC;
             $cliente = $operacion->cliente;
 
             // Devolvemos el array con los datos listos para el método map() del export.
-            // Ahora 'impuestos' será un objeto del modelo Auditoria.
-            return
-            [
+            return [
                 'pedimento' => $pedimento->num_pedimiento,
                 'cliente'   => $cliente,
-                'impuestos' => $facturaImpuestos, // ¡Correcto! Ahora es un objeto App\Models\Auditoria
+                'impuestos' => $facturaImpuestos,
                 'sc'        => $sc,
             ];
         })->filter(); // Eliminamos todas las entradas que devolvieron null.
@@ -132,10 +136,13 @@ WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents, 
      */
     public function headings(): array
     {
-         return
-         [
+        // LÓGICA DE ENCABEZADO DINÁMICO
+        // Si es Santander, la última columna se llama "GPC", si no, "PDF SC".
+        $headerReferencia = ($this->banco === 'SANTANDER') ? 'GPC' : 'PDF SC';
+
+        return [
             'Fecha', 'Pedimento', 'Cliente', 'Monto Factura', 'Monto Factura MXN',
-            'Monto SC', 'Monto SC MXN', 'Moneda', 'Folio SC', 'Estado', 'PDF Factura', 'PDF SC'
+            'Monto SC', 'Monto SC MXN', 'Moneda', 'Folio SC', 'Estado', 'PDF Factura', $headerReferencia
         ];
     }
 
@@ -148,14 +155,12 @@ WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents, 
 
         if ($esTotales) {
             return [
-                '', // Fecha
-                'Totales:',
-                '', // Cliente
+                '', 'Totales:', '',
                 (float) optional($row['impuestos'])->monto_total,
                 (float) optional($row['impuestos'])->monto_total_mxn,
                 (float) optional($row['sc'])->desglose_conceptos['montos']['impuestos'] ?? 0,
                 (float) optional($row['sc'])->desglose_conceptos['montos']['impuestos_mxn'] ?? 0,
-                '', '', '', '', '' // resto de columnas vacías
+                '', '', '', '', ''
             ];
         }
 
@@ -164,12 +169,14 @@ WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents, 
         $cliente = $row['cliente'] ?? null;
         $pedimento = $row['pedimento'] ?? null;
 
-        // Lógica para manejar valores de la SC cuando no existe
+        // Valores por defecto
         $montoSc = 'N/A';
         $montoScMxn = 'N/A';
         $folioSc = 'N/A';
         $pdfSc = 'Sin PDF!';
-        $estado = optional($facturaImpuestos)->estado;
+        
+        // IMPORTANTE: Tomamos el estado directamente de la auditoría calculada
+        $estado = optional($facturaImpuestos)->estado ?? 'Sin SC!';
 
         if ($sc) {
             $desgloseSc = $sc->desglose_conceptos;
@@ -177,18 +184,22 @@ WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents, 
             $montoSc = (float)($montosSc['impuestos'] ?? 0);
             $montoScMxn = (float)($montosSc['impuestos_mxn'] ?? 0);
             $folioSc = $sc->folio;
-
             if ($sc->ruta_pdf) {
                 $pdfSc = '=HYPERLINK("' . $sc->ruta_pdf . '", "Acceder PDF")';
             }
+        } 
 
-        } else {
-             $estado = 'Sin SC!';
-        }
-
-        $monedaConTC = optional($facturaImpuestos)->moneda_documento;
-        if ($monedaConTC === 'USD' && isset($desgloseSc['tipo_cambio'])) {
-            $monedaConTC = "USD (" . number_format($desgloseSc['tipo_cambio'], 2) . ")";
+        // Ajuste específico para Santander
+        if ($this->banco === 'SANTANDER') {
+            if (!empty($this->urlSheet)) {
+                $pdfSc = '=HYPERLINK("' . $this->urlSheet . '", "Ver GPC")';
+            }
+            // Si el estado es "Sin SC!" pero sabemos que es Santander, verificamos la diferencia
+            if ($estado === 'Sin SC!' && optional($facturaImpuestos)->monto_diferencia_sc != 0) {
+                // Esto significa que sí hubo match pero algo falló en la relación, 
+                // intentamos mantener el estado original de la DB.
+                $estado = optional($facturaImpuestos)->estado;
+            }
         }
 
         $urlFactura = route('documentos.ver', [
@@ -200,8 +211,7 @@ WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents, 
             ? '=HYPERLINK("' . $urlFactura . '", "Acceder PDF")'
             : 'Sin PDF!';
 
-        return
-        [
+        return [
             optional($facturaImpuestos)->fecha_documento,
             $pedimento,
             optional($cliente)->nombre,
@@ -209,32 +219,32 @@ WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents, 
             (float) optional($facturaImpuestos)->monto_total_mxn,
             $montoSc,
             $montoScMxn,
-            $monedaConTC,
+            optional($facturaImpuestos)->moneda_documento,
             $folioSc,
             $estado,
             $pdfFactura,
             $pdfSc,
         ];
     }
+
     /**
      * Define anchos específicos para cada columna.
      */
      public function columnWidths(): array
     {
-        return
-        [
+        return [
             'A' => 12, 'B' => 15, 'C' => 30, 'D' => 15, 'E' => 15,
             'F' => 15, 'G' => 15, 'H' => 20, 'I' => 15, 'J' => 18,
             'K' => 15, 'L' => 15,
         ];
     }
+
     /**
      * Define los formatos de número para columnas específicas.
      */
     public function columnFormats(): array
     {
-        return
-        [
+        return [
             'D' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1, // Formato #,##0.00
             'E' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1,
             'F' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1,
@@ -251,10 +261,8 @@ WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents, 
         $sheet->getStyle($sheet->calculateWorksheetDimension())->getAlignment()->setHorizontal('center');
 
         // Estilo para la cabecera
-        return
-        [
-            1 =>
-            [
+        return [
+            1 => [
                 'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
                 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF244062']],
             ],
@@ -266,18 +274,16 @@ WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents, 
      */
     public function registerEvents(): array
     {
-        return
-        [
+        return [
             AfterSheet::class => function(AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
                 $lastColumn = $sheet->getHighestColumn();
                 $lastRow = $sheet->getHighestRow();
 
-                // 6. MODIFICACIÓN: La columna de estado ahora es la 'J'
+                // La columna de estado es la 'J'
                 $statusColumn = 'J';
 
-                // Inmoviliza la fila 1 (los encabezados) para que no se mueva al hacer scroll.
-                // 'A2' le dice a Excel que congele todo lo que está por encima y a la izquierda de la celda A2.
+                // Inmoviliza la fila 1 (los encabezados)
                 $sheet->freezePane('A2');
 
                 $sheet->setAutoFilter('A1:' . $lastColumn . '1');
@@ -289,21 +295,18 @@ WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents, 
                         $rowIndex = $row->getRowIndex();
                         $estado = $sheet->getCell($statusColumn . $rowIndex)->getValue();
                         $styleArray = [];
-                        $styleArray['borders'] =
-                        [
+                        $styleArray['borders'] = [
                             'bottom' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF95B3D7']],
                             'top' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF95B3D7']]
                         ];
 
-                        //Estilo especial para filas "Sin SC!"
+                        // Estilo especial para filas "Sin SC!"
                         if ($estado === 'Sin SC!') {
-                            $dataStyle =
-                            [
+                            $dataStyle = [
                                 'font' => ['color' => ['argb' => 'FF1F497D']],
                                 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFDCE6F1']],
                             ];
-                            $scStyle =
-                            [
+                            $scStyle = [
                                 'font' => ['color' => ['argb' => 'FF646464']],
                                 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFD9D9D9']],
                             ];
@@ -316,10 +319,11 @@ WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents, 
                             $sheet->getStyle('L'.$rowIndex)->applyFromArray($scStyle);
 
                         } else {
-                            // Lógica de colores que ya teníamos para las demás filas
-                            switch ($estado) {
+                            // Limpiamos posible prefijo de Santander para detectar el color
+                            $estadoPuro = str_replace('SANTANDER: ', '', $estado);
+
+                            switch ($estadoPuro) {
                                 case 'Coinciden!':     $styleArray = array_merge($styleArray, ['font' => ['color' => ['argb' => 'FF006100']],'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFC6EFCE']]]); break;
-                                case 'EXPO':           $styleArray = array_merge($styleArray, ['font' => ['color' => ['argb' => 'FF006100']],'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFDDEBF7']]]); break;
                                 case 'Pago de menos!': $styleArray = array_merge($styleArray, ['font' => ['color' => ['argb' => 'FF9C0006']],'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFFFC7CE']]]); break;
                                 case 'Pago de mas!':   $styleArray = array_merge($styleArray, ['font' => ['color' => ['argb' => 'FF974700']],'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFFFCC99']]]); break;
                             }
@@ -329,18 +333,16 @@ WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents, 
                             $sheet->getStyle('A' . $rowIndex . ':' . $lastColumn . $rowIndex)->applyFromArray($styleArray);
                         }
 
-                        //Subrayado para Hyperlinks
+                        // Subrayado para Hyperlinks (Columnas K y L)
                         foreach (['K', 'L'] as $col) {
                             $cell = $sheet->getCell($col . $rowIndex);
                             if (is_string($cell->getValue()) && str_starts_with($cell->getValue(), '=HYPERLINK')) {
-                                $cell->getStyle()->applyFromArray(
-                                    ['font' =>
-                                        [
-                                            'bold' => true,
-                                            'underline' => Font::UNDERLINE_SINGLE,
-                                        ],
-                                    ]
-                                );
+                                $cell->getStyle()->applyFromArray([
+                                    'font' => [
+                                        'bold' => true,
+                                        'underline' => Font::UNDERLINE_SINGLE,
+                                    ],
+                                ]);
                             }
                         }
                     }
