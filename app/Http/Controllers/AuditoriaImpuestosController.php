@@ -692,7 +692,6 @@ class AuditoriaImpuestosController extends Controller
     public function importarImpuestosEnAuditorias(string $tareaId)
     {
         gc_collect_cycles();
-
         if (!$tareaId) {
             Log::error('Se requiere el ID de la tarea.');
             return ['code' => 1, 'message' => new \Exception('Se requiere el ID de la tarea.')];
@@ -700,377 +699,229 @@ class AuditoriaImpuestosController extends Controller
 
         $tarea = AuditoriaTareas::find($tareaId);
         if (!$tarea || $tarea->status !== 'procesando') {
-            Log::warning("Impuestos: Tarea #{$tareaId} no válida.");
+            Log::warning("Tarea #{$tareaId} no encontrada o no está en procesando.");
             return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
         }
 
         $rutaPdf = storage_path('app/' . $tarea->ruta_estado_de_cuenta);
+        $periodoMeses = $tarea->periodo_meses;
         $banco = strtoupper($tarea->banco);
-        $sucursalNombre = strtoupper($tarea->sucursal);
-        $periodoMeses = $tarea->periodo_meses ?? 1;
+        $sucursal = $tarea->sucursal;
 
         if (!file_exists($rutaPdf)) {
-            $tarea->update(['status' => 'fallido', 'resultado' => "Ruta pdf no encontrada"]);
-            return ['code' => 1, 'message' => new \Exception("Ruta pdf no encontrada")];
+            $tarea->update(['status' => 'fallido', 'resultado' => "Ruta pdf no encontrada: ({$rutaPdf})"]);
+            return ['code' => 1, 'message' => new \Exception("Archivo no encontrado.")];
         }
 
         try {
             $tablaDeDatos = [];
-            $montosImpuestosSheets = [];
-            $mapaDeTraduccionR1 = [];
-
-            // --- 1. LÓGICA DE SANTANDER (SHEETS) ---
-            if ($banco === 'SANTANDER') {
-                $googleSheetUrl = "https://docs.google.com/spreadsheets/d/1zHUYpViLZyu_KPkNCUEx37WjoK0lVt7F0bC1B9Jo8s0/export?format=csv";
-                try {
-                    $response = Http::withoutVerifying()->get($googleSheetUrl);
-                    if ($response->successful()) {
-                        $csvRows = str_getcsv($response->body(), "\n");
-                        $pedimentoActivo = null;
-                        foreach ($csvRows as $linea) {
-                            $columnas = str_getcsv($linea, ",");
-                            $celdaPedRaw = $columnas[2] ?? '';
-                            if (!empty($celdaPedRaw)) {
-                                preg_match_all('/([4-7]\d{6})/', $celdaPedRaw, $matches);
-                                if (!empty($matches[1])) {
-                                    $pedimentoR1 = end($matches[1]);
-                                    foreach ($matches[1] as $p) {
-                                        $mapaDeTraduccionR1[$p] = $pedimentoR1;
-                                    }
-                                    $pedimentoActivo = $pedimentoR1;
-                                }
-                            }
-                            $conceptoSheet = $columnas[7] ?? '';
-                            if ($pedimentoActivo && (stripos($conceptoSheet, 'Impuestos') !== false || stripos($conceptoSheet, 'Recti') !== false)) {
-                                $montoNum = (float) filter_var($columnas[8] ?? '0', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
-                                if ($montoNum > 0) {
-                                    $montosImpuestosSheets[$pedimentoActivo] = $montoNum;
-                                }
-                            }
-                        }
-                    }
-                } catch (\Throwable $ex) {
-                    Log::warning("No se pudo leer Google Sheet de Santander: " . $ex->getMessage());
-                }
-            }
-
-            // --- 2. EXTRACCIÓN DE DATOS ---
-            if ($banco === "EXTERNO") {
-                $import = new LecturaEstadoCuentaExcel($tarea);
-                Excel::import($import, $rutaPdf);
-                $operacionesLimpias = $import->getProcessedData();
-            } else {
+            
+            if ($banco !== "EXTERNO") {
                 $config = new \Smalot\PdfParser\Config();
                 $config->setRetainImageContent(false);
                 $parser = new \Smalot\PdfParser\Parser([], $config);
                 $pdf = $parser->parseFile($rutaPdf);
                 $textoPdf = $pdf->getText();
-                $yearEstadoCuenta = now()->format('Y');
+                $yearEstadoCuenta = date('Y');
 
-                // LÓGICA BBVA (mantener tu lógica previa para BBVA)
+                // --- LÓGICA BBVA (INTACTA) ---
                 if ($banco === 'BBVA') {
                     $tipoSplit = '/(\d{2}-\d{2}\n.*PEDMT\s*O:\s*([\w-]+)\n.*\n.*\n)/';
                     foreach (preg_split($tipoSplit, $textoPdf, -1, PREG_SPLIT_DELIM_CAPTURE) as $linea) {
+                        $patron = "/PEDMT\s*O:\s*([\w-]+)/";
                         if (preg_match('/(\d{2}\/\d{2}\/(\d{4}))/', $linea, $matchYear)) {
                             $yearEstadoCuenta = $matchYear[2];
                         }
-                        if (preg_match("/PEDMT\s*O:\s*([\w-]+)/", $linea, $mPed)) {
-                            preg_match('/\d{2}-\d{2}/', $linea, $mFec);
-                            preg_match('/\$\s*([0-9.,]+)/', $linea, $mCar);
-                            if (isset($mPed[1]) && isset($mFec[0])) {
-                                $tablaDeDatos[] = [
-                                    'pedimento' => $mPed[1],
-                                    'fecha_str' => \Carbon\Carbon::createFromFormat('d-m-Y', $mFec[0] . "-{$yearEstadoCuenta}")->format('Y-m-d'),
-                                    'cargo_str' => $mCar[1] ?? '0.00'
-                                ];
-                            }
+                        if (preg_match($patron, $linea, $matchPedimento)) {
+                            preg_match('/\d{2}-\d{2}/', $linea, $matchFecha);
+                            preg_match('/\$\s*([0-9.,]+)/', $linea, $matchCargo);
+                            $fechaPedimentoEstadoCuenta = $matchFecha[0] . "-{$yearEstadoCuenta}";
+                            $tablaDeDatos[] = [
+                                'pedimento' => $matchPedimento[1],
+                                'fecha_str' => \Carbon\Carbon::createFromFormat('d-m-Y', $fechaPedimentoEstadoCuenta)->format('Y-m-d'),
+                                'cargo_str' => isset($matchCargo[1]) ? $matchCargo[1] : '0',
+                            ];
                         }
                     }
-                    $operacionesLimpias = collect($tablaDeDatos)->filter();
                 } 
-                // LÓGICA UNIVERSAL / SANTANDER — extracción robusta
-                else {
-                    Log::info("LONGITUD TEXTO PDF: " . strlen($textoPdf));
-                    Log::debug("PRIMEROS 2000 CHARS PDF: " . substr($textoPdf, 0, 2000));
+                // --- LÓGICA SANTANDER (CORREGIDA AL ORDEN DEL PARSER) ---
+                else if ($banco === 'SANTANDER') {
+                    // Dividimos el documento usando la estructura base de cada fila: Cuenta (11 digitos) + Espacio + Fecha (8 digitos)
+                    $bloques = preg_split('/(?=\b\d{10,12}\s+\d{8}\b)/', $textoPdf);
 
-                    // helper para parsear montos
-                    $parseMonto = function ($m) {
-                        if (!$m) return 0.0;
-                        // Eliminamos espacios y símbolos, mantenemos números, comas y puntos
-                        $m = str_replace([' ', '$', '(', ')'], '', $m);
+                    foreach ($bloques as $bloque) {
+                        // Juntamos los saltos de línea para leer la fila horizontalmente
+                        $fila = preg_replace('/\s+/', ' ', trim($bloque));
+                        if (empty($fila)) continue;
 
-                        // Si detectamos formato estándar (coma para miles, punto para decimales)
-                        if (strpos($m, ',') !== false && strpos($m, '.') !== false) {
-                            $m = str_replace(',', '', $m);
-                        }
-                        // Si solo hay una coma y está al final, es el decimal
-                        elseif (strpos($m, ',') !== false && preg_match('/,\d{2}$/', $m)) {
-                            $m = str_replace(',', '.', $m);
-                        }
-                        return (float) $m;
-                    };
-
-                    // Estrategia A: regex DOTALL que busca fecha + referencia + monto (funciona aunque estén en distintas líneas)
-                    $pattern = '/(\d{2}[\/\-]?\d{2}[\/\-]?\d{4}|\d{8}).{0,160}?\b([4-7]\d{6}|\d{6,8})\b.{0,160}?(?:\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2}))/s';
-                    preg_match_all($pattern, $textoPdf, $matches, PREG_SET_ORDER);
-
-                    $filasEncontradas = [];
-                    if (!empty($matches)) {
-                        foreach ($matches as $m) {
-                            $bloque = trim($m[0]);
-                            $filasEncontradas[] = $bloque;
-                        }
-                        Log::info("Estrategia A encontró filas: " . count($filasEncontradas));
-                    }
-
-                    // Estrategia B: buscar keywords y extraer ventana de contexto
-                    if (empty($filasEncontradas)) {
-                        $keywords = ['IMPU', 'IMPUEST', 'CGO IMP', 'RECTI', 'RECTIFIC'];
-                        foreach ($keywords as $kw) {
-                            $pos = 0;
-                            while (($pos = stripos($textoPdf, $kw, $pos)) !== false) {
-                                $inicio = max(0, $pos - 200);
-                                $fin = min(strlen($textoPdf), $pos + 200);
-                                $ventana = substr($textoPdf, $inicio, $fin - $inicio);
-                                if (preg_match('/([4-7]\d{6}|\d{6,8})/', $ventana, $mp)) {
-                                    if (preg_match('/(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2}))/', $ventana, $mm)) {
-                                        $filasEncontradas[] = $ventana;
-                                    }
-                                }
-                                $pos = $pos + strlen($kw);
-                            }
-                        }
-                        Log::info("Estrategia B (keywords) encontró filas: " . count($filasEncontradas));
-                    }
-
-                    // Estrategia C: reconstrucción por acumulación de líneas (último recurso)
-                    if (empty($filasEncontradas)) {
-                        $lineas = preg_split("/\r\n|\n|\r/", $textoPdf);
-                        $tmp = [];
-                        foreach ($lineas as $ln) {
-                            $ln = trim($ln);
-                            if ($ln === '') continue;
-                            $tmp[] = $ln;
-                            $joined = implode(' ', $tmp);
-                            $tieneFecha = preg_match('/\b\d{2}[\/\-]?\d{2}[\/\-]?\d{4}\b|\b\d{8}\b/', $joined);
-                            $tieneMonto = preg_match('/\d+[.,]\d{2}/', $joined);
-                            $tieneRef   = preg_match('/\b([4-7]\d{6}|\d{6,8})\b/', $joined);
-                            if ($tieneFecha && $tieneMonto && $tieneRef) {
-                                $filasEncontradas[] = $joined;
-                                $tmp = [];
-                            } else {
-                                if (count($tmp) > 6) {
-                                    $tmp = [];
-                                }
-                            }
-                        }
-                        Log::info("Estrategia C (reconstrucción) encontró filas: " . count($filasEncontradas));
-                    }
-
-                    // Normalizar cada fila encontrada y extraer pedimento/fecha/monto
-                    $tablaDeDatosLocal = [];
-                    foreach ($filasEncontradas as $fila) {
-                        $fechaFinal = null;
-                        $pedimentoFinal = null;
                         $montoFinal = null;
+                        $pedimentoFinal = null;
+                        $fechaFinal = null;
 
-                        // --- A. Extraer Fecha (8 dígitos al inicio) ---
+                        // 1. Extraer Fecha (8 dígitos)
                         if (preg_match('/\b(\d{8})\b/', $fila, $mf)) {
                             $fechaRaw = $mf[1];
                             try {
                                 $fechaFinal = \Carbon\Carbon::createFromFormat('dmY', $fechaRaw)->format('Y-m-d');
-                            } catch (\Exception $e) {
-                                $fechaFinal = null;
-                            }
+                            } catch (\Exception $e) { continue; } // Ignora si la fecha es inválida
+                        } else {
+                            continue;
                         }
 
-                        // --- B. Extraer Importe Cargo (AZUL) ---
-                        // Buscamos el patrón: [MONTO] seguido de un espacio y "0.00"
-                        if (preg_match_all('/(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2}))/', $fila, $mms)) {
+                        // 2. Extraer Montos (Cargo vs Abono vs Saldo)
+                        if (preg_match_all('/(\d{1,3}(?:,?\d{3})*(?:\.\d{2}))/', $fila, $mms)) {
                             $montosParseados = [];
                             foreach ($mms[1] as $mRaw) {
-                                $montosParseados[] = $parseMonto($mRaw);
+                                $montosParseados[] = (float) str_replace(',', '', $mRaw);
                             }
-                            $idxCero = array_search(0.0, $montosParseados);
-                            if ($idxCero !== false && $idxCero > 0) {
-                                $montoFinal = $montosParseados[$idxCero - 1];
+
+                            // El parser extrae en orden: [Abono] [Cargo] [Saldo]
+                            if (count($montosParseados) >= 3) {
+                                if ($montosParseados[0] === 0.0) {
+                                    // El Abono es 0.00 (posición 0), el Cargo es el siguiente (posición 1)
+                                    $montoFinal = $montosParseados[1];
+                                } else if ($montosParseados[1] === 0.0) {
+                                    // Fallback: Por si lee en el orden visual correcto [Cargo, Abono, Saldo]
+                                    $montoFinal = $montosParseados[0];
+                                }
                             }
                         }
 
-                        // --- C. Extraer Pedimento/Referencia (VERDE) ---
-                        // El log muestra que la Referencia (7 dígitos) se pega con la Hora (10:xx)
-                        // Buscamos números de 7 a 10 dígitos que NO sean la fecha
-                        if (preg_match_all('/\b(\d{7,10})\b/', $fila, $mRefs)) {
+                        // 3. Extraer Pedimento (Referencia verde)
+                        // Buscamos números de 7 a 11 dígitos
+                        if (preg_match_all('/\b(\d{7,11})\b/', $fila, $mRefs)) {
                             foreach ($mRefs[1] as $ref) {
-                                if ($ref !== $fechaRaw) {
-                                    // REGLA DE LIMPIEZA: Si tiene 9 o 10 dígitos, los últimos 2 o 3 son la HORA
-                                    // Santander usa referencias de 7 dígitos. Cortamos para limpiar.
+                                // Ignoramos si es la fecha o si es la cuenta bancaria inicial
+                                if ($ref !== $fechaRaw && strpos($fila, $ref) !== 0) {
+                                    // Cortamos a 7 dígitos exactos para borrar la hora pegada (ej. 503205410:38 -> 5032054)
                                     $pedimentoFinal = substr($ref, 0, 7);
                                     break;
                                 }
                             }
                         }
 
+                        // Solo agregamos la fila si es un cargo por impuestos válido
                         if ($pedimentoFinal && $montoFinal > 0) {
-                            $tablaDeDatosLocal[] = [
+                            $tablaDeDatos[] = [
                                 'pedimento' => $pedimentoFinal,
-                                'fecha_str' => $fechaFinal ?? now()->format('Y-m-d'),
-                                'cargo_str' => (string)$montoFinal,
-                                'raw_fila'  => $fila
+                                'fecha_str' => $fechaFinal,
+                                'cargo_str' => (string)$montoFinal
                             ];
                         }
                     }
-                    $operacionesLimpias = collect($tablaDeDatosLocal)->filter();
-                } // fin else universal
-            } // fin if EXTERNO else PDF
-
-            // Si no encontramos operaciones, reportar y salir
-            if (!isset($operacionesLimpias) || $operacionesLimpias->isEmpty()) {
-                Log::info("No se encontraron operaciones en el PDF de {$banco}.");
-                return ['code' => 0, 'message' => 'No se encontraron operaciones'];
+                }
+                $operacionesLimpias = collect($tablaDeDatos);
+            } else {
+                // --- LÓGICA EXTERNO ---
+                $import = new LecturaEstadoCuentaExcel($tarea);
+                Excel::import($import, $rutaPdf);
+                $operacionesLimpias = $import->getProcessedData();
             }
 
-            // actualizar fecha documento con la máxima fecha + 1 día
-            $fechas = $operacionesLimpias->map(function($f) {
-                return \Carbon\Carbon::parse($f['fecha_str']);
+            // VALIDACIÓN
+            if ($operacionesLimpias->isEmpty()) {
+                $tarea->update(['status' => 'fallido', 'resultado' => 'No se encontraron pedimentos en el PDF.']);
+                return ['code' => 1, 'message' => new \Exception("No se encontraron pedimentos.")];
+            }
+
+            // --- CÁLCULOS, BÚSQUEDA EN BD Y GUARDADO ---
+            $fechasEncontradas = $operacionesLimpias->map(function($item) {
+                return \Carbon\Carbon::parse($item['fecha_str']);
             });
-            if ($fechas->isNotEmpty()) {
-                $tarea->update(['fecha_documento' => $fechas->max()->addDays(1)->format('Y-m-d')]);
-            }
-
-            // --- 3. BÚSQUEDA ROBUSTA DE PEDIMENTOS (FALLBACK GLOBAL) ---
-            $sucursalesDic = [
-                'NOG' => [1, 3711],
-                'TIJ' => [2, 3849],
-                'NL' => [3, 3711],
-                'MXL' => [4, 1038],
-                'ZLO' => [5, 3711],
-                'REY' => [11, 3577],
-                'VRZ' => [12, 1864],
-                'NOGALES' => [1, 3711],
-                'TIJUANA' => [2, 3849],
-                'LAREDO' => [3, 3711],
-                'MEXICALI' => [4, 1038],
-                'MANZANILLO' => [5, 3711],
-                'REYNOSA' => [11, 3577],
-                'VERACRUZ' => [12, 1864]
+            $fecha_fin_query = $fechasEncontradas->max()->addDays(15)->format('Y-m-d');
+            
+            $sucursalesDiccionario = [
+                'NOG' => [1, 3711], 'TIJ' => [2, 3849], 'NL' => [3, 3711], 
+                'MXL' => [4, 1038], 'ZLO' => [5, 3711], 'REY' => [11, 3577], 'VRZ' => [12, 1864]
             ];
-
-            $datosSucursal = $sucursalesDic[$sucursalNombre] ?? null;
-            $numeroSuc = $datosSucursal ? $datosSucursal[0] : null;
-            $patenteSuc = $datosSucursal ? $datosSucursal[1] : null;
+            
+            $sucInfo = isset($sucursalesDiccionario[$sucursal]) ? $sucursalesDiccionario[$sucursal] : [1, 3711];
+            $numeroSucursal = $sucInfo[0];
+            $patenteSucursal = $sucInfo[1];
 
             $numerosDePedimento = $operacionesLimpias->pluck('pedimento')->unique()->toArray();
+            $mapaPedimentoAId = $this->construirMapaDePedimentos($numerosDePedimento, $patenteSucursal, $numeroSucursal);
+            $idsPedDb = Arr::pluck($mapaPedimentoAId, 'id_pedimiento');
 
-            // debug: listar pedimentos extraidos
-            Log::info('PEDIMENTOS EXTRAIDOS PDF: ' . json_encode($numerosDePedimento));
+            $mapaImpo = Importacion::whereIn('id_pedimiento', $idsPedDb)->whereNull('parent')->get()->keyBy('id_pedimiento');
+            $mapaExpo = Exportacion::whereIn('id_pedimiento', $idsPedDb)->whereNull('parent')->get()->keyBy('id_pedimiento');
 
-            // construir regex para búsqueda (uso de word boundaries POSIX)
-            // En la sección de búsqueda robusta
-            $regexPattern = implode('|', array_map(function ($p) {
-                // Buscamos que el pedimento en BD CONTENGA la referencia del banco
-                return ".*{$p}$";
-            }, $numerosDePedimento));
+            $idsImpoRaw = $mapaImpo->pluck('id_importacion')->toArray();
+            $idsExpoRaw = $mapaExpo->pluck('id_exportacion')->toArray();
 
-            $posiblesCoincidencias = Pedimento::where('num_pedimiento', 'REGEXP', $regexPattern)->get();
+            $auditoriasSC = AuditoriaTotalSC::query()
+                ->where(function ($q) use ($idsImpoRaw, $idsExpoRaw, $idsPedDb) {
+                    $q->whereIn('operacion_id', array_filter($idsImpoRaw))
+                    ->orWhereIn('operacion_id', array_filter($idsExpoRaw))
+                    ->orWhereIn('pedimento_id', $idsPedDb);
+                })->get();
 
-            $queryPedimentos = Pedimento::query()
-                ->whereRaw("num_pedimiento REGEXP ?", [$regexPattern])
-                ->with(['importacion', 'exportacion']);
-
-            $posiblesCoincidencias = $queryPedimentos->get();
-
-            $mapaPedimentoAId = [];
-            foreach ($numerosDePedimento as $pedBus) {
-                $encontrados = $posiblesCoincidencias->filter(function($item) use ($pedBus) {
-                    return strpos($item->num_pedimiento, $pedBus) !== false;
-                });
-
-                if ($encontrados->isNotEmpty()) {
-                    $mejorMatch = null;
-                    // prioridad 1: sucursal y patente coincidente
-                    if ($numeroSuc && $patenteSuc) {
-                        $mejorMatch = $encontrados->first(function($item) use ($numeroSuc, $patenteSuc) {
-                            $op = $item->importacion ?? $item->exportacion;
-                            return $op && $op->sucursal == $numeroSuc && $op->patente == $patenteSuc;
-                        });
-                    }
-                    // prioridad 2: cualquiera con operacion
-                    if (!$mejorMatch) {
-                        $mejorMatch = $encontrados->first(function($item) {
-                            return $item->importacion || $item->exportacion;
-                        });
-                    }
-
-                    if ($mejorMatch) {
-                        $esImpo = !is_null($mejorMatch->importacion);
-                        $operacion = $esImpo ? $mejorMatch->importacion : $mejorMatch->exportacion;
-
-                        $mapaPedimentoAId[$pedBus] = [
-                            'id_pedimiento' => $mejorMatch->id_pedimiento,
-                            'id_operacion'  => $esImpo ? $operacion->id_importacion : $operacion->id_exportacion,
-                            'tipo'          => $esImpo ? 'Importacion' : 'Exportacion'
-                        ];
-                    }
-                }
+            $mapaSCFinal = [];
+            foreach ($auditoriasSC as $scItem) {
+                if ($scItem->pedimento_id) $mapaSCFinal['p_' . $scItem->pedimento_id] = $scItem;
+                if ($scItem->operacion_id) $mapaSCFinal['o_' . $scItem->operacion_id] = $scItem;
             }
 
-            Log::info("Pedimentos encontrados: " . count($mapaPedimentoAId) . " de " . count($numerosDePedimento));
+            $datosParaAuditorias = $operacionesLimpias->map(function ($op) use ($mapaPedimentoAId, $mapaImpo, $mapaExpo, $mapaSCFinal, $tarea) {
+                $pedLimpio = $op['pedimento'];
+                $pedInfo = isset($mapaPedimentoAId[$pedLimpio]) ? $mapaPedimentoAId[$pedLimpio] : null;
+                if (!$pedInfo) return null;
 
-            // --- 4. ASIGNACIÓN Y GUARDADO ---
-            $datosParaAuditorias = $operacionesLimpias->map(function ($op) use ($mapaPedimentoAId, $banco, $montosImpuestosSheets) {
-                $pedInfo = $mapaPedimentoAId[$op['pedimento']] ?? null;
-                $montoReal = (float) $op['cargo_str'];
+                $id_ped_db = $pedInfo['id_pedimiento'];
+                $impo = $mapaImpo->get($id_ped_db);
+                $expo = $mapaExpo->get($id_ped_db);
 
-                if (!$pedInfo) {
-                    $estado = 'Sin operacion!';
-                    $montoEsp = -1.1;
-                    $idP = null; $opId = null; $tipoOp = Importacion::class;
-                } else {
-                    $idP = $pedInfo['id_pedimiento'];
-                    $opId = $pedInfo['id_operacion'];
-                    $tipoOp = ($pedInfo['tipo'] === 'Exportacion') ? Exportacion::class : Importacion::class;
+                $operacionId = $impo ? $impo->id_importacion : ($expo ? $expo->id_exportacion : null);
+                $tipoOp = $impo ? Importacion::class : ($expo ? Exportacion::class : Pedimento::class);
 
-                    if ($banco === 'SANTANDER' && isset($montosImpuestosSheets[$op['pedimento']])) {
-                        $montoEsp = $montosImpuestosSheets[$op['pedimento']];
-                    } else {
-                        $sc = AuditoriaTotalSC::where('pedimento_id', $idP)->first();
-                        $montoEsp = $sc ? ($sc->desglose_conceptos['montos']['impuestos_mxn'] ?? -1.1) : -1.1;
-                    }
-                    $estado = ($montoEsp == -1.1) ? 'Sin SC!' : $this->compararMontos($montoEsp, $montoReal, $tipoOp);
-                }
+                $sc = isset($mapaSCFinal['p_' . $id_ped_db]) ? $mapaSCFinal['p_' . $id_ped_db] : (isset($mapaSCFinal['o_' . $operacionId]) ? $mapaSCFinal['o_' . $operacionId] : null);
+                
+                $montoSCMXN = ($sc && isset($sc->desglose_conceptos['montos']['impuestos_mxn'])) ? $sc->desglose_conceptos['montos']['impuestos_mxn'] : -1.1;
+                
+                $montoImpuestoMXN = (float) filter_var(str_replace(',', '', $op['cargo_str']), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+                
+                $estado = $this->compararMontos($montoSCMXN, $montoImpuestoMXN, $tipoOp);
+                $diferenciaSc = ($estado !== "Sin SC!" && $estado !== "Sin operacion!") ? round($montoSCMXN - $montoImpuestoMXN, 2) : $montoImpuestoMXN;
 
                 return [
-                    'operacion_id' => $opId,
-                    'pedimento_id' => $idP,
+                    'operacion_id' => $operacionId,
+                    'pedimento_id' => $id_ped_db,
                     'operation_type' => $tipoOp,
                     'tipo_documento' => 'impuestos',
                     'concepto_llave' => 'principal',
                     'fecha_documento' => $op['fecha_str'],
-                    'monto_total' => $montoReal,
-                    'monto_total_mxn' => $montoReal,
-                    'monto_diferencia_sc' => ($estado === 'Coinciden!' || $idP === null) ? 0 : round($montoEsp - $montoReal, 2),
+                    'monto_total' => $montoImpuestoMXN,
+                    'monto_total_mxn' => $montoImpuestoMXN,
+                    'monto_diferencia_sc' => $diferenciaSc,
                     'moneda_documento' => 'MXN',
                     'estado' => $estado,
-                    'ruta_pdf' => 'estado_cuenta.pdf',
-                    'created_at' => now(),
-                    'updated_at' => now(),
+                    'ruta_pdf' => $tarea->ruta_estado_de_cuenta,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
                 ];
             })->filter()->all();
 
             if (!empty($datosParaAuditorias)) {
-                Auditoria::upsert($datosParaAuditorias,
-                    ['operacion_id', 'pedimento_id', 'operation_type', 'tipo_documento', 'concepto_llave'],
+                Auditoria::upsert($datosParaAuditorias, 
+                    ['operacion_id', 'pedimento_id', 'operation_type', 'tipo_documento', 'concepto_llave'], 
                     ['fecha_documento', 'monto_total', 'monto_total_mxn', 'monto_diferencia_sc', 'estado', 'updated_at']
                 );
-                $pedimentosValidos = array_keys($mapaPedimentoAId);
-                $tarea->update(['pedimentos_procesados' => json_encode($pedimentosValidos)]);
+            }
+
+            $pedimentosProcesados = $operacionesLimpias->pluck('pedimento')->unique()->values()->all();
+            if (count($pedimentosProcesados) > 0) {
+                $tarea->update([
+                    'pedimentos_procesados' => json_encode($pedimentosProcesados),
+                    'fecha_documento' => $fecha_fin_query
+                ]);
+                Log::info("Se registraron " . count($pedimentosProcesados) . " pedimentos en la Tarea #{$tareaId}.");
             }
 
             return ['code' => 0, 'message' => 'completado'];
 
         } catch (\Throwable $e) {
             $tarea->update(['status' => 'fallido', 'resultado' => $e->getMessage()]);
+            Log::error("Fallo tarea #{$tareaId}: " . $e->getMessage());
             return ['code' => 1, 'message' => $e];
         }
     }
