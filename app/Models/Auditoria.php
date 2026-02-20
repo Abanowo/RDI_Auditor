@@ -1,11 +1,11 @@
 <?php
 
-// app/Models/Auditoria.php
-
 namespace App\Models;
+
 use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Pedimento; 
 
 class Auditoria extends Model
 {
@@ -53,5 +53,10 @@ class Auditoria extends Model
         // El nombre 'operacion' debe coincidir con el segundo argumento de morphMany
         // y será el prefijo de las columnas 'operacion_id' y 'operacion_type'.
         return $this->morphTo('operacion', 'operation_type', 'operacion_id');
+    }
+
+    public function pedimento()
+    {
+        return $this->belongsTo(Pedimento::class, 'pedimento_id', 'id_pedimiento');
     }
 }

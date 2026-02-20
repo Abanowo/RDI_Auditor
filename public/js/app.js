@@ -6024,6 +6024,24 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
   props: {
@@ -6040,97 +6058,116 @@ __webpack_require__.r(__webpack_exports__);
       required: true
     }
   },
-  emits: ["open-modal"],
+  emits: ["open-modal", "preview-pdf"],
   computed: {
-    //Para el contadorsito de la esquina superior izquierda
+    esManzanillo: function esManzanillo() {
+      if (!this.operacion) return false;
+      var suc = this.operacion.sucursal || '';
+      var sucId = this.operacion.sucursal_id;
+      var sucStr = String(suc).toUpperCase().trim();
+      return sucStr === 'ZLO' || sucStr === 'MANZANILLO' || sucId == 5;
+    },
     displayNumber: function displayNumber() {
       return this.pageFrom + this.itemIndex;
     },
-    //Para el label de Importacion o Exportacion de la esquina superior izquierda
     operationType: function operationType() {
-      if (this.operacion.tipo_operacion.toLowerCase().includes("import")) return "IMPORTACIÓN";
-      if (this.operacion.tipo_operacion.toLowerCase().includes("export")) return "EXPORTACIÓN";
+      var tipo = this.operacion.tipo_operacion || "";
+      if (tipo.toLowerCase().includes("import")) return "IMPORTACIÓN";
+      if (tipo.toLowerCase().includes("export")) return "EXPORTACIÓN";
       return "N/A";
     },
     operationTypeClass: function operationTypeClass() {
-      if (this.operationType.startsWith("IMP")) return "bg-blue-100 text-blue-800";
-      if (this.operationType.startsWith("EXP")) return "bg-purple-100 text-purple-800";
+      var tipo = this.operacion.tipo_operacion || "";
+      if (tipo.toLowerCase().includes("import")) return "bg-blue-100 text-blue-800";
+      if (tipo.toLowerCase().includes("export")) return "bg-purple-100 text-purple-800";
       return "bg-gray-200 text-gray-800";
     },
     cardOverallState: function cardOverallState() {
       var _this = this;
+      if (!this.operacion.status_botones) return "verde";
       var statuses = Object.values(this.operacion.status_botones);
-      // 3. LÓGICA "SIN SC": Verificamos si hay un error rojo que NO sea 'Sin SC'
       var hasCriticalRed = statuses.some(function (statusInfo) {
-        var estadoTexto = _this.getFacturaStatusText(Object.keys(_this.operacion.status_botones).find(function (key) {
-          return _this.operacion.status_botones[key] === statusInfo;
-        }), statusInfo);
+        var key = Object.keys(_this.operacion.status_botones).find(function (k) {
+          return _this.operacion.status_botones[k] === statusInfo;
+        });
+        var estadoTexto = _this.getFacturaStatusText(key, statusInfo);
+        // MODIFICADO: Si es Manzanillo, 'Sin SC!' no cuenta como error crítico
+        if (_this.esManzanillo && String(estadoTexto).toLowerCase() === "sin sc!") return false;
         return _this.isStatusRed(estadoTexto) && String(estadoTexto).toLowerCase() !== "sin sc!";
       });
       if (hasCriticalRed) return "rojo";
       var hasPagoDeMas = statuses.some(function (statusInfo) {
-        var estadoTexto = _this.getFacturaStatusText(Object.keys(_this.operacion.status_botones).find(function (key) {
-          return _this.operacion.status_botones[key] === statusInfo;
-        }), statusInfo);
+        var key = Object.keys(_this.operacion.status_botones).find(function (k) {
+          return _this.operacion.status_botones[k] === statusInfo;
+        });
+        var estadoTexto = _this.getFacturaStatusText(key, statusInfo);
         return String(estadoTexto).toLowerCase() === "pago de mas!";
       });
       if (hasPagoDeMas) return "amarillo";
 
-      // Si no hay errores críticos, verificamos si existe un 'Sin SC' para dejar el fondo blanco
-      var hasSinSc = statuses.some(function (statusInfo) {
-        var estadoTexto = _this.getFacturaStatusText(Object.keys(_this.operacion.status_botones).find(function (key) {
-          return _this.operacion.status_botones[key] === statusInfo;
-        }), statusInfo);
-        return String(estadoTexto).toLowerCase() === "sin sc!";
-      });
-      if (hasSinSc) return "neutro"; // Estado neutro para fondo blanco
-
+      // Si no hay errores, retornamos verde por defecto
       return "verde";
     },
     cardBgClass: function cardBgClass() {
       switch (this.cardOverallState) {
         case "rojo":
           return "border-2 border-red-600 bg-white";
+        case "amarillo":
+          return "border-2 border-yellow-500 bg-white";
         default:
           return "bg-white";
-      }
-    },
-    cardInformationBgClass: function cardInformationBgClass() {
-      switch (this.cardOverallState) {
-        case "rojo":
-          return "border-2 border-red-600 text-gray-600";
-        case "verde":
-          return "border-2 border-green-500 text-gray-600";
-        case "amarillo":
-          return "border-2 border-yellow-500 text-gray-600";
-        case "neutro":
-          return "border-2 border-gray-600 text-gray-600";
-        default:
-          return "bg-white text-gray-600";
       }
     }
   },
   methods: {
+    formatCurrency: function formatCurrency(value) {
+      if (value === null || value === undefined || value === "N/A" || value === "") return value;
+      if (typeof value === 'string' && (value.includes('MXN') || value.includes('='))) return value;
+      var number = parseFloat(value);
+      if (isNaN(number)) return value;
+      return new Intl.NumberFormat('es-MX', {
+        style: 'currency',
+        currency: 'MXN',
+        minimumFractionDigits: 2
+      }).format(number);
+    },
     getFacturaStatusText: function getFacturaStatusText(tipo, info) {
-      if (tipo === "sc") {
-        return info.datos && info.datos.desglose_conceptos ? "SC Encontrada" : "No Encontrado";
-      } else if (tipo === "impuestos" && info.estado === "rojo") {
-        return "Sin operacion!";
+      // 1. Caso especial IMPUESTOS
+      if (tipo === "impuestos") {
+        if (info.estado === "rojo" && !info.datos) return "Sin operacion!";
+
+        // Si es Manzanillo y dice 'Sin SC!', lo cambiamos a 'GPC Validado' (o lo ocultamos)
+        // porque asumimos que la validación se hace en el Sheets.
+        if (this.esManzanillo && info.datos && info.datos.estado === "Sin SC!") {
+          // Aquí verificamos si la diferencia es 0 para decir 'Coinciden!' aunque no haya SC física.
+          var diferencia = parseFloat(info.datos.monto_diferencia_sc);
+          if (Math.abs(diferencia) < 0.1) return "Coinciden!";
+          // Si hay diferencia, mostramos el estado normal (Pago de mas/menos)
+          return info.datos.estado;
+        }
       }
+
+      // 2. Caso especial SC
+      if (tipo === "sc") {
+        // En Manzanillo, si no hay SC física (info.datos es null), mostramos 'Ver GPC' o similar en vez de 'No Encontrado'
+        if (this.esManzanillo && !info.datos) return "Ver GPC";
+        return info.datos && info.datos.desglose_conceptos ? "SC Encontrada" : "No Encontrado";
+      }
+
+      // 3. Resto de casos
       return info.datos ? info.datos.estado : "No Encontrado";
     },
     isStatusRed: function isStatusRed(estado) {
       if (!estado) return false;
-      var estadoLower = estado.toLowerCase();
-      return estadoLower.includes("pago de menos") || estadoLower.includes("sin") && !estadoLower.includes("sc") || estadoLower.includes("intactics");
+      var estadoLower = String(estado).toLowerCase();
+
+      // Excepción Manzanillo: 'Sin SC!' o 'Ver GPC' NO es rojo
+      if (this.esManzanillo && (estadoLower === "sin sc!" || estadoLower === "ver gpc")) return false;
+      return estadoLower.includes("pago de menos") || estadoLower.includes("sin") && !estadoLower.includes("sc") || estadoLower.includes("intactics") || estadoLower.includes("no encontrado") && !this.esManzanillo // En Manzanillo, 'No encontrado' en SC no es rojo crítico
+      ;
     },
-    isStatusGray: function isStatusGray(estado) {
-      if (!estado) return false;
-      var estadoLower = estado.toLowerCase();
-      return estadoLower.includes("sin sc") || estadoLower.includes("no encontrado");
-    },
-    getCardHeaderBgClass: function getCardHeaderBgClass(estado) {
-      switch (estado) {
+    getCardHeaderBgClass: function getCardHeaderBgClass(estadoColor) {
+      switch (estadoColor) {
         case "verde":
           return "bg-green-100";
         case "amarillo":
@@ -6141,19 +6178,12 @@ __webpack_require__.r(__webpack_exports__);
           return "bg-gray-100";
       }
     },
-    getCardBorderClass: function getCardBorderClass(estado) {
-      switch (estado) {
-        case "verde":
-          return "border-green-300";
-        case "amarillo":
-          return "border-yellow-400";
-        case "rojo":
-          return "border-red-400";
-        default:
-          return "border-gray-200";
-      }
-    },
     getStatusButtonClass: function getStatusButtonClass(estado) {
+      // Ajuste visual para el botón de la tarjeta
+      if (this.esManzanillo && estado === 'rojo') {
+        // Si es Manzanillo y está rojo por 'Sin SC', lo volvemos verde o gris
+        return "bg-gray-500 hover:bg-gray-600";
+      }
       switch (estado) {
         case "verde":
           return "bg-green-500 hover:bg-green-600";
@@ -6169,18 +6199,12 @@ __webpack_require__.r(__webpack_exports__);
     },
     getStatusTextClass: function getStatusTextClass(estado) {
       if (!estado) return "text-gray-800";
-      var estadoLower = estado.toLowerCase();
-      if (estadoLower.includes("coinciden") || estadoLower.includes("encontrada")) {
-        return "text-green-700";
-      } else if (estadoLower.includes("pago de mas")) {
-        return "text-yellow-600";
-      } else if (this.isStatusRed(estado) || estadoLower.includes("sin")) {
-        return "text-red-700";
-      } else if (estadoLower.includes("expo") || estadoLower.includes("impo")) {
-        return "text-indigo-700";
-      } else {
-        return "text-gray-800";
-      }
+      var estadoLower = String(estado).toLowerCase();
+      if (estadoLower.includes("coinciden") || estadoLower.includes("encontrada") || estadoLower.includes("ver gpc")) return "text-green-700";
+      if (estadoLower.includes("pago de mas")) return "text-yellow-600";
+      if (this.isStatusRed(estado) || estadoLower.includes("sin")) return "text-red-700";
+      if (estadoLower.includes("expo") || estadoLower.includes("impo")) return "text-indigo-700";
+      return "text-gray-800";
     },
     getStatusDiferenciaTextClass: function getStatusDiferenciaTextClass(info) {
       var _info$datos$monto_dif, _info$datos, _info$datos$estado$to, _info$datos2;
@@ -6188,53 +6212,37 @@ __webpack_require__.r(__webpack_exports__);
       var valorDiferencia = (_info$datos$monto_dif = (_info$datos = info.datos) === null || _info$datos === void 0 ? void 0 : _info$datos.monto_diferencia_sc) !== null && _info$datos$monto_dif !== void 0 ? _info$datos$monto_dif : "N/A";
       var estadoLower = (_info$datos$estado$to = (_info$datos2 = info.datos) === null || _info$datos2 === void 0 || (_info$datos2 = _info$datos2.estado) === null || _info$datos2 === void 0 ? void 0 : _info$datos2.toLowerCase()) !== null && _info$datos$estado$to !== void 0 ? _info$datos$estado$to : "N/A";
       if (estadoLower === "N/A" || String(valorDiferencia) === "N/A") return "text-gray-800";
-      if (estadoLower.includes("sin sc")) {
-        return "text-gray-800 font-bold";
-      } else if (valorDiferencia < 0) {
-        return "text-red-700 font-bold";
-      } else {
-        return "text-green-700 font-bold";
-      }
+
+      // Si es Manzanillo y la diferencia es 0, es verde aunque diga 'Sin SC'
+      if (this.esManzanillo && Math.abs(parseFloat(valorDiferencia)) < 0.1) return "text-green-700 font-bold";
+      if (estadoLower.includes("sin sc")) return "text-gray-800 font-bold";
+      if (valorDiferencia < 0) return "text-red-700 font-bold";
+      return "text-green-700 font-bold";
     },
     getFacturaDiferenciaText: function getFacturaDiferenciaText(info) {
       var _info$datos$monto_dif2, _info$datos3, _info$datos$estado$to2, _info$datos4;
-      if (!info) return "text-gray-800";
+      if (!info) return "N/A";
       var valorDiferencia = (_info$datos$monto_dif2 = (_info$datos3 = info.datos) === null || _info$datos3 === void 0 ? void 0 : _info$datos3.monto_diferencia_sc) !== null && _info$datos$monto_dif2 !== void 0 ? _info$datos$monto_dif2 : "N/A";
       var estadoLower = (_info$datos$estado$to2 = (_info$datos4 = info.datos) === null || _info$datos4 === void 0 || (_info$datos4 = _info$datos4.estado) === null || _info$datos4 === void 0 ? void 0 : _info$datos4.toLowerCase()) !== null && _info$datos$estado$to2 !== void 0 ? _info$datos$estado$to2 : "N/A";
-      if (estadoLower === "expo" || estadoLower === "impo") {
-        return "";
-      }
+      if (estadoLower === "expo" || estadoLower === "impo") return "";
       if (estadoLower === "N/A" || String(valorDiferencia) === "N/A") return "N/A";
-      if (estadoLower.includes("sin sc")) {
-        return "+/- " + valorDiferencia + " MXN";
-      } else if (valorDiferencia < 0) {
-        return valorDiferencia + " MXN";
-      } else if (valorDiferencia == 0) {
-        return "=" + valorDiferencia + " MXN";
-      } else if (valorDiferencia > 0) {
-        return "+" + valorDiferencia + " MXN";
-      }
+      if (estadoLower.includes("sin sc")) return "+/- " + valorDiferencia + " MXN";
+      if (valorDiferencia < 0) return valorDiferencia + " MXN";
+      if (valorDiferencia == 0) return "=" + valorDiferencia + " MXN";
+      if (valorDiferencia > 0) return "+" + valorDiferencia + " MXN";
+      return valorDiferencia;
     },
     getFacturaAuditoriaStatusText: function getFacturaAuditoriaStatusText(tipo, info) {
       var estadoTexto = this.getFacturaStatusText(tipo, info);
       var estadoLower = String(estadoTexto).toLowerCase();
       if (estadoTexto) {
         if (tipo === "sc") {
-          if (estadoLower.includes("coinciden") || estadoLower.includes("encontrada")) {
-            return "verde";
-          } else {
-            return "gris";
-          }
+          return estadoLower.includes("coinciden") || estadoLower.includes("encontrada") || estadoLower.includes("ver gpc") ? "verde" : "gris";
         } else {
-          if (estadoLower.includes("coinciden") || estadoLower.includes("encontrada") || estadoLower.includes("expo") || estadoLower.includes("impo")) {
-            return "verde";
-          } else if (estadoLower.includes("pago de mas")) {
-            return "amarillo";
-          } else if (this.isStatusRed(estadoTexto)) {
-            return "rojo";
-          } else {
-            return "neutral";
-          }
+          if (estadoLower.includes("coinciden") || estadoLower.includes("encontrada") || estadoLower.includes("expo") || estadoLower.includes("impo")) return "verde";
+          if (estadoLower.includes("pago de mas")) return "amarillo";
+          if (this.isStatusRed(estadoTexto)) return "rojo";
+          return "neutral";
         }
       }
     }
@@ -76202,7 +76210,7 @@ var render = function () {
     "div",
     {
       staticClass:
-        "operacion-card w-full shadow-md rounded-lg flex space-x-3 p-2",
+        "operacion-card relative w-full shadow-md rounded-lg flex space-x-3 p-2 transition-all duration-300 hover:shadow-lg",
       class: _vm.cardBgClass,
     },
     [
@@ -76212,7 +76220,7 @@ var render = function () {
             "span",
             {
               staticClass:
-                "bg-blue-800 text-white font-bold text-xs rounded h-5 w-auto px-2 flex items-center justify-center",
+                "bg-blue-800 text-white font-bold text-xs rounded h-5 w-auto px-2 flex items-center justify-center shadow-sm",
             },
             [_vm._v("\n        " + _vm._s(_vm.displayNumber) + "\n      ")]
           ),
@@ -76231,14 +76239,15 @@ var render = function () {
           "div",
           {
             staticClass:
-              "w-16 h-16 md:w-full md:h-auto md:aspect-square bg-gray-200 rounded-md flex items-center justify-center content-center border border-gray-300 order-1 md:order-2 mr-4 md:mr-0",
+              "relative group w-16 h-16 md:w-full md:h-auto md:aspect-square bg-gray-200 rounded-md flex items-center justify-center content-center border border-gray-300 order-1 md:order-2 mr-4 md:mr-0 overflow-hidden",
             attrs: { title: "Logo del Cliente" },
           },
           [
             _c(
               "svg",
               {
-                staticClass: "h-20 w-20 text-gray-400",
+                staticClass:
+                  "h-20 w-20 text-gray-400 group-hover:opacity-30 transition-opacity duration-200",
                 attrs: {
                   xmlns: "http://www.w3.org/2000/svg",
                   fill: "none",
@@ -76255,6 +76264,62 @@ var render = function () {
                     d: "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0v-4a2 2 0 012-2h6a2 2 0 012 2v4m-6 0h-2",
                   },
                 }),
+              ]
+            ),
+            _vm._v(" "),
+            _c(
+              "div",
+              {
+                staticClass:
+                  "absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer bg-black/5",
+                on: {
+                  click: function ($event) {
+                    $event.stopPropagation()
+                    return _vm.$emit("preview-pdf", _vm.operacion)
+                  },
+                },
+              },
+              [
+                _c(
+                  "div",
+                  {
+                    staticClass:
+                      "bg-white p-1.5 rounded-full shadow-md hover:scale-110 transition-transform",
+                  },
+                  [
+                    _c(
+                      "svg",
+                      {
+                        staticClass: "h-5 w-5 text-blue-700",
+                        attrs: {
+                          xmlns: "http://www.w3.org/2000/svg",
+                          fill: "none",
+                          viewBox: "0 0 24 24",
+                          stroke: "currentColor",
+                        },
+                      },
+                      [
+                        _c("path", {
+                          attrs: {
+                            "stroke-linecap": "round",
+                            "stroke-linejoin": "round",
+                            "stroke-width": "2",
+                            d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z",
+                          },
+                        }),
+                        _vm._v(" "),
+                        _c("path", {
+                          attrs: {
+                            "stroke-linecap": "round",
+                            "stroke-linejoin": "round",
+                            "stroke-width": "2",
+                            d: "M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z",
+                          },
+                        }),
+                      ]
+                    ),
+                  ]
+                ),
               ]
             ),
           ]
@@ -76278,9 +76343,15 @@ var render = function () {
               ),
             ]),
             _vm._v(" "),
-            _c("p", { staticClass: "text-xs" }, [
-              _vm._v(_vm._s(_vm.operacion.fecha_edc)),
-            ]),
+            _c(
+              "p",
+              { staticClass: "text-xs text-gray-600 flex items-center" },
+              [
+                _vm._v(
+                  "\n        " + _vm._s(_vm.operacion.fecha_edc) + "\n      "
+                ),
+              ]
+            ),
           ]
         ),
         _vm._v(" "),
@@ -76311,38 +76382,75 @@ var render = function () {
                       },
                       [
                         _c(
-                          "button",
+                          "div",
                           {
                             staticClass:
-                              "h-8 px-2 rounded text-white font-bold transition-all duration-200 shadow",
-                            class: _vm.getStatusButtonClass(info.estado),
-                            on: {
-                              click: function ($event) {
-                                return _vm.$emit("open-modal", {
-                                  tipo: tipo,
-                                  info: info,
-                                  operacion: _vm.operacion,
-                                  sc: _vm.operacion.status_botones.sc.datos,
-                                })
-                              },
-                            },
+                              "flex items-center space-x-1 overflow-hidden",
                           },
                           [
-                            _vm._v(
-                              "\n              " +
-                                _vm._s(tipo.toUpperCase().replace("_", " ")) +
-                                "\n            "
+                            _c(
+                              "button",
+                              {
+                                staticClass:
+                                  "h-8 px-2 rounded text-white font-bold transition-all duration-200 shadow uppercase",
+                                class: _vm.getStatusButtonClass(info.estado),
+                                on: {
+                                  click: function ($event) {
+                                    return _vm.$emit("open-modal", {
+                                      tipo: tipo,
+                                      info: info,
+                                      operacion: _vm.operacion,
+                                      sc: _vm.operacion.status_botones.sc
+                                        ? _vm.operacion.status_botones.sc.datos
+                                        : null,
+                                    })
+                                  },
+                                },
+                              },
+                              [
+                                _vm._v(
+                                  "\n                " +
+                                    _vm._s(tipo.replace("_", " ")) +
+                                    "\n              "
+                                ),
+                              ]
                             ),
+                            _vm._v(" "),
+                            _vm.esManzanillo && tipo === "sc"
+                              ? _c(
+                                  "a",
+                                  {
+                                    staticClass:
+                                      "bg-green-600 hover:bg-green-700 text-white font-bold h-8 px-1.5 rounded flex items-center justify-center shadow transition-colors text-[9px] no-underline",
+                                    attrs: {
+                                      href: "https://docs.google.com/spreadsheets/d/1zHUYpViLZyu_KPkNCUEx37WjoK0lVt7F0bC1B9Jo8s0",
+                                      target: "_blank",
+                                      title: "Ver GPC",
+                                    },
+                                  },
+                                  [
+                                    _vm._v(
+                                      "\n                GPC\n              "
+                                    ),
+                                  ]
+                                )
+                              : _vm._e(),
                           ]
                         ),
                         _vm._v(" "),
                         _c(
                           "p",
-                          { staticClass: "font-semibold text-gray-800" },
+                          {
+                            staticClass:
+                              "font-semibold text-gray-800 truncate ml-1 text-right flex-grow",
+                          },
                           [
                             _c(
                               "span",
-                              { staticClass: "font-normal text-gray-500" },
+                              {
+                                staticClass:
+                                  "font-normal text-gray-500 text-[9px]",
+                              },
                               [_vm._v("Folio:")]
                             ),
                             _vm._v(
@@ -76389,7 +76497,7 @@ var render = function () {
                                 _vm._v(
                                   "\n               " +
                                     _vm._s(
-                                      _vm._f("currency")(
+                                      _vm.formatCurrency(
                                         _vm.getFacturaDiferenciaText(info)
                                       )
                                     ) +

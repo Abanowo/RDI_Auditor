@@ -1,7 +1,7 @@
 <template>
   <!-- Contenedor principal con fondo dinámico y padding reducido -->
   <div
-    class="operacion-card w-full shadow-md rounded-lg flex space-x-3 p-2"
+    class="operacion-card relative w-full shadow-md rounded-lg flex space-x-3 p-2 transition-all duration-300 hover:shadow-lg"
     :class="cardBgClass"
   >
     <!-- ================================================== -->
@@ -11,7 +11,7 @@
       <!-- Fila Superior: Contador y Tipo de Operación -->
       <div class="flex items-center space-x-2 mb-1">
         <span
-          class="bg-blue-800 text-white font-bold text-xs rounded h-5 w-auto px-2 flex items-center justify-center"
+          class="bg-blue-800 text-white font-bold text-xs rounded h-5 w-auto px-2 flex items-center justify-center shadow-sm"
         >
           {{ displayNumber }}
         </span>
@@ -24,12 +24,12 @@
       </div>
       <!-- Logo del Cliente -->
       <div
-        class="w-16 h-16 md:w-full md:h-auto md:aspect-square bg-gray-200 rounded-md flex items-center justify-center content-center border border-gray-300 order-1 md:order-2 mr-4 md:mr-0"
+        class="relative group w-16 h-16 md:w-full md:h-auto md:aspect-square bg-gray-200 rounded-md flex items-center justify-center content-center border border-gray-300 order-1 md:order-2 mr-4 md:mr-0 overflow-hidden"
         title="Logo del Cliente"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          class="h-20 w-20 text-gray-400"
+          class="h-20 w-20 text-gray-400 group-hover:opacity-30 transition-opacity duration-200"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -41,7 +41,20 @@
             d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0v-4a2 2 0 012-2h6a2 2 0 012 2v4m-6 0h-2"
           />
         </svg>
+
+        <div 
+          class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer bg-black/5"
+          @click.stop="$emit('preview-pdf', operacion)"
+        >
+          <div class="bg-white p-1.5 rounded-full shadow-md hover:scale-110 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+          </div>
+        </div>
       </div>
+
     </div>
 
     <!-- ================================================== -->
@@ -53,7 +66,9 @@
         <p class="font-bold text-base leading-tight">
           {{ operacion.pedimento }} - {{ operacion.cliente }}
         </p>
-        <p class="text-xs">{{ operacion.fecha_edc }}</p>
+        <p class="text-xs text-gray-600 flex items-center">
+          {{ operacion.fecha_edc }}
+        </p>
       </div>
 
       <!-- Grid de Facturas (5 columnas) -->
@@ -69,22 +84,37 @@
               class="p-1 flex justify-between items-center"
               :class="getCardHeaderBgClass(getFacturaAuditoriaStatusText(tipo, info))"
             >
-              <button
-                @click="
-                  $emit('open-modal', {
-                    tipo,
-                    info,
-                    operacion: operacion,
-                    sc: operacion.status_botones.sc.datos,
-                  })
-                "
-                :class="getStatusButtonClass(info.estado)"
-                class="h-8 px-2 rounded text-white font-bold transition-all duration-200 shadow"
-              >
-                {{ tipo.toUpperCase().replace("_", " ") }}
-              </button>
-              <p class="font-semibold text-gray-800">
-                <span class="font-normal text-gray-500">Folio:</span>
+              <div class="flex items-center space-x-1 overflow-hidden">
+                
+                <button
+                  @click="
+                    $emit('open-modal', {
+                      tipo,
+                      info,
+                      operacion: operacion,
+                      sc: operacion.status_botones.sc ? operacion.status_botones.sc.datos : null,
+                    })
+                  "
+                  :class="getStatusButtonClass(info.estado)"
+                  class="h-8 px-2 rounded text-white font-bold transition-all duration-200 shadow uppercase"
+                >
+                  {{ tipo.replace("_", " ") }}
+                </button>
+
+                <a 
+                  v-if="esManzanillo && tipo === 'sc'"
+                  href="https://docs.google.com/spreadsheets/d/1zHUYpViLZyu_KPkNCUEx37WjoK0lVt7F0bC1B9Jo8s0"
+                  target="_blank"
+                  class="bg-green-600 hover:bg-green-700 text-white font-bold h-8 px-1.5 rounded flex items-center justify-center shadow transition-colors text-[9px] no-underline"
+                  title="Ver GPC"
+                >
+                  GPC
+                </a>
+
+              </div>
+
+              <p class="font-semibold text-gray-800 truncate ml-1 text-right flex-grow">
+                <span class="font-normal text-gray-500 text-[9px]">Folio:</span>
                 {{ (info.datos && info.datos.folio) || "N/A" }}
               </p>
             </div>
@@ -98,7 +128,7 @@
               </p>
               <p v-if="tipo !== 'sc'"
               :class="getStatusDiferenciaTextClass(info)">
-                 {{ getFacturaDiferenciaText(info) | currency  }}
+                 {{ formatCurrency(getFacturaDiferenciaText(info)) }}
               </p>
               <p v-if="info.datos" class="text-gray-400">
                 {{ info.datos.fecha_documento }}
@@ -118,131 +148,127 @@ export default {
     itemIndex: { type: Number, required: true },
     pageFrom: { type: Number, required: true },
   },
-  emits: ["open-modal"],
+  emits: ["open-modal", "preview-pdf"],
+  
   computed: {
-    //Para el contadorsito de la esquina superior izquierda
+    esManzanillo() {
+      if (!this.operacion) return false;
+      const suc = this.operacion.sucursal || '';
+      const sucId = this.operacion.sucursal_id;
+      const sucStr = String(suc).toUpperCase().trim();
+      return sucStr === 'ZLO' || sucStr === 'MANZANILLO' || sucId == 5;
+    },
+
     displayNumber() {
       return this.pageFrom + this.itemIndex;
     },
     //Para el label de Importacion o Exportacion de la esquina superior izquierda
     operationType() {
-      if (this.operacion.tipo_operacion.toLowerCase().includes("import"))
+      const tipo = this.operacion.tipo_operacion || "";
+      if (tipo.toLowerCase().includes("import")) 
         return "IMPORTACIÓN";
-      if (this.operacion.tipo_operacion.toLowerCase().includes("export"))
+      if (tipo.toLowerCase().includes("export"))
         return "EXPORTACIÓN";
       return "N/A";
     },
 
     operationTypeClass() {
-      if (this.operationType.startsWith("IMP")) return "bg-blue-100 text-blue-800";
-      if (this.operationType.startsWith("EXP")) return "bg-purple-100 text-purple-800";
+      const tipo = this.operacion.tipo_operacion || "";
+      if (tipo.toLowerCase().includes("import")) return "bg-blue-100 text-blue-800";
+      if (tipo.toLowerCase().includes("export")) return "bg-purple-100 text-purple-800";
       return "bg-gray-200 text-gray-800";
     },
 
     cardOverallState() {
+      if (!this.operacion.status_botones) return "verde";
       const statuses = Object.values(this.operacion.status_botones);
       // 3. LÓGICA "SIN SC": Verificamos si hay un error rojo que NO sea 'Sin SC'
       const hasCriticalRed = statuses.some((statusInfo) => {
-        const estadoTexto = this.getFacturaStatusText(
-          Object.keys(this.operacion.status_botones).find(
-            (key) => this.operacion.status_botones[key] === statusInfo
-          ),
-          statusInfo
-        );
+        const key = Object.keys(this.operacion.status_botones).find(k => this.operacion.status_botones[k] === statusInfo);
+        const estadoTexto = this.getFacturaStatusText(key, statusInfo);
+        // MODIFICADO: Si es Manzanillo, 'Sin SC!' no cuenta como error crítico
+        if (this.esManzanillo && String(estadoTexto).toLowerCase() === "sin sc!") return false;
+        
         return this.isStatusRed(estadoTexto) && String(estadoTexto).toLowerCase() !== "sin sc!";
       });
 
       if (hasCriticalRed) return "rojo";
 
       const hasPagoDeMas = statuses.some((statusInfo) => {
-        const estadoTexto = this.getFacturaStatusText(
-          Object.keys(this.operacion.status_botones).find(
-            (key) => this.operacion.status_botones[key] === statusInfo
-          ),
-          statusInfo
-        );
+        const key = Object.keys(this.operacion.status_botones).find(k => this.operacion.status_botones[k] === statusInfo);
+        const estadoTexto = this.getFacturaStatusText(key, statusInfo);
         return String(estadoTexto).toLowerCase() === "pago de mas!";
       });
 
       if (hasPagoDeMas) return "amarillo";
 
-      // Si no hay errores críticos, verificamos si existe un 'Sin SC' para dejar el fondo blanco
-      const hasSinSc = statuses.some((statusInfo) => {
-        const estadoTexto = this.getFacturaStatusText(
-          Object.keys(this.operacion.status_botones).find(
-            (key) => this.operacion.status_botones[key] === statusInfo
-          ),
-          statusInfo
-        );
-        return String(estadoTexto).toLowerCase() === "sin sc!";
-      });
-
-      if (hasSinSc) return "neutro"; // Estado neutro para fondo blanco
-
+      // Si no hay errores, retornamos verde por defecto
       return "verde";
     },
 
     cardBgClass() {
       switch (this.cardOverallState) {
-        case "rojo":
-          return "border-2 border-red-600 bg-white";
-        default:
-          return "bg-white";
-      }
-    },
-
-    cardInformationBgClass() {
-      switch (this.cardOverallState) {
-        case "rojo":
-          return "border-2 border-red-600 text-gray-600";
-        case "verde":
-          return "border-2 border-green-500 text-gray-600";
-        case "amarillo":
-          return "border-2 border-yellow-500 text-gray-600";
-        case "neutro":
-          return "border-2 border-gray-600 text-gray-600";
-        default:
-          return "bg-white text-gray-600";
+        case "rojo": return "border-2 border-red-600 bg-white";
+        case "amarillo": return "border-2 border-yellow-500 bg-white";
+        default: return "bg-white";
       }
     },
   },
 
   methods: {
+    formatCurrency(value) {
+       if(value === null || value === undefined || value === "N/A" || value === "") return value;
+       if (typeof value === 'string' && (value.includes('MXN') || value.includes('='))) return value;
+       const number = parseFloat(value);
+       if (isNaN(number)) return value;
+       return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: 2 }).format(number);
+    },
+
     getFacturaStatusText(tipo, info) {
-
-      if (tipo === "sc") {
-
-        return info.datos && info.datos.desglose_conceptos
-          ? "SC Encontrada"
-          : "No Encontrado";
-
-      } else if (tipo === "impuestos" && info.estado === "rojo") {
-
-        return "Sin operacion!";
-
+      // 1. Caso especial IMPUESTOS
+      if (tipo === "impuestos") {
+        if (info.estado === "rojo" && !info.datos) return "Sin operacion!";
+        
+        // Si es Manzanillo y dice 'Sin SC!', lo cambiamos a 'GPC Validado' (o lo ocultamos)
+        // porque asumimos que la validación se hace en el Sheets.
+        if (this.esManzanillo && info.datos && info.datos.estado === "Sin SC!") {
+           // Aquí verificamos si la diferencia es 0 para decir 'Coinciden!' aunque no haya SC física.
+           const diferencia = parseFloat(info.datos.monto_diferencia_sc);
+           if (Math.abs(diferencia) < 0.1) return "Coinciden!"; 
+           // Si hay diferencia, mostramos el estado normal (Pago de mas/menos)
+           return info.datos.estado;
+        }
       }
+
+      // 2. Caso especial SC
+      if (tipo === "sc") {
+        // En Manzanillo, si no hay SC física (info.datos es null), mostramos 'Ver GPC' o similar en vez de 'No Encontrado'
+        if (this.esManzanillo && !info.datos) return "Ver GPC";
+        return info.datos && info.datos.desglose_conceptos ? "SC Encontrada" : "No Encontrado";
+      }
+
+      // 3. Resto de casos
       return info.datos ? info.datos.estado : "No Encontrado";
     },
 
 
     isStatusRed(estado) {
       if (!estado) return false;
-      const estadoLower = estado.toLowerCase();
+      const estadoLower = String(estado).toLowerCase();
+      
+      // Excepción Manzanillo: 'Sin SC!' o 'Ver GPC' NO es rojo
+      if (this.esManzanillo && (estadoLower === "sin sc!" || estadoLower === "ver gpc")) return false;
+
       return (
         estadoLower.includes("pago de menos") ||
         (estadoLower.includes("sin") && !estadoLower.includes("sc")) ||
-        estadoLower.includes("intactics")
+        estadoLower.includes("intactics") ||
+        (estadoLower.includes("no encontrado") && !this.esManzanillo) // En Manzanillo, 'No encontrado' en SC no es rojo crítico
       );
     },
 
-    isStatusGray(estado) {
-      if (!estado) return false;
-      const estadoLower = estado.toLowerCase();
-      return estadoLower.includes("sin sc") || estadoLower.includes("no encontrado");
-    },
-
-    getCardHeaderBgClass(estado) {
-      switch (estado) {
+    getCardHeaderBgClass(estadoColor) {
+      switch (estadoColor) {
         case "verde":
           return "bg-green-100";
         case "amarillo":
@@ -254,20 +280,13 @@ export default {
       }
     },
 
-    getCardBorderClass(estado) {
-      switch (estado) {
-        case "verde":
-          return "border-green-300";
-        case "amarillo":
-          return "border-yellow-400";
-        case "rojo":
-          return "border-red-400";
-        default:
-          return "border-gray-200";
-      }
-    },
-
     getStatusButtonClass(estado) {
+      // Ajuste visual para el botón de la tarjeta
+      if (this.esManzanillo && estado === 'rojo') {
+         // Si es Manzanillo y está rojo por 'Sin SC', lo volvemos verde o gris
+         return "bg-gray-500 hover:bg-gray-600"; 
+      }
+      
       switch (estado) {
         case "verde":
           return "bg-green-500 hover:bg-green-600";
@@ -284,8 +303,8 @@ export default {
 
     getStatusTextClass(estado) {
       if (!estado) return "text-gray-800";
-      const estadoLower = estado.toLowerCase();
-      if (estadoLower.includes("coinciden") || estadoLower.includes("encontrada")) {
+      const estadoLower = String(estado).toLowerCase();
+      if (estadoLower.includes("coinciden") || estadoLower.includes("encontrada") || estadoLower.includes("ver gpc")) {
         return "text-green-700";
       } else if (estadoLower.includes("pago de mas")) {
         return "text-yellow-600";
@@ -305,6 +324,9 @@ export default {
 
       if(estadoLower === "N/A" || String(valorDiferencia) === "N/A") return "text-gray-800";
 
+      // Si es Manzanillo y la diferencia es 0, es verde aunque diga 'Sin SC'
+      if (this.esManzanillo && Math.abs(parseFloat(valorDiferencia)) < 0.1) return "text-green-700 font-bold";
+
       if (estadoLower.includes("sin sc")) {
         return "text-gray-800 font-bold";
       } else if (valorDiferencia < 0) {
@@ -315,7 +337,7 @@ export default {
     },
 
     getFacturaDiferenciaText(info) {
-      if (!info) return "text-gray-800";
+      if (!info) return "N/A";
       const valorDiferencia = info.datos?.monto_diferencia_sc ?? "N/A";
       const estadoLower = info.datos?.estado?.toLowerCase() ?? "N/A";
       if (estadoLower === "expo" || estadoLower === "impo") {
@@ -332,6 +354,7 @@ export default {
       } else if (valorDiferencia > 0) {
         return "+" + valorDiferencia + " MXN";
       }
+      return valorDiferencia;
     },
 
     getFacturaAuditoriaStatusText(tipo, info) {
@@ -339,11 +362,7 @@ export default {
       const estadoLower = String(estadoTexto).toLowerCase();
       if (estadoTexto) {
         if (tipo === "sc") {
-          if (estadoLower.includes("coinciden") || estadoLower.includes("encontrada")) {
-            return "verde";
-          } else {
-            return "gris";
-          }
+          return (estadoLower.includes("coinciden") || estadoLower.includes("encontrada") || estadoLower.includes("ver gpc")) ? "verde" : "gris";
         } else {
           if (
             estadoLower.includes("coinciden") ||
