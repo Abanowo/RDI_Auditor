@@ -664,416 +664,213 @@ class AuditoriaImpuestosController extends Controller
     {
         gc_collect_cycles();
         if (!$tareaId) {
-            Log::error('Se requiere el ID de la tarea. Usa --tarea_id=X');
-            return ['code' => 1, 'message' => new \Exception('Se requiere el ID de la tarea. Usa --tarea_id=X')];
+            Log::error('Se requiere el ID de la tarea.');
+            return ['code' => 1, 'message' => new \Exception('Se requiere el ID de la tarea.')];
         }
 
-        // 1. Busca la primera tarea que esté pendiente
+        // 1. Buscar la tarea
         $tarea = AuditoriaTareas::find($tareaId);
         if (!$tarea || $tarea->status !== 'procesando') {
-            Log::warning("Impuestos: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.");
-            return ['code' => 1, 'message' => new \Exception("Impuestos: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.")];
-        }
-        if (!$tarea) {
-            Log::error("No se encontró la tarea con ID: {$tareaId}");
-            return ['code' => 1, 'message' => new \Exception("No se encontró la tarea con ID: {$tareaId}")];
+            Log::warning("Tarea #{$tareaId} no encontrada o no está en procesando.");
+            return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
         }
 
-        Log::info('Iniciando lectura de PDF del estado de cuenta...');
-
-
-        // 2. Usa los datos del registro de la tarea
         $rutaPdf = storage_path('app/' . $tarea->ruta_estado_de_cuenta);
         $periodoMeses = $tarea->periodo_meses;
         $banco = $tarea->banco;
         $sucursal = $tarea->sucursal;
 
-        Log::info("Procesando tarea #{$tarea->id} para el banco {$banco} y sucursal {$sucursal}");
-        Log::info("Procesando: {$rutaPdf}");
-
         if (!file_exists($rutaPdf)) {
-            $tarea->update(
-                [
-                    'status' => 'fallido',
-                    'resultado' => "Ruta pdf no encontrada: ({$rutaPdf})"
-                ]
-            );
-            return ['code' => 1, 'message' => new \Exception("Ruta pdf no encontrada: ({$rutaPdf})")];
+            $tarea->update(['status' => 'fallido', 'resultado' => "Ruta pdf no encontrada: ({$rutaPdf})"]);
+            return ['code' => 1, 'message' => new \Exception("Archivo no encontrado.")];
         }
 
         try {
-
+            $tablaDeDatos = [];
+            
             if ($banco !== "EXTERNO") {
-                // Ahora utilizando Smalot!
                 $config = new \Smalot\PdfParser\Config();
-                // Whether to retain raw image data as content or discard it to save memory
                 $config->setRetainImageContent(false);
-                // Memory limit to use when de-compressing files, in bytes
-                $config->setDecodeMemoryLimit(10276800);
-
-                // Se crea el objeto Parser, utilizando las configuraciones de antes para evitar memory leaks
                 $parser = new Parser([], $config);
                 $pdf = $parser->parseFile($rutaPdf);
                 $textoPdf = $pdf->getText();
+                $yearEstadoCuenta = date('Y');
 
-                // En $tablaDeDatos se almacenara el resultado procesado del estado de cuenta
-                $tablaDeDatos = [];
-                // En $tipoSplit se definira cual sera el enfoque de splits para el texto extraido
-                $tipoSplit = ['/\n/', 0];
-                $yearEstadoCuenta = now()->format('Y');
+                // Configuración de Split según banco (PHP 7.3)
                 if ($banco === 'BBVA') {
-                    // Si es BBVA, se utiliza un REGEX en donde se hace split cuando encuentra la fecha,
-                    // seguido de un enter y PEDMTO, seguido de un enter y demas caracteres, otro enter y demas caracteres
-                    // y otro enter. Esto es debido a que el texto convierte la tabla 4x1 a 1x1, dando las
-                    // 4 columnas de una fila, en 4 filas de una columna
                     $tipoSplit = ['/(\d{2}-\d{2}\n.*PEDMT\s*O:\s*([\w-]+)\n.*\n.*\n)/', PREG_SPLIT_DELIM_CAPTURE];
-
-                } else if ($banco === 'SANTANDER') {
-                    // Si es SANTANDER, entonces solo se hace un split por los Enters
+                } else {
                     $tipoSplit = ['/\n/', 0];
-
                 }
 
-                //Se itera el texto, linea por linea, utilizando el $tipoSplit correspondiente al banco.
                 foreach (preg_split($tipoSplit[0], $textoPdf, -1, $tipoSplit[1]) as $linea) {
-
                     if ($banco === 'BBVA') {
-                        // Se busca en el texto si se encuentra el PEDMTO
                         $patron = "/PEDMT\s*O:\s*([\w-]+)/";
-
                         if (preg_match('/(\d{2}\/\d{2}\/(\d{4}))/', $linea, $matchYear)) {
                             $yearEstadoCuenta = $matchYear[2];
                         }
-
-                        // Verifica en si se obtuvo el PEDMTO
                         if (preg_match($patron, $linea, $matchPedimento)) {
-                            // Match para la fecha (Ej. 02-03)
                             preg_match('/\d{2}-\d{2}/', $linea, $matchFecha);
-                            // Match para el cargo (Ej. $ 366.00)
                             preg_match('/\$\s*([0-9.,]+)/', $linea, $matchCargo);
-
                             $fechaPedimentoEstadoCuenta = $matchFecha[0] . "-{$yearEstadoCuenta}";
-                            // Como es un registro correcto, se guarda en el arreglo
-                            $tablaDeDatos[] =
-                                [
-                                    'pedimento' => $matchPedimento[1],
-                                    'fecha_str' => \Carbon\Carbon::createFromFormat('d-m-Y', $fechaPedimentoEstadoCuenta)->format('Y-m-d'),
-                                    'cargo_str' => $matchCargo[1],
-                                ];
-                        }
-                    } else if ($banco === 'SANTANDER') {
-
-                        // Intento 1: Formato "Consulta de Movimientos" (Horizontal / Tabular)
-                        // Regex: Fecha(8d) ... TextoFijo ... Cargo ... Referencia(7d)
-                        if (preg_match('/(\d{8})\s+.*CGO\s*IMP\s*CE\s*TE\s+([0-9,.]+)\s+.*?\s+(\d{7})\b/', $linea, $matchesMovimientos)) {
                             $tablaDeDatos[] = [
-                                'pedimento' => $matchesMovimientos[3], // Referencia (Pedimento)
-                                'fecha_str' => \Carbon\Carbon::createFromFormat('dmY', $matchesMovimientos[1])->format('Y-m-d'),
-                                'cargo_str' => $matchesMovimientos[2]  // Importe Cargo
+                                'pedimento' => $matchPedimento[1],
+                                'fecha_str' => \Carbon\Carbon::createFromFormat('d-m-Y', $fechaPedimentoEstadoCuenta)->format('Y-m-d'),
+                                'cargo_str' => isset($matchCargo[1]) ? $matchCargo[1] : '0',
                             ];
                         }
-                        // Intento 2: Formato Clásico (Vertical / Desordenado)
-                        else {
-                            // Se busca en el texto si existe "CGO IMP CE TE"
-                            $patron = "/(.*CGO\s*IMP\s*CE\s*TE.*)/";
-                            // Si el patron existe, eso significa que esta linea contiene toda la informacion que buscamos
-                            if (preg_match($patron, $linea, $match)) {
-
-                                // Se extrae el pedimento, Fecha, y Cargo
-                                preg_match('/(\b\d{7}\b)/', $linea, $matchPedimento);
-                                preg_match('/(\b\d{8}\b)/', $linea, $matchFecha);
-                                preg_match_all('/(\b\d[0-9,.]+\b)/', $linea, $matchCargo);
-
-                                // Verificamos que existan los matches antes de acceder a los índices
-                                if (isset($matchPedimento[0]) && isset($matchFecha[0]) && isset($matchCargo[0])) {
-                                    $tablaDeDatos[] =
-                                        [
-                                            'pedimento' => $matchPedimento[0],
-                                            'fecha_str' => \Carbon\Carbon::createFromFormat('dmY', $matchFecha[0])->format('Y-m-d'),
-                                            // Usamos el índice 5 como fallback del formato antiguo, o el 0 si no hay tantos
-                                            'cargo_str' => $matchCargo[0][5] ?? $matchCargo[0][0],
-                                        ];
-                                }
+                    } else if ($banco === 'SANTANDER') {
+                        // Formato Tabular
+                        if (preg_match('/(\d{8})\s+.*CGO\s*IMP\s*CE\s*TE\s+([0-9,.]+)\s+.*?\s+(\d{7})\b/', $linea, $matchesMov)) {
+                            $tablaDeDatos[] = [
+                                'pedimento' => $matchesMov[3],
+                                'fecha_str' => \Carbon\Carbon::createFromFormat('dmY', $matchesMov[1])->format('Y-m-d'),
+                                'cargo_str' => $matchesMov[2]
+                            ];
+                        } else if (preg_match("/(.*CGO\s*IMP\s*CE\s*TE.*)/", $linea)) {
+                            // Formato Vertical
+                            preg_match('/(\b\d{7}\b)/', $linea, $matchPed);
+                            preg_match('/(\b\d{8}\b)/', $linea, $matchFec);
+                            preg_match_all('/(\b\d[0-9,.]+\b)/', $linea, $matchCar);
+                            if (isset($matchPed[0]) && isset($matchFec[0]) && isset($matchCar[0])) {
+                                $tablaDeDatos[] = [
+                                    'pedimento' => $matchPed[0],
+                                    'fecha_str' => \Carbon\Carbon::createFromFormat('dmY', $matchFec[0])->format('Y-m-d'),
+                                    'cargo_str' => isset($matchCar[0][5]) ? $matchCar[0][5] : $matchCar[0][0],
+                                ];
                             }
                         }
-                        // --- FIN MODIFICACIÓN ---
                     }
                 }
-                unset($parser);
-                unset($pdf);
-                unset($textoPdf);
-                unset($config);
-                gc_collect_cycles();
-                $pu = memory_get_usage();
-                // Convertimos el array de datos crudos en una Colección de Laravel.
-                $coleccionDeFilas = collect($tablaDeDatos);
-
-                $fechas = array_map(function ($fila) {
-                    return \Carbon\Carbon::parse($fila['fecha_str']);
-                }, $tablaDeDatos);
-
-                // Si no se encontraron fechas, evitar error en collect($fechas)->max()
-                if (!empty($fechas)) {
-                    $fecha_fin = collect($fechas)->max()->addDays(1)->format('Y-m-d');
-                    $fecha_inicio = \Carbon\Carbon::parse($fecha_fin)->subMonths($periodoMeses)->format('Y-m-d');
-                    $tarea->update(['fecha_documento' => $fecha_fin]);
-                }
-                // Desarrollar logica de obtener la fecha minima y la fecha maxima de los pedimentos encontrados en el estado
-
-
-                Log::info("PDF: Se encontraron {$coleccionDeFilas->count()} filas con pedimentos en el estado de cuenta.");
-
-                // Usamos filter() para limpiar la colección.
-                $operacionesLimpias = $coleccionDeFilas->filter(); // El método filter() elimina todos los resultados 'null'.
-
-            } else { // --- Inicio para cuando el estado de cuenta es "EXTERNO"
-
-                // Crear una instancia de nuestro importador
+                $operacionesLimpias = collect($tablaDeDatos);
+            } else {
                 $import = new LecturaEstadoCuentaExcel($tarea);
-
-                // Importar el archivo usando la clase
                 Excel::import($import, $rutaPdf);
-
-                // Obtener la colección ya procesada y filtrada desde nuestro importador
                 $operacionesLimpias = $import->getProcessedData();
-
-                $fechas = array_map(function ($fila) {
-                    return \Carbon\Carbon::parse($fila['fecha_str']);
-                }, $operacionesLimpias->toArray());
-
-                if (!empty($fechas)) {
-                    $fecha_fin = collect($fechas)->max()->addDays(1)->format('Y-m-d');
-                    $fecha_inicio = \Carbon\Carbon::parse($fecha_fin)->subMonths($periodoMeses)->format('Y-m-d');
-                    $tarea->update(['fecha_documento' => $fecha_fin]);
-                }
-                // ¡Listo! $coleccionDeFilas ya contiene los datos como los necesitas.
-                // Ahora puedes hacer lo que quieras con esta colección.
             }
 
-
+            // VALIDACIÓN: Si no hay datos extraídos, fallamos antes de seguir
             if ($operacionesLimpias->isEmpty()) {
-                Log::info('No se encontraron operaciones válidas para procesar.');
-                return ['code' => 0, 'message' => 'completado'];
+                $tarea->update(['status' => 'fallido', 'resultado' => 'No se encontraron pedimentos en el PDF.']);
+                return ['code' => 1, 'message' => new \Exception("No se encontraron pedimentos.")];
             }
+
+            // Obtener rangos para búsqueda de SC (PHP 7.3 no usa fn())
+            $fechasEncontradas = $operacionesLimpias->map(function($item) {
+                return \Carbon\Carbon::parse($item['fecha_str']);
+            });
+            $fecha_fin_query = $fechasEncontradas->max()->addDays(15)->format('Y-m-d');
+            $fecha_inicio_query = $fechasEncontradas->min()->subMonths($periodoMeses + 1)->format('Y-m-d');
+
             $sucursalesDiccionario = [
-                'NOG' => [1, 3711], //NOGALES, NOG
-                'TIJ' => [2, 3849], //TIJUANA, TIJ
-                'NL' => [3, 3711], //LAREDO, NL, LAR, LDO
-                'MXL' => [4, 1038], //MEXICALI, MXL
-                'ZLO' => [5, 3711], //MANZANILLO, ZLO
-                'REY' => [11, 3577], //REYNOSA, NL, LAR, LDO
-                'VRZ' => [12, 1864], //VERACRUZ, ZLO
+                'NOG' => [1, 3711], 'TIJ' => [2, 3849], 'NL' => [3, 3711], 
+                'MXL' => [4, 1038], 'ZLO' => [5, 3711], 'REY' => [11, 3577], 'VRZ' => [12, 1864]
             ];
             $patenteSucursal = $sucursalesDiccionario[$sucursal][1];
             $numeroSucursal = $sucursalesDiccionario[$sucursal][0];
-            // Preparamos un array con TODOS los registros que vamos a guardar/actualizar
-            $datosParaOperaciones = $operacionesLimpias->map(function ($op) {
-                return ['pedimento' => $op['pedimento']];
-            })->all(); // ->all() lo convierte de nuevo a un array simple
 
-            Log::info("Se identificaron " . count($datosParaOperaciones) . "/{$operacionesLimpias->count()} operaciones válidas para procesar.");
-            // --- Llamamos a upsert UNA SOLA VEZ con todos los datos ---
-            if (!empty($datosParaOperaciones)) {
-                // 1. Obtenemos todos los números de pedimento únicos del estado de cuenta
-                $numerosDePedimento = $operacionesLimpias->pluck('pedimento')->unique()->toArray();
-                Log::info("Pedimentos del estado de cuenta: " . count($datosParaOperaciones));
-                // 2. Hacemos UNA SOLA consulta para obtener los IDs de esos pedimentos
-                //    y creamos un mapa: num_pedimento => id_pedimiento
-                $mapaPedimentoAId = $this->construirMapaDePedimentos($numerosDePedimento, $patenteSucursal, $numeroSucursal);
-                Log::info("Pedimentos encontrados en tabla 'pedimentos': " . count($mapaPedimentoAId));
+            $numerosDePedimento = $operacionesLimpias->pluck('pedimento')->unique()->toArray();
+            $mapaPedimentoAId = $this->construirMapaDePedimentos($numerosDePedimento, $patenteSucursal, $numeroSucursal);
+            $idsPedDb = Arr::pluck($mapaPedimentoAId, 'id_pedimiento');
 
-                $pu = memory_get_usage();
+            // Mapas de operaciones
+            $mapaImpo = Importacion::whereIn('id_pedimiento', $idsPedDb)->whereNull('parent')->get()->keyBy('id_pedimiento');
+            $mapaExpo = Exportacion::whereIn('id_pedimiento', $idsPedDb)->whereNull('parent')->get()->keyBy('id_pedimiento');
 
-                // 3. Hacemos UNA SOLA consulta a operaciones_importacion usando los IDs que encontramos
-                //    y creamos nuestro mapa final: num_pedimento => id_importacion
-                // Aseguramos que existan fechas definidas antes de consultar
-                $fecha_inicio_query = isset($fecha_inicio) ? $fecha_inicio : now()->subMonths(6)->format('Y-m-d');
-                $fecha_fin_query = isset($fecha_fin) ? $fecha_fin : now()->addDay()->format('Y-m-d');
+            // Búsqueda redundante de SC
+            $idsImpoRaw = $mapaImpo->pluck('id_importacion')->toArray();
+            $idsExpoRaw = $mapaExpo->pluck('id_exportacion')->toArray();
 
-                $mapaPedimentoAImportacionId = Importacion::where(['operaciones_importacion.patente' => $patenteSucursal, 'operaciones_importacion.sucursal' => $numeroSucursal])
-                    ->whereBetween('operaciones_importacion.created_at', [$fecha_inicio_query, $fecha_fin_query])
-                    ->whereIn('operaciones_importacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
-                    ->whereNull('parent')
-                    ->orderBy('operaciones_importacion.created_at', 'desc')
-                    ->get()
-                    ->keyBy('id_pedimiento');
+            $auditoriasSC = AuditoriaTotalSC::query()
+                ->where(function ($q) use ($idsImpoRaw, $idsExpoRaw, $idsPedDb) {
+                    $q->whereIn('operacion_id', array_filter($idsImpoRaw))
+                    ->orWhereIn('operacion_id', array_filter($idsExpoRaw))
+                    ->orWhereIn('pedimento_id', $idsPedDb);
+                })
+                ->get();
 
-                Log::info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_importacion': " . $mapaPedimentoAImportacionId->count());
+            $mapaSCFinal = [];
+            foreach ($auditoriasSC as $scItem) {
+                if ($scItem->pedimento_id) $mapaSCFinal['p_' . $scItem->pedimento_id] = $scItem;
+                if ($scItem->operacion_id) $mapaSCFinal['o_' . $scItem->operacion_id] = $scItem;
+            }
 
-                $pu = memory_get_usage();
-                $mapaPedimentoAExportacionId = Exportacion::where(['operaciones_exportacion.patente' => $patenteSucursal, 'operaciones_exportacion.sucursal' => $numeroSucursal])
-                    ->whereBetween('operaciones_exportacion.created_at', [$fecha_inicio_query, $fecha_fin_query])
-                    ->whereIn('operaciones_exportacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
-                    ->whereNull('parent')
-                    ->orderBy('operaciones_exportacion.created_at', 'desc')
-                    ->get()
-                    ->keyBy('id_pedimiento');
+            $datosParaAuditorias = $operacionesLimpias->map(function ($op) use ($mapaPedimentoAId, $mapaImpo, $mapaExpo, $mapaSCFinal, $tarea) {
+                $pedLimpio = $op['pedimento'];
+                $pedInfo = isset($mapaPedimentoAId[$pedLimpio]) ? $mapaPedimentoAId[$pedLimpio] : null;
+                if (!$pedInfo) return null;
 
-                Log::info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_exportacion': " . $mapaPedimentoAExportacionId->count());
+                $id_ped_db = $pedInfo['id_pedimiento'];
+                $impo = $mapaImpo->get($id_ped_db);
+                $expo = $mapaExpo->get($id_ped_db);
 
-                $pu = memory_get_usage();
-                // 3. Obtenemos todas las SC de una vez para la comparación de montos
-                $idsImportacion = $mapaPedimentoAImportacionId->pluck('id_importacion')->toArray();
-                $idsExportacion = $mapaPedimentoAExportacionId->pluck('id_exportacion')->toArray();
-                $idsPedimentos  = Arr::pluck($mapaPedimentoAId, 'id_pedimiento');
+                $operacionId = $impo ? $impo->id_importacion : ($expo ? $expo->id_exportacion : null);
+                $tipoOp = $impo ? Importacion::class : ($expo ? Exportacion::class : Pedimento::class);
 
-                $auditoriasSC = AuditoriaTotalSC::query()
-                    ->whereBetween('fecha_documento', [$fecha_inicio_query, $fecha_fin_query])
-                    ->where(function ($q) use ($idsImportacion, $idsExportacion, $idsPedimentos) {
-                        $q->whereIn('operacion_id', $idsImportacion)
-                            ->orWhereIn('operacion_id', $idsExportacion)
-                            ->orWhereIn('pedimento_id', $idsPedimentos);
-                    })
-                    // Importante: Si tienes SCs duplicadas por error, esto toma la más reciente
-                    ->orderBy('created_at', 'desc')
-                    ->get()
-                    // OJO: Indexamos por pedimento_id para que el loop de abajo ($operacionesLimpias->map) pueda encontrarlo fácil
-                    ->keyBy('pedimento_id');
-
-                $pu = memory_get_usage();
-                // PASO 5: Construir el array para las auditorías, usando nuestro mapa.
-                // Pasamos el mapa a la clausula `use` para que esté disponible dentro del `map`.
-                $datosParaAuditorias = $operacionesLimpias->map(function ($op) use ($rutaPdf, $auditoriasSC, $mapaPedimentoAId, $mapaPedimentoAExportacionId, $mapaPedimentoAImportacionId, $tarea) {
-
-                    $pedimentoLimpio = $op['pedimento'];
-                    $pedimentoInfo = $mapaPedimentoAId[$pedimentoLimpio] ?? null;
-
-                    if (!$pedimentoInfo) {
-                        Log::warning("Omitiendo pedimento no encontrado en el mapa: {$pedimentoLimpio}");
-                        return null;
-                    }
-
-                    $id_pedimento_db = $pedimentoInfo['id_pedimiento'];
-                    $operacionId = null;
-                    $tipoOperacion = null;
-
-                    // Buscamos la operación más reciente en nuestros nuevos mapas
-                    $ultimaImportacion = $mapaPedimentoAImportacionId->get($id_pedimento_db);
-                    $ultimaExportacion = $mapaPedimentoAExportacionId->get($id_pedimento_db);
-
-                    // Obtenemos el id_importacion desde nuestro mapa. Si no existe, omitimos este registro.
-                    $pedimentoId = $mapaPedimentoAId[$pedimentoLimpio] ?? null;
-
-                    // Damos prioridad a la operación más reciente entre impo y expo si ambas existen
-                    if ($ultimaImportacion && $ultimaExportacion) {
-                        if ($ultimaImportacion->created_at > $ultimaExportacion->created_at) {
-                            $operacionId = $ultimaImportacion->id_importacion;
-                            $tipoOperacion = Importacion::class;
-                        } else {
-                            $operacionId = $ultimaExportacion->id_exportacion;
-                            $tipoOperacion = Exportacion::class;
-                        }
-                    } elseif ($ultimaImportacion) {
-                        $operacionId = $ultimaImportacion->id_importacion;
-                        $tipoOperacion = Importacion::class;
-                    } elseif ($ultimaExportacion) {
-                        $operacionId = $ultimaExportacion->id_exportacion;
-                        $tipoOperacion = Exportacion::class;
-                    }
-
-                    if (!$operacionId) { // Si no esta ni en Importacion o en Exportacion, que lo guarde por pedimento_id
-                        $tipoOperacion = Pedimento::class;
-                    }
-
-                    if (!$operacionId && !$pedimentoId) {
-                        Log::warning("Omitiendo pedimento no encontrado en operaciones_importacion: {$pedimentoLimpio}");
-                        return null; // Marcamos para ser filtrado
-
-                    }
-
-                    // Buscamos la SC correspondiente en nuestro mapa de SCs
-                    $sc = $auditoriasSC->get($pedimentoId['id_pedimiento']);
-                    $desgloseSc = $sc ? $sc->desglose_conceptos : null;
-                    $montoSCMXN = $desgloseSc['montos']['impuestos_mxn'] ?? -1.1; // -1.1 = Sin SC!
-
-
-                    preg_match('/[^$\s\r\n].*/', $op['cargo_str'], $matchCargo);
-                    $montoImpuestoMXN = (float) filter_var($matchCargo[0], FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
-                    $estado = $this->compararMontos($montoSCMXN, $montoImpuestoMXN, $tipoOperacion);
-
-                    // Aca hago una excepcion, y es que aqui en vez de ponerse -1 como valor Default al ser una "Sin SC!"
-                    // le pongo el monto de Impuesto completo, y esto es con el objetivo de mostrar toda la cantidad NO facturada
-                    // la cual creo que seria de utilidad conocerla
-                    $diferenciaSc = ($estado !== "Sin SC!" && $estado !== "Sin operacion!") ? round($montoSCMXN - $montoImpuestoMXN, 2) : $montoImpuestoMXN;
-                    $rutaPdfASubir = str_replace(storage_path('operaciones/estados_de_cuenta/'), '', $tarea->ruta_estado_de_cuenta);
-                    $rutaPdfASubir = str_replace('operaciones/estados_de_cuenta/', '', $rutaPdfASubir);
-                    // Devolvemos el array completo, AHORA con el `operacion_id` correcto.
-                    return
-                        [
-                            'operacion_id' => $operacionId,
-                            'pedimento_id' => $id_pedimento_db,
-                            'operation_type' => $tipoOperacion,
-                            'tipo_documento' => 'impuestos',
-                            'concepto_llave' => 'principal',
-                            'fecha_documento' => $op['fecha_str'],
-                            'monto_total' => (float) str_replace(',', '', $matchCargo[0] ?? '0'),
-                            'monto_total_mxn' => (float) str_replace(',', '', $matchCargo[0] ?? '0'),
-                            'monto_diferencia_sc' => $diferenciaSc,
-                            'moneda_documento' => 'MXN',
-                            'estado' => $estado,
-                            'ruta_pdf' => $rutaPdfASubir,
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ];
-                })->filter()->all(); // ->filter() elimina cualquier valor `null` que hayamos retornado en la verificación de seguridad.
-
-                Log::info("Pedimentos con impuestos listos para subir: " . count($datosParaAuditorias));
-
-
-
-                // PASO 6: Hacer el upsert a la tabla de auditorías.
-                // Este código ya estaba casi perfecto, solo ajustamos los nombres de las columnas a actualizar.
-                if (!empty($datosParaAuditorias)) {
-                    Auditoria::upsert(
-                        $datosParaAuditorias,
-                        ['operacion_id', 'pedimento_id', 'operation_type', 'tipo_documento', 'concepto_llave'], // La llave única correcta
-                        [
-                            'fecha_documento',
-                            'monto_total', // Asegúrate que estos nombres coincidan con tu migración
-                            'monto_total_mxn',
-                            'monto_diferencia_sc',
-                            'moneda_documento',
-                            'estado',
-                            'ruta_pdf',
-                            'updated_at'
-                        ]
-                    );
+                // Match de SC por pedimento o por operación
+                $sc = isset($mapaSCFinal['p_' . $id_ped_db]) ? $mapaSCFinal['p_' . $id_ped_db] : null;
+                if (!$sc && $operacionId) {
+                    $sc = isset($mapaSCFinal['o_' . $operacionId]) ? $mapaSCFinal['o_' . $operacionId] : null;
                 }
-                Log::info('¡Guardado con éxito!');
-            }
-            Log::info('¡Base de datos de operaciones actualizada con éxito!');
+                
+                $montoSCMXN = ($sc && isset($sc->desglose_conceptos['montos']['impuestos_mxn'])) 
+                    ? $sc->desglose_conceptos['montos']['impuestos_mxn'] 
+                    : -1.1;
+                
+                preg_match('/[^$\s\r\n].*/', $op['cargo_str'], $matchCargo);
+                $cargoMonto = isset($matchCargo[0]) ? $matchCargo[0] : '0';
+                $montoImpuestoMXN = (float) filter_var($cargoMonto, FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+                
+                $estado = $this->compararMontos($montoSCMXN, $montoImpuestoMXN, $tipoOp);
+                $diferenciaSc = ($estado !== "Sin SC!" && $estado !== "Sin operacion!") 
+                    ? round($montoSCMXN - $montoImpuestoMXN, 2) 
+                    : $montoImpuestoMXN;
 
-            unset($mapaPedimentoAImportacionId);
-            unset($mapaPedimentoAExportacionId);
-            unset($mapaPedimentoAId);
-            unset($auditoriasSC);
-            gc_collect_cycles();
-            // --- ¡NUEVA LÓGICA! ---
-            // Guardamos la lista de pedimentos procesados en la tarea para que los siguientes comandos la usen.
-            if ($operacionesLimpias->isNotEmpty()) {
-                $pedimentosProcesados = $operacionesLimpias->pluck('pedimento')->unique()->values()->all();
-                $tarea->update(['pedimentos_procesados' => json_encode($pedimentosProcesados)]);
+                return [
+                    'operacion_id' => $operacionId,
+                    'pedimento_id' => $id_ped_db,
+                    'operation_type' => $tipoOp,
+                    'tipo_documento' => 'impuestos',
+                    'concepto_llave' => 'principal',
+                    'fecha_documento' => $op['fecha_str'],
+                    'monto_total' => $montoImpuestoMXN,
+                    'monto_total_mxn' => $montoImpuestoMXN,
+                    'monto_diferencia_sc' => $diferenciaSc,
+                    'moneda_documento' => 'MXN',
+                    'estado' => $estado,
+                    'ruta_pdf' => $tarea->ruta_estado_de_cuenta,
+                    'created_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ];
+            })->filter()->all();
+
+            // Guardar en tabla Auditoria
+            if (!empty($datosParaAuditorias)) {
+                Auditoria::upsert($datosParaAuditorias, 
+                    ['operacion_id', 'pedimento_id', 'operation_type', 'tipo_documento', 'concepto_llave'], 
+                    ['fecha_documento', 'monto_total', 'monto_total_mxn', 'monto_diferencia_sc', 'estado', 'updated_at']
+                );
+            }
+
+            // --- PASO CRUCIAL PARA EL SIGUIENTE COMANDO DE MAPEO ---
+            $pedimentosProcesados = $operacionesLimpias->pluck('pedimento')->unique()->values()->all();
+            
+            if (count($pedimentosProcesados) > 0) {
+                $tarea->update([
+                    'pedimentos_procesados' => json_encode($pedimentosProcesados),
+                    'fecha_documento' => $fecha_fin_query
+                ]);
                 Log::info("Se registraron " . count($pedimentosProcesados) . " pedimentos en la Tarea #{$tareaId}.");
+            } else {
+                throw new \Exception("La lista de pedimentos únicos resultó vacía.");
             }
-            // --- FIN DE LA NUEVA LÓGICA ---
 
-            Log::info("Procesamiento de Impuestos para la Tarea #{$tareaId} finalizado.");
             return ['code' => 0, 'message' => 'completado'];
 
-        } catch (ProcessFailedException $exception) {
-            Log::error('Falló el script de Python: ' . $exception->getErrorOutput());
-            return ['code' => 1, 'message' => new \Exception('Falló el script de Python: ' . $exception->getErrorOutput())];
-
         } catch (\Throwable $e) {
-            // 5. Si algo falla, marca la tarea como 'fallido' y guarda el error
-            $tarea->update(
-                [
-                    'status' => 'fallido',
-                    'resultado' => $e->getMessage()
-                ]
-            );
-            Log::error("Falló la tarea #{$tarea->id}: " . $e->getMessage());
-            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage())];
+            $tarea->update(['status' => 'fallido', 'resultado' => $e->getMessage()]);
+            Log::error("Fallo tarea #{$tareaId}: " . $e->getMessage());
+            return ['code' => 1, 'message' => $e];
         }
     }
 

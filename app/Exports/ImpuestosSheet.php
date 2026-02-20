@@ -36,86 +36,58 @@ WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents, 
     // El método collection() simplemente devuelve los datos que ya tenemos
     public function collection()
     {
-        // Usamos map para transformar cada pedimento y luego filter para limpiar los nulos.
         $data = $this->operaciones->map(function ($pedimento) {
-            // Primero, nos aseguramos de que las relaciones necesarias existan para evitar errores.
-            if (!$pedimento->importacion || !$pedimento->importacion->auditorias) {
-                if (!$pedimento->exportacion || !$pedimento->exportacion->auditorias) {
-                return null;
-                }
-            }
-             // 1. Primero, determinamos de forma segura cuál operación existe
-            $operacion = $pedimento->importacion ?? $pedimento->exportacion;
+            $operacion = $pedimento->importacion ? $pedimento->importacion : $pedimento->exportacion;
 
-            // Si por alguna razón un pedimento no tiene ni impo ni expo, lo saltamos
-            if (!$operacion) {
-                return null; // Será eliminado por ->filter() más adelante
+            $sc = $operacion ? $operacion->auditoriasTotalSC : null;
+
+            if (!$sc) {
+                $sc = \App\Models\AuditoriaTotalSC::where('pedimento_id', $pedimento->id_pedimiento)->first();
             }
 
-            // CAMBIO CLAVE: Usamos firstWhere para obtener un único modelo o null.
-            // Esto buscará en la colección 'auditorias' el primer registro
-            // donde 'tipo_documento' sea 'impuestos'.
-            $facturaImpuestos = $operacion->auditorias->firstWhere('tipo_documento', 'impuestos');
+            $facturaImpuestos = \App\Models\Auditoria::where('pedimento_id', $pedimento->id_pedimiento)
+                ->where('tipo_documento', 'impuestos')
+                ->first();
 
-            // Si no se encuentra una factura de impuestos para este pedimento, devolvemos null.
-            // El método ->filter() posterior se encargará de eliminar esta entrada.
-            if (!$facturaImpuestos) {
+            // Si no hay ninguno de los dos, descartamos la fila
+            if (!$facturaImpuestos && !$sc) {
                 return null;
             }
 
-            // Obtenemos la factura SC (factura maestra) asociada.
-            // 2. Ahora que sabemos que $operacion existe, accedemos a sus relaciones de forma segura
-            $sc = $operacion->auditoriasTotalSC;
-            $cliente = $operacion->cliente;
-
-            // Devolvemos el array con los datos listos para el método map() del export.
-            // Ahora 'impuestos' será un objeto del modelo Auditoria.
-            return
-            [
+            return [
                 'pedimento' => $pedimento->num_pedimiento,
-                'cliente'   => $cliente,
-                'impuestos' => $facturaImpuestos, // ¡Correcto! Ahora es un objeto App\Models\Auditoria
+                'cliente'   => ($operacion && $operacion->cliente) ? $operacion->cliente : null,
+                'impuestos' => $facturaImpuestos,
                 'sc'        => $sc,
             ];
-        })->filter(); // Eliminamos todas las entradas que devolvieron null.
+        })->filter();
 
+        // Cálculos con validación de índice isset()
+        $totalFactura = $data->sum(function($row) {
+            return (isset($row['impuestos']) && $row['impuestos']) ? (float) $row['impuestos']->monto_total_mxn : 0;
+        });
 
-        // --- Calcular sumatorias ---
-        $totalMontoFactura = 0;
-        $totalMontoFacturaMxn = 0;
-        $totalMontoSc = 0;
-        $totalMontoScMxn = 0;
-
-        foreach ($data as $row) {
-            $factura = $row['impuestos'] ?? null;
-            $sc = $row['sc'] ?? null;
-
-            $totalMontoFactura += (float) optional($factura)->monto_total;
-            $totalMontoFacturaMxn += (float) optional($factura)->monto_total_mxn;
-
-            if ($sc) {
-                $desgloseSc = $sc->desglose_conceptos;
-                $totalMontoSc += (float)($desgloseSc['montos']['impuestos'] ?? 0);
-                $totalMontoScMxn += (float)($desgloseSc['montos']['impuestos_mxn'] ?? 0);
+        $totalSC = $data->sum(function($row) {
+            if (isset($row['sc']) && $row['sc'] && isset($row['sc']->desglose_conceptos['montos']['impuestos_mxn'])) {
+                return (float) $row['sc']->desglose_conceptos['montos']['impuestos_mxn'];
             }
-        }
+            return 0;
+        });
 
         $data->push([
             'pedimento' => 'TOTALES',
             'cliente'   => (object) ['nombre' => ''],
             'impuestos' => (object) [
-                'monto_total' => $totalMontoFactura,
-                'monto_total_mxn' => $totalMontoFacturaMxn,
+                'monto_total' => $totalFactura, 
+                'monto_total_mxn' => $totalFactura
             ],
-            'sc' => (object) [
+            'sc'        => (object) [
                 'desglose_conceptos' => [
                     'montos' => [
-                        'impuestos' => $totalMontoSc,
-                        'impuestos_mxn' => $totalMontoScMxn,
+                        'impuestos_mxn' => $totalSC
                     ]
-                ],
-                'folio' => '',
-                'ruta_pdf' => null
+                ], 
+                'folio' => ''
             ]
         ]);
 
@@ -144,75 +116,55 @@ WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents, 
      */
     public function map($row): array
     {
-        $esTotales = isset($row['pedimento']) && $row['pedimento'] === 'TOTALES';
+        $pedimento = isset($row['pedimento']) ? $row['pedimento'] : '';
+        $esTotales = ($pedimento === 'TOTALES');
 
         if ($esTotales) {
             return [
-                '', // Fecha
-                'Totales:',
-                '', // Cliente
-                (float) optional($row['impuestos'])->monto_total,
-                (float) optional($row['impuestos'])->monto_total_mxn,
-                (float) optional($row['sc'])->desglose_conceptos['montos']['impuestos'] ?? 0,
-                (float) optional($row['sc'])->desglose_conceptos['montos']['impuestos_mxn'] ?? 0,
-                '', '', '', '', '' // resto de columnas vacías
+                '', 'Totales:', '',
+                (float) (isset($row['impuestos']) ? $row['impuestos']->monto_total : 0),
+                (float) (isset($row['impuestos']) ? $row['impuestos']->monto_total_mxn : 0),
+                (float) (isset($row['sc']->desglose_conceptos['montos']['impuestos']) ? $row['sc']->desglose_conceptos['montos']['impuestos'] : 0),
+                (float) (isset($row['sc']->desglose_conceptos['montos']['impuestos_mxn']) ? $row['sc']->desglose_conceptos['montos']['impuestos_mxn'] : 0),
+                '', '', '', '', ''
             ];
         }
 
-        $facturaImpuestos = $row['impuestos'] ?? null;
-        $sc = $row['sc'] ?? null;
-        $cliente = $row['cliente'] ?? null;
-        $pedimento = $row['pedimento'] ?? null;
+        $facturaImpuestos = isset($row['impuestos']) ? $row['impuestos'] : null;
+        $sc = isset($row['sc']) ? $row['sc'] : null;
+        $cliente = isset($row['cliente']) ? $row['cliente'] : null;
 
-        // Lógica para manejar valores de la SC cuando no existe
-        $montoSc = 'N/A';
-        $montoScMxn = 'N/A';
-        $folioSc = 'N/A';
-        $pdfSc = 'Sin PDF!';
-        $estado = optional($facturaImpuestos)->estado;
+        // Lógica de SC
+        $montoSc = 0; $montoScMxn = 0; $folioSc = 'N/A'; $pdfSc = 'Sin PDF!';
+        $estado = $facturaImpuestos ? $facturaImpuestos->estado : 'Sin SC!';
 
         if ($sc) {
-            $desgloseSc = $sc->desglose_conceptos;
-            $montosSc = $desgloseSc['montos'] ?? [];
-            $montoSc = (float)($montosSc['impuestos'] ?? 0);
-            $montoScMxn = (float)($montosSc['impuestos_mxn'] ?? 0);
+            $montos = isset($sc->desglose_conceptos['montos']) ? $sc->desglose_conceptos['montos'] : [];
+            $montoSc = (float)(isset($montos['impuestos']) ? $montos['impuestos'] : 0);
+            $montoScMxn = (float)(isset($montos['impuestos_mxn']) ? $montos['impuestos_mxn'] : 0);
             $folioSc = $sc->folio;
-
             if ($sc->ruta_pdf) {
                 $pdfSc = '=HYPERLINK("' . $sc->ruta_pdf . '", "Acceder PDF")';
             }
-
-        } else {
-             $estado = 'Sin SC!';
-        }
-
-        $monedaConTC = optional($facturaImpuestos)->moneda_documento;
-        if ($monedaConTC === 'USD' && isset($desgloseSc['tipo_cambio'])) {
-            $monedaConTC = "USD (" . number_format($desgloseSc['tipo_cambio'], 2) . ")";
         }
 
         $urlFactura = route('documentos.ver', [
             'tipo' => 'impuestos',
-            'id' => $facturaImpuestos->id
+            'id' => $facturaImpuestos ? $facturaImpuestos->id : 0
         ]);
 
-        $pdfFactura = optional($facturaImpuestos)->ruta_pdf
-            ? '=HYPERLINK("' . $urlFactura . '", "Acceder PDF")'
-            : 'Sin PDF!';
-
-        return
-        [
-            optional($facturaImpuestos)->fecha_documento,
+        return [
+            $facturaImpuestos ? $facturaImpuestos->fecha_documento : '',
             $pedimento,
-            optional($cliente)->nombre,
-            (float) optional($facturaImpuestos)->monto_total,
-            (float) optional($facturaImpuestos)->monto_total_mxn,
+            $cliente ? $cliente->nombre : '',
+            (float) ($facturaImpuestos ? $facturaImpuestos->monto_total : 0),
+            (float) ($facturaImpuestos ? $facturaImpuestos->monto_total_mxn : 0),
             $montoSc,
             $montoScMxn,
-            $monedaConTC,
+            $facturaImpuestos ? $facturaImpuestos->moneda_documento : 'MXN',
             $folioSc,
             $estado,
-            $pdfFactura,
+            ($facturaImpuestos && $facturaImpuestos->ruta_pdf) ? '=HYPERLINK("' . $urlFactura . '", "Acceder PDF")' : 'Sin PDF!',
             $pdfSc,
         ];
     }
