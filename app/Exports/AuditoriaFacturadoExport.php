@@ -12,6 +12,7 @@ use App\Exports\ImpuestosSheet;
 use App\Exports\FletesSheet;
 use App\Exports\LLCSheet;
 use App\Exports\PagosDerechoSheet;
+use App\Exports\MuestraSheet;
 
 class AuditoriaFacturadoExport implements WithMultipleSheets
 {
@@ -49,6 +50,7 @@ class AuditoriaFacturadoExport implements WithMultipleSheets
             'Fletes' => new FletesSheet($this->operaciones),
             'LLC' => new LLCSheet($this->operaciones),
             'Pagos_derecho' => new PagosDerechoSheet($this->operaciones),
+            'Muestras' => new MuestraSheet($this->operaciones),
         ];
 
         if (!empty($this->descartados)) {

@@ -72,7 +72,7 @@
       </div>
 
       <!-- Grid de Facturas (5 columnas) -->
-      <div class="grid grid-cols-2 sm:grid-cols-1 lg:grid-cols-5 gap-1.5">
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
         <!-- Bucle para cada tipo de documento -->
         <template v-for="(info, tipo) in operacion.status_botones">
           <div
@@ -103,7 +103,7 @@
 
                 <a 
                   v-if="esManzanillo && tipo === 'sc'"
-                  href="https://docs.google.com/spreadsheets/d/1zHUYpViLZyu_KPkNCUEx37WjoK0lVt7F0bC1B9Jo8s0"
+                  href="https://docs.google.com/spreadsheets/d/18-5okzV-vw35V0Ugjn5KjNcWgHyZ9Qfc6pf5w4VU-2I"
                   target="_blank"
                   class="bg-green-600 hover:bg-green-700 text-white font-bold h-8 px-1.5 rounded flex items-center justify-center shadow transition-colors text-[9px] no-underline"
                   title="Ver GPC"

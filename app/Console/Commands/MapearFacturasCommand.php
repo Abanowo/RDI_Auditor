@@ -248,6 +248,7 @@ class MapearFacturasCommand extends Command
             'TransporTactics' => 'flete',
             'HONORARIOS-LLC' => 'llc',
             'PAGOS-DE-DERECHOS' => 'pago_derecho',
+            'FACTURA-MUESTRA' => 'muestras',
         ];
         $bar = $this->output->createProgressBar($pedimentosOperacion->count());
         $bar->start();

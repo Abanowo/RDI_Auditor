@@ -6042,6 +6042,18 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
   props: {
@@ -6070,6 +6082,7 @@ __webpack_require__.r(__webpack_exports__);
     displayNumber: function displayNumber() {
       return this.pageFrom + this.itemIndex;
     },
+    //Para el label de Importacion o Exportacion de la esquina superior izquierda
     operationType: function operationType() {
       var tipo = this.operacion.tipo_operacion || "";
       if (tipo.toLowerCase().includes("import")) return "IMPORTACIÓN";
@@ -6086,6 +6099,7 @@ __webpack_require__.r(__webpack_exports__);
       var _this = this;
       if (!this.operacion.status_botones) return "verde";
       var statuses = Object.values(this.operacion.status_botones);
+      // 3. LÓGICA "SIN SC": Verificamos si hay un error rojo que NO sea 'Sin SC'
       var hasCriticalRed = statuses.some(function (statusInfo) {
         var key = Object.keys(_this.operacion.status_botones).find(function (k) {
           return _this.operacion.status_botones[k] === statusInfo;
@@ -6200,11 +6214,17 @@ __webpack_require__.r(__webpack_exports__);
     getStatusTextClass: function getStatusTextClass(estado) {
       if (!estado) return "text-gray-800";
       var estadoLower = String(estado).toLowerCase();
-      if (estadoLower.includes("coinciden") || estadoLower.includes("encontrada") || estadoLower.includes("ver gpc")) return "text-green-700";
-      if (estadoLower.includes("pago de mas")) return "text-yellow-600";
-      if (this.isStatusRed(estado) || estadoLower.includes("sin")) return "text-red-700";
-      if (estadoLower.includes("expo") || estadoLower.includes("impo")) return "text-indigo-700";
-      return "text-gray-800";
+      if (estadoLower.includes("coinciden") || estadoLower.includes("encontrada") || estadoLower.includes("ver gpc")) {
+        return "text-green-700";
+      } else if (estadoLower.includes("pago de mas")) {
+        return "text-yellow-600";
+      } else if (this.isStatusRed(estado) || estadoLower.includes("sin")) {
+        return "text-red-700";
+      } else if (estadoLower.includes("expo") || estadoLower.includes("impo")) {
+        return "text-indigo-700";
+      } else {
+        return "text-gray-800";
+      }
     },
     getStatusDiferenciaTextClass: function getStatusDiferenciaTextClass(info) {
       var _info$datos$monto_dif, _info$datos, _info$datos$estado$to, _info$datos2;
@@ -6215,21 +6235,32 @@ __webpack_require__.r(__webpack_exports__);
 
       // Si es Manzanillo y la diferencia es 0, es verde aunque diga 'Sin SC'
       if (this.esManzanillo && Math.abs(parseFloat(valorDiferencia)) < 0.1) return "text-green-700 font-bold";
-      if (estadoLower.includes("sin sc")) return "text-gray-800 font-bold";
-      if (valorDiferencia < 0) return "text-red-700 font-bold";
-      return "text-green-700 font-bold";
+      if (estadoLower.includes("sin sc")) {
+        return "text-gray-800 font-bold";
+      } else if (valorDiferencia < 0) {
+        return "text-red-700 font-bold";
+      } else {
+        return "text-green-700 font-bold";
+      }
     },
     getFacturaDiferenciaText: function getFacturaDiferenciaText(info) {
       var _info$datos$monto_dif2, _info$datos3, _info$datos$estado$to2, _info$datos4;
       if (!info) return "N/A";
       var valorDiferencia = (_info$datos$monto_dif2 = (_info$datos3 = info.datos) === null || _info$datos3 === void 0 ? void 0 : _info$datos3.monto_diferencia_sc) !== null && _info$datos$monto_dif2 !== void 0 ? _info$datos$monto_dif2 : "N/A";
       var estadoLower = (_info$datos$estado$to2 = (_info$datos4 = info.datos) === null || _info$datos4 === void 0 || (_info$datos4 = _info$datos4.estado) === null || _info$datos4 === void 0 ? void 0 : _info$datos4.toLowerCase()) !== null && _info$datos$estado$to2 !== void 0 ? _info$datos$estado$to2 : "N/A";
-      if (estadoLower === "expo" || estadoLower === "impo") return "";
+      if (estadoLower === "expo" || estadoLower === "impo") {
+        return "";
+      }
       if (estadoLower === "N/A" || String(valorDiferencia) === "N/A") return "N/A";
-      if (estadoLower.includes("sin sc")) return "+/- " + valorDiferencia + " MXN";
-      if (valorDiferencia < 0) return valorDiferencia + " MXN";
-      if (valorDiferencia == 0) return "=" + valorDiferencia + " MXN";
-      if (valorDiferencia > 0) return "+" + valorDiferencia + " MXN";
+      if (estadoLower.includes("sin sc")) {
+        return "+/- " + valorDiferencia + " MXN";
+      } else if (valorDiferencia < 0) {
+        return valorDiferencia + " MXN";
+      } else if (valorDiferencia == 0) {
+        return "=" + valorDiferencia + " MXN";
+      } else if (valorDiferencia > 0) {
+        return "+" + valorDiferencia + " MXN";
+      }
       return valorDiferencia;
     },
     getFacturaAuditoriaStatusText: function getFacturaAuditoriaStatusText(tipo, info) {
@@ -6239,10 +6270,15 @@ __webpack_require__.r(__webpack_exports__);
         if (tipo === "sc") {
           return estadoLower.includes("coinciden") || estadoLower.includes("encontrada") || estadoLower.includes("ver gpc") ? "verde" : "gris";
         } else {
-          if (estadoLower.includes("coinciden") || estadoLower.includes("encontrada") || estadoLower.includes("expo") || estadoLower.includes("impo")) return "verde";
-          if (estadoLower.includes("pago de mas")) return "amarillo";
-          if (this.isStatusRed(estadoTexto)) return "rojo";
-          return "neutral";
+          if (estadoLower.includes("coinciden") || estadoLower.includes("encontrada") || estadoLower.includes("expo") || estadoLower.includes("impo")) {
+            return "verde";
+          } else if (estadoLower.includes("pago de mas")) {
+            return "amarillo";
+          } else if (this.isStatusRed(estadoTexto)) {
+            return "rojo";
+          } else {
+            return "neutral";
+          }
         }
       }
     }
@@ -76359,7 +76395,7 @@ var render = function () {
           "div",
           {
             staticClass:
-              "grid grid-cols-2 sm:grid-cols-1 lg:grid-cols-5 gap-1.5",
+              "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5",
           },
           [
             _vm._l(_vm.operacion.status_botones, function (info, tipo) {

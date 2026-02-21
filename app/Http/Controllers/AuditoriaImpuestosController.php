@@ -465,7 +465,7 @@ class AuditoriaImpuestosController extends Controller
         ];
 
         // --- VALIDACIÓN DE LOS DEMÁS BOTONES ---
-        $tipos_a_auditar = ['impuestos', 'flete', 'llc', 'pago_derecho'];
+        $tipos_a_auditar = ['impuestos', 'flete', 'llc', 'pago_derecho', 'muestras'];
         foreach ($tipos_a_auditar as $tipo) {
             $facturas = $auditorias->where('tipo_documento', $tipo);
 
@@ -744,7 +744,7 @@ class AuditoriaImpuestosController extends Controller
                         }
                     }
                 } 
-                // --- LÓGICA SANTANDER (CORREGIDA AL ORDEN DEL PARSER) ---
+                // --- LÓGICA SANTANDER ---
                 else if ($banco === 'SANTANDER') {
                     // Dividimos el documento usando la estructura base de cada fila: Cuenta (11 digitos) + Espacio + Fecha (8 digitos)
                     $bloques = preg_split('/(?=\b\d{10,12}\s+\d{8}\b)/', $textoPdf);
@@ -2216,6 +2216,7 @@ class AuditoriaImpuestosController extends Controller
                 'TransporTactics' => 'flete',
                 'HONORARIOS-LLC' => 'llc',
                 'PAGOS-DE-DERECHOS' => 'pago_derecho',
+                'FACTURA-MUESTRA' => 'muestras',
             ];
         //$bar = $this->output->createProgressBar($pedimentosOperacion->count());
         //$bar->start();
@@ -3109,7 +3110,180 @@ class AuditoriaImpuestosController extends Controller
             return null;
         }
     }
+    private function compararMontos_Muestras(float $esperado, float $real): string
+    {
+        if ($esperado == -1) {
+            return 'Sin SC!';
+        }
+        if ($real == -1) {
+            return 'Sin Muestras!';
+        }
+        
+        if (abs($esperado - $real) < 0.001) {
+            return 'Coinciden!';
+        }
+        return ($esperado > $real) ? 'Pago de mas!' : 'Pago de menos!';
+    }
+    /**
+     * Lee todos los archivos de Muestras recientes y crea un mapa [pedimento => rutas].
+     */
+    private function construirIndiceOperacionesMuestras(array $indicesOperacion): array
+    {
+        gc_collect_cycles();
+        try {
+            $indice = [];
 
+            foreach ($indicesOperacion as $pedimento => $datos) {
+                if (isset($datos['error'])) continue;
+
+                $coleccionFacturas = collect($datos['facturas']);
+                $facturaMuestra = $coleccionFacturas->first(function ($factura) {
+                    return $factura['tipo_documento'] === 'muestras' &&
+                           isset($factura['ruta_pdf']) && isset($factura['ruta_xml']);
+                });
+
+                if (!$facturaMuestra) continue;
+
+                // Para extraer UUID o Folio rápido (Misma lógica que usas para fletes, o simplemente guardamos las rutas)
+                $indice[$pedimento] = [
+                    'folio' => $facturaMuestra['nombre_base'] ?? 'S/F', // O extraer de XML
+                    'path_xml_mue' => $facturaMuestra['ruta_xml'],
+                    'path_pdf_mue' => $facturaMuestra['ruta_pdf'],
+                ];
+            }
+        } catch (\Throwable $e) {
+            Log::error("Error construyendo índice de muestras: " . $e->getMessage());
+        }
+
+        return $indice;
+    }
+    /**
+     * Se encarga de leer el XML de las Muestras, obteniendo los montos para cruzarlos con la SC.
+     */
+    public function auditarFacturasDeMuestras(string $tareaId)
+    {
+        gc_collect_cycles();
+        $tarea = AuditoriaTareas::find($tareaId);
+        
+        if (!$tarea || $tarea->status !== 'procesando') {
+            Log::warning("Muestras: No se encontró la tarea #{$tareaId} o no está procesando.");
+            return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
+        }
+
+        Log::info('Iniciando la auditoría de Muestras...');
+        try {
+            $rutaMapeo = $tarea->mapeo_completo_facturas;
+            if (!$rutaMapeo || !Storage::exists($rutaMapeo)) {
+                return ['code' => 1, 'message' => new \Exception("No se encontró el archivo de mapeo universal.")];
+            }
+
+            $contenidoJson = Storage::get($rutaMapeo);
+            $mapeadoFacturas = (array) json_decode($contenidoJson, true);
+
+            $mapaPedimentoAImportacionId = $mapeadoFacturas['pedimentos_importacion'];
+            $mapaPedimentoAExportacionId = $mapeadoFacturas['pedimentos_exportacion'];
+            $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'];
+            $indicesOperaciones = $mapeadoFacturas['indices_importacion'] + $mapeadoFacturas['indices_exportacion'];
+
+            // 1. Construir índice de Muestras
+            $indiceMuestras = $this->construirIndiceOperacionesMuestras($indicesOperaciones);
+            $auditoriasSC = $mapeadoFacturas['auditorias_sc'];
+
+            // 2. Extraer datos de la SC para Muestras
+            $indiceSC = [];
+            foreach ($auditoriasSC as $auditoria) {
+                $desglose = $auditoria['desglose_conceptos'];
+                $arrPedimento = array_filter($mapaPedimentoAId, function ($datos) use ($auditoria) {
+                    return $datos['id_pedimiento'] == $auditoria['pedimento_id'];
+                });
+
+                if(!empty($arrPedimento)) {
+                    $indiceSC[key($arrPedimento)] = [
+                        'monto_muestras_sc' => (float) ($desglose['montos']['muestras'] ?? -1),
+                        'monto_muestras_sc_mxn' => (float) ($desglose['montos']['muestras_mxn'] ?? -1),
+                        'tipo_cambio' => (float) ($desglose['tipo_cambio'] ?? 1.0),
+                    ];
+                }
+            }
+
+            $muestrasParaGuardar = [];
+
+            foreach ($mapaPedimentoAId as $pedimentoLimpio => $pedimentoSucioYId) {
+                
+                $operacionId = $mapaPedimentoAImportacionId[$pedimentoSucioYId['num_pedimiento']] ?? null;
+                $tipoOperacion = Importacion::class;
+
+                if (!$operacionId) {
+                    $operacionId = $mapaPedimentoAExportacionId[$pedimentoSucioYId['num_pedimiento']] ?? null;
+                    $tipoOperacion = Exportacion::class;
+                }
+                if (!$operacionId) $tipoOperacion = Pedimento::class;
+                if (!$operacionId) continue;
+
+                $datosMuestra = $indiceMuestras[$pedimentoLimpio] ?? null;
+                $datosSC = $indiceSC[$pedimentoLimpio] ?? null;
+
+                if (!$datosMuestra) continue;
+
+                if (!$datosSC) {
+                    $datosSC = [
+                        'monto_muestras_sc' => -1,
+                        'monto_muestras_sc_mxn' => -1,
+                        'tipo_cambio' => -1,
+                    ];
+                }
+
+                // Parseamos el XML reutilizando la lógica de fletes (CFDI estándar)
+                $datosFacturaXml = $this->parsearXmlFlete($datosMuestra['path_xml_mue']) ?? ['total' => -1, 'moneda' => 'N/A'];
+                
+                $montoFacturaMXN = (($datosFacturaXml['moneda'] == "USD" && $datosFacturaXml['total'] != -1) && $datosSC['tipo_cambio'] != -1) 
+                    ? round($datosFacturaXml['total'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) 
+                    : $datosFacturaXml['total'];
+                
+                $montoSCMXN = $datosSC['monto_muestras_sc_mxn'];
+                
+                $estado = $this->compararMontos_Muestras($montoSCMXN, $montoFacturaMXN);
+                $diferenciaSc = ($estado !== "Sin SC!" && $estado !== "Sin operacion!") ? round($montoSCMXN - $montoFacturaMXN, 2) : $montoFacturaMXN;
+
+                $muestrasParaGuardar[] = [
+                    'operacion_id' => $operacionId['id_operacion'],
+                    'pedimento_id' => $pedimentoSucioYId['id_pedimiento'],
+                    'operation_type' => $tipoOperacion,
+                    'tipo_documento' => 'muestras',
+                    'concepto_llave' => 'principal',
+                    'folio' => $datosMuestra['folio'] ?? null,
+                    'fecha_documento' => now()->format('Y-m-d'), // O extraer fecha del XML si es requerido
+                    'monto_total' => $datosFacturaXml['total'],
+                    'monto_total_mxn' => $montoFacturaMXN,
+                    'monto_diferencia_sc' => $diferenciaSc,
+                    'moneda_documento' => $datosFacturaXml['moneda'],
+                    'estado' => $estado,
+                    'ruta_xml' => $datosMuestra['path_xml_mue'],
+                    'ruta_pdf' => $datosMuestra['path_pdf_mue'],
+                    'ruta_txt' => null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+
+            if (!empty($muestrasParaGuardar)) {
+                Log::info("Guardando " . count($muestrasParaGuardar) . " registros de Muestras...");
+                Auditoria::upsert(
+                    $muestrasParaGuardar,
+                    ['operacion_id', 'pedimento_id', 'operation_type', 'tipo_documento', 'concepto_llave'],
+                    ['fecha_documento', 'monto_total', 'monto_total_mxn', 'monto_diferencia_sc', 'moneda_documento', 'estado', 'ruta_xml', 'ruta_pdf', 'updated_at']
+                );
+            }
+
+            Log::info("Auditoría de Muestras finalizada.");
+            return ['code' => 0, 'message' => 'completado'];
+
+        } catch (\Throwable $e) {
+            $tarea->update(['status' => 'fallido', 'resultado' => "Error Muestras: " . $e->getMessage()]);
+            Log::error("Falló Muestras en tarea #{$tarea->id}: " . $e->getMessage());
+            return ['code' => 1, 'message' => $e];
+        }
+    }
 
     //--------------------------------------------------------------------------------------------------------------
     //------------------------------ FINAL DE LOS METODOS AUXILIARES - AuditoriaImpuestosController -----------------------------
