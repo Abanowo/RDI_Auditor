@@ -111,7 +111,27 @@ class ProcesarAuditoriaCompleta extends Command
             $this->info("--- [FIN] Procesamiento de Pagos de derecho.");
             Log::info("--- [FIN] Procesamiento de Pagos de derecho.");
 
+
             // 8. Llama a cada comando en secuencia, pasándole el ID de la tarea
+            gc_collect_cycles();
+            $this->info("--- [INICIO] Procesando Muestras para Tarea #{$tarea->id} ---");
+            Log::info("Tarea #{$tarea->id}: Ejecutando comando de Muestras...");
+            $status = (new AuditoriaImpuestosController())->auditarFacturasDeMuestras($tarea->id);  //Muestras
+            if($status['code'] > 0) throw $status['message'];
+
+            $this->info("--- [FIN] Procesamiento de Muestras.");
+            Log::info("--- [FIN] Procesamiento de Muestras.");
+
+            gc_collect_cycles();
+            $this->info("--- [INICIO] Procesando Maniobras para Tarea #{$tarea->id} ---");
+            Log::info("Tarea #{$tarea->id}: Ejecutando comando de Maniobras...");
+            $status = (new AuditoriaImpuestosController())->auditarFacturasDeManiobras($tarea->id);  //Maniobras
+            if($status['code'] > 0) throw $status['message'];
+
+            $this->info("--- [FIN] Procesamiento de Maniobras.");
+            Log::info("--- [FIN] Procesamiento de Maniobras.");
+
+            // 9. Llama a cada comando en secuencia, pasándole el ID de la tarea
             gc_collect_cycles();
             $this->info("--- [INICIO] Exportando auditorias facturadas a Excel para Tarea #{$tarea->id} ---");
             Log::info("Tarea #{$tarea->id}: Ejecutando comando de Exportacion de auditorias...");
@@ -121,7 +141,7 @@ class ProcesarAuditoriaCompleta extends Command
             $this->info("--- [FIN] Exportacion de auditorias facturadas a Excel.");
             Log::info("--- [FIN] Exportacion de auditorias facturadas a Excel.");
 
-            // 9. Llama a cada comando en secuencia, pasándole el ID de la tarea
+            // 10. Llama a cada comando en secuencia, pasándole el ID de la tarea
             gc_collect_cycles();
             $this->info("--- [INICIO] Exportando auditorias pendientes a Excel para Tarea #{$tarea->id} ---");
             Log::info("Tarea #{$tarea->id}: Ejecutando comando de Exportacion de auditorias...");
@@ -131,7 +151,7 @@ class ProcesarAuditoriaCompleta extends Command
             $this->info("--- [FIN] Exportacion de auditorias pendientes a Excel.");
             Log::info("--- [FIN] Exportacion de auditorias pendientes a Excel.");
 
-            // 10. Llama a cada comando en secuencia, pasándole el ID de la tarea
+            // 11. Llama a cada comando en secuencia, pasándole el ID de la tarea
             gc_collect_cycles();
             $this->info("--- [INICIO] Enviando correo de reportes a destinatario para Tarea #{$tarea->id} ---");
             Log::info("Tarea #{$tarea->id}: Ejecutando comando de Envio de correo de reportes...");

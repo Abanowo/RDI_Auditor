@@ -12,19 +12,29 @@ use App\Exports\ImpuestosSheet;
 use App\Exports\FletesSheet;
 use App\Exports\LLCSheet;
 use App\Exports\PagosDerechoSheet;
+use App\Exports\MuestraSheet;
+use App\Exports\ManiobraSheet; 
 
 class AuditoriaFacturadoExport implements WithMultipleSheets
 {
     protected $operaciones;
     protected $descartados;
+    protected $banco;
+    protected $urlSheet;
 
     /**
      * @param Collection $operaciones
      * @param array|null $pedimentosDescartadosArray
+     * @param string|null $banco
+     * @param string|null $urlSheet
      */
-    public function __construct(Collection $operaciones, $pedimentosDescartadosArray = null)
+    public function __construct(Collection $operaciones, $pedimentosDescartadosArray = null, $banco = null, $urlSheet = null)
     {
         $this->operaciones = $operaciones;
+        
+        // Asignamos las variables a la clase
+        $this->banco = $banco;
+        $this->urlSheet = $urlSheet;
 
         if ($pedimentosDescartadosArray) {
             $this->descartados = array_keys($pedimentosDescartadosArray);
@@ -37,10 +47,12 @@ class AuditoriaFacturadoExport implements WithMultipleSheets
     {
         $sheets = [
             'SC' => new SCSheet($this->operaciones),
-            'Impuestos' => new ImpuestosSheet($this->operaciones),
+            'Impuestos' => new ImpuestosSheet($this->operaciones, $this->banco, $this->urlSheet),
             'Fletes' => new FletesSheet($this->operaciones),
             'LLC' => new LLCSheet($this->operaciones),
             'Pagos_derecho' => new PagosDerechoSheet($this->operaciones),
+            'Muestras' => new MuestraSheet($this->operaciones),
+            'Maniobras' => new ManiobraSheet($this->operaciones),
         ];
 
         if (!empty($this->descartados)) {
