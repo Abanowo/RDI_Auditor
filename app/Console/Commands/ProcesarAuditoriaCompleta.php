@@ -122,6 +122,14 @@ class ProcesarAuditoriaCompleta extends Command
             $this->info("--- [FIN] Procesamiento de Muestras.");
             Log::info("--- [FIN] Procesamiento de Muestras.");
 
+            gc_collect_cycles();
+            $this->info("--- [INICIO] Procesando Maniobras para Tarea #{$tarea->id} ---");
+            Log::info("Tarea #{$tarea->id}: Ejecutando comando de Maniobras...");
+            $status = (new AuditoriaImpuestosController())->auditarFacturasDeManiobras($tarea->id);  //Maniobras
+            if($status['code'] > 0) throw $status['message'];
+
+            $this->info("--- [FIN] Procesamiento de Maniobras.");
+            Log::info("--- [FIN] Procesamiento de Maniobras.");
 
             // 9. Llama a cada comando en secuencia, pasándole el ID de la tarea
             gc_collect_cycles();

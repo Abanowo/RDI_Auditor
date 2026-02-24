@@ -71,7 +71,7 @@
         </p>
       </div>
 
-      <!-- Grid de Facturas (5 columnas) -->
+      <!-- Grid de Facturas (6 columnas) -->
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
         <!-- Bucle para cada tipo de documento -->
         <template v-for="(info, tipo) in operacion.status_botones">

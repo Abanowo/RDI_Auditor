@@ -264,14 +264,18 @@ class AuditoriaImpuestosController extends Controller
             // --- LÓGICA DE FILTRADO REFACTORIZADA ---
             // Unificamos todos los filtros de documentos en un solo array para procesarlos.
             $documentFilters = [];
-            if (!empty($filters['folio']))
+            if (!empty($filters['folio'])) {
                 $documentFilters['folio'] = ['value' => $filters['folio'], 'type' => $filters['folio_tipo_documento'] ?? 'any'];
-            if (!empty($filters['estado']))
+            }
+            if (!empty($filters['estado'])) {
                 $documentFilters['estado'] = ['value' => $filters['estado'], 'type' => $filters['estado_tipo_documento'] ?? 'any'];
-            if (!empty($filters['fecha_inicio']))
+            }
+            if (!empty($filters['fecha_inicio'])) {
                 $documentFilters['fecha'] = ['value' => $filters['fecha_inicio'], 'type' => $filters['fecha_tipo_documento'] ?? 'any'];
-            if (!empty($filters['estado_tipo_documento']) && empty($filters['estado']))
+            }
+            if (!empty($filters['estado_tipo_documento']) && empty($filters['estado'])) {
                 $documentFilters['estado'] = ['value' => null, 'type' => $filters['estado_tipo_documento']];
+            }
 
             // Si no hay ningún filtro de documento, no hacemos nada más.
             if (empty($documentFilters)) {
@@ -465,7 +469,7 @@ class AuditoriaImpuestosController extends Controller
         ];
 
         // --- VALIDACIÓN DE LOS DEMÁS BOTONES ---
-        $tipos_a_auditar = ['impuestos', 'flete', 'llc', 'pago_derecho', 'muestras'];
+        $tipos_a_auditar = ['impuestos', 'flete', 'llc', 'pago_derecho', 'muestras', 'maniobras'];
         foreach ($tipos_a_auditar as $tipo) {
             $facturas = $auditorias->where('tipo_documento', $tipo);
 
@@ -2217,6 +2221,7 @@ class AuditoriaImpuestosController extends Controller
                 'HONORARIOS-LLC' => 'llc',
                 'PAGOS-DE-DERECHOS' => 'pago_derecho',
                 'FACTURA-MUESTRA' => 'muestras',
+                'FACTURA-MANIOBRAS-EN-ALMACEN-FISCALIZADO'=> 'maniobras',
             ];
         //$bar = $this->output->createProgressBar($pedimentosOperacion->count());
         //$bar->start();
@@ -3142,8 +3147,9 @@ class AuditoriaImpuestosController extends Controller
                            isset($factura['ruta_pdf']) && isset($factura['ruta_xml']);
                 });
 
-                if (!$facturaMuestra) continue;
-
+                if (!$facturaMuestra) {
+                    continue;
+                }
                 // Para extraer UUID o Folio rápido (Misma lógica que usas para fletes, o simplemente guardamos las rutas)
                 $indice[$pedimento] = [
                     'folio' => $facturaMuestra['nombre_base'] ?? 'S/F', // O extraer de XML
@@ -3217,13 +3223,19 @@ class AuditoriaImpuestosController extends Controller
                     $operacionId = $mapaPedimentoAExportacionId[$pedimentoSucioYId['num_pedimiento']] ?? null;
                     $tipoOperacion = Exportacion::class;
                 }
-                if (!$operacionId) $tipoOperacion = Pedimento::class;
-                if (!$operacionId) continue;
+                if (!$operacionId) {
+                    $tipoOperacion = Pedimento::class;
+                }
+                if (!$operacionId) {
+                    continue;
+                }
 
                 $datosMuestra = $indiceMuestras[$pedimentoLimpio] ?? null;
                 $datosSC = $indiceSC[$pedimentoLimpio] ?? null;
 
-                if (!$datosMuestra) continue;
+                if (!$datosMuestra) {
+                    continue;
+                }
 
                 if (!$datosSC) {
                     $datosSC = [
@@ -3281,6 +3293,188 @@ class AuditoriaImpuestosController extends Controller
         } catch (\Throwable $e) {
             $tarea->update(['status' => 'fallido', 'resultado' => "Error Muestras: " . $e->getMessage()]);
             Log::error("Falló Muestras en tarea #{$tarea->id}: " . $e->getMessage());
+            return ['code' => 1, 'message' => $e];
+        }
+    }
+
+    /**
+     * Compara dos montos y devuelve el estado de la auditoría para Maniobras.
+     */
+    private function compararMontos_Maniobras(float $esperado, float $real): string
+    {
+        if ($esperado == -1) {
+            return 'Sin SC!';
+        }
+        if ($real == -1) {
+            return 'Sin Maniobras!';
+        }
+        if (abs($esperado - $real) < 0.001) {
+            return 'Coinciden!';
+        }
+        return ($esperado > $real) ? 'Pago de mas!' : 'Pago de menos!';
+    }
+
+    /**
+     * Lee todos los archivos de Maniobras recientes y crea un mapa [pedimento => rutas].
+     */
+    private function construirIndiceOperacionesManiobras(array $indicesOperacion): array
+    {
+        gc_collect_cycles();
+        $indice = [];
+        try {
+            foreach ($indicesOperacion as $pedimento => $datos) {
+                if (isset($datos['error'])) {
+                    continue;
+                }
+
+                $coleccionFacturas = collect($datos['facturas']);
+                $facturaManiobra = $coleccionFacturas->first(function ($factura) {
+                    return $factura['tipo_documento'] === 'maniobras' &&
+                           isset($factura['ruta_pdf']) && isset($factura['ruta_xml']);
+                });
+
+                if (!$facturaManiobra) {
+                    continue;
+                }
+
+                $indice[$pedimento] = [
+                    'folio' => $facturaManiobra['nombre_base'] ?? 'S/F',
+                    'path_xml_man' => $facturaManiobra['ruta_xml'],
+                    'path_pdf_man' => $facturaManiobra['ruta_pdf'],
+                ];
+            }
+        } catch (\Throwable $e) {
+            Log::error("Error construyendo índice de maniobras: " . $e->getMessage());
+        }
+        return $indice;
+    }
+
+    /**
+     * Se encarga de leer el XML de las Maniobras, obteniendo los montos para cruzarlos con la SC.
+     */
+    public function auditarFacturasDeManiobras(string $tareaId)
+    {
+        gc_collect_cycles();
+        $tarea = AuditoriaTareas::find($tareaId);
+        
+        if (!$tarea || $tarea->status !== 'procesando') {
+            Log::warning("Maniobras: No se encontró la tarea #{$tareaId} o no está procesando.");
+            return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
+        }
+
+        Log::info('Iniciando la auditoría de Maniobras...');
+        try {
+            $rutaMapeo = $tarea->mapeo_completo_facturas;
+            $contenidoJson = Storage::get($rutaMapeo);
+            $mapeadoFacturas = (array) json_decode($contenidoJson, true);
+
+            $mapaPedimentoAImportacionId = $mapeadoFacturas['pedimentos_importacion'];
+            $mapaPedimentoAExportacionId = $mapeadoFacturas['pedimentos_exportacion'];
+            $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'];
+            $indicesOperaciones = $mapeadoFacturas['indices_importacion'] + $mapeadoFacturas['indices_exportacion'];
+
+            // 1. Construir índice de Maniobras
+            $indiceManiobras = $this->construirIndiceOperacionesManiobras($indicesOperaciones);
+            $auditoriasSC = $mapeadoFacturas['auditorias_sc'];
+
+            // 2. Extraer datos de la SC para Maniobras
+            $indiceSC = [];
+            foreach ($auditoriasSC as $auditoria) {
+                $desglose = $auditoria['desglose_conceptos'];
+                $arrPedimento = array_filter($mapaPedimentoAId, function ($datos) use ($auditoria) {
+                    return $datos['id_pedimiento'] == $auditoria['pedimento_id'];
+                });
+
+                if(!empty($arrPedimento)) {
+                    $indiceSC[key($arrPedimento)] = [
+                        'monto_maniobras_sc' => (float) ($desglose['montos']['maniobras'] ?? -1),
+                        'monto_maniobras_sc_mxn' => (float) ($desglose['montos']['maniobras_mxn'] ?? -1),
+                        'tipo_cambio' => (float) ($desglose['tipo_cambio'] ?? 1.0),
+                    ];
+                }
+            }
+
+            $maniobrasParaGuardar = [];
+
+            foreach ($mapaPedimentoAId as $pedimentoLimpio => $pedimentoSucioYId) {
+                
+                $operacionId = $mapaPedimentoAImportacionId[$pedimentoSucioYId['num_pedimiento']] ?? null;
+                $tipoOperacion = Importacion::class;
+
+                if (!$operacionId) {
+                    $operacionId = $mapaPedimentoAExportacionId[$pedimentoSucioYId['num_pedimiento']] ?? null;
+                    $tipoOperacion = Exportacion::class;
+                }
+                if (!$operacionId) {
+                    $tipoOperacion = Pedimento::class;
+                }
+                if (!$operacionId) {
+                    continue;
+                }
+
+                $datosManiobra = $indiceManiobras[$pedimentoLimpio] ?? null;
+                $datosSC = $indiceSC[$pedimentoLimpio] ?? null;
+
+                if (!$datosManiobra) {
+                    continue;
+                }
+
+                if (!$datosSC) {
+                    $datosSC = [
+                        'monto_maniobras_sc' => -1,
+                        'monto_maniobras_sc_mxn' => -1,
+                        'tipo_cambio' => -1,
+                    ];
+                }
+
+                // Reutilizamos tu parseador de XML (CFDI genérico)
+                $datosFacturaXml = $this->parsearXmlFlete($datosManiobra['path_xml_man']) ?? ['total' => -1, 'moneda' => 'N/A'];
+                
+                $montoFacturaMXN = (($datosFacturaXml['moneda'] == "USD" && $datosFacturaXml['total'] != -1) && $datosSC['tipo_cambio'] != -1) 
+                    ? round($datosFacturaXml['total'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) 
+                    : $datosFacturaXml['total'];
+                
+                $montoSCMXN = $datosSC['monto_maniobras_sc_mxn'];
+                
+                $estado = $this->compararMontos_Maniobras($montoSCMXN, $montoFacturaMXN);
+                $diferenciaSc = ($estado !== "Sin SC!" && $estado !== "Sin operacion!") ? round($montoSCMXN - $montoFacturaMXN, 2) : $montoFacturaMXN;
+
+                $maniobrasParaGuardar[] = [
+                    'operacion_id' => $operacionId['id_operacion'],
+                    'pedimento_id' => $pedimentoSucioYId['id_pedimiento'],
+                    'operation_type' => $tipoOperacion,
+                    'tipo_documento' => 'maniobras',
+                    'concepto_llave' => 'principal',
+                    'folio' => $datosManiobra['folio'] ?? null,
+                    'fecha_documento' => now()->format('Y-m-d'),
+                    'monto_total' => $datosFacturaXml['total'],
+                    'monto_total_mxn' => $montoFacturaMXN,
+                    'monto_diferencia_sc' => $diferenciaSc,
+                    'moneda_documento' => $datosFacturaXml['moneda'],
+                    'estado' => $estado,
+                    'ruta_xml' => $datosManiobra['path_xml_man'],
+                    'ruta_pdf' => $datosManiobra['path_pdf_man'],
+                    'ruta_txt' => null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+
+            if (!empty($maniobrasParaGuardar)) {
+                Log::info("Guardando " . count($maniobrasParaGuardar) . " registros de Maniobras...");
+                Auditoria::upsert(
+                    $maniobrasParaGuardar,
+                    ['operacion_id', 'pedimento_id', 'operation_type', 'tipo_documento', 'concepto_llave'],
+                    ['fecha_documento', 'monto_total', 'monto_total_mxn', 'monto_diferencia_sc', 'moneda_documento', 'estado', 'ruta_xml', 'ruta_pdf', 'updated_at']
+                );
+            }
+
+            Log::info("Auditoría de Maniobras finalizada.");
+            return ['code' => 0, 'message' => 'completado'];
+
+        } catch (\Throwable $e) {
+            $tarea->update(['status' => 'fallido', 'resultado' => "Error Maniobras: " . $e->getMessage()]);
+            Log::error("Falló Maniobras en tarea #{$tarea->id}: " . $e->getMessage());
             return ['code' => 1, 'message' => $e];
         }
     }

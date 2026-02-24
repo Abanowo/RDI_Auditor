@@ -158,11 +158,11 @@
         </h1>
 
         <!-- Fila de boton de Exportacion (Archivos) y Subida de Estados de cuenta -->
-        <div class="flex items-center space-x-4">
+        <div class="flex gap-4 w-[500px]">
           <!-- Botón Exportar reporte  -->
           <button
             @click="exportUrl"
-            class="w-64 bg-green-600 text-white text-center font-bold py-4 px-4 rounded-md shadow-sm hover:opacity-90 flex items-center justify-center"
+            class="flex-1 flex items-center justify-center bg-blue-600 text-white font-bold py-2 px-4 rounded"
           >
             <svg
               class="w-8 h-8 mr-4"
@@ -185,7 +185,7 @@
 
           <!-- Botón Subir estados de cuenta  -->
           <button
-            class="w-72 bg-blue-600 text-white font-bold py-4 px-4 rounded-lg shadow hover:opacity-90 flex items-center justify-center"
+            class="flex-1 flex items-center justify-center bg-green-600 text-white font-bold py-2 px-4 rounded"
             @click="isImportModalVisible = true"
           >
             <svg

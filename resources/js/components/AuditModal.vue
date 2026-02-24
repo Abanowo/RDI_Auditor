@@ -2,13 +2,13 @@
   <div
     v-if="show"
     @click.self="close"
-    class="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4"
+    class="fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 transition-opacity"
   >
     <div
-      class="bg-white rounded-lg shadow-2xl w-full max-w-5xl flex flex-col"
+      class="bg-gray-50 rounded-lg shadow-2xl w-11/12 max-w-7xl flex flex-col overflow-hidden relative"
       style="height: 90vh"
     >
-      <div class="flex justify-between items-center p-4 border-b flex-shrink-0">
+      <div class="flex justify-between items-center p-4 border-b bg-white flex-shrink-0">
         <h3 class="text-xl font-bold text-theme-dark">
           Detalle de Auditoría:
           <span class="text-theme-primary"
@@ -24,20 +24,20 @@
             }}</span
           >
         </h3>
-        <button @click="close" class="text-gray-400 hover:text-gray-800 text-3xl">
+        <button @click="close" class="text-gray-400 hover:text-gray-800 text-3xl transition-colors">
           &times;
         </button>
       </div>
 
-      <div class="flex-grow p-6 overflow-y-auto">
-        <div v-if="isScAudit" class="flex flex-col lg:flex-row gap-6">
-          <div class="w-full lg:w-1/2 space-y-4">
-            <div class="bg-gray-50 p-4 rounded-lg">
+      <div class="flex-grow p-4 md:p-6 overflow-y-auto">
+        <div v-if="isScAudit" class="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
+          <div class="lg:col-span-5 flex flex-col space-y-4">
+            <div class="bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
               <p class="text-sm font-medium text-gray-500">Folio Factura SC</p>
               <p class="text-2xl font-semibold text-theme-dark">{{ scMainData.folio }}</p>
             </div>
 
-            <div class="bg-blue-50 p-4 rounded-lg">
+            <div class="bg-blue-50 border border-blue-100 p-4 rounded-lg shadow-sm">
               <p class="text-sm font-medium text-blue-600">Saldo Total</p>
               <p class="text-2xl font-semibold text-blue-800">
                 {{ scMainData.total | currency }}
@@ -46,7 +46,7 @@
                 }}</span>
               </p>
             </div>
-            <div class="bg-green-50 p-4 rounded-lg">
+            <div class="bg-green-50 border border-green-100 p-4 rounded-lg shadow-sm">
               <p class="text-sm font-medium text-green-600">Saldo Total (MXN)</p>
               <p class="text-2xl font-semibold text-green-800">
                 {{ scMainData.total_mxn | currency }}
@@ -54,10 +54,10 @@
               </p>
             </div>
 
-            <div class="border rounded-lg">
+            <div class="border border-gray-200 bg-white rounded-lg shadow-sm mt-2">
               <button
                 @click="isDesgloseVisible = !isDesgloseVisible"
-                class="w-full flex justify-between items-center p-3 font-bold text-left"
+                class="w-full flex justify-between items-center p-3 font-bold text-left hover:bg-gray-50 rounded-t-lg transition-colors"
               >
                 <span>Montos de Facturas - SC</span>
                 <span
@@ -71,15 +71,15 @@
                   <div
                     v-for="item in desgloseMontos"
                     :key="item.nombre"
-                    class="bg-white p-3 rounded shadow"
+                    class="bg-white p-3 rounded border shadow-sm"
                   >
-                    <p class="font-bold text-theme-secondary">{{ item.nombre }}</p>
+                    <p class="font-bold text-theme-secondary text-xs">{{ item.nombre }}</p>
                     <p class="text-sm">
-                      <span class="font-semibold">Monto:</span>
+                      <span class="font-semibold text-xs text-gray-500">Monto:</span>
                       {{ item.monto | currency }}
                     </p>
                     <p class="text-sm">
-                      <span class="font-semibold">Monto MXN:</span>
+                      <span class="font-semibold text-xs text-gray-500">Monto MXN:</span> 
                       {{ item.monto_mxn | currency }}
                     </p>
                   </div>
@@ -87,10 +87,10 @@
               </div>
             </div>
 
-            <div class="border rounded-lg">
+            <div class="border border-gray-200 bg-white rounded-lg shadow-sm">
               <button
                 @click="isFacturasVisible = !isFacturasVisible"
-                class="w-full flex justify-between items-center p-3 font-bold text-left"
+                class="w-full flex justify-between items-center p-3 font-bold text-left hover:bg-gray-50 rounded-t-lg transition-colors"
               >
                 <span>Montos de Facturas - Externas</span>
                 <span
@@ -104,11 +104,11 @@
                   <div
                     v-for="factura in facturasRealesData"
                     :key="factura.nombre"
-                    class="p-3 rounded shadow transition-all"
+                    class="p-3 rounded border shadow-sm transition-all"
                     :class="factura.encontrado ? 'bg-white' : 'bg-gray-200 opacity-70'"
                   >
                     <p
-                      class="font-bold"
+                      class="font-bold text-xs" 
                       :class="
                         factura.encontrado ? 'text-theme-secondary' : 'text-gray-500'
                       "
@@ -116,11 +116,11 @@
                       {{ factura.nombre }}
                     </p>
                     <p class="text-sm">
-                      <span class="font-semibold">Monto:</span>
+                      <span class="font-semibold text-xs text-gray-500">Monto:</span>
                       {{ factura.monto | currency }}
                     </p>
                     <p class="text-sm">
-                      <span class="font-semibold">Monto MXN:</span>
+                      <span class="font-semibold text-xs text-gray-500">Monto MXN:</span> 
                       {{ factura.monto_mxn | currency }}
                     </p>
                   </div>
@@ -128,14 +128,14 @@
               </div>
             </div>
           </div>
-          <div class="w-full lg:w-1/2 border rounded-md min-h-[500px] flex flex-col">
-            <div class="flex justify-evenly items-center my-4">
-              <h4 class="font-bold text-lg">Visor de Documento</h4>
+          <div class="lg:col-span-7 bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col h-full min-h-[500px]">
+            <div class="flex justify-between items-center p-3 border-b bg-gray-50 rounded-t-lg">
+              <h4 class="font-bold text-gray-800 text-lg">Visor de Documento</h4>
               <a
                 :href="documentUrl"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="flex items-center space-x-2 px-3 py-1 text-xs font-semibold text-theme-primary bg-blue-50 hover:bg-blue-100 rounded-full transition"
+                class="flex items-center space-x-2 px-3 py-1 text-xs font-semibold text-theme-primary bg-blue-100 hover:bg-blue-200 rounded-full transition"
               >
                 <span>Abrir en nueva pestaña</span>
                 <svg
@@ -155,146 +155,152 @@
               </a>
             </div>
 
-            <div v-if="isDocumentLoading" class="text-center p-10 text-gray-500">
+            <div v-if="isDocumentLoading" class="text-center p-10 text-gray-500 flex-grow flex items-center justify-center">
               <p>Cargando documento...</p>
             </div>
 
             <!-- ✅ LÓGICA DEL VISOR CORREGIDA -->
-            <div v-else class="flex-grow flex items-center justify-center">
+            <div v-else class="flex-grow relative bg-gray-500 rounded-b-lg overflow-hidden">
               <!-- Caso 1: El documento es un PDF, lo mostramos en el iframe -->
               <iframe
                 v-if="documentType === 'pdf'"
                 :src="documentUrl"
-                class="w-full h-full"
-                style="height: 60vh"
+                class="w-full h-full border-0 absolute inset-0"
               ></iframe>
-
-              <!-- Caso 2: El documento es un XLSX, mostramos el mensaje personalizado -->
               <p
                 v-else-if="documentType === 'xlsx'"
-                class="text-center p-10 text-gray-500"
+                class="text-center p-10 text-white mt-10"
               >
                 No se puede visualizar este formato de estado de cuenta.
               </p>
 
               <!-- Caso 3: Cualquier otro caso (no hay doc, formato desconocido, etc.) -->
-              <p v-else class="text-center p-10 text-gray-500">
+              <p v-else class="text-center p-10 text-white mt-10">
                 No hay un documento para mostrar o el formato no es soportado.
               </p>
             </div>
           </div>
         </div>
 
-        <div v-else class="flex flex-col lg:flex-row gap-6">
-          <div class="w-full lg:w-1/2 space-y-5">
-            <div class="bg-white border p-4 rounded-lg shadow-sm">
-              <h4 class="font-bold text-lg mb-3 text-theme-dark">Datos Generales</h4>
-              <div class="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p class="font-semibold text-gray-500">Fecha de Creación</p>
-                  <p>{{ datosGeneralesFactura.fecha_creacion }}</p>
-                </div>
-                <div>
-                  <p class="font-semibold text-gray-500">Fecha del Documento</p>
-                  <p>{{ datosGeneralesFactura.fecha_documento }}</p>
-                </div>
-                <div>
-                  <p class="font-semibold text-gray-500">Folio</p>
-                  <p>{{ datosGeneralesFactura.folio }}</p>
-                </div>
-                <div>
-                  <p class="font-semibold text-gray-500">Estado</p>
-                  <p :class="getEstadoClass(datosGeneralesFactura.estado)">
-                    {{ datosGeneralesFactura.estado }}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div class="bg-white border p-4 rounded-lg shadow-sm">
-              <div class="flex justify-between items-center mb-3">
-                <h4 class="font-bold text-lg text-theme-dark">Auditoría de Montos</h4>
-                <span
-                  v-if="auditData.sc.tipo_cambio !== 'N/A'"
-                  class="text-xs font-bold text-blue-800 bg-blue-100 px-2 py-1 rounded-full"
-                >
-                  TC: {{ auditData.sc.tipo_cambio }}
-                </span>
-              </div>
-              <div class="flex justify-between gap-4">
-                <div class="flex-1 bg-gray-50 p-3 rounded">
-                  <p class="text-sm font-medium text-gray-500">Monto Factura</p>
-                  <p class="text-xl font-semibold">
-                    {{ montoFactura.original | currency }}
-                    <span class="text-base font-normal">{{ montoFactura.moneda }}</span>
-                  </p>
-                  <p class="text-sm text-gray-500">
-                    ({{ montoFactura.mxn | currency }} MXN)
-                  </p>
-                </div>
-                <div class="flex-1 bg-blue-50 p-3 rounded">
-                  <p class="text-sm font-medium text-blue-600">Monto Esperado en SC</p>
-                  <p class="text-xl font-semibold">
-                    {{ montoEsperadoSc.original | currency }}
-                    <span class="text-base font-normal">{{
-                      montoEsperadoSc.moneda
-                    }}</span>
-                  </p>
-                  <p class="text-sm text-blue-500">
-                    ({{ montoEsperadoSc.mxn | currency }} MXN)
-                  </p>
-                </div>
-                <div class="flex-shrink-0 pt-2">
-                  <div
-                    v-if="montosCoinciden"
-                    class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center"
-                    title="Los montos coinciden"
-                  >
-                    <svg
-                      class="w-6 h-6 text-green-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M5 13l4 4L19 7"
-                      ></path>
-                    </svg>
+        <div v-else class="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
+          <div class="lg:col-span-5 flex flex-col space-y-4">
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+              <div class="bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+                <h4 class="font-bold text-gray-700 mb-3 border-b pb-1">Datos Generales</h4>
+                <div class="space-y-3 text-sm">
+                  <div>
+                    <p class="font-semibold text-xs text-gray-500 uppercase tracking-wide">Fecha de Creación</p>
+                    <p class="text-gray-800">{{ datosGeneralesFactura.fecha_creacion }}</p>
                   </div>
-                  <div
-                    v-else
-                    class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center"
-                    title="Los montos NO coinciden o falta la SC"
+                  <div>
+                    <p class="font-semibold text-xs text-gray-500 uppercase tracking-wide">Fecha del Documento</p>
+                    <p class="text-gray-800">{{ datosGeneralesFactura.fecha_documento }}</p>
+                  </div>
+                  <div>
+                    <p class="font-semibold text-xs text-gray-500 uppercase tracking-wide">Folio</p>
+                    <p class="text-gray-800">{{ datosGeneralesFactura.folio }}</p>
+                  </div>
+                  <div>
+                    <p class="font-semibold text-xs text-gray-500 uppercase tracking-wide">Estado</p>
+                    <p :class="getEstadoClass(datosGeneralesFactura.estado)">
+                      {{ datosGeneralesFactura.estado }}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div class="bg-white border border-gray-200 p-4 rounded-lg shadow-sm relative flex flex-col">
+                <div class="flex justify-between items-center mb-3 border-b pb-1">
+                  <h4 class="font-bold text-gray-700">Auditoría de Montos</h4>
+                  <span
+                  v-if="auditData.sc.tipo_cambio !== 'N/A'"
+                    class="text-xs font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded-full"
                   >
-                    <svg
-                      class="w-6 h-6 text-red-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M6 18L18 6M6 6l12 12"
-                      ></path>
-                    </svg>
+                    TC: {{ auditData.sc.tipo_cambio }}
+                  </span>
+                </div>
+                <div class="flex flex-col space-y-3 flex-grow justify-center">
+                  <div class="bg-gray-50 p-3 rounded border flex justify-between items-center">
+                    <div>
+                      <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Monto Factura</p>
+                      <p class="text-lg font-bold text-gray-800">
+                        {{ montoFactura.original | currency }}
+                        <span class="text-sm font-normal">{{ 
+                          montoFactura.moneda
+                          }}</span>
+                      </p>
+                      <p class="text-xs text-gray-500">
+                        ({{ montoFactura.mxn | currency }} MXN)
+                      </p>
+                    </div>
+                  </div>
+                  <div class="bg-blue-50 border border-blue-100 p-3 rounded flex justify-between items-center relative">
+                    <div>
+                      <p class="text-xs font-semibold text-blue-600 uppercase tracking-wide">Monto Esperado en SC</p>
+                      <p class="text-lg font-bold text-blue-900">
+                        {{ montoEsperadoSc.original | currency }}
+                        <span class="text-sm font-normal">{{
+                          montoEsperadoSc.moneda
+                        }}</span>
+                      </p>
+                      <p class="text-xs text-blue-600">
+                        ({{ montoEsperadoSc.mxn | currency }} MXN)
+                      </p>
+                    </div>
+                    <div class="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <div
+                        v-if="montosCoinciden"
+                        class="w-8 h-8 bg-green-100 border border-green-200 rounded-full flex items-center justify-center shadow-sm"
+                        title="Coinciden"
+                      >
+                        <svg
+                          class="w-5 h-5 text-green-600"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M5 13l4 4L19 7"
+                            ></path>
+                        </svg>
+                      </div>
+                      <div
+                        v-else
+                        class="w-8 h-8 bg-red-100 border border-red-200 rounded-full flex items-center justify-center shadow-sm"
+                        title="No coinciden"
+                      >
+                        <svg
+                          class="w-5 h-5 text-red-600"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M6 18L18 6M6 6l12 12"
+                          ></path>
+                        </svg>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div class="w-full lg:w-1/2 border rounded-md min-h-[500px] flex flex-col">
-            <div class="flex justify-evenly items-center my-4">
-              <h4 class="font-bold text-lg">Visor de Documento</h4>
+          <div
+            class="lg:col-span-7 bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col h-full min-h-[500px]">
+            <div class="flex justify-between items-center p-3 border-b bg-gray-50 rounded-t-lg">
+              <h4 class="font-bold text-gray-800 text-lg">Visor de Documento</h4>
               <a
                 :href="documentUrl"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="flex items-center space-x-2 px-3 py-1 text-xs font-semibold text-theme-primary bg-blue-50 hover:bg-blue-100 rounded-full transition"
+                class="flex items-center space-x-2 px-3 py-1 text-xs font-semibold text-theme-primary bg-blue-100 hover:bg-blue-200 rounded-full transition"
               >
                 <span>Abrir en nueva pestaña</span>
                 <svg
@@ -314,30 +320,30 @@
               </a>
             </div>
 
-            <div v-if="isDocumentLoading" class="text-center p-10 text-gray-500">
+            <div v-if="isDocumentLoading"
+              class="text-center p-10 text-gray-500 flex-grow flex items-center justify-center">
               <p>Cargando documento...</p>
             </div>
 
             <!-- ✅ LÓGICA DEL VISOR CORREGIDA -->
-            <div v-else class="flex-grow flex items-center justify-center">
+            <div v-else class="flex-grow relative bg-gray-500 rounded-b-lg overflow-hidden">
               <!-- Caso 1: El documento es un PDF, lo mostramos en el iframe -->
               <iframe
                 v-if="documentType === 'pdf'"
                 :src="documentUrl"
-                class="w-full h-full"
-                style="height: 60vh"
+                class="w-full h-full border-0 absolute inset-0"
               ></iframe>
 
               <!-- Caso 2: El documento es un XLSX, mostramos el mensaje personalizado -->
               <p
                 v-else-if="documentType === 'xlsx'"
-                class="text-center p-10 text-gray-500"
+                class="text-center p-10 text-white mt-10"
               >
                 No se puede visualizar este formato de estado de cuenta.
               </p>
 
               <!-- Caso 3: Cualquier otro caso (no hay doc, formato desconocido, etc.) -->
-              <p v-else class="text-center p-10 text-gray-500">
+              <p v-else class="text-center p-10 text-white mt-10">
                 No hay un documento para mostrar o el formato no es soportado.
               </p>
             </div>
@@ -345,8 +351,9 @@
         </div>
       </div>
 
-      <div class="p-4 border-t text-right flex-shrink-0">
-        <button @click="close" class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">
+      <div class="p-4 border-t bg-gray-100 text-right flex-shrink-0">
+        <button @click="close"
+          class="px-6 py-2 bg-white border border-gray-300 font-semibold text-gray-700 rounded shadow-sm hover:bg-gray-50 transition-colors">
           Cerrar
         </button>
       </div>
@@ -450,9 +457,9 @@ export default {
 
       return {
         tipo: tipoFactura,
-        original: montos[tipoFactura], // ej: montos['llc']
-        mxn: montos[`${tipoFactura}_mxn`], // ej: montos['llc_mxn']
-        moneda: this.auditData.sc.moneda_original,
+        original: montos[tipoFactura] || -1,
+        mxn: montos[`${tipoFactura}_mxn`] || -1,
+        moneda: this.auditData.sc.moneda_original || this.auditData.sc.desglose_conceptos?.moneda || 'MXN',
       };
     },
 
