@@ -109,6 +109,7 @@ WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents, 
             if ($sc->ruta_pdf) {
                 $pdfSc = '=HYPERLINK("' . $sc->ruta_pdf . '", "Acceder PDF")';
             }
+        }
         // 2. Lógica de asignación por Banco
         if ($this->banco === 'SANTANDER') {
             // Caso Santander: Reconstruimos el monto esperado (Monto Banco + Diferencia)
