@@ -33,63 +33,79 @@ class EnviarReportesAuditoriaMail extends Mailable
         $this->discrepancias = [];
         
         try {
-            // 1. Extraemos los pedimentos que se procesaron en esta tarea
-            $pedimentosProcesados = json_decode($tarea->pedimentos_procesados, true) ?? [];
-
-            if (!empty($pedimentosProcesados)) {
+            // 1. Obtenemos el mapa de vinculación exacto (La misma solución que en Excel)
+            $rutaMapeo = $tarea->mapeo_completo_facturas;
+            
+            if ($rutaMapeo && Storage::exists($rutaMapeo)) {
+                $contenidoJson = Storage::get($rutaMapeo);
+                $mapeadoFacturas = (array) json_decode($contenidoJson, true);
                 
-                // 2. Usamos la relación 'auditorias' directa (más segura y general)
-                $pedimentos = \App\Models\Pedimento::whereIn('num_pedimiento', $pedimentosProcesados)
-                    ->with([
-                        'importacion.auditorias',
-                        'importacion.auditoriasTotalSC',
-                        'exportacion.auditorias',
-                        'exportacion.auditoriasTotalSC'
-                    ])
-                    ->get();
-
-                // 3. Recorremos los pedimentos encontrados
-                foreach ($pedimentos as $pedimento) {
+                // Extraemos los IDs reales de la base de datos
+                $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'] ?? [];
+                
+                if (!empty($mapaPedimentoAId)) {
+                    $idsPedDb = \Illuminate\Support\Arr::pluck($mapaPedimentoAId, 'id_pedimiento');
                     
-                    $operacion = $pedimento->importacion ?? $pedimento->exportacion;
-                    if (!$operacion) continue;
+                    // 2. Buscamos usando los IDs internos, ignorando si el texto está "sucio"
+                    $pedimentos = \App\Models\Pedimento::whereIn('id_pedimiento', $idsPedDb)
+                        ->with([
+                            'importacion.auditorias',
+                            'importacion.auditoriasTotalSC',
+                            'exportacion.auditorias',
+                            'exportacion.auditoriasTotalSC'
+                        ])
+                        ->get();
 
-                    $sc = $operacion->auditoriasTotalSC;
-                    $auditorias = $operacion->auditorias;
-
-                    if (!$auditorias) continue;
-
-                    // Buscamos discrepancias
-                    foreach ($auditorias as $auditoria) {
-                        // Convertimos a minúsculas para evitar problemas de formato
-                        $estadoLower = strtolower($auditoria->estado);
+                    // 3. Recorremos los pedimentos encontrados
+                    foreach ($pedimentos as $pedimento) {
                         
-                        // Validamos ÚNICAMENTE pagos de más o pagos de menos (ignorando acentos)
-                        $esDiscrepancia = str_contains($estadoLower, 'pago de mas') || 
-                                          str_contains($estadoLower, 'pago de más') || 
-                                          str_contains($estadoLower, 'pago de menos');
+                        $operacion = $pedimento->importacion ?? $pedimento->exportacion;
+                        if (!$operacion) {
+                            continue;
+                        }
 
-                        if ($esDiscrepancia) {
-                            $tipo = $auditoria->tipo_documento;
-                            $montoFactura = (float) $auditoria->monto_total_mxn;
-                            $diferencia = (float) $auditoria->monto_diferencia_sc;
+                        $sc = $operacion->auditoriasTotalSC;
+                        $auditorias = $operacion->auditorias;
+
+                        if (!$auditorias) {
+                            continue;
+                        }
+
+                        // Buscamos discrepancias
+                        foreach ($auditorias as $auditoria) {
+                            // Convertimos a minúsculas para evitar problemas de formato
+                            $estadoLower = strtolower($auditoria->estado);
                             
-                            $montoSC = 0;
-                            if ($sc && isset($sc->desglose_conceptos['montos'])) {
-                                $llaveSc = $tipo === 'pago_derecho' ? 'pago_derecho_mxn' : $tipo . '_mxn';
-                                $montoSC = (float) ($sc->desglose_conceptos['montos'][$llaveSc] ?? 0);
-                            } else {
-                                $montoSC = $montoFactura + $diferencia;
-                            }
+                            // Validamos ÚNICAMENTE pagos de más o pagos de menos (ignorando acentos)
+                            $esDiscrepancia = str_contains($estadoLower, 'pago de mas') || 
+                                              str_contains($estadoLower, 'pago de más') || 
+                                              str_contains($estadoLower, 'pago de menos');
 
-                            // Al usar el número de pedimento como llave, evitamos registros duplicados en pantalla
-                            $this->discrepancias[$tipo][$pedimento->num_pedimiento] = [
-                                'pedimento'     => $pedimento->num_pedimiento,
-                                'monto_factura' => $montoFactura,
-                                'monto_sc'      => $montoSC,
-                                'diferencia'    => $diferencia,
-                                'estado'        => $auditoria->estado // Guardamos el estado original
-                            ];
+                            if ($esDiscrepancia) {
+                                $tipo = $auditoria->tipo_documento;
+                                $montoFactura = (float) $auditoria->monto_total_mxn;
+                                $diferencia = (float) $auditoria->monto_diferencia_sc;
+                                
+                                $montoSC = 0;
+                                if ($sc && isset($sc->desglose_conceptos['montos'])) {
+                                    $llaveSc = $tipo === 'pago_derecho' ? 'pago_derecho_mxn' : $tipo . '_mxn';
+                                    $montoSC = (float) ($sc->desglose_conceptos['montos'][$llaveSc] ?? 0);
+                                } else {
+                                    $montoSC = $montoFactura + $diferencia;
+                                }
+
+                                // Extraemos los 7 dígitos para que en el correo se vea bonito y no sucio
+                                preg_match('/\b([4-7]\d{6})\b/', $pedimento->num_pedimiento, $matchPed);
+                                $pedimentoLimpio = $matchPed[1] ?? $pedimento->num_pedimiento;
+
+                                $this->discrepancias[$tipo][$pedimentoLimpio] = [
+                                    'pedimento'     => $pedimentoLimpio,
+                                    'monto_factura' => $montoFactura,
+                                    'monto_sc'      => $montoSC,
+                                    'diferencia'    => $diferencia,
+                                    'estado'        => $auditoria->estado // Guardamos el estado original
+                                ];
+                            }
                         }
                     }
                 }

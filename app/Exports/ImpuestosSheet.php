@@ -79,10 +79,12 @@ WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents, 
         // LÓGICA DE ENCABEZADO DINÁMICO
         // Si es Santander, la última columna se llama "GPC", si no, "PDF SC".
         $headerReferencia = ($this->banco === 'SANTANDER') ? 'GPC' : 'PDF SC';
+        $headerReferencia2 = ($this->banco === 'SANTANDER') ? 'Monto GPC' : 'Monto SC';
+        $headerReferencia3 = ($this->banco === 'SANTANDER') ? 'Monto GPC MXN' : 'Monto SC MXN';
 
         return [
             'Fecha', 'Pedimento', 'Cliente', 'Monto Factura', 'Monto Factura MXN',
-            'Monto SC', 'Monto SC MXN', 'Moneda', 'Folio SC', 'Estado', 'PDF Factura', $headerReferencia
+            $headerReferencia2, $headerReferencia3, 'Moneda', 'Folio SC', 'Estado', 'PDF Factura', $headerReferencia
         ];
     }
 
