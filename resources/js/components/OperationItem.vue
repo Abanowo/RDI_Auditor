@@ -74,17 +74,17 @@
       <!-- Grid de Facturas (6 columnas) -->
       <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
         <!-- Bucle para cada tipo de documento -->
-        <template v-for="(info, tipo) in operacion.status_botones">
+        <div
+          v-for="(info, tipo) in operacion.status_botones" 
+          :key="tipo"
+          class="border rounded-md shadow-sm overflow-hidden flex flex-col bg-white text-[11px]"
+        >
+          <!-- Cabecera de la tarjeta de factura -->
           <div
-            :key="tipo"
-            class="border rounded-md shadow-sm overflow-hidden flex flex-col bg-white text-[11px]"
+            class="p-1 flex justify-between items-center"
+            :class="getCardHeaderBgClass(getFacturaAuditoriaStatusText(tipo, info))"
           >
-            <!-- Cabecera de la tarjeta de factura -->
-            <div
-              class="p-1 flex justify-between items-center"
-              :class="getCardHeaderBgClass(getFacturaAuditoriaStatusText(tipo, info))"
-            >
-              <div class="flex items-center space-x-1 overflow-hidden">
+            <div class="flex items-center space-x-1 overflow-hidden">
                 
                 <button
                   @click="
@@ -133,9 +133,8 @@
               <p v-if="info.datos" class="text-gray-400">
                 {{ info.datos.fecha_documento }}
               </p>
-            </div>
           </div>
-        </template>
+        </div>
       </div>
     </div>
   </div>

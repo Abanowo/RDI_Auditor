@@ -6055,10 +6055,6 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
-//
-//
-//
-//
 
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
   props: {
@@ -76532,169 +76528,158 @@ var render = function () {
             staticClass:
               "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5",
           },
-          [
-            _vm._l(_vm.operacion.status_botones, function (info, tipo) {
-              return [
+          _vm._l(_vm.operacion.status_botones, function (info, tipo) {
+            return _c(
+              "div",
+              {
+                key: tipo,
+                staticClass:
+                  "border rounded-md shadow-sm overflow-hidden flex flex-col bg-white text-[11px]",
+              },
+              [
                 _c(
                   "div",
                   {
-                    key: tipo,
-                    staticClass:
-                      "border rounded-md shadow-sm overflow-hidden flex flex-col bg-white text-[11px]",
+                    staticClass: "p-1 flex justify-between items-center",
+                    class: _vm.getCardHeaderBgClass(
+                      _vm.getFacturaAuditoriaStatusText(tipo, info)
+                    ),
                   },
                   [
                     _c(
                       "div",
                       {
-                        staticClass: "p-1 flex justify-between items-center",
-                        class: _vm.getCardHeaderBgClass(
-                          _vm.getFacturaAuditoriaStatusText(tipo, info)
-                        ),
+                        staticClass:
+                          "flex items-center space-x-1 overflow-hidden",
                       },
                       [
                         _c(
-                          "div",
+                          "button",
                           {
                             staticClass:
-                              "flex items-center space-x-1 overflow-hidden",
+                              "h-8 px-2 rounded text-white font-bold transition-all duration-200 shadow uppercase",
+                            class: _vm.getStatusButtonClass(info.estado),
+                            on: {
+                              click: function ($event) {
+                                return _vm.$emit("open-modal", {
+                                  tipo: tipo,
+                                  info: info,
+                                  operacion: _vm.operacion,
+                                  sc: _vm.operacion.status_botones.sc
+                                    ? _vm.operacion.status_botones.sc.datos
+                                    : null,
+                                })
+                              },
+                            },
                           },
                           [
-                            _c(
-                              "button",
-                              {
-                                staticClass:
-                                  "h-8 px-2 rounded text-white font-bold transition-all duration-200 shadow uppercase",
-                                class: _vm.getStatusButtonClass(info.estado),
-                                on: {
-                                  click: function ($event) {
-                                    return _vm.$emit("open-modal", {
-                                      tipo: tipo,
-                                      info: info,
-                                      operacion: _vm.operacion,
-                                      sc: _vm.operacion.status_botones.sc
-                                        ? _vm.operacion.status_botones.sc.datos
-                                        : null,
-                                    })
-                                  },
-                                },
-                              },
-                              [
-                                _vm._v(
-                                  "\n                " +
-                                    _vm._s(tipo.replace("_", " ")) +
-                                    "\n              "
-                                ),
-                              ]
+                            _vm._v(
+                              "\n                " +
+                                _vm._s(tipo.replace("_", " ")) +
+                                "\n              "
                             ),
-                            _vm._v(" "),
-                            _vm.esManzanillo && tipo === "sc"
-                              ? _c(
-                                  "a",
-                                  {
-                                    staticClass:
-                                      "bg-green-600 hover:bg-green-700 text-white font-bold h-8 px-1.5 rounded flex items-center justify-center shadow transition-colors text-[9px] no-underline",
-                                    attrs: {
-                                      href: "https://docs.google.com/spreadsheets/d/18-5okzV-vw35V0Ugjn5KjNcWgHyZ9Qfc6pf5w4VU-2I",
-                                      target: "_blank",
-                                      title: "Ver GPC",
-                                    },
-                                  },
-                                  [
-                                    _vm._v(
-                                      "\n                GPC\n              "
-                                    ),
-                                  ]
-                                )
-                              : _vm._e(),
                           ]
                         ),
                         _vm._v(" "),
-                        _c(
-                          "p",
-                          {
-                            staticClass:
-                              "font-semibold text-gray-800 truncate ml-1 text-right flex-grow",
-                          },
-                          [
-                            _c(
-                              "span",
+                        _vm.esManzanillo && tipo === "sc"
+                          ? _c(
+                              "a",
                               {
                                 staticClass:
-                                  "font-normal text-gray-500 text-[9px]",
+                                  "bg-green-600 hover:bg-green-700 text-white font-bold h-8 px-1.5 rounded flex items-center justify-center shadow transition-colors text-[9px] no-underline",
+                                attrs: {
+                                  href: "https://docs.google.com/spreadsheets/d/18-5okzV-vw35V0Ugjn5KjNcWgHyZ9Qfc6pf5w4VU-2I",
+                                  target: "_blank",
+                                  title: "Ver GPC",
+                                },
                               },
-                              [_vm._v("Folio:")]
-                            ),
-                            _vm._v(
-                              "\n              " +
-                                _vm._s(
-                                  (info.datos && info.datos.folio) || "N/A"
-                                ) +
-                                "\n            "
-                            ),
-                          ]
-                        ),
+                              [_vm._v("\n                GPC\n              ")]
+                            )
+                          : _vm._e(),
                       ]
                     ),
                     _vm._v(" "),
                     _c(
-                      "div",
+                      "p",
                       {
                         staticClass:
-                          "p-1 flex justify-between items-center flex-grow",
+                          "font-semibold text-gray-800 truncate ml-1 text-right flex-grow",
                       },
                       [
                         _c(
-                          "p",
+                          "span",
                           {
-                            staticClass: "font-bold",
-                            class: _vm.getStatusTextClass(
-                              _vm.getFacturaStatusText(tipo, info)
-                            ),
+                            staticClass: "font-normal text-gray-500 text-[9px]",
                           },
-                          [
-                            _vm._v(
-                              "\n              " +
-                                _vm._s(_vm.getFacturaStatusText(tipo, info)) +
-                                "\n            "
-                            ),
-                          ]
+                          [_vm._v("Folio:")]
                         ),
-                        _vm._v(" "),
-                        tipo !== "sc"
-                          ? _c(
-                              "p",
-                              { class: _vm.getStatusDiferenciaTextClass(info) },
-                              [
-                                _vm._v(
-                                  "\n               " +
-                                    _vm._s(
-                                      _vm.formatCurrency(
-                                        _vm.getFacturaDiferenciaText(info)
-                                      )
-                                    ) +
-                                    "\n            "
-                                ),
-                              ]
-                            )
-                          : _vm._e(),
-                        _vm._v(" "),
-                        info.datos
-                          ? _c("p", { staticClass: "text-gray-400" }, [
-                              _vm._v(
-                                "\n              " +
-                                  _vm._s(info.datos.fecha_documento) +
-                                  "\n            "
-                              ),
-                            ])
-                          : _vm._e(),
+                        _vm._v(
+                          "\n              " +
+                            _vm._s((info.datos && info.datos.folio) || "N/A") +
+                            "\n            "
+                        ),
                       ]
                     ),
                   ]
                 ),
+                _vm._v(" "),
+                _c(
+                  "div",
+                  {
+                    staticClass:
+                      "p-1 flex justify-between items-center flex-grow",
+                  },
+                  [
+                    _c(
+                      "p",
+                      {
+                        staticClass: "font-bold",
+                        class: _vm.getStatusTextClass(
+                          _vm.getFacturaStatusText(tipo, info)
+                        ),
+                      },
+                      [
+                        _vm._v(
+                          "\n              " +
+                            _vm._s(_vm.getFacturaStatusText(tipo, info)) +
+                            "\n            "
+                        ),
+                      ]
+                    ),
+                    _vm._v(" "),
+                    tipo !== "sc"
+                      ? _c(
+                          "p",
+                          { class: _vm.getStatusDiferenciaTextClass(info) },
+                          [
+                            _vm._v(
+                              "\n               " +
+                                _vm._s(
+                                  _vm.formatCurrency(
+                                    _vm.getFacturaDiferenciaText(info)
+                                  )
+                                ) +
+                                "\n            "
+                            ),
+                          ]
+                        )
+                      : _vm._e(),
+                    _vm._v(" "),
+                    info.datos
+                      ? _c("p", { staticClass: "text-gray-400" }, [
+                          _vm._v(
+                            "\n              " +
+                              _vm._s(info.datos.fecha_documento) +
+                              "\n            "
+                          ),
+                        ])
+                      : _vm._e(),
+                  ]
+                ),
               ]
-            }),
-          ],
-          2
+            )
+          }),
+          0
         ),
       ]),
     ]

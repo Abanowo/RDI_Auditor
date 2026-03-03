@@ -64,7 +64,7 @@
                     <thead>
                         <tr style="background-color: #FEE2E2; color: #991B1B;">
                             <th style="padding: 8px; border: 1px solid #FCA5A5;">Pedimento</th>
-                            <th style="padding: 8px; border: 1px solid #FCA5A5; text-align: right;">Monto Factura (MXN)</th>
+                            <th style="padding: 8px; border: 1px solid #FCA5A5; text-align: right;">Estado de cuenta (MXN)</th>
                             <th style="padding: 8px; border: 1px solid #FCA5A5; text-align: right;">Monto SC (MXN)</th>
                             <th style="padding: 8px; border: 1px solid #FCA5A5; text-align: right;">Diferencia</th>
                             <th style="padding: 8px; border: 1px solid #FCA5A5; text-align: center;">Estado</th>

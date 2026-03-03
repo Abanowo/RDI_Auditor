@@ -126,9 +126,43 @@ class EnviarReportesAuditoriaMail extends Mailable
         $rutaReportePrincipal = $this->tarea->ruta_reporte_impuestos;
         $rutaReportePendientes = $this->tarea->ruta_reporte_impuestos_pendientes;
 
-        // Construimos el correo
-        $email = $this->subject('Reporte de Auditoría de Impuestos - ' . $this->tarea->nombre_archivo)
-            ->view('cuerpo_correo_reporte_auditoria'); // Usaremos una vista de Blade para el cuerpo del correo
+        // Validación dinámica del destinatario
+        // Verificamos si existe el usuario ligado a la tarea y tomamos su email
+        if ($this->tarea->user_id && $this->tarea->user) {
+            $destinatario = $this->tarea->user->email;
+        } else {
+            // Correo de respaldo si fue un proceso automático o no hay usuario
+            $destinatario = 'sayda.leyva@intactics.com';
+        }
+
+        $cc = [
+            'sayda.leyva@intactics.com',
+            'felipe.villarreal@intactics.com',
+            'antonio.piedra@intactics.com',
+            'zuzeth.quintero@intactics.com',
+            'irvin.mendivil@intactics.com',
+            'mirna.lopez@intactics.com',
+            'sonia.gomez@intactics.com',
+            'oscar.sandoval@intactics.com'
+        ];
+        $cc = array_unique(array_filter($cc)); // Aseguramos que no haya correos repetidos
+
+        // Construimos el correo asignando remitente (from), destinatario (to), asunto y vista
+        if (app()->environment('production')) {
+            $email = $this
+                ->from('info@intactics.com', 'Intactics')
+                ->to($destinatario)
+                ->cc($cc)
+                ->subject('Reporte de Auditoría de Impuestos - ' . $this->tarea->nombre_archivo)
+                ->view('cuerpo_correo_reporte_auditoria'); // Usaremos una vista de Blade para el cuerpo del correo   
+        } else {
+            $email = $this
+                ->from('info@intactics.com', 'Intactics')
+                ->to($destinatario)
+                //->cc($cc)
+                ->subject('Reporte de Auditoría de Impuestos - ' . $this->tarea->nombre_archivo)
+                ->view('cuerpo_correo_reporte_auditoria'); // Usaremos una vista de Blade para el cuerpo del correo
+        }
 
         // Adjuntamos el primer reporte si existe
         // Verificamos que el archivo exista DENTRO del nuevo disco.

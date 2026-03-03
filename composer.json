@@ -12,6 +12,7 @@
         "doctrine/dbal": "2.*",
         "fideloper/proxy": "^4.2",
         "fruitcake/laravel-cors": "^2.0",
+        "google/apiclient": "2.12.1",
         "guzzlehttp/guzzle": "^7.0.1",
         "initred/laravel-tabula": "^3.0",
         "laravel/framework": "^8.0",
@@ -47,7 +48,8 @@
         "audit": {
             "ignore": {
                 "phpoffice/phpspreadsheet": "*"
-            }
+            },
+            "block-insecure": false
         },
         "optimize-autoloader": true,
         "preferred-install": "dist",

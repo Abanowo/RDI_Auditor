@@ -689,10 +689,6 @@ class AuditoriaImpuestosController extends Controller
     //----------------------------------- INICIO DE LOS COMMANDS - AuditoriaImpuestosController ---------------------------------
     //--------------------------------------------------------------------------------------------------------------
 
-    //--- METODO IMPORTAR IMPUESTOS A AUDITORIAS
-    // Se encarga de leer el estado de cuenta y obtener los Pedimentos, Cargos y fechas de este.
-    // Este metodo sirve de base para iniciar todas las auditorias, debido que de aqui derivan los pedimentos
-    // que se mostraran unicamente para el panel de auditorias, y son exclusivamente de aqui.
     public function importarImpuestosEnAuditorias(string $tareaId)
     {
         gc_collect_cycles();
@@ -718,8 +714,16 @@ class AuditoriaImpuestosController extends Controller
             return ['code' => 1, 'message' => new \Exception("Archivo no encontrado.")];
         }
 
+        // Si el usuario seleccionó "SANTANDER" pero subió un Excel, lo auto-corregimos a "EXTERNO"
+        // para que use el lector de Excel en lugar de intentar leerlo como PDF.
+        $extension = strtolower(pathinfo($rutaPdf, PATHINFO_EXTENSION));
+        if (in_array($extension, ['xls', 'xlsx', 'csv'])) {
+            Log::info("Archivo Excel detectado. Auto-cambiando lector a modo EXTERNO.");
+            $banco = 'EXTERNO'; 
+        }
+
         try {
-            // Un índice de datos usando el pedimento como clave para quedarnos siempre con el ÚLTIMO
+            $tablaDeDatos = [];
             $indiceUnico = [];
             
             if ($banco !== "EXTERNO") {
@@ -764,7 +768,9 @@ class AuditoriaImpuestosController extends Controller
 
                     foreach ($bloques as $bloque) {
                         $fila = preg_replace('/\s+/', ' ', trim($bloque));
-                        if (empty($fila)) continue;
+                        if (empty($fila)) {
+                            continue;
+                        }
 
                         // Buscamos la palabra clave del cargo
                         if (strpos($fila, 'CGO IMPTO') !== false || strpos($fila, 'CGO IMP') !== false) {
@@ -801,7 +807,6 @@ class AuditoriaImpuestosController extends Controller
                             }
 
                             // 3. EXTRACCIÓN MULTIPLE DE PEDIMENTOS (El Fix para 503205410:38)
-                            // En vez de requerir fronteras exactas \b, buscamos de 7 a 11 dígitos juntos.
                             if ($montoFinal > 0 && preg_match_all('/(\d{7,11})/', $fila, $mRefs)) {
                                 foreach ($mRefs[1] as $ref) {
                                     
@@ -813,20 +818,19 @@ class AuditoriaImpuestosController extends Controller
                                         continue;
                                     }
                                     
-                                    // Guardamos en el índice (el último sobreescribe a los anteriores)
-                                    $indiceUnico[$pedIndividual] = [
-                                        'pedimento' => $pedIndividual,
-                                        'fecha_str' => $fechaFinal,
-                                        'cargo_str' => (string)$montoFinal
-                                    ];
+                                    // Seguridad extra: Garantizar que sí sea un pedimento (inicia con 4, 5, 6 o 7)
+                                    if (preg_match('/^[4-7]\d{6}$/', $pedIndividual)) {
+                                        $indiceUnico[$pedIndividual] = [
+                                            'pedimento' => $pedIndividual,
+                                            'fecha_str' => $fechaFinal,
+                                            'cargo_str' => (string)$montoFinal
+                                        ];
+                                    }
                                 }
-                            } else {
-                                Log::warning("Línea detectada en Santander pero sin monto válido o sin pedimento: " . $fila);
                             }
                         }
                     }
                 }
-                
                 // Convertimos el índice de datos únicos a una colección
                 $operacionesLimpias = collect(array_values($indiceUnico));
             } else {
@@ -847,6 +851,30 @@ class AuditoriaImpuestosController extends Controller
 
             if ($operacionesLimpias->isEmpty()) {
                 throw new \Exception("No se encontraron pedimentos.");
+            }
+
+            // Usamos $tarea->banco original para saber si fue Santander
+            if (strtoupper($tarea->banco) === 'SANTANDER') {
+                
+                $impuestosParaEnviar = [];
+                
+                foreach ($operacionesLimpias as $op) {
+                    preg_match('/\b([4-7]\d{6})\b/', $op['pedimento'], $matchPed);
+                    $pedimentoLimpio = $matchPed[1] ?? $op['pedimento'];
+
+                    // Extraemos el monto, aunque para efectos de prueba mandaremos 'HOLA'
+                    $montoLimpio = (float) filter_var(str_replace(',', '', $op['cargo_str']), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+
+                    $impuestosParaEnviar[] = [
+                        'pedimento' => $pedimentoLimpio,
+                        'concepto'  => 'Impuestos',
+                        'monto'     => 'HOLA', // Prueba (luego cambiar a $montoLimpio)
+                        'moneda'    => 'MXN'
+                    ];
+                }
+
+                // Llamamos a nuestro nuevo método unificado
+                $this->enviarDatosAGoogleSheets($impuestosParaEnviar, 'ZLO');
             }
 
             // --- FASE 2: CRUCE CON BASE DE DATOS Y SC ---
@@ -925,7 +953,84 @@ class AuditoriaImpuestosController extends Controller
             return ['code' => 1, 'message' => $e];
         }
     }
+    /**
+     * MÉTODOS DE ESCRITURA EN GOOGLE SHEETS (SIN CREDENCIALES, VÍA WEBHOOK)
+     * Método universal para enviar cualquier concepto (Impuestos, Maniobras, Demoras, etc.)
+     */
+    private function enviarDatosAGoogleSheets(array $datosParaEnviar, string $hoja = 'ZLO')
+    {
+        try {
+            if (empty($datosParaEnviar)) {
+                Log::info("No hay datos para enviar a Google Sheets.");
+                return;
+            }
 
+            Log::info("Iniciando escritura en Google Sheets (Vía Webhook) para " . count($datosParaEnviar) . " registros...");
+
+            $scriptUrl = 'https://script.google.com/macros/s/AKfycbyXbQI3JkBufxYUXsYUUTmIIwJmYWuYDVOrYnV0xSXbTBe7lhNZvTjGBDKPuPoK7x6xpQ/exec'; 
+
+            // Petición POST a tu Google Sheet
+            $response = Http::withoutVerifying()->post($scriptUrl, [
+                'hoja'       => $hoja,
+                'pedimentos' => $datosParaEnviar
+            ]);
+
+            if ($response->successful()) {
+                $cuerpoRespuesta = $response->json();
+                if(isset($cuerpoRespuesta['status']) && $cuerpoRespuesta['status'] === 'error') {
+                    Log::error("Google Sheets Error Interno: " . $cuerpoRespuesta['message']);
+                } else {
+                    Log::info("Google Sheets Éxito: Datos registrados correctamente.");
+                }
+            } else {
+                Log::error("Google Sheets HTTP Error: " . $response->status());
+            }
+
+        } catch (\Throwable $e) {
+            Log::error("Error al enviar datos a Google Sheets (Webhook): " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Parsea un PDF de SSA Marine (Operadora de la Cuenca del Pacifico) 
+     * y extrae el monto TOTAL de la factura.
+     */
+    private function extraerTotalTerminal(string $rutaPdf): ?float
+    {
+        gc_collect_cycles();
+        
+        try {
+            $config = new \Smalot\PdfParser\Config();
+            $config->setRetainImageContent(false);
+            $parser = new \Smalot\PdfParser\Parser([], $config);
+            
+            // Si la ruta viene vacía
+            if (!$rutaPdf || !file_exists($rutaPdf)) {
+                return null;
+            }
+
+            $pdf = $parser->parseFile($rutaPdf);
+            $texto = $pdf->getText();
+
+            if (empty(trim($texto))) {
+                return null;
+            }
+
+            // Expresión Regular para cazar el "TOTAL: $10,070.26"
+            $patron = '/TOTAL\s*:\s*[\$\s]*([\d,]+\.\d{2})/ui';
+
+            if (preg_match($patron, $texto, $coincidencias)) {
+                $montoLimpio = (float) str_replace(',', '', $coincidencias[1]);
+                return $montoLimpio;
+            }
+
+            return null; 
+            
+        } catch (\Throwable $e) {
+            Log::error("Error al extraer Total Terminal en {$rutaPdf}: " . $e->getMessage());
+            return null;
+        }
+    }
     /**
      * Limpia la ruta del PDF para guardar solo el nombre del archivo.
      */
@@ -955,6 +1060,7 @@ class AuditoriaImpuestosController extends Controller
         Log::info("--- [INICIO] Mapeo de facturas para Tarea #{$tarea->id} ---");
 
         try {
+            $rutaMapeo = $tarea->mapeo_completo_facturas;
             $fecha_fin = $tarea->fecha_documento;
             $periodoMeses = $tarea->periodo_meses;
             $fecha_inicio = \Carbon\Carbon::parse($fecha_fin)->subMonths($periodoMeses)->format('Y-m-d');
@@ -1152,6 +1258,7 @@ class AuditoriaImpuestosController extends Controller
             $tarea->update([
                 'mapeo_completo_facturas' => $rutaRelativa
             ]);
+            Storage::delete($rutaMapeo);
             Log::info("Ruta del mapeo guardada en la Tarea #{$tarea->id}.");
 
             Log::info("--- [FIN] Mapeo de facturas completado con éxito. ---");
@@ -2719,7 +2826,7 @@ class AuditoriaImpuestosController extends Controller
                     $indice[$pedimentoLimpio] = $datosLlc;
 
                 } catch (\Throwable $th) {
-                    Log::error("Error procesando TXT de LLC para pedimento {$pedimentoLimpio}: " . $th->getMessage());
+                    /* Log::error("Error procesando TXT de LLC para pedimento {$pedimentoLimpio}: " . $th->getMessage()); */
                 }
             }
         } catch (\Throwable $e) {
@@ -3437,6 +3544,7 @@ class AuditoriaImpuestosController extends Controller
                     ];
                 }
 
+
                 // Reutilizamos tu parseador de XML (CFDI genérico)
                 $datosFacturaXml = $this->parsearXmlFlete($datosManiobra['path_xml_man']) ?? ['total' => -1, 'moneda' => 'N/A'];
                 
@@ -3449,6 +3557,15 @@ class AuditoriaImpuestosController extends Controller
                 $estado = $this->compararMontos_Maniobras($montoSCMXN, $montoFacturaMXN);
                 $diferenciaSc = ($estado !== "Sin SC!" && $estado !== "Sin operacion!") ? round($montoSCMXN - $montoFacturaMXN, 2) : $montoFacturaMXN;
 
+                $totalSsa = $this->extraerTotalTerminal($datosManiobra['path_pdf_man']);
+                if ($totalSsa !== null) {
+                    $maniobrasParaSheets[] = [
+                        'pedimento' => $pedimentoLimpio,
+                        'concepto'  => 'Maniobras en Terminal',
+                        'monto'     => 'HOLA',
+                        'moneda'    => 'MXN'
+                    ];
+                }
                 $maniobrasParaGuardar[] = [
                     'operacion_id' => $operacionId['id_operacion'],
                     'pedimento_id' => $pedimentoSucioYId['id_pedimiento'],
@@ -3469,6 +3586,7 @@ class AuditoriaImpuestosController extends Controller
                     'updated_at' => now(),
                 ];
             }
+            $this->enviarDatosAGoogleSheets($maniobrasParaSheets, 'ZLO');
 
             if (!empty($maniobrasParaGuardar)) {
                 Log::info("Guardando " . count($maniobrasParaGuardar) . " registros de Maniobras...");
