@@ -961,11 +961,10 @@ class AuditoriaImpuestosController extends Controller
     {
         try {
             if (empty($datosParaEnviar)) {
-                Log::info("No hay datos para enviar a Google Sheets.");
                 return;
             }
 
-            Log::info("Iniciando escritura en Google Sheets (Vía Webhook) para " . count($datosParaEnviar) . " registros...");
+            Log::info("Enviando " . count($datosParaEnviar) . " registros a Google Sheets...");
 
             $scriptUrl = 'https://script.google.com/macros/s/AKfycbyXbQI3JkBufxYUXsYUUTmIIwJmYWuYDVOrYnV0xSXbTBe7lhNZvTjGBDKPuPoK7x6xpQ/exec'; 
 
@@ -980,20 +979,21 @@ class AuditoriaImpuestosController extends Controller
                 if(isset($cuerpoRespuesta['status']) && $cuerpoRespuesta['status'] === 'error') {
                     Log::error("Google Sheets Error Interno: " . $cuerpoRespuesta['message']);
                 } else {
-                    Log::info("Google Sheets Éxito: Datos registrados correctamente.");
+                    $debugInfo = isset($cuerpoRespuesta['debug']) ? json_encode($cuerpoRespuesta['debug']) : '';
+                    Log::info("Google Sheets respondió con Éxito. Detalle: " . $debugInfo);
                 }
             } else {
                 Log::error("Google Sheets HTTP Error: " . $response->status());
             }
 
         } catch (\Throwable $e) {
-            Log::error("Error al enviar datos a Google Sheets (Webhook): " . $e->getMessage());
+            Log::error("Error al enviar datos a Google Sheets: " . $e->getMessage());
         }
     }
 
     /**
-     * Parsea un PDF de SSA Marine (Operadora de la Cuenca del Pacifico) 
-     * y extrae el monto TOTAL de la factura.
+     * Parsea un PDF de SSA, OCUPA, FREMAN o CONTECON
+     * y extrae el monto TOTAL de la factura probando múltiples formatos.
      */
     private function extraerTotalTerminal(string $rutaPdf): ?float
     {
@@ -1016,14 +1016,30 @@ class AuditoriaImpuestosController extends Controller
                 return null;
             }
 
-            // Expresión Regular para cazar el "TOTAL: $10,070.26"
-            $patron = '/TOTAL\s*:\s*[\$\s]*([\d,]+\.\d{2})/ui';
+            // --- ARSENAL DE BÚSQUEDA REGEX ---
+            $patrones = [
+                // Formato 1: SSA, OCUPA, FREMAN
+                // Busca "TOTAL" seguido (opcionalmente) de espacios, DOS PUNTOS, símbolo de pesos y el número.
+                // Ej: "TOTAL : $10,070.26" o "TOTAL: 10,070.26"
+                '/TOTAL\s*:\s*[\$\s]*([\d,]+\.\d{2})/ui',
+                
+                // Formato 2: CONTECON
+                // Busca la palabra exacta "Total" (sin dos puntos), seguida de espacios y el número.
+                // Usamos \b para que no se confunda con palabras como "Subtotal".
+                // Ej: "Total 24,368.57" o "Total $ 24,368.57"
+                '/\bTotal\s+[\$\s]*([\d,]+\.\d{2})/ui'
+            ];
 
-            if (preg_match($patron, $texto, $coincidencias)) {
-                $montoLimpio = (float) str_replace(',', '', $coincidencias[1]);
-                return $montoLimpio;
+            // Iteramos sobre los patrones. El primero que encuentre una coincidencia, será el ganador.
+            foreach ($patrones as $patron) {
+                if (preg_match($patron, $texto, $coincidencias)) {
+                    // Quitamos las comas de miles y lo convertimos a flotante (Ej: "24,368.57" -> 24368.57)
+                    $montoLimpio = (float) str_replace(',', '', $coincidencias[1]);
+                    return $montoLimpio;
+                }
             }
 
+            // Si ningún patrón funciona, devolvemos null para que el sistema intente el XML (Plan B)
             return null; 
             
         } catch (\Throwable $e) {
@@ -2335,6 +2351,9 @@ class AuditoriaImpuestosController extends Controller
                 'PAGOS-DE-DERECHOS' => 'pago_derecho',
                 'FACTURA-MUESTRA' => 'muestras',
                 'FACTURA-MANIOBRAS-EN-ALMACEN-FISCALIZADO'=> 'maniobras',
+                'PROVEEDORES' => 'proveedores',
+                'TERMINALES' => 'terminales',
+                'VACIOS' => 'vacios',
             ];
         //$bar = $this->output->createProgressBar($pedimentosOperacion->count());
         //$bar->start();
@@ -2970,9 +2989,22 @@ class AuditoriaImpuestosController extends Controller
      * Parsea un archivo XML de Transportactics y devuelve los datos clave.
      * UTILIZADO EN [auditarFacturasDeFletes()]
      */
-    private function parsearXmlFlete(string $rutaXml): ?array
+/**
+     * Parsea un archivo XML de Transportactics y devuelve los datos clave.
+     * UTILIZADO EN [auditarFacturasDeFletes()]
+     */
+    private function parsearXmlFlete(?string $rutaXml): ?array // <-- Agregamos el ? para aceptar null
     {
         gc_collect_cycles();
+
+        // Si la ruta viene nula o vacía (ej. Proveedores sin XML), salimos rápido
+        if (!$rutaXml) {
+            return 
+                [
+                    'total' => -1,
+                    'moneda' => 'N/A',
+                ];
+        }
 
         try {
             //$arrContextOptions resuelve el siguiente error:
@@ -3218,10 +3250,11 @@ class AuditoriaImpuestosController extends Controller
             unset($texto);
             gc_collect_cycles();
 
-            if ($datos['llave_pago'])
+            if ($datos['llave_pago']){
                 return $datos;
-            else
+            } else {
                 return null;
+            }
         } catch (\Throwable $e) {
             Log::error("Error al parsear el PDF: {$rutaPdf} - " . $e->getMessage());
             unset($config);
@@ -3431,8 +3464,10 @@ class AuditoriaImpuestosController extends Controller
         return ($esperado > $real) ? 'Pago de mas!' : 'Pago de menos!';
     }
 
+
     /**
-     * Lee todos los archivos de Maniobras recientes y crea un mapa [pedimento => rutas].
+     * Lee todos los archivos recientes y crea un mapa [pedimento => rutas].
+     * Busca primero en Proveedores, si no encuentra, busca en Vacíos.
      */
     private function construirIndiceOperacionesManiobras(array $indicesOperacion): array
     {
@@ -3445,18 +3480,42 @@ class AuditoriaImpuestosController extends Controller
                 }
 
                 $coleccionFacturas = collect($datos['facturas']);
+                
+                // OPCIÓN 1: Buscar en PROVEEDORES
                 $facturaManiobra = $coleccionFacturas->first(function ($factura) {
-                    return $factura['tipo_documento'] === 'maniobras' &&
-                           isset($factura['ruta_pdf']) && isset($factura['ruta_xml']);
+                    return $factura['tipo_documento'] === 'proveedores' && isset($factura['ruta_pdf']);
                 });
 
+                // OPCIÓN 2: Si no hay en Proveedores, buscar en TERMINALES
+                if (!$facturaManiobra) {
+                    $facturaManiobra = $coleccionFacturas->first(function ($factura) {
+                        return $factura['tipo_documento'] === 'terminales' && isset($factura['ruta_pdf']);
+                    });
+                }
+
+                // OPCIÓN 3: Si no hay en Proveedores, buscar en VACÍOS
+                if (!$facturaManiobra) {
+                    $facturaManiobra = $coleccionFacturas->first(function ($factura) {
+                        return $factura['tipo_documento'] === 'vacios' && isset($factura['ruta_pdf']);
+                    });
+                }
+
+                // OPCIÓN 4 (Opcional): Si tampoco hay, buscar en el Almacén Fiscalizado (tu regla original)
+                if (!$facturaManiobra) {
+                    $facturaManiobra = $coleccionFacturas->first(function ($factura) {
+                        return $factura['tipo_documento'] === 'maniobras' && isset($factura['ruta_pdf']);
+                    });
+                }
+
+                // Si de plano no existió en ninguno de los 3, nos saltamos el pedimento
                 if (!$facturaManiobra) {
                     continue;
                 }
 
                 $indice[$pedimento] = [
                     'folio' => $facturaManiobra['nombre_base'] ?? 'S/F',
-                    'path_xml_man' => $facturaManiobra['ruta_xml'],
+                    // Si el proveedor o vacío no traen XML, aseguramos que devuelva null para no romper el código
+                    'path_xml_man' => $facturaManiobra['ruta_xml'] ?? null, 
                     'path_pdf_man' => $facturaManiobra['ruta_pdf'],
                 ];
             }
@@ -3466,8 +3525,10 @@ class AuditoriaImpuestosController extends Controller
         return $indice;
     }
 
+
     /**
-     * Se encarga de leer el XML de las Maniobras, obteniendo los montos para cruzarlos con la SC.
+     * Se encarga de leer los archivos de las Maniobras, obteniendo los montos para cruzarlos 
+     * con la SC y enviarlos a Google Sheets.
      */
     public function auditarFacturasDeManiobras(string $tareaId)
     {
@@ -3490,7 +3551,7 @@ class AuditoriaImpuestosController extends Controller
             $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'];
             $indicesOperaciones = $mapeadoFacturas['indices_importacion'] + $mapeadoFacturas['indices_exportacion'];
 
-            // 1. Construir índice de Maniobras
+            // 1. Construir índice de Maniobras buscando en los archivos como las demás facturas
             $indiceManiobras = $this->construirIndiceOperacionesManiobras($indicesOperaciones);
             $auditoriasSC = $mapeadoFacturas['auditorias_sc'];
 
@@ -3512,6 +3573,7 @@ class AuditoriaImpuestosController extends Controller
             }
 
             $maniobrasParaGuardar = [];
+            $maniobrasParaSheets = [];
 
             foreach ($mapaPedimentoAId as $pedimentoLimpio => $pedimentoSucioYId) {
                 
@@ -3544,40 +3606,48 @@ class AuditoriaImpuestosController extends Controller
                     ];
                 }
 
+                // 3. Intentamos extraer el monto del PDF usando la lógica especial de SSA
+                $montoFacturaMXN = $this->extraerTotalTerminal($datosManiobra['path_pdf_man']);
+                $moneda = 'MXN';
 
-                // Reutilizamos tu parseador de XML (CFDI genérico)
-                $datosFacturaXml = $this->parsearXmlFlete($datosManiobra['path_xml_man']) ?? ['total' => -1, 'moneda' => 'N/A'];
-                
-                $montoFacturaMXN = (($datosFacturaXml['moneda'] == "USD" && $datosFacturaXml['total'] != -1) && $datosSC['tipo_cambio'] != -1) 
-                    ? round($datosFacturaXml['total'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) 
-                    : $datosFacturaXml['total'];
-                
+                // Si falló (porque quizás es de otro proveedor), usamos el XML como plan B
+                if ($montoFacturaMXN === null) {
+                    $datosFacturaXml = $this->parsearXmlFlete($datosManiobra['path_xml_man']) ?? ['total' => -1, 'moneda' => 'N/A'];
+                    
+                    $montoFacturaMXN = (($datosFacturaXml['moneda'] == "USD" && $datosFacturaXml['total'] != -1) && $datosSC['tipo_cambio'] != -1) 
+                        ? round($datosFacturaXml['total'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) 
+                        : $datosFacturaXml['total'];
+                    
+                    $moneda = $datosFacturaXml['moneda'];
+                }
+
+                // PREPARAMOS EL DATO PARA GOOGLE SHEETS (SÓLO SI ES SANTANDER)
+                if (strtoupper($tarea->banco) === 'SANTANDER' && $montoFacturaMXN !== -1) {
+                    $maniobrasParaSheets[] = [
+                        'pedimento' => $pedimentoLimpio,
+                        'concepto'  => 'Maniobras en Terminal',
+                        'monto'     => 'HOLA', // $montoFacturaMXN
+                        'moneda'    => 'MXN'
+                    ];
+                }
+
                 $montoSCMXN = $datosSC['monto_maniobras_sc_mxn'];
                 
                 $estado = $this->compararMontos_Maniobras($montoSCMXN, $montoFacturaMXN);
                 $diferenciaSc = ($estado !== "Sin SC!" && $estado !== "Sin operacion!") ? round($montoSCMXN - $montoFacturaMXN, 2) : $montoFacturaMXN;
 
-                $totalSsa = $this->extraerTotalTerminal($datosManiobra['path_pdf_man']);
-                if ($totalSsa !== null) {
-                    $maniobrasParaSheets[] = [
-                        'pedimento' => $pedimentoLimpio,
-                        'concepto'  => 'Maniobras en Terminal',
-                        'monto'     => 'HOLA',
-                        'moneda'    => 'MXN'
-                    ];
-                }
                 $maniobrasParaGuardar[] = [
-                    'operacion_id' => $operacionId['id_operacion'],
+                    'operacion_id' => $operacionId['id_operacion'] ?? $operacionId,
                     'pedimento_id' => $pedimentoSucioYId['id_pedimiento'],
                     'operation_type' => $tipoOperacion,
                     'tipo_documento' => 'maniobras',
                     'concepto_llave' => 'principal',
                     'folio' => $datosManiobra['folio'] ?? null,
                     'fecha_documento' => now()->format('Y-m-d'),
-                    'monto_total' => $datosFacturaXml['total'],
+                    'monto_total' => $montoFacturaMXN,
                     'monto_total_mxn' => $montoFacturaMXN,
                     'monto_diferencia_sc' => $diferenciaSc,
-                    'moneda_documento' => $datosFacturaXml['moneda'],
+                    'moneda_documento' => $moneda,
                     'estado' => $estado,
                     'ruta_xml' => $datosManiobra['path_xml_man'],
                     'ruta_pdf' => $datosManiobra['path_pdf_man'],
@@ -3586,8 +3656,13 @@ class AuditoriaImpuestosController extends Controller
                     'updated_at' => now(),
                 ];
             }
-            $this->enviarDatosAGoogleSheets($maniobrasParaSheets, 'ZLO');
 
+            // 4. LLAMADA AL MENSAJERO UNIVERSAL PARA GOOGLE SHEETS
+            if (!empty($maniobrasParaSheets)) {
+                $this->enviarDatosAGoogleSheets($maniobrasParaSheets, 'ZLO');
+            }
+
+            // 5. GUARDAR RESULTADOS EN BASE DE DATOS LOCAL
             if (!empty($maniobrasParaGuardar)) {
                 Log::info("Guardando " . count($maniobrasParaGuardar) . " registros de Maniobras...");
                 Auditoria::upsert(
