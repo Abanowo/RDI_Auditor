@@ -334,7 +334,7 @@ export default {
       handler(newSucursal) {
         // Verificamos que la nueva sucursal sea válida antes de llamar a la API
         if (newSucursal && newSucursal.id) {
-          console.log(`Sucursal cambiada a: ${newSucursal.nombre}. Buscando tareas...`); // <-- Para depurar
+          /* console.log(`Sucursal cambiada a: ${newSucursal.nombre}. Buscando tareas...`); */ // <-- Para depurar
           this.fetchTareasCompletadas(newSucursal.id);
         } else {
           this.tareasCompletadas = []; // Limpia la lista si no hay sucursal
@@ -416,7 +416,7 @@ export default {
       axios
         .get("/auditoria/tareas-completadas", { params: { sucursal_id: sucursalId } })
         .then((response) => {
-            console.log("respuesta: ", response.data)
+            /* console.log("respuesta: ", response.data) */
           this.tareasCompletadas = response.data;
         })
         .catch((error) => {

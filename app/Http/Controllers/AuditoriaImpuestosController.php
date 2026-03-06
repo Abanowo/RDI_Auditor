@@ -1542,8 +1542,10 @@ class AuditoriaImpuestosController extends Controller
     }
 
 
-    //--- METODO AUDITAR E IMPORTAR FLETES A AUDITORIAS
-    // Se encarga de leer el archivo de TXT de los Fletes, obteniendo los montos y datos generales necesarios para la auditoria
+/**
+     * Reemplaza este método en tu AuditoriaImpuestosController.
+     * Se encarga de leer el archivo de TXT de los Fletes y saltar a "QUESOS Y QUESOS".
+     */
     public function auditarFacturasDeFletes(string $tareaId)
     {
         gc_collect_cycles();
@@ -1555,220 +1557,160 @@ class AuditoriaImpuestosController extends Controller
 
         Log::info('Iniciando la auditoría de Fletes (Transportactics)...');
         try {
-            // --- FASE 1: Construir Índices en Memoria para Búsquedas Rápidas ---
-            //Iniciamos con obtener el mapeo
+            // --- FASE 1: Obtención de Mapeos ---
             $rutaMapeo = $tarea->mapeo_completo_facturas;
             if (!$rutaMapeo || !Storage::exists($rutaMapeo)) {
-                Log::error("No se encontró el archivo de mapeo universal para la tarea #{$tarea->id}.");
-                return ['code' => 1, 'message' => new \Exception("No se encontró el archivo de mapeo universal para la tarea #{$tarea->id}.")];
+                return ['code' => 1, 'message' => new \Exception("No se encontró el archivo de mapeo universal.")];
             }
 
-            //Leemos y decodificamos el archivo JSON completo
             $contenidoJson = Storage::get($rutaMapeo);
             $mapeadoFacturas = (array) json_decode($contenidoJson, true);
 
-            //Leemos los demas campos de la tarea
-            $sucursal = $tarea->sucursal;
             $pedimentosJson = $tarea->pedimentos_procesados;
             $pedimentos = $pedimentosJson ? json_decode($pedimentosJson, true) : [];
 
             if (empty($pedimentos)) {
-                Log::info("Fletes: No hay pedimentos en la Tarea #{$tareaId} para procesar.");
+                Log::info("Fletes: No hay pedimentos para procesar.");
                 return ['code' => 0, 'message' => 'completado'];
             }
-            Log::info("Procesando Facturas de Fletes para Tarea #{$tarea->id} en la sucursal: {$sucursal}");
 
-            //$mapasPedimento - Contienen todos los pedimentos del estado de cuenta, encontrados en Importacion/Exportacion
             $mapaPedimentoAImportacionId = $mapeadoFacturas['pedimentos_importacion'];
             $mapaPedimentoAExportacionId = $mapeadoFacturas['pedimentos_exportacion'];
-
-            //$mapaPedimentoAId - Este arreglo contiene los pedimentos limpios, sucios, y su Id correspondiente
             $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'];
-
-            //$indicesOperaciones - Combina el mapeado de archivos/urls de importacion y exportacion
             $indicesOperaciones = $mapeadoFacturas['indices_importacion'] + $mapeadoFacturas['indices_exportacion'];
 
-            //--- YA UNA VEZ TENIENDO TODO A LA MANO
-            // 3. Construimos el índice de Fletes desde los archivos de importacion y exportacion
+            // Construir índices en memoria para auditoría
             $indiceFletes = $this->construirIndiceOperacionesFletes($indicesOperaciones);
-
-            //Obtenemos el resultado del query de todos los SC de los pedimentos del estado de cuenta.
             $auditoriasSC = $mapeadoFacturas['auditorias_sc'];
 
-            // Aquí es donde extraemos el tipo de cambio del JSON.
             $indiceSC = [];
-
             foreach ($auditoriasSC as $auditoria) {
-
-                // Laravel ya ha convertido el `desglose_conceptos` en un array gracias a la propiedad `$casts`.
                 $desglose = $auditoria['desglose_conceptos'];
                 $arrPedimento = array_filter($mapaPedimentoAId, function ($datosAuditoria) use ($auditoria) {
                     return $datosAuditoria['id_pedimiento'] == $auditoria['pedimento_id'];
                 });
-
-                // Creamos la entrada en nuestro mapa.
-                $indiceSC[key($arrPedimento)] =
-                    [
-                        'monto_flete_sc' => (float) $desglose['montos']['flete'],
-                        'monto_flete_sc_mxn' => (float) $desglose['montos']['flete_mxn'],
-                        'moneda' => $desglose['moneda'],
-                        // Accedemos al tipo de cambio. Usamos el 'null coalescing operator' (??)
-                        // para asignar un valor por defecto (ej. 1) si no se encuentra.
-                        'tipo_cambio' => (float) $desglose['tipo_cambio'] ?? 1.0,
-                    ];
+                $indiceSC[key($arrPedimento)] = [
+                    'monto_flete_sc' => (float) $desglose['montos']['flete'],
+                    'monto_flete_sc_mxn' => (float) $desglose['montos']['flete_mxn'],
+                    'moneda' => $desglose['moneda'],
+                    'tipo_cambio' => (float) ($desglose['tipo_cambio'] ?? 1.0),
+                ];
             }
 
-            Log::info("Iniciando vinculacion de los " . count($mapaPedimentoAId) . " pedimentos.");
-
-            Log::info("Iniciando mapeo para Upsert.");
-
-            //$bar = $this->output->createProgressBar(count($mapaPedimentoAId));
-            //$bar->start();
             $fletesParaGuardar = [];
 
             foreach ($mapaPedimentoAId as $pedimentoLimpio => $pedimentoSucioYId) {
-                // Obtemenos la operacionId por medio del pedimento sucio
-                //Se verifica si la operacion ID esta en Importacion
+                
+                // 1. Identificar la operación y el tipo
                 $operacionId = $mapaPedimentoAImportacionId[$pedimentoSucioYId['num_pedimiento']] ?? null;
                 $tipoOperacion = Importacion::class;
 
-                if (!$operacionId) { //Si no, entonces busca en Exportacion
+                if (!$operacionId) {
                     $operacionId = $mapaPedimentoAExportacionId[$pedimentoSucioYId['num_pedimiento']] ?? null;
                     $tipoOperacion = Exportacion::class;
                 }
 
-                if (!$operacionId) { //Si no esta ni en Importacion o en Exportacion, que lo guarde por pedimento_id
-                    $tipoOperacion = Pedimento::class;
+                if (!$operacionId) continue;
+
+                $queryOp = ($tipoOperacion === Importacion::class) 
+                           ? Importacion::with('cliente') 
+                           : Exportacion::with('cliente');
+                
+                $objOperacion = $queryOp->find($operacionId['id_operacion']);
+
+                if ($objOperacion && $objOperacion->cliente) {
+                    $nombreCliente = strtoupper(trim($objOperacion->cliente->nombre));
+
+                    if (str_contains($nombreCliente, 'QUESOS Y QUESOS')) {
+                        Log::info("Fletes: Pedimento {$pedimentoLimpio} omitido (Cliente: QUESOS Y QUESOS). Limpiando registros previos...");
+
+                        Auditoria::where('pedimento_id', $pedimentoSucioYId['id_pedimiento'])
+                            ->where('tipo_documento', 'flete')
+                            ->delete();
+
+                        continue;
+                    }
                 }
 
-                if (!$operacionId) {
-                    Log::warning("Se omitió la SC del pedimento '{$pedimentoLimpio}' porque no se encontró una operación de importación asociada.");
-                    //$bar->advance();
-                    continue; // Si no hay operación, no podemos guardar la SC
-                }
-
-                // Buscamos en nuestros índices en memoria (búsqueda instantánea)
+                // Buscamos datos en los índices de archivos
                 $datosFlete = $indiceFletes[$pedimentoLimpio] ?? null;
                 $datosSC = $indiceSC[$pedimentoLimpio] ?? null;
 
-                if (!$datosFlete/* || $datosSC['monto_esperado_flete'] == 0 */) {
-                    //$bar->advance();
-                    continue; // Si no tenemos todos los datos, saltamos a la siguiente operación.
+                if (!$datosFlete) {
+                    continue;
                 }
+
                 if (!$datosSC) {
-                    //Aqui es cuando hay LLC pero no existe SC para esta factura.\\
-                    $datosSC =
-                        [
-                            'monto_flete_sc' => -1,
-                            'monto_flete_sc_mxn' => -1,
-                            'tipo_cambio' => -1,
-                            'moneda' => 'N/A',
-                        ];
+                    $datosSC = [
+                        'monto_flete_sc' => -1,
+                        'monto_flete_sc_mxn' => -1,
+                        'tipo_cambio' => -1,
+                        'moneda' => 'N/A',
+                    ];
                 }
-                // --- FASE 3: Procesar los archivos encontrados ---
 
-                //En un futuro donde ya tengas implementadas las sucursals y series, cambia la linea de abajo, tanto de este comando
-                //como el de los demas que sigan esta logica, por esta nueva:
-                // $rutaXmlFlete = config('reportes.rutas.tr_pdf_filepath') . DIRECTORY_SEPARATOR . $operacion->sucursal->serie . $datosFleteTxt['folio'] . '.xml';
+                // Fusionar datos del XML con los datos generales del TXT
+                $datosFlete = array_merge($datosFlete, $this->parsearXmlFlete($datosFlete['path_xml_tr']) ?? ['total' => -1, 'moneda' => 'N/A']);
 
-                //Aqui combino el resultado del txt (datos generales) y el resultado del xml (Total de la factura)
-                $datosFlete = array_merge($datosFlete, $this->parsearXmlFlete($datosFlete['path_xml_tr']) ?? [-1, 'N/A']);
-
-
-
-                $montoFleteMXN = (($datosFlete['moneda'] == "USD" && $datosFlete['total'] != -1) && $datosSC['tipo_cambio'] != -1) ? round($datosFlete['total'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : $datosFlete['total'];
+                $montoFleteMXN = (($datosFlete['moneda'] == "USD" && $datosFlete['total'] != -1) && $datosSC['tipo_cambio'] != -1) 
+                                 ? round($datosFlete['total'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) 
+                                 : $datosFlete['total'];
+                
                 $montoSCMXN = $datosSC['monto_flete_sc_mxn'];
                 $estado = $this->compararMontos_Fletes($montoSCMXN, $montoFleteMXN);
                 $diferenciaSc = ($estado !== "Sin SC!" && $estado !== "Sin operacion!") ? round($montoSCMXN - $montoFleteMXN, 2) : $montoFleteMXN;
 
-                // 1. Limpieza inicial: Quitamos espacios y aseguramos que no sea null
+                // Formateo de fecha
                 $fechaRaw = isset($datosFlete['fecha']) ? trim($datosFlete['fecha']) : null;
-                $fechaFormateada = null;
-
-                // Si la fecha viene como "03/11/2025,03/11/2025", la cortamos.
                 if ($fechaRaw && strpos($fechaRaw, ',') !== false) {
-                    $partes = explode(',', $fechaRaw);
-                    $fechaRaw = trim($partes[0]); // Nos quedamos solo con la primera: "03/11/2025"
+                    $fechaRaw = trim(explode(',', $fechaRaw)[0]);
                 }
 
+                $fechaFormateada = null;
                 if ($fechaRaw) {
                     try {
-                        // 2. Carbon intenta adivinar la fecha de entrada
-                        // 3. Y forzamos la SALIDA al formato: Año-Mes-Día (Y-m-d) para la base de datos
                         $fechaFormateada = \Carbon\Carbon::parse($fechaRaw)->format('Y-m-d');
                     } catch (\Throwable $e) {
-                        // Si falla la inteligencia de Carbon, intentamos un último rescate manual
-                        try {
-                            // Convertimos guiones o puntos en diagonales
-                            $fechaLimpia = str_replace(['-', '.'], '/', $fechaRaw);
-                            $fechaFormateada = \Carbon\Carbon::createFromFormat('d/m/Y', $fechaLimpia)->format('Y-m-d');
-                        } catch (\Throwable $e2) {
-                            Log::error("Fletes: Fecha ilegible '{$fechaRaw}' en pedimento {$pedimentoLimpio}.");
-                            $fechaFormateada = null;
-                        }
+                        $fechaFormateada = null;
                     }
                 }
-                // Añadimos el resultado al array para el upsert masivo
-                $fletesParaGuardar[] =
-                    [
-                        'operacion_id' => $operacionId['id_operacion'],
-                        'pedimento_id' => $pedimentoSucioYId['id_pedimiento'],
-                        'operation_type' => $tipoOperacion,
-                        'tipo_documento' => 'flete',
-                        'concepto_llave' => 'principal',
-                        'folio' => $datosFlete['folio'],
-                        'fecha_documento' => $fechaFormateada,
-                        'monto_total' => $datosFlete['total'],
-                        'monto_total_mxn' => $montoFleteMXN,
-                        'monto_diferencia_sc' => $diferenciaSc,
-                        'moneda_documento' => $datosFlete['moneda'],
-                        'estado' => $estado,
-                        'ruta_xml' => $datosFlete['path_xml_tr'],
-                        'ruta_txt' => $datosFlete['path_txt_tr'],
-                        'ruta_pdf' => $datosFlete['path_pdf_tr'],
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
 
-                //$bar->advance();
+                $fletesParaGuardar[] = [
+                    'operacion_id' => $operacionId['id_operacion'],
+                    'pedimento_id' => $pedimentoSucioYId['id_pedimiento'],
+                    'operation_type' => $tipoOperacion,
+                    'tipo_documento' => 'flete',
+                    'concepto_llave' => 'principal',
+                    'folio' => $datosFlete['folio'],
+                    'fecha_documento' => $fechaFormateada,
+                    'monto_total' => $datosFlete['total'],
+                    'monto_total_mxn' => $montoFleteMXN,
+                    'monto_diferencia_sc' => $diferenciaSc,
+                    'moneda_documento' => $datosFlete['moneda'],
+                    'estado' => $estado,
+                    'ruta_xml' => $datosFlete['path_xml_tr'],
+                    'ruta_txt' => $datosFlete['path_txt_tr'],
+                    'ruta_pdf' => $datosFlete['path_pdf_tr'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
             }
-            //$bar->finish();
 
-            // --- FASE 5: Guardado Masivo en Base de Datos ---
+            // Guardado masivo
             if (!empty($fletesParaGuardar)) {
-                Log::info("\nPaso 3/3: Guardando/Actualizando " . count($fletesParaGuardar) . " registros de fletes...");
                 Auditoria::upsert(
                     $fletesParaGuardar,
-                    ['operacion_id', 'pedimento_id', 'operation_type', 'tipo_documento', 'concepto_llave'], // La llave única correcta
-                    [
-                        'fecha_documento',
-                        'monto_total', // Asegúrate que estos nombres coincidan con tu migración
-                        'monto_total_mxn',
-                        'monto_diferencia_sc',
-                        'moneda_documento',
-                        'estado',
-                        'ruta_xml',
-                        'ruta_txt',
-                        'ruta_pdf',
-                        'updated_at'
-                    ]
+                    ['operacion_id', 'pedimento_id', 'operation_type', 'tipo_documento', 'concepto_llave'],
+                    ['fecha_documento', 'monto_total', 'monto_total_mxn', 'monto_diferencia_sc', 'moneda_documento', 'estado', 'ruta_xml', 'ruta_txt', 'ruta_pdf', 'updated_at']
                 );
-
-                Log::info("¡Guardado con éxito!");
             }
 
-            Log::info("\nAuditoría de Fletes finalizada.");
+            Log::info("Auditoría de Fletes finalizada.");
             return ['code' => 0, 'message' => 'completado'];
         } catch (\Throwable $e) {
-            // 5. Si algo falla, marca la tarea como 'fallido' y guarda el error
-            $tarea->update(
-                [
-                    'status' => 'fallido',
-                    'resultado' => $e->getMessage()
-                ]
-            );
-            Log::error("Falló la tarea #{$tarea->id}: " . $e->getMessage());
-            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage())];
+            $tarea->update(['status' => 'fallido', 'resultado' => $e->getMessage()]);
+            Log::error("Error en Fletes (Tarea #{$tarea->id}): " . $e->getMessage());
+            return ['code' => 1, 'message' => $e];
         }
     }
 
@@ -2268,19 +2210,18 @@ class AuditoriaImpuestosController extends Controller
     public function enviarReportesPorCorreo(string $tareaId)
     {
         try {
-            $destinatario = "carlos.perez@intactics.com";
             // Buscamos la tarea en la base de datos. Si no la encuentra, falla.
             $tarea = AuditoriaTareas::findOrFail($tareaId);
 
-            // Usamos la fachada Mail de Laravel para enviar el correo.
-            // Pasamos la instancia de la tarea a nuestro Mailable.
-            Mail::to($destinatario)->send(new EnviarReportesAuditoriaMail($tarea));
+            // Usamos la fachada Mail de Laravel SIN el "to()".
+            // Al pasarle solo el "send()", Laravel ejecutará la lógica interna de tu clase 
+            // EnviarReportesAuditoriaMail, respetando los destinatarios y las copias (CC).
+            Mail::send(new EnviarReportesAuditoriaMail($tarea));
 
             // Devolvemos una respuesta de éxito.
             return ['code' => 0, 'message' => 'completado'];
         } catch (\Throwable $e) {
-            // Si algo sale mal (ej. el correo no es válido, el archivo no existe, etc.)
-            // registramos el error y devolvemos una respuesta de error.
+            // Si algo sale mal registramos el error y devolvemos una respuesta de error.
             Log::error('Fallo al enviar correo de reporte: ' . $e->getMessage());
             return ['code' => 1, 'message' => new \Exception('No se pudo enviar el correo. Por favor, revisa los logs del sistema.')];
         }
@@ -3512,6 +3453,7 @@ class AuditoriaImpuestosController extends Controller
             }
 
             $maniobrasParaGuardar = [];
+            $maniobrasParaSheets = [];
 
             foreach ($mapaPedimentoAId as $pedimentoLimpio => $pedimentoSucioYId) {
                 

@@ -4113,17 +4113,6 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
 //
 //
 //
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
 
 
 
@@ -4178,7 +4167,9 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     // 3. Preparamos los datos principales de la SC para mostrarlos fácilmente
     scMainData: function scMainData() {
       var _this$auditData$opera, _factura$desglose_con;
-      if (!this.isScAudit) return {};
+      if (!this.isScAudit) {
+        return {};
+      }
       var factura = this.auditData.factura;
       var pedimento = (_this$auditData$opera = this.auditData.operacion) === null || _this$auditData$opera === void 0 ? void 0 : _this$auditData$opera.pedimento;
       var montos = (factura === null || factura === void 0 || (_factura$desglose_con = factura.desglose_conceptos) === null || _factura$desglose_con === void 0 ? void 0 : _factura$desglose_con.montos) || {};
@@ -4209,7 +4200,9 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
      */
     montoFactura: function montoFactura() {
       var _this$auditData3;
-      if (this.isScAudit || !((_this$auditData3 = this.auditData) !== null && _this$auditData3 !== void 0 && _this$auditData3.factura)) return {};
+      if (this.isScAudit || !((_this$auditData3 = this.auditData) !== null && _this$auditData3 !== void 0 && _this$auditData3.factura)) {
+        return {};
+      }
       return {
         original: this.auditData.factura.monto_total,
         mxn: this.auditData.factura.monto_total_mxn,
@@ -4221,15 +4214,19 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
      */
     // Dentro de computed: { ... } en AuditModal.vue
     montoEsperadoSc: function montoEsperadoSc() {
-      var _this$auditData4, _this$auditData$sc$de;
-      if (this.isScAudit || !((_this$auditData4 = this.auditData) !== null && _this$auditData4 !== void 0 && _this$auditData4.sc)) return {};
+      var _this$auditData4;
+      if (this.isScAudit || !((_this$auditData4 = this.auditData) !== null && _this$auditData4 !== void 0 && _this$auditData4.sc)) {
+        return {};
+      }
       var tipoFactura = this.auditData.tipo.replace(/(\s*#\d*)/g, "");
       var montos = this.auditData.sc.montos_esperados;
       return {
         tipo: tipoFactura,
-        original: montos[tipoFactura] || -1,
-        mxn: montos["".concat(tipoFactura, "_mxn")] || -1,
-        moneda: this.auditData.sc.moneda_original || ((_this$auditData$sc$de = this.auditData.sc.desglose_conceptos) === null || _this$auditData$sc$de === void 0 ? void 0 : _this$auditData$sc$de.moneda) || 'MXN'
+        original: montos[tipoFactura],
+        // ej: montos['llc']
+        mxn: montos["".concat(tipoFactura, "_mxn")],
+        // ej: montos['llc_mxn']
+        moneda: this.auditData.sc.moneda_original
       };
     },
     /**
@@ -4246,7 +4243,9 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     // 4. Creamos un array limpio para iterar y mostrar los montos desglosados
     desgloseMontos: function desgloseMontos() {
       var _this$auditData$factu;
-      if (!this.isScAudit) return [];
+      if (!this.isScAudit) {
+        return [];
+      }
       var montos = ((_this$auditData$factu = this.auditData.factura.desglose_conceptos) === null || _this$auditData$factu === void 0 ? void 0 : _this$auditData$factu.montos) || {};
 
       // Lista de conceptos que queremos mostrar en las mini-cartas
@@ -4286,7 +4285,9 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         // Para todos los demás (flete, llc, etc.), que son URLs externas,
         // usamos una nueva ruta 'proxy' para evitar problemas de CORS.
         // Nos aseguramos de que la ruta_pdf exista.
-        if (!factura.ruta_pdf) return null;
+        if (!factura.ruta_pdf) {
+          return null;
+        }
         // Codificamos la URL externa para pasarla de forma segura como un parámetro.
         return "/documentos/proxy?url=".concat(encodeURIComponent(factura.ruta_pdf));
       }
@@ -4297,7 +4298,9 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     facturasRealesData: function facturasRealesData() {
       var _this$auditData$opera2,
         _this = this;
-      if (!this.isScAudit) return [];
+      if (!this.isScAudit) {
+        return [];
+      }
       var statusBotones = ((_this$auditData$opera2 = this.auditData.operacion) === null || _this$auditData$opera2 === void 0 ? void 0 : _this$auditData$opera2.status_botones) || {};
       var resultado = [];
       var conceptos = ["impuestos", "flete", "llc", "pago_derecho", "maniobras", "muestras", "termo", "rojos"];
@@ -4336,7 +4339,6 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     }
   },
   watch: {
-    // <-- AÑADE TODA ESTA SECCIÓN
     /**
      * Observa si la URL del PDF cambia.
      * Si cambia, activamos el estado de carga.
@@ -4412,7 +4414,9 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       this.isFacturasVisible = false; // Reseteamos también el nuevo desplegable
     },
     capitalize: function capitalize(s) {
-      if (typeof s !== "string") return "";
+      if (typeof s !== "string") {
+        return "";
+      }
       return s.charAt(0).toUpperCase() + s.slice(1);
     },
     /**
@@ -4967,12 +4971,16 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
       return this.selectedSucursal && this.selectedOperationType;
     },
     finalFilters: function finalFilters() {
-      console.log("--- SE ESTÁ CALCULANDO finalFilters ---");
+      /* console.log("--- SE ESTÁ CALCULANDO finalFilters ---"); */
 
       // Usamos JSON.stringify para obtener una "foto" del estado en este instante
-      console.log("El valor de this.activeFilters es:", JSON.parse(JSON.stringify(this.activeFilters)));
+      /* console.log(
+        "El valor de this.activeFilters es:",
+        JSON.parse(JSON.stringify(this.activeFilters))
+      ); */
+
       if (!this.selectionComplete) {
-        console.log("selectionComplete es false, devolviendo objeto vacío.");
+        /* console.log("selectionComplete es false, devolviendo objeto vacío."); */
         return {};
       }
 
@@ -4987,8 +4995,10 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
         //Cambio por Filtro botones
         baseFilters.estado = this.buttonStatusFilter;
       }
-      console.log("Resultado final de finalFilters:", JSON.parse(JSON.stringify(baseFilters)));
-      console.log("--------------------------------------");
+
+      /* console.log("Resultado final de finalFilters:", JSON.parse(JSON.stringify(baseFilters)));
+      console.log("--------------------------------------"); */
+
       return baseFilters;
     }
   },
@@ -5079,8 +5089,9 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
       // Tomamos los filtros activos y los convertimos a un query string
       var params = new URLSearchParams(this.finalFilters).toString();
       var urlParams = new URLSearchParams(window.location.search).toString();
-      console.log(params);
-      console.log(urlParams);
+
+      /* console.log(params);
+      console.log(urlParams); */
       var finalParams = params;
       window.open("/auditoria/exportar?".concat(finalParams), "_blank");
     },
@@ -5147,8 +5158,9 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
         // 3. Actualizamos la URL con TODOS los filtros unificados
         var params = new URLSearchParams(_this5.finalFilters);
         window.history.pushState({}, "", "?".concat(params.toString()));
-        console.log(_this5.selectedSucursal);
-        console.log(_this5.selectedOperationType);
+
+        /* console.log(this.selectedSucursal);
+        console.log(this.selectedOperationType); */
         // 4. Llamamos a la API
         _this5.fetchClientes();
         _this5.fetchOperaciones(1);
@@ -5184,7 +5196,8 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
       var scData = payload && payload.sc;
       var desglose = scData && scData.desglose_conceptos;
       var montos = desglose && desglose.montos;
-      console.log("Abriendo modal con:", payload);
+
+      /* console.log("Abriendo modal con:", payload); */
 
       // Estructuramos los datos que el modal necesita
       this.modalAuditData = {
@@ -5265,11 +5278,12 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
           _this6.auditCounts = newCounts;
           _this6.auditTotalCount.total = response.data.meta.conteos.total;
         }
-        console.log("Response: ", response);
+
+        /* console.log("Response: ", response);
         console.log("Response.data: ", response.data);
         console.log("Response.data.links: ", response.data.links);
         console.log("Response.data.meta.conteos: ", response.data.meta.conteos);
-        console.log("auditCounts: ", _this6.auditCounts);
+        console.log("auditCounts: ", this.auditCounts); */
         // Esta parte es crucial y ahora funcionará correctamente
         var activeLink = response === null || response === void 0 || (_response$data = response.data) === null || _response$data === void 0 || (_response$data = _response$data.links) === null || _response$data === void 0 ? void 0 : _response$data.find(function (link) {
           return link.active;
@@ -5668,7 +5682,7 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
       handler: function handler(newSucursal) {
         // Verificamos que la nueva sucursal sea válida antes de llamar a la API
         if (newSucursal && newSucursal.id) {
-          console.log("Sucursal cambiada a: ".concat(newSucursal.nombre, ". Buscando tareas...")); // <-- Para depurar
+          /* console.log(`Sucursal cambiada a: ${newSucursal.nombre}. Buscando tareas...`); */ // <-- Para depurar
           this.fetchTareasCompletadas(newSucursal.id);
         } else {
           this.tareasCompletadas = []; // Limpia la lista si no hay sucursal
@@ -5747,7 +5761,7 @@ function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e 
           sucursal_id: sucursalId
         }
       }).then(function (response) {
-        console.log("respuesta: ", response.data);
+        /* console.log("respuesta: ", response.data) */
         _this2.tareasCompletadas = response.data;
       })["catch"](function (error) {
         console.error("Error al obtener tareas completadas:", error);
@@ -5916,6 +5930,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
+//
+//
+//
 //
 //
 //
@@ -73369,7 +73386,7 @@ var render = function () {
         "div",
         {
           staticClass:
-            "fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4 transition-opacity",
+            "fixed inset-0 bg-black bg-opacity-60 z-50 flex justify-center items-center p-4",
           on: {
             click: function ($event) {
               if ($event.target !== $event.currentTarget) {
@@ -73384,7 +73401,7 @@ var render = function () {
             "div",
             {
               staticClass:
-                "bg-gray-50 rounded-lg shadow-2xl w-11/12 max-w-7xl flex flex-col overflow-hidden relative",
+                "bg-white rounded-lg shadow-2xl w-full max-w-7xl flex flex-col",
               staticStyle: { height: "90vh" },
             },
             [
@@ -73392,7 +73409,7 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "flex justify-between items-center p-4 border-b bg-white flex-shrink-0",
+                    "flex justify-between items-center p-4 border-b flex-shrink-0",
                 },
                 [
                   _c(
@@ -73421,8 +73438,7 @@ var render = function () {
                   _c(
                     "button",
                     {
-                      staticClass:
-                        "text-gray-400 hover:text-gray-800 text-3xl transition-colors",
+                      staticClass: "text-gray-400 hover:text-gray-800 text-3xl",
                       on: { click: _vm.close },
                     },
                     [_vm._v("\n        ×\n      ")]
@@ -73430,1146 +73446,1033 @@ var render = function () {
                 ]
               ),
               _vm._v(" "),
-              _c(
-                "div",
-                { staticClass: "flex-grow p-4 md:p-6 overflow-y-auto" },
-                [
-                  _vm.isScAudit
-                    ? _c(
-                        "div",
-                        {
-                          staticClass:
-                            "grid grid-cols-1 lg:grid-cols-12 gap-6 h-full",
-                        },
-                        [
-                          _c(
-                            "div",
-                            {
-                              staticClass:
-                                "lg:col-span-5 flex flex-col space-y-4",
-                            },
-                            [
+              _c("div", { staticClass: "flex-grow p-6 overflow-y-auto" }, [
+                _vm.isScAudit
+                  ? _c(
+                      "div",
+                      { staticClass: "flex flex-col lg:flex-row gap-6" },
+                      [
+                        _c(
+                          "div",
+                          { staticClass: "w-full lg:w-1/2 space-y-4" },
+                          [
+                            _c(
+                              "div",
+                              {
+                                staticClass:
+                                  "grid grid-cols-1 md:grid-cols-3 gap-4",
+                              },
+                              [
+                                _c(
+                                  "div",
+                                  { staticClass: "bg-gray-50 p-4 rounded-lg" },
+                                  [
+                                    _c(
+                                      "p",
+                                      {
+                                        staticClass:
+                                          "text-sm font-medium text-gray-500",
+                                      },
+                                      [_vm._v("Folio Factura SC")]
+                                    ),
+                                    _vm._v(" "),
+                                    _c(
+                                      "p",
+                                      {
+                                        staticClass:
+                                          "text-2xl font-semibold text-theme-dark truncate",
+                                        attrs: { title: _vm.scMainData.folio },
+                                      },
+                                      [_vm._v(_vm._s(_vm.scMainData.folio))]
+                                    ),
+                                  ]
+                                ),
+                                _vm._v(" "),
+                                _c(
+                                  "div",
+                                  { staticClass: "bg-blue-50 p-4 rounded-lg" },
+                                  [
+                                    _c(
+                                      "p",
+                                      {
+                                        staticClass:
+                                          "text-sm font-medium text-blue-600",
+                                      },
+                                      [_vm._v("Saldo Total")]
+                                    ),
+                                    _vm._v(" "),
+                                    _c(
+                                      "p",
+                                      {
+                                        staticClass:
+                                          "text-2xl font-semibold text-blue-800",
+                                      },
+                                      [
+                                        _vm._v(
+                                          "\n                " +
+                                            _vm._s(
+                                              _vm._f("currency")(
+                                                _vm.scMainData.total
+                                              )
+                                            ) +
+                                            "\n                "
+                                        ),
+                                        _c(
+                                          "span",
+                                          {
+                                            staticClass:
+                                              "text-base font-normal",
+                                          },
+                                          [
+                                            _vm._v(
+                                              _vm._s(
+                                                _vm.auditData.factura
+                                                  .desglose_conceptos.moneda
+                                              )
+                                            ),
+                                          ]
+                                        ),
+                                      ]
+                                    ),
+                                  ]
+                                ),
+                                _vm._v(" "),
+                                _c(
+                                  "div",
+                                  { staticClass: "bg-green-50 p-4 rounded-lg" },
+                                  [
+                                    _c(
+                                      "p",
+                                      {
+                                        staticClass:
+                                          "text-sm font-medium text-green-600",
+                                      },
+                                      [_vm._v("Saldo Total (MXN)")]
+                                    ),
+                                    _vm._v(" "),
+                                    _c(
+                                      "p",
+                                      {
+                                        staticClass:
+                                          "text-2xl font-semibold text-green-800",
+                                      },
+                                      [
+                                        _vm._v(
+                                          "\n                " +
+                                            _vm._s(
+                                              _vm._f("currency")(
+                                                _vm.scMainData.total_mxn
+                                              )
+                                            ) +
+                                            "\n                "
+                                        ),
+                                        _c(
+                                          "span",
+                                          {
+                                            staticClass:
+                                              "text-base font-normal",
+                                          },
+                                          [_vm._v("MXN")]
+                                        ),
+                                      ]
+                                    ),
+                                  ]
+                                ),
+                              ]
+                            ),
+                            _vm._v(" "),
+                            _c("div", { staticClass: "border rounded-lg" }, [
                               _c(
-                                "div",
+                                "button",
                                 {
                                   staticClass:
-                                    "bg-white border border-gray-200 p-4 rounded-lg shadow-sm",
+                                    "w-full flex justify-between items-center p-3 font-bold text-left",
+                                  on: {
+                                    click: function ($event) {
+                                      _vm.isDesgloseVisible =
+                                        !_vm.isDesgloseVisible
+                                    },
+                                  },
                                 },
                                 [
-                                  _c(
-                                    "p",
-                                    {
-                                      staticClass:
-                                        "text-sm font-medium text-gray-500",
-                                    },
-                                    [_vm._v("Folio Factura SC")]
-                                  ),
+                                  _c("span", [
+                                    _vm._v("Montos de Facturas - SC"),
+                                  ]),
                                   _vm._v(" "),
                                   _c(
-                                    "p",
+                                    "span",
                                     {
                                       staticClass:
-                                        "text-2xl font-semibold text-theme-dark",
+                                        "transition-transform duration-300",
+                                      class: {
+                                        "transform rotate-180":
+                                          _vm.isDesgloseVisible,
+                                      },
                                     },
-                                    [_vm._v(_vm._s(_vm.scMainData.folio))]
+                                    [_vm._v("▼")]
                                   ),
                                 ]
                               ),
                               _vm._v(" "),
+                              _vm.isDesgloseVisible
+                                ? _c(
+                                    "div",
+                                    { staticClass: "p-4 border-t bg-gray-50" },
+                                    [
+                                      _c(
+                                        "div",
+                                        {
+                                          staticClass: "grid grid-cols-2 gap-3",
+                                        },
+                                        _vm._l(
+                                          _vm.desgloseMontos,
+                                          function (item) {
+                                            return _c(
+                                              "div",
+                                              {
+                                                key: item.nombre,
+                                                staticClass:
+                                                  "bg-white p-3 rounded shadow",
+                                              },
+                                              [
+                                                _c(
+                                                  "p",
+                                                  {
+                                                    staticClass:
+                                                      "font-bold text-theme-secondary",
+                                                  },
+                                                  [_vm._v(_vm._s(item.nombre))]
+                                                ),
+                                                _vm._v(" "),
+                                                _c(
+                                                  "p",
+                                                  { staticClass: "text-sm" },
+                                                  [
+                                                    _c(
+                                                      "span",
+                                                      {
+                                                        staticClass:
+                                                          "font-semibold",
+                                                      },
+                                                      [_vm._v("Monto:")]
+                                                    ),
+                                                    _vm._v(
+                                                      "\n                    " +
+                                                        _vm._s(
+                                                          _vm._f("currency")(
+                                                            item.monto
+                                                          )
+                                                        ) +
+                                                        "\n                  "
+                                                    ),
+                                                  ]
+                                                ),
+                                                _vm._v(" "),
+                                                _c(
+                                                  "p",
+                                                  { staticClass: "text-sm" },
+                                                  [
+                                                    _c(
+                                                      "span",
+                                                      {
+                                                        staticClass:
+                                                          "font-semibold",
+                                                      },
+                                                      [_vm._v("Monto MXN:")]
+                                                    ),
+                                                    _vm._v(
+                                                      "\n                    " +
+                                                        _vm._s(
+                                                          _vm._f("currency")(
+                                                            item.monto_mxn
+                                                          )
+                                                        ) +
+                                                        "\n                  "
+                                                    ),
+                                                  ]
+                                                ),
+                                              ]
+                                            )
+                                          }
+                                        ),
+                                        0
+                                      ),
+                                    ]
+                                  )
+                                : _vm._e(),
+                            ]),
+                            _vm._v(" "),
+                            _c("div", { staticClass: "border rounded-lg" }, [
                               _c(
-                                "div",
+                                "button",
                                 {
                                   staticClass:
-                                    "bg-blue-50 border border-blue-100 p-4 rounded-lg shadow-sm",
+                                    "w-full flex justify-between items-center p-3 font-bold text-left",
+                                  on: {
+                                    click: function ($event) {
+                                      _vm.isFacturasVisible =
+                                        !_vm.isFacturasVisible
+                                    },
+                                  },
                                 },
                                 [
-                                  _c(
-                                    "p",
-                                    {
-                                      staticClass:
-                                        "text-sm font-medium text-blue-600",
-                                    },
-                                    [_vm._v("Saldo Total")]
-                                  ),
+                                  _c("span", [
+                                    _vm._v("Montos de Facturas - Externas"),
+                                  ]),
                                   _vm._v(" "),
                                   _c(
-                                    "p",
+                                    "span",
                                     {
                                       staticClass:
-                                        "text-2xl font-semibold text-blue-800",
+                                        "transition-transform duration-300",
+                                      class: {
+                                        "transform rotate-180":
+                                          _vm.isFacturasVisible,
+                                      },
                                     },
+                                    [_vm._v("▼")]
+                                  ),
+                                ]
+                              ),
+                              _vm._v(" "),
+                              _vm.isFacturasVisible
+                                ? _c(
+                                    "div",
+                                    { staticClass: "p-4 border-t bg-gray-50" },
                                     [
-                                      _vm._v(
-                                        "\n              " +
-                                          _vm._s(
-                                            _vm._f("currency")(
-                                              _vm.scMainData.total
-                                            )
-                                          ) +
-                                          "\n              "
-                                      ),
                                       _c(
-                                        "span",
+                                        "div",
                                         {
-                                          staticClass: "text-base font-normal",
+                                          staticClass: "grid grid-cols-2 gap-3",
+                                        },
+                                        _vm._l(
+                                          _vm.facturasRealesData,
+                                          function (factura) {
+                                            return _c(
+                                              "div",
+                                              {
+                                                key: factura.nombre,
+                                                staticClass:
+                                                  "p-3 rounded shadow transition-all",
+                                                class: factura.encontrado
+                                                  ? "bg-white"
+                                                  : "bg-gray-200 opacity-70",
+                                              },
+                                              [
+                                                _c(
+                                                  "p",
+                                                  {
+                                                    staticClass: "font-bold",
+                                                    class: factura.encontrado
+                                                      ? "text-theme-secondary"
+                                                      : "text-gray-500",
+                                                  },
+                                                  [
+                                                    _vm._v(
+                                                      "\n                    " +
+                                                        _vm._s(factura.nombre) +
+                                                        "\n                  "
+                                                    ),
+                                                  ]
+                                                ),
+                                                _vm._v(" "),
+                                                _c(
+                                                  "p",
+                                                  { staticClass: "text-sm" },
+                                                  [
+                                                    _c(
+                                                      "span",
+                                                      {
+                                                        staticClass:
+                                                          "font-semibold",
+                                                      },
+                                                      [_vm._v("Monto:")]
+                                                    ),
+                                                    _vm._v(
+                                                      "\n                    " +
+                                                        _vm._s(
+                                                          _vm._f("currency")(
+                                                            factura.monto
+                                                          )
+                                                        ) +
+                                                        "\n                  "
+                                                    ),
+                                                  ]
+                                                ),
+                                                _vm._v(" "),
+                                                _c(
+                                                  "p",
+                                                  { staticClass: "text-sm" },
+                                                  [
+                                                    _c(
+                                                      "span",
+                                                      {
+                                                        staticClass:
+                                                          "font-semibold",
+                                                      },
+                                                      [_vm._v("Monto MXN:")]
+                                                    ),
+                                                    _vm._v(
+                                                      "\n                    " +
+                                                        _vm._s(
+                                                          _vm._f("currency")(
+                                                            factura.monto_mxn
+                                                          )
+                                                        ) +
+                                                        "\n                  "
+                                                    ),
+                                                  ]
+                                                ),
+                                              ]
+                                            )
+                                          }
+                                        ),
+                                        0
+                                      ),
+                                    ]
+                                  )
+                                : _vm._e(),
+                            ]),
+                          ]
+                        ),
+                        _vm._v(" "),
+                        _c(
+                          "div",
+                          {
+                            staticClass:
+                              "w-full lg:w-1/2 border rounded-md min-h-[500px] flex flex-col",
+                          },
+                          [
+                            _c(
+                              "div",
+                              {
+                                staticClass:
+                                  "flex justify-evenly items-center my-4",
+                              },
+                              [
+                                _c("h4", { staticClass: "font-bold text-lg" }, [
+                                  _vm._v("Visor de Documento"),
+                                ]),
+                                _vm._v(" "),
+                                _c(
+                                  "a",
+                                  {
+                                    staticClass:
+                                      "flex items-center space-x-2 px-3 py-1 text-xs font-semibold text-theme-primary bg-blue-50 hover:bg-blue-100 rounded-full transition",
+                                    attrs: {
+                                      href: _vm.documentUrl,
+                                      target: "_blank",
+                                      rel: "noopener noreferrer",
+                                    },
+                                  },
+                                  [
+                                    _c("span", [
+                                      _vm._v("Abrir en nueva pestaña"),
+                                    ]),
+                                    _vm._v(" "),
+                                    _c(
+                                      "svg",
+                                      {
+                                        staticClass: "h-4 w-4",
+                                        attrs: {
+                                          xmlns: "http://www.w3.org/2000/svg",
+                                          fill: "none",
+                                          viewBox: "0 0 24 24",
+                                          stroke: "currentColor",
+                                        },
+                                      },
+                                      [
+                                        _c("path", {
+                                          attrs: {
+                                            "stroke-linecap": "round",
+                                            "stroke-linejoin": "round",
+                                            "stroke-width": "2",
+                                            d: "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14",
+                                          },
+                                        }),
+                                      ]
+                                    ),
+                                  ]
+                                ),
+                              ]
+                            ),
+                            _vm._v(" "),
+                            _vm.isDocumentLoading
+                              ? _c(
+                                  "div",
+                                  {
+                                    staticClass:
+                                      "text-center p-10 text-gray-500",
+                                  },
+                                  [_c("p", [_vm._v("Cargando documento...")])]
+                                )
+                              : _c(
+                                  "div",
+                                  {
+                                    staticClass:
+                                      "flex-grow flex items-center justify-center",
+                                  },
+                                  [
+                                    _vm.documentType === "pdf"
+                                      ? _c("iframe", {
+                                          staticClass: "w-full h-full",
+                                          staticStyle: { height: "60vh" },
+                                          attrs: { src: _vm.documentUrl },
+                                        })
+                                      : _vm.documentType === "xlsx"
+                                      ? _c(
+                                          "p",
+                                          {
+                                            staticClass:
+                                              "text-center p-10 text-gray-500",
+                                          },
+                                          [
+                                            _vm._v(
+                                              "\n              No se puede visualizar este formato de estado de cuenta.\n            "
+                                            ),
+                                          ]
+                                        )
+                                      : _c(
+                                          "p",
+                                          {
+                                            staticClass:
+                                              "text-center p-10 text-gray-500",
+                                          },
+                                          [
+                                            _vm._v(
+                                              "\n              No hay un documento para mostrar o el formato no es soportado.\n            "
+                                            ),
+                                          ]
+                                        ),
+                                  ]
+                                ),
+                          ]
+                        ),
+                      ]
+                    )
+                  : _c(
+                      "div",
+                      { staticClass: "flex flex-col lg:flex-row gap-6" },
+                      [
+                        _c(
+                          "div",
+                          { staticClass: "w-full lg:w-1/2 space-y-5" },
+                          [
+                            _c(
+                              "div",
+                              {
+                                staticClass:
+                                  "bg-white border p-4 rounded-lg shadow-sm",
+                              },
+                              [
+                                _c(
+                                  "h4",
+                                  {
+                                    staticClass:
+                                      "font-bold text-lg mb-3 text-theme-dark",
+                                  },
+                                  [_vm._v("Datos Generales")]
+                                ),
+                                _vm._v(" "),
+                                _c(
+                                  "div",
+                                  {
+                                    staticClass:
+                                      "grid grid-cols-2 gap-4 text-sm",
+                                  },
+                                  [
+                                    _c("div", [
+                                      _c(
+                                        "p",
+                                        {
+                                          staticClass:
+                                            "font-semibold text-gray-500",
+                                        },
+                                        [_vm._v("Fecha de Creación")]
+                                      ),
+                                      _vm._v(" "),
+                                      _c("p", [
+                                        _vm._v(
+                                          _vm._s(
+                                            _vm.datosGeneralesFactura
+                                              .fecha_creacion
+                                          )
+                                        ),
+                                      ]),
+                                    ]),
+                                    _vm._v(" "),
+                                    _c("div", [
+                                      _c(
+                                        "p",
+                                        {
+                                          staticClass:
+                                            "font-semibold text-gray-500",
+                                        },
+                                        [_vm._v("Fecha del Documento")]
+                                      ),
+                                      _vm._v(" "),
+                                      _c("p", [
+                                        _vm._v(
+                                          _vm._s(
+                                            _vm.datosGeneralesFactura
+                                              .fecha_documento
+                                          )
+                                        ),
+                                      ]),
+                                    ]),
+                                    _vm._v(" "),
+                                    _c("div", [
+                                      _c(
+                                        "p",
+                                        {
+                                          staticClass:
+                                            "font-semibold text-gray-500",
+                                        },
+                                        [_vm._v("Folio")]
+                                      ),
+                                      _vm._v(" "),
+                                      _c("p", [
+                                        _vm._v(
+                                          _vm._s(
+                                            _vm.datosGeneralesFactura.folio
+                                          )
+                                        ),
+                                      ]),
+                                    ]),
+                                    _vm._v(" "),
+                                    _c("div", [
+                                      _c(
+                                        "p",
+                                        {
+                                          staticClass:
+                                            "font-semibold text-gray-500",
+                                        },
+                                        [_vm._v("Estado")]
+                                      ),
+                                      _vm._v(" "),
+                                      _c(
+                                        "p",
+                                        {
+                                          class: _vm.getEstadoClass(
+                                            _vm.datosGeneralesFactura.estado
+                                          ),
                                         },
                                         [
                                           _vm._v(
-                                            _vm._s(
-                                              _vm.auditData.factura
-                                                .desglose_conceptos.moneda
-                                            )
+                                            "\n                  " +
+                                              _vm._s(
+                                                _vm.datosGeneralesFactura.estado
+                                              ) +
+                                              "\n                "
                                           ),
                                         ]
                                       ),
-                                    ]
-                                  ),
-                                ]
-                              ),
-                              _vm._v(" "),
-                              _c(
-                                "div",
-                                {
-                                  staticClass:
-                                    "bg-green-50 border border-green-100 p-4 rounded-lg shadow-sm",
-                                },
-                                [
-                                  _c(
-                                    "p",
-                                    {
-                                      staticClass:
-                                        "text-sm font-medium text-green-600",
-                                    },
-                                    [_vm._v("Saldo Total (MXN)")]
-                                  ),
-                                  _vm._v(" "),
-                                  _c(
-                                    "p",
-                                    {
-                                      staticClass:
-                                        "text-2xl font-semibold text-green-800",
-                                    },
-                                    [
-                                      _vm._v(
-                                        "\n              " +
-                                          _vm._s(
-                                            _vm._f("currency")(
-                                              _vm.scMainData.total_mxn
-                                            )
-                                          ) +
-                                          "\n              "
-                                      ),
-                                      _c(
-                                        "span",
-                                        {
-                                          staticClass: "text-base font-normal",
-                                        },
-                                        [_vm._v("MXN")]
-                                      ),
-                                    ]
-                                  ),
-                                ]
-                              ),
-                              _vm._v(" "),
-                              _c(
-                                "div",
-                                {
-                                  staticClass:
-                                    "border border-gray-200 bg-white rounded-lg shadow-sm mt-2",
-                                },
-                                [
-                                  _c(
-                                    "button",
-                                    {
-                                      staticClass:
-                                        "w-full flex justify-between items-center p-3 font-bold text-left hover:bg-gray-50 rounded-t-lg transition-colors",
-                                      on: {
-                                        click: function ($event) {
-                                          _vm.isDesgloseVisible =
-                                            !_vm.isDesgloseVisible
-                                        },
+                                    ]),
+                                  ]
+                                ),
+                              ]
+                            ),
+                            _vm._v(" "),
+                            _c(
+                              "div",
+                              {
+                                staticClass:
+                                  "bg-white border p-4 rounded-lg shadow-sm",
+                              },
+                              [
+                                _c(
+                                  "div",
+                                  {
+                                    staticClass:
+                                      "flex justify-between items-center mb-3",
+                                  },
+                                  [
+                                    _c(
+                                      "h4",
+                                      {
+                                        staticClass:
+                                          "font-bold text-lg text-theme-dark",
                                       },
-                                    },
-                                    [
-                                      _c("span", [
-                                        _vm._v("Montos de Facturas - SC"),
-                                      ]),
-                                      _vm._v(" "),
-                                      _c(
-                                        "span",
-                                        {
-                                          staticClass:
-                                            "transition-transform duration-300",
-                                          class: {
-                                            "transform rotate-180":
-                                              _vm.isDesgloseVisible,
-                                          },
-                                        },
-                                        [_vm._v("▼")]
-                                      ),
-                                    ]
-                                  ),
-                                  _vm._v(" "),
-                                  _vm.isDesgloseVisible
-                                    ? _c(
-                                        "div",
-                                        {
-                                          staticClass:
-                                            "p-4 border-t bg-gray-50",
-                                        },
-                                        [
-                                          _c(
-                                            "div",
-                                            {
-                                              staticClass:
-                                                "grid grid-cols-2 gap-3",
-                                            },
-                                            _vm._l(
-                                              _vm.desgloseMontos,
-                                              function (item) {
-                                                return _c(
-                                                  "div",
-                                                  {
-                                                    key: item.nombre,
-                                                    staticClass:
-                                                      "bg-white p-3 rounded border shadow-sm",
-                                                  },
-                                                  [
-                                                    _c(
-                                                      "p",
-                                                      {
-                                                        staticClass:
-                                                          "font-bold text-theme-secondary text-xs",
-                                                      },
-                                                      [
-                                                        _vm._v(
-                                                          _vm._s(item.nombre)
-                                                        ),
-                                                      ]
-                                                    ),
-                                                    _vm._v(" "),
-                                                    _c(
-                                                      "p",
-                                                      {
-                                                        staticClass: "text-sm",
-                                                      },
-                                                      [
-                                                        _c(
-                                                          "span",
-                                                          {
-                                                            staticClass:
-                                                              "font-semibold text-xs text-gray-500",
-                                                          },
-                                                          [_vm._v("Monto:")]
-                                                        ),
-                                                        _vm._v(
-                                                          "\n                    " +
-                                                            _vm._s(
-                                                              _vm._f(
-                                                                "currency"
-                                                              )(item.monto)
-                                                            ) +
-                                                            "\n                  "
-                                                        ),
-                                                      ]
-                                                    ),
-                                                    _vm._v(" "),
-                                                    _c(
-                                                      "p",
-                                                      {
-                                                        staticClass: "text-sm",
-                                                      },
-                                                      [
-                                                        _c(
-                                                          "span",
-                                                          {
-                                                            staticClass:
-                                                              "font-semibold text-xs text-gray-500",
-                                                          },
-                                                          [_vm._v("Monto MXN:")]
-                                                        ),
-                                                        _vm._v(
-                                                          " \n                    " +
-                                                            _vm._s(
-                                                              _vm._f(
-                                                                "currency"
-                                                              )(item.monto_mxn)
-                                                            ) +
-                                                            "\n                  "
-                                                        ),
-                                                      ]
-                                                    ),
-                                                  ]
-                                                )
-                                              }
-                                            ),
-                                            0
-                                          ),
-                                        ]
-                                      )
-                                    : _vm._e(),
-                                ]
-                              ),
-                              _vm._v(" "),
-                              _c(
-                                "div",
-                                {
-                                  staticClass:
-                                    "border border-gray-200 bg-white rounded-lg shadow-sm",
-                                },
-                                [
-                                  _c(
-                                    "button",
-                                    {
-                                      staticClass:
-                                        "w-full flex justify-between items-center p-3 font-bold text-left hover:bg-gray-50 rounded-t-lg transition-colors",
-                                      on: {
-                                        click: function ($event) {
-                                          _vm.isFacturasVisible =
-                                            !_vm.isFacturasVisible
-                                        },
-                                      },
-                                    },
-                                    [
-                                      _c("span", [
-                                        _vm._v("Montos de Facturas - Externas"),
-                                      ]),
-                                      _vm._v(" "),
-                                      _c(
-                                        "span",
-                                        {
-                                          staticClass:
-                                            "transition-transform duration-300",
-                                          class: {
-                                            "transform rotate-180":
-                                              _vm.isFacturasVisible,
-                                          },
-                                        },
-                                        [_vm._v("▼")]
-                                      ),
-                                    ]
-                                  ),
-                                  _vm._v(" "),
-                                  _vm.isFacturasVisible
-                                    ? _c(
-                                        "div",
-                                        {
-                                          staticClass:
-                                            "p-4 border-t bg-gray-50",
-                                        },
-                                        [
-                                          _c(
-                                            "div",
-                                            {
-                                              staticClass:
-                                                "grid grid-cols-2 gap-3",
-                                            },
-                                            _vm._l(
-                                              _vm.facturasRealesData,
-                                              function (factura) {
-                                                return _c(
-                                                  "div",
-                                                  {
-                                                    key: factura.nombre,
-                                                    staticClass:
-                                                      "p-3 rounded border shadow-sm transition-all",
-                                                    class: factura.encontrado
-                                                      ? "bg-white"
-                                                      : "bg-gray-200 opacity-70",
-                                                  },
-                                                  [
-                                                    _c(
-                                                      "p",
-                                                      {
-                                                        staticClass:
-                                                          "font-bold text-xs",
-                                                        class:
-                                                          factura.encontrado
-                                                            ? "text-theme-secondary"
-                                                            : "text-gray-500",
-                                                      },
-                                                      [
-                                                        _vm._v(
-                                                          "\n                    " +
-                                                            _vm._s(
-                                                              factura.nombre
-                                                            ) +
-                                                            "\n                  "
-                                                        ),
-                                                      ]
-                                                    ),
-                                                    _vm._v(" "),
-                                                    _c(
-                                                      "p",
-                                                      {
-                                                        staticClass: "text-sm",
-                                                      },
-                                                      [
-                                                        _c(
-                                                          "span",
-                                                          {
-                                                            staticClass:
-                                                              "font-semibold text-xs text-gray-500",
-                                                          },
-                                                          [_vm._v("Monto:")]
-                                                        ),
-                                                        _vm._v(
-                                                          "\n                    " +
-                                                            _vm._s(
-                                                              _vm._f(
-                                                                "currency"
-                                                              )(factura.monto)
-                                                            ) +
-                                                            "\n                  "
-                                                        ),
-                                                      ]
-                                                    ),
-                                                    _vm._v(" "),
-                                                    _c(
-                                                      "p",
-                                                      {
-                                                        staticClass: "text-sm",
-                                                      },
-                                                      [
-                                                        _c(
-                                                          "span",
-                                                          {
-                                                            staticClass:
-                                                              "font-semibold text-xs text-gray-500",
-                                                          },
-                                                          [_vm._v("Monto MXN:")]
-                                                        ),
-                                                        _vm._v(
-                                                          " \n                    " +
-                                                            _vm._s(
-                                                              _vm._f(
-                                                                "currency"
-                                                              )(
-                                                                factura.monto_mxn
-                                                              )
-                                                            ) +
-                                                            "\n                  "
-                                                        ),
-                                                      ]
-                                                    ),
-                                                  ]
-                                                )
-                                              }
-                                            ),
-                                            0
-                                          ),
-                                        ]
-                                      )
-                                    : _vm._e(),
-                                ]
-                              ),
-                            ]
-                          ),
-                          _vm._v(" "),
-                          _c(
-                            "div",
-                            {
-                              staticClass:
-                                "lg:col-span-7 bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col h-full min-h-[500px]",
-                            },
-                            [
-                              _c(
-                                "div",
-                                {
-                                  staticClass:
-                                    "flex justify-between items-center p-3 border-b bg-gray-50 rounded-t-lg",
-                                },
-                                [
-                                  _c(
-                                    "h4",
-                                    {
-                                      staticClass:
-                                        "font-bold text-gray-800 text-lg",
-                                    },
-                                    [_vm._v("Visor de Documento")]
-                                  ),
-                                  _vm._v(" "),
-                                  _c(
-                                    "a",
-                                    {
-                                      staticClass:
-                                        "flex items-center space-x-2 px-3 py-1 text-xs font-semibold text-theme-primary bg-blue-100 hover:bg-blue-200 rounded-full transition",
-                                      attrs: {
-                                        href: _vm.documentUrl,
-                                        target: "_blank",
-                                        rel: "noopener noreferrer",
-                                      },
-                                    },
-                                    [
-                                      _c("span", [
-                                        _vm._v("Abrir en nueva pestaña"),
-                                      ]),
-                                      _vm._v(" "),
-                                      _c(
-                                        "svg",
-                                        {
-                                          staticClass: "h-4 w-4",
-                                          attrs: {
-                                            xmlns: "http://www.w3.org/2000/svg",
-                                            fill: "none",
-                                            viewBox: "0 0 24 24",
-                                            stroke: "currentColor",
-                                          },
-                                        },
-                                        [
-                                          _c("path", {
-                                            attrs: {
-                                              "stroke-linecap": "round",
-                                              "stroke-linejoin": "round",
-                                              "stroke-width": "2",
-                                              d: "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14",
-                                            },
-                                          }),
-                                        ]
-                                      ),
-                                    ]
-                                  ),
-                                ]
-                              ),
-                              _vm._v(" "),
-                              _vm.isDocumentLoading
-                                ? _c(
-                                    "div",
-                                    {
-                                      staticClass:
-                                        "text-center p-10 text-gray-500 flex-grow flex items-center justify-center",
-                                    },
-                                    [_c("p", [_vm._v("Cargando documento...")])]
-                                  )
-                                : _c(
-                                    "div",
-                                    {
-                                      staticClass:
-                                        "flex-grow relative bg-gray-500 rounded-b-lg overflow-hidden",
-                                    },
-                                    [
-                                      _vm.documentType === "pdf"
-                                        ? _c("iframe", {
+                                      [_vm._v("Auditoría de Montos")]
+                                    ),
+                                    _vm._v(" "),
+                                    _vm.auditData.sc.tipo_cambio !== "N/A"
+                                      ? _c(
+                                          "span",
+                                          {
                                             staticClass:
-                                              "w-full h-full border-0 absolute inset-0",
-                                            attrs: { src: _vm.documentUrl },
-                                          })
-                                        : _vm.documentType === "xlsx"
-                                        ? _c(
-                                            "p",
-                                            {
-                                              staticClass:
-                                                "text-center p-10 text-white mt-10",
-                                            },
-                                            [
-                                              _vm._v(
-                                                "\n              No se puede visualizar este formato de estado de cuenta.\n            "
-                                              ),
-                                            ]
-                                          )
-                                        : _c(
-                                            "p",
-                                            {
-                                              staticClass:
-                                                "text-center p-10 text-white mt-10",
-                                            },
-                                            [
-                                              _vm._v(
-                                                "\n              No hay un documento para mostrar o el formato no es soportado.\n            "
-                                              ),
-                                            ]
-                                          ),
-                                    ]
-                                  ),
-                            ]
-                          ),
-                        ]
-                      )
-                    : _c(
-                        "div",
-                        {
-                          staticClass:
-                            "grid grid-cols-1 lg:grid-cols-12 gap-6 h-full",
-                        },
-                        [
-                          _c(
-                            "div",
-                            {
-                              staticClass:
-                                "lg:col-span-5 flex flex-col space-y-4",
-                            },
-                            [
-                              _c(
-                                "div",
-                                {
-                                  staticClass:
-                                    "grid grid-cols-1 xl:grid-cols-2 gap-4",
-                                },
-                                [
-                                  _c(
-                                    "div",
-                                    {
-                                      staticClass:
-                                        "bg-white border border-gray-200 p-4 rounded-lg shadow-sm",
-                                    },
-                                    [
-                                      _c(
-                                        "h4",
-                                        {
-                                          staticClass:
-                                            "font-bold text-gray-700 mb-3 border-b pb-1",
-                                        },
-                                        [_vm._v("Datos Generales")]
-                                      ),
-                                      _vm._v(" "),
-                                      _c(
-                                        "div",
-                                        { staticClass: "space-y-3 text-sm" },
-                                        [
-                                          _c("div", [
-                                            _c(
-                                              "p",
-                                              {
-                                                staticClass:
-                                                  "font-semibold text-xs text-gray-500 uppercase tracking-wide",
-                                              },
-                                              [_vm._v("Fecha de Creación")]
-                                            ),
-                                            _vm._v(" "),
-                                            _c(
-                                              "p",
-                                              { staticClass: "text-gray-800" },
-                                              [
-                                                _vm._v(
-                                                  _vm._s(
-                                                    _vm.datosGeneralesFactura
-                                                      .fecha_creacion
-                                                  )
-                                                ),
-                                              ]
-                                            ),
-                                          ]),
-                                          _vm._v(" "),
-                                          _c("div", [
-                                            _c(
-                                              "p",
-                                              {
-                                                staticClass:
-                                                  "font-semibold text-xs text-gray-500 uppercase tracking-wide",
-                                              },
-                                              [_vm._v("Fecha del Documento")]
-                                            ),
-                                            _vm._v(" "),
-                                            _c(
-                                              "p",
-                                              { staticClass: "text-gray-800" },
-                                              [
-                                                _vm._v(
-                                                  _vm._s(
-                                                    _vm.datosGeneralesFactura
-                                                      .fecha_documento
-                                                  )
-                                                ),
-                                              ]
-                                            ),
-                                          ]),
-                                          _vm._v(" "),
-                                          _c("div", [
-                                            _c(
-                                              "p",
-                                              {
-                                                staticClass:
-                                                  "font-semibold text-xs text-gray-500 uppercase tracking-wide",
-                                              },
-                                              [_vm._v("Folio")]
-                                            ),
-                                            _vm._v(" "),
-                                            _c(
-                                              "p",
-                                              { staticClass: "text-gray-800" },
-                                              [
-                                                _vm._v(
-                                                  _vm._s(
-                                                    _vm.datosGeneralesFactura
-                                                      .folio
-                                                  )
-                                                ),
-                                              ]
-                                            ),
-                                          ]),
-                                          _vm._v(" "),
-                                          _c("div", [
-                                            _c(
-                                              "p",
-                                              {
-                                                staticClass:
-                                                  "font-semibold text-xs text-gray-500 uppercase tracking-wide",
-                                              },
-                                              [_vm._v("Estado")]
-                                            ),
-                                            _vm._v(" "),
-                                            _c(
-                                              "p",
-                                              {
-                                                class: _vm.getEstadoClass(
-                                                  _vm.datosGeneralesFactura
-                                                    .estado
-                                                ),
-                                              },
-                                              [
-                                                _vm._v(
-                                                  "\n                    " +
-                                                    _vm._s(
-                                                      _vm.datosGeneralesFactura
-                                                        .estado
-                                                    ) +
-                                                    "\n                  "
-                                                ),
-                                              ]
-                                            ),
-                                          ]),
-                                        ]
-                                      ),
-                                    ]
-                                  ),
-                                  _vm._v(" "),
-                                  _c(
-                                    "div",
-                                    {
-                                      staticClass:
-                                        "bg-white border border-gray-200 p-4 rounded-lg shadow-sm relative flex flex-col",
-                                    },
-                                    [
-                                      _c(
-                                        "div",
-                                        {
-                                          staticClass:
-                                            "flex justify-between items-center mb-3 border-b pb-1",
-                                        },
-                                        [
-                                          _c(
-                                            "h4",
-                                            {
-                                              staticClass:
-                                                "font-bold text-gray-700",
-                                            },
-                                            [_vm._v("Auditoría de Montos")]
-                                          ),
-                                          _vm._v(" "),
-                                          _vm.auditData.sc.tipo_cambio !== "N/A"
-                                            ? _c(
-                                                "span",
-                                                {
-                                                  staticClass:
-                                                    "text-xs font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded-full",
-                                                },
-                                                [
-                                                  _vm._v(
-                                                    "\n                  TC: " +
-                                                      _vm._s(
-                                                        _vm.auditData.sc
-                                                          .tipo_cambio
-                                                      ) +
-                                                      "\n                "
-                                                  ),
-                                                ]
-                                              )
-                                            : _vm._e(),
-                                        ]
-                                      ),
-                                      _vm._v(" "),
-                                      _c(
-                                        "div",
-                                        {
-                                          staticClass:
-                                            "flex flex-col space-y-3 flex-grow justify-center",
-                                        },
-                                        [
-                                          _c(
-                                            "div",
-                                            {
-                                              staticClass:
-                                                "bg-gray-50 p-3 rounded border flex justify-between items-center",
-                                            },
-                                            [
-                                              _c("div", [
-                                                _c(
-                                                  "p",
-                                                  {
-                                                    staticClass:
-                                                      "text-xs font-semibold text-gray-500 uppercase tracking-wide",
-                                                  },
-                                                  [_vm._v("Monto Factura")]
-                                                ),
-                                                _vm._v(" "),
-                                                _c(
-                                                  "p",
-                                                  {
-                                                    staticClass:
-                                                      "text-lg font-bold text-gray-800",
-                                                  },
-                                                  [
-                                                    _vm._v(
-                                                      "\n                      " +
-                                                        _vm._s(
-                                                          _vm._f("currency")(
-                                                            _vm.montoFactura
-                                                              .original
-                                                          )
-                                                        ) +
-                                                        "\n                      "
-                                                    ),
-                                                    _c(
-                                                      "span",
-                                                      {
-                                                        staticClass:
-                                                          "text-sm font-normal",
-                                                      },
-                                                      [
-                                                        _vm._v(
-                                                          _vm._s(
-                                                            _vm.montoFactura
-                                                              .moneda
-                                                          )
-                                                        ),
-                                                      ]
-                                                    ),
-                                                  ]
-                                                ),
-                                                _vm._v(" "),
-                                                _c(
-                                                  "p",
-                                                  {
-                                                    staticClass:
-                                                      "text-xs text-gray-500",
-                                                  },
-                                                  [
-                                                    _vm._v(
-                                                      "\n                      (" +
-                                                        _vm._s(
-                                                          _vm._f("currency")(
-                                                            _vm.montoFactura.mxn
-                                                          )
-                                                        ) +
-                                                        " MXN)\n                    "
-                                                    ),
-                                                  ]
-                                                ),
-                                              ]),
-                                            ]
-                                          ),
-                                          _vm._v(" "),
-                                          _c(
-                                            "div",
-                                            {
-                                              staticClass:
-                                                "bg-blue-50 border border-blue-100 p-3 rounded flex justify-between items-center relative",
-                                            },
-                                            [
-                                              _c("div", [
-                                                _c(
-                                                  "p",
-                                                  {
-                                                    staticClass:
-                                                      "text-xs font-semibold text-blue-600 uppercase tracking-wide",
-                                                  },
-                                                  [
-                                                    _vm._v(
-                                                      "Monto Esperado en SC"
-                                                    ),
-                                                  ]
-                                                ),
-                                                _vm._v(" "),
-                                                _c(
-                                                  "p",
-                                                  {
-                                                    staticClass:
-                                                      "text-lg font-bold text-blue-900",
-                                                  },
-                                                  [
-                                                    _vm._v(
-                                                      "\n                      " +
-                                                        _vm._s(
-                                                          _vm._f("currency")(
-                                                            _vm.montoEsperadoSc
-                                                              .original
-                                                          )
-                                                        ) +
-                                                        "\n                      "
-                                                    ),
-                                                    _c(
-                                                      "span",
-                                                      {
-                                                        staticClass:
-                                                          "text-sm font-normal",
-                                                      },
-                                                      [
-                                                        _vm._v(
-                                                          _vm._s(
-                                                            _vm.montoEsperadoSc
-                                                              .moneda
-                                                          )
-                                                        ),
-                                                      ]
-                                                    ),
-                                                  ]
-                                                ),
-                                                _vm._v(" "),
-                                                _c(
-                                                  "p",
-                                                  {
-                                                    staticClass:
-                                                      "text-xs text-blue-600",
-                                                  },
-                                                  [
-                                                    _vm._v(
-                                                      "\n                      (" +
-                                                        _vm._s(
-                                                          _vm._f("currency")(
-                                                            _vm.montoEsperadoSc
-                                                              .mxn
-                                                          )
-                                                        ) +
-                                                        " MXN)\n                    "
-                                                    ),
-                                                  ]
-                                                ),
-                                              ]),
-                                              _vm._v(" "),
-                                              _c(
-                                                "div",
-                                                {
-                                                  staticClass:
-                                                    "absolute right-3 top-1/2 transform -translate-y-1/2",
-                                                },
-                                                [
-                                                  _vm.montosCoinciden
-                                                    ? _c(
-                                                        "div",
-                                                        {
-                                                          staticClass:
-                                                            "w-8 h-8 bg-green-100 border border-green-200 rounded-full flex items-center justify-center shadow-sm",
-                                                          attrs: {
-                                                            title: "Coinciden",
-                                                          },
-                                                        },
-                                                        [
-                                                          _c(
-                                                            "svg",
-                                                            {
-                                                              staticClass:
-                                                                "w-5 h-5 text-green-600",
-                                                              attrs: {
-                                                                fill: "none",
-                                                                stroke:
-                                                                  "currentColor",
-                                                                viewBox:
-                                                                  "0 0 24 24",
-                                                              },
-                                                            },
-                                                            [
-                                                              _c("path", {
-                                                                attrs: {
-                                                                  "stroke-linecap":
-                                                                    "round",
-                                                                  "stroke-linejoin":
-                                                                    "round",
-                                                                  "stroke-width":
-                                                                    "2",
-                                                                  d: "M5 13l4 4L19 7",
-                                                                },
-                                                              }),
-                                                            ]
-                                                          ),
-                                                        ]
-                                                      )
-                                                    : _c(
-                                                        "div",
-                                                        {
-                                                          staticClass:
-                                                            "w-8 h-8 bg-red-100 border border-red-200 rounded-full flex items-center justify-center shadow-sm",
-                                                          attrs: {
-                                                            title:
-                                                              "No coinciden",
-                                                          },
-                                                        },
-                                                        [
-                                                          _c(
-                                                            "svg",
-                                                            {
-                                                              staticClass:
-                                                                "w-5 h-5 text-red-600",
-                                                              attrs: {
-                                                                fill: "none",
-                                                                stroke:
-                                                                  "currentColor",
-                                                                viewBox:
-                                                                  "0 0 24 24",
-                                                              },
-                                                            },
-                                                            [
-                                                              _c("path", {
-                                                                attrs: {
-                                                                  "stroke-linecap":
-                                                                    "round",
-                                                                  "stroke-linejoin":
-                                                                    "round",
-                                                                  "stroke-width":
-                                                                    "2",
-                                                                  d: "M6 18L18 6M6 6l12 12",
-                                                                },
-                                                              }),
-                                                            ]
-                                                          ),
-                                                        ]
-                                                      ),
-                                                ]
-                                              ),
-                                            ]
-                                          ),
-                                        ]
-                                      ),
-                                    ]
-                                  ),
-                                ]
-                              ),
-                            ]
-                          ),
-                          _vm._v(" "),
-                          _c(
-                            "div",
-                            {
-                              staticClass:
-                                "lg:col-span-7 bg-white border border-gray-200 rounded-lg shadow-sm flex flex-col h-full min-h-[500px]",
-                            },
-                            [
-                              _c(
-                                "div",
-                                {
-                                  staticClass:
-                                    "flex justify-between items-center p-3 border-b bg-gray-50 rounded-t-lg",
-                                },
-                                [
-                                  _c(
-                                    "h4",
-                                    {
-                                      staticClass:
-                                        "font-bold text-gray-800 text-lg",
-                                    },
-                                    [_vm._v("Visor de Documento")]
-                                  ),
-                                  _vm._v(" "),
-                                  _c(
-                                    "a",
-                                    {
-                                      staticClass:
-                                        "flex items-center space-x-2 px-3 py-1 text-xs font-semibold text-theme-primary bg-blue-100 hover:bg-blue-200 rounded-full transition",
-                                      attrs: {
-                                        href: _vm.documentUrl,
-                                        target: "_blank",
-                                        rel: "noopener noreferrer",
-                                      },
-                                    },
-                                    [
-                                      _c("span", [
-                                        _vm._v("Abrir en nueva pestaña"),
-                                      ]),
-                                      _vm._v(" "),
-                                      _c(
-                                        "svg",
-                                        {
-                                          staticClass: "h-4 w-4",
-                                          attrs: {
-                                            xmlns: "http://www.w3.org/2000/svg",
-                                            fill: "none",
-                                            viewBox: "0 0 24 24",
-                                            stroke: "currentColor",
+                                              "text-xs font-bold text-blue-800 bg-blue-100 px-2 py-1 rounded-full",
                                           },
-                                        },
-                                        [
-                                          _c("path", {
-                                            attrs: {
-                                              "stroke-linecap": "round",
-                                              "stroke-linejoin": "round",
-                                              "stroke-width": "2",
-                                              d: "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14",
-                                            },
-                                          }),
-                                        ]
-                                      ),
-                                    ]
-                                  ),
-                                ]
-                              ),
-                              _vm._v(" "),
-                              _vm.isDocumentLoading
-                                ? _c(
-                                    "div",
-                                    {
-                                      staticClass:
-                                        "text-center p-10 text-gray-500 flex-grow flex items-center justify-center",
-                                    },
-                                    [_c("p", [_vm._v("Cargando documento...")])]
-                                  )
-                                : _c(
-                                    "div",
-                                    {
-                                      staticClass:
-                                        "flex-grow relative bg-gray-500 rounded-b-lg overflow-hidden",
-                                    },
-                                    [
-                                      _vm.documentType === "pdf"
-                                        ? _c("iframe", {
+                                          [
+                                            _vm._v(
+                                              "\n                TC: " +
+                                                _vm._s(
+                                                  _vm.auditData.sc.tipo_cambio
+                                                ) +
+                                                "\n              "
+                                            ),
+                                          ]
+                                        )
+                                      : _vm._e(),
+                                  ]
+                                ),
+                                _vm._v(" "),
+                                _c(
+                                  "div",
+                                  { staticClass: "flex justify-between gap-4" },
+                                  [
+                                    _c(
+                                      "div",
+                                      {
+                                        staticClass:
+                                          "flex-1 bg-gray-50 p-3 rounded",
+                                      },
+                                      [
+                                        _c(
+                                          "p",
+                                          {
                                             staticClass:
-                                              "w-full h-full border-0 absolute inset-0",
-                                            attrs: { src: _vm.documentUrl },
-                                          })
-                                        : _vm.documentType === "xlsx"
-                                        ? _c(
-                                            "p",
-                                            {
-                                              staticClass:
-                                                "text-center p-10 text-white mt-10",
-                                            },
-                                            [
-                                              _vm._v(
-                                                "\n              No se puede visualizar este formato de estado de cuenta.\n            "
-                                              ),
-                                            ]
-                                          )
-                                        : _c(
-                                            "p",
-                                            {
-                                              staticClass:
-                                                "text-center p-10 text-white mt-10",
-                                            },
-                                            [
-                                              _vm._v(
-                                                "\n              No hay un documento para mostrar o el formato no es soportado.\n            "
-                                              ),
-                                            ]
-                                          ),
-                                    ]
-                                  ),
-                            ]
-                          ),
-                        ]
-                      ),
-                ]
-              ),
+                                              "text-sm font-medium text-gray-500",
+                                          },
+                                          [_vm._v("Monto Factura")]
+                                        ),
+                                        _vm._v(" "),
+                                        _c(
+                                          "p",
+                                          {
+                                            staticClass:
+                                              "text-xl font-semibold",
+                                          },
+                                          [
+                                            _vm._v(
+                                              "\n                  " +
+                                                _vm._s(
+                                                  _vm._f("currency")(
+                                                    _vm.montoFactura.original
+                                                  )
+                                                ) +
+                                                "\n                  "
+                                            ),
+                                            _c(
+                                              "span",
+                                              {
+                                                staticClass:
+                                                  "text-base font-normal",
+                                              },
+                                              [
+                                                _vm._v(
+                                                  _vm._s(
+                                                    _vm.montoFactura.moneda
+                                                  )
+                                                ),
+                                              ]
+                                            ),
+                                          ]
+                                        ),
+                                        _vm._v(" "),
+                                        _c(
+                                          "p",
+                                          {
+                                            staticClass:
+                                              "text-sm text-gray-500",
+                                          },
+                                          [
+                                            _vm._v(
+                                              "\n                  (" +
+                                                _vm._s(
+                                                  _vm._f("currency")(
+                                                    _vm.montoFactura.mxn
+                                                  )
+                                                ) +
+                                                " MXN)\n                "
+                                            ),
+                                          ]
+                                        ),
+                                      ]
+                                    ),
+                                    _vm._v(" "),
+                                    _c(
+                                      "div",
+                                      {
+                                        staticClass:
+                                          "flex-1 bg-blue-50 p-3 rounded",
+                                      },
+                                      [
+                                        _c(
+                                          "p",
+                                          {
+                                            staticClass:
+                                              "text-sm font-medium text-blue-600",
+                                          },
+                                          [_vm._v("Monto Esperado en SC")]
+                                        ),
+                                        _vm._v(" "),
+                                        _c(
+                                          "p",
+                                          {
+                                            staticClass:
+                                              "text-xl font-semibold",
+                                          },
+                                          [
+                                            _vm._v(
+                                              "\n                  " +
+                                                _vm._s(
+                                                  _vm._f("currency")(
+                                                    _vm.montoEsperadoSc.original
+                                                  )
+                                                ) +
+                                                "\n                  "
+                                            ),
+                                            _c(
+                                              "span",
+                                              {
+                                                staticClass:
+                                                  "text-base font-normal",
+                                              },
+                                              [
+                                                _vm._v(
+                                                  _vm._s(
+                                                    _vm.montoEsperadoSc.moneda
+                                                  )
+                                                ),
+                                              ]
+                                            ),
+                                          ]
+                                        ),
+                                        _vm._v(" "),
+                                        _c(
+                                          "p",
+                                          {
+                                            staticClass:
+                                              "text-sm text-blue-500",
+                                          },
+                                          [
+                                            _vm._v(
+                                              "\n                  (" +
+                                                _vm._s(
+                                                  _vm._f("currency")(
+                                                    _vm.montoEsperadoSc.mxn
+                                                  )
+                                                ) +
+                                                " MXN)\n                "
+                                            ),
+                                          ]
+                                        ),
+                                      ]
+                                    ),
+                                    _vm._v(" "),
+                                    _c(
+                                      "div",
+                                      { staticClass: "flex-shrink-0 pt-2" },
+                                      [
+                                        _vm.montosCoinciden
+                                          ? _c(
+                                              "div",
+                                              {
+                                                staticClass:
+                                                  "w-10 h-10 bg-green-100 rounded-full flex items-center justify-center",
+                                                attrs: {
+                                                  title: "Los montos coinciden",
+                                                },
+                                              },
+                                              [
+                                                _c(
+                                                  "svg",
+                                                  {
+                                                    staticClass:
+                                                      "w-6 h-6 text-green-600",
+                                                    attrs: {
+                                                      fill: "none",
+                                                      stroke: "currentColor",
+                                                      viewBox: "0 0 24 24",
+                                                    },
+                                                  },
+                                                  [
+                                                    _c("path", {
+                                                      attrs: {
+                                                        "stroke-linecap":
+                                                          "round",
+                                                        "stroke-linejoin":
+                                                          "round",
+                                                        "stroke-width": "2",
+                                                        d: "M5 13l4 4L19 7",
+                                                      },
+                                                    }),
+                                                  ]
+                                                ),
+                                              ]
+                                            )
+                                          : _c(
+                                              "div",
+                                              {
+                                                staticClass:
+                                                  "w-10 h-10 bg-red-100 rounded-full flex items-center justify-center",
+                                                attrs: {
+                                                  title:
+                                                    "Los montos NO coinciden o falta la SC",
+                                                },
+                                              },
+                                              [
+                                                _c(
+                                                  "svg",
+                                                  {
+                                                    staticClass:
+                                                      "w-6 h-6 text-red-600",
+                                                    attrs: {
+                                                      fill: "none",
+                                                      stroke: "currentColor",
+                                                      viewBox: "0 0 24 24",
+                                                    },
+                                                  },
+                                                  [
+                                                    _c("path", {
+                                                      attrs: {
+                                                        "stroke-linecap":
+                                                          "round",
+                                                        "stroke-linejoin":
+                                                          "round",
+                                                        "stroke-width": "2",
+                                                        d: "M6 18L18 6M6 6l12 12",
+                                                      },
+                                                    }),
+                                                  ]
+                                                ),
+                                              ]
+                                            ),
+                                      ]
+                                    ),
+                                  ]
+                                ),
+                              ]
+                            ),
+                          ]
+                        ),
+                        _vm._v(" "),
+                        _c(
+                          "div",
+                          {
+                            staticClass:
+                              "w-full lg:w-1/2 border rounded-md min-h-[500px] flex flex-col",
+                          },
+                          [
+                            _c(
+                              "div",
+                              {
+                                staticClass:
+                                  "flex justify-evenly items-center my-4",
+                              },
+                              [
+                                _c("h4", { staticClass: "font-bold text-lg" }, [
+                                  _vm._v("Visor de Documento"),
+                                ]),
+                                _vm._v(" "),
+                                _c(
+                                  "a",
+                                  {
+                                    staticClass:
+                                      "flex items-center space-x-2 px-3 py-1 text-xs font-semibold text-theme-primary bg-blue-50 hover:bg-blue-100 rounded-full transition",
+                                    attrs: {
+                                      href: _vm.documentUrl,
+                                      target: "_blank",
+                                      rel: "noopener noreferrer",
+                                    },
+                                  },
+                                  [
+                                    _c("span", [
+                                      _vm._v("Abrir en nueva pestaña"),
+                                    ]),
+                                    _vm._v(" "),
+                                    _c(
+                                      "svg",
+                                      {
+                                        staticClass: "h-4 w-4",
+                                        attrs: {
+                                          xmlns: "http://www.w3.org/2000/svg",
+                                          fill: "none",
+                                          viewBox: "0 0 24 24",
+                                          stroke: "currentColor",
+                                        },
+                                      },
+                                      [
+                                        _c("path", {
+                                          attrs: {
+                                            "stroke-linecap": "round",
+                                            "stroke-linejoin": "round",
+                                            "stroke-width": "2",
+                                            d: "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14",
+                                          },
+                                        }),
+                                      ]
+                                    ),
+                                  ]
+                                ),
+                              ]
+                            ),
+                            _vm._v(" "),
+                            _vm.isDocumentLoading
+                              ? _c(
+                                  "div",
+                                  {
+                                    staticClass:
+                                      "text-center p-10 text-gray-500",
+                                  },
+                                  [_c("p", [_vm._v("Cargando documento...")])]
+                                )
+                              : _c(
+                                  "div",
+                                  {
+                                    staticClass:
+                                      "flex-grow flex items-center justify-center",
+                                  },
+                                  [
+                                    _vm.documentType === "pdf"
+                                      ? _c("iframe", {
+                                          staticClass: "w-full h-full",
+                                          staticStyle: { height: "60vh" },
+                                          attrs: { src: _vm.documentUrl },
+                                        })
+                                      : _vm.documentType === "xlsx"
+                                      ? _c(
+                                          "p",
+                                          {
+                                            staticClass:
+                                              "text-center p-10 text-gray-500",
+                                          },
+                                          [
+                                            _vm._v(
+                                              "\n              No se puede visualizar este formato de estado de cuenta.\n            "
+                                            ),
+                                          ]
+                                        )
+                                      : _c(
+                                          "p",
+                                          {
+                                            staticClass:
+                                              "text-center p-10 text-gray-500",
+                                          },
+                                          [
+                                            _vm._v(
+                                              "\n              No hay un documento para mostrar o el formato no es soportado.\n            "
+                                            ),
+                                          ]
+                                        ),
+                                  ]
+                                ),
+                          ]
+                        ),
+                      ]
+                    ),
+              ]),
               _vm._v(" "),
               _c(
                 "div",
-                {
-                  staticClass:
-                    "p-4 border-t bg-gray-100 text-right flex-shrink-0",
-                },
+                { staticClass: "p-4 border-t text-right flex-shrink-0" },
                 [
                   _c(
                     "button",
                     {
                       staticClass:
-                        "px-6 py-2 bg-white border border-gray-300 font-semibold text-gray-700 rounded shadow-sm hover:bg-gray-50 transition-colors",
+                        "px-4 py-2 bg-gray-200 rounded hover:bg-gray-300",
                       on: { click: _vm.close },
                     },
                     [_vm._v("\n        Cerrar\n      ")]
