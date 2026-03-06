@@ -480,16 +480,16 @@ export default {
     },
 
     finalFilters() {
-      console.log("--- SE ESTÁ CALCULANDO finalFilters ---");
+      /* console.log("--- SE ESTÁ CALCULANDO finalFilters ---"); */
 
       // Usamos JSON.stringify para obtener una "foto" del estado en este instante
-      console.log(
+      /* console.log(
         "El valor de this.activeFilters es:",
         JSON.parse(JSON.stringify(this.activeFilters))
-      );
+      ); */
 
       if (!this.selectionComplete) {
-        console.log("selectionComplete es false, devolviendo objeto vacío.");
+        /* console.log("selectionComplete es false, devolviendo objeto vacío."); */
         return {};
       }
 
@@ -505,8 +505,8 @@ export default {
             baseFilters.estado = this.buttonStatusFilter;
         }
 
-      console.log("Resultado final de finalFilters:", JSON.parse(JSON.stringify(baseFilters)));
-      console.log("--------------------------------------");
+      /* console.log("Resultado final de finalFilters:", JSON.parse(JSON.stringify(baseFilters)));
+      console.log("--------------------------------------"); */
 
       return baseFilters;
     },
@@ -580,8 +580,8 @@ export default {
       const params = new URLSearchParams(this.finalFilters).toString();
       const urlParams = new URLSearchParams(window.location.search).toString();
 
-      console.log(params);
-      console.log(urlParams);
+      /* console.log(params);
+      console.log(urlParams); */
       const finalParams = params;
 
       window.open(`/auditoria/exportar?${finalParams}`, "_blank");
@@ -645,8 +645,8 @@ export default {
         const params = new URLSearchParams(this.finalFilters);
         window.history.pushState({}, "", `?${params.toString()}`);
 
-        console.log(this.selectedSucursal);
-        console.log(this.selectedOperationType);
+        /* console.log(this.selectedSucursal);
+        console.log(this.selectedOperationType); */
         // 4. Llamamos a la API
         this.fetchClientes();
         this.fetchOperaciones(1);
@@ -686,7 +686,7 @@ export default {
       const desglose = scData && scData.desglose_conceptos;
       const montos = desglose && desglose.montos;
 
-      console.log("Abriendo modal con:", payload);
+      /* console.log("Abriendo modal con:", payload); */
 
       // Estructuramos los datos que el modal necesita
       this.modalAuditData = {
@@ -771,11 +771,11 @@ export default {
 
 
 
-          console.log("Response: ", response);
+          /* console.log("Response: ", response);
           console.log("Response.data: ", response.data);
           console.log("Response.data.links: ", response.data.links);
           console.log("Response.data.meta.conteos: ", response.data.meta.conteos);
-          console.log("auditCounts: ", this.auditCounts);
+          console.log("auditCounts: ", this.auditCounts); */
           // Esta parte es crucial y ahora funcionará correctamente
           const activeLink = response?.data?.links?.find((link) => link.active);
           if (activeLink && activeLink.url) {
