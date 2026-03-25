@@ -1650,7 +1650,7 @@ class AuditoriaImpuestosController extends Controller
                 }
 
                 // Fusionar datos del XML con los datos generales del TXT
-                $datosFlete = array_merge($datosFlete, $this->parsearXmlFlete($datosFlete['path_xml_tr']) ?? ['total' => -1, 'moneda' => 'N/A']);
+                $datosFlete = array_merge($datosFlete, $this->parsearXmlFlete($datosFlete['path_xml_tr'], $pedimentoLimpio, class_basename($tipoOperacion)) ?? ['total' => -1, 'moneda' => 'N/A']);
 
                 $montoFleteMXN = (($datosFlete['moneda'] == "USD" && $datosFlete['total'] != -1) && $datosSC['tipo_cambio'] != -1) 
                                  ? round($datosFlete['total'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) 
@@ -1802,6 +1802,16 @@ class AuditoriaImpuestosController extends Controller
             //$bar->start();
             $llcsParaGuardar = [];
 
+            // 1. Definimos la lista de clientes excluidos (en mayúsculas y sin sufijos legales complejos)
+            $clientesExcluidosLLC = [
+                'JULIAN FERNANDO CAJIGAS',
+                'SOUTH COAST PACKING',
+                'COMERCIALIZADORA INTERNACIONAL MANSIVA GLOBAL',
+                'CREMERIAS DE OCCIDENTE',
+                'COMPANIA MINERA LA PITALLA', // Parcial para evitar fallos por el S.A. DE C.V.
+                'MINAS DE ORO NACIONAL'       // Parcial para evitar fallos por el SA DE CV
+            ];
+
             foreach ($mapaPedimentoAId as $pedimentoLimpio => $pedimentoSucioYId) {
                 // Obtemenos la operacionId por medio del pedimento sucio
                 // Se verifica si la operacion ID esta en Importacion
@@ -1822,6 +1832,39 @@ class AuditoriaImpuestosController extends Controller
                     //$bar->advance();
                     continue; // Si no hay operación, no podemos guardar la SC
                 }
+
+                // --- INICIO DE LA NUEVA LÓGICA DE EXCLUSIÓN ---
+                // Consultamos la operación y su relación con el cliente
+                $queryOp = ($tipoOperacion === Importacion::class) 
+                            ? Importacion::with('cliente') 
+                            : Exportacion::with('cliente');
+                
+                $objOperacion = $queryOp->find($operacionId['id_operacion']);
+
+                if ($objOperacion && $objOperacion->cliente) {
+                    $nombreCliente = strtoupper(trim($objOperacion->cliente->nombre));
+                    $omitir = false;
+
+                    // Revisamos si el nombre del cliente contiene alguno de los excluidos
+                    foreach ($clientesExcluidosLLC as $excluido) {
+                        if (str_contains($nombreCliente, $excluido)) {
+                            $omitir = true;
+                            break; // Si hace match con uno, dejamos de buscar
+                        }
+                    }
+
+                    if ($omitir) {
+                        Log::info("LLC: Pedimento {$pedimentoLimpio} omitido (Cliente directo: {$nombreCliente}). Limpiando registros previos...");
+
+                        // Borramos cualquier registro viejo para no arrastrar basura en los reportes
+                        Auditoria::where('pedimento_id', $pedimentoSucioYId['id_pedimiento'])
+                            ->where('tipo_documento', 'llc')
+                            ->delete();
+
+                        continue; // Saltamos a la siguiente iteración del foreach
+                    }
+                }
+                // --- FIN DE LA NUEVA LÓGICA DE EXCLUSIÓN ---
 
                 // Buscamos en nuestros índices en memoria (búsqueda instantánea)
                 $datosSC = $indiceSC[$pedimentoLimpio] ?? null;
@@ -2908,41 +2951,56 @@ class AuditoriaImpuestosController extends Controller
 
 
     /**
-     * Parsea un archivo XML de Transportactics y devuelve los datos clave.
-     * UTILIZADO EN [auditarFacturasDeFletes()]
+     * Parsea un archivo XML y devuelve los datos clave.
+     * Ahora recibe pedimento y tipo de operación para un mejor rastreo en los logs.
      */
-    private function parsearXmlFlete(string $rutaXml): ?array
+    private function parsearXmlFlete(string $rutaXml, string $pedimento = 'N/A', string $tipoOperacion = 'N/A'): ?array
     {
         gc_collect_cycles();
 
         try {
-            //$arrContextOptions resuelve el siguiente error:
-            //'file_get_contents(): SSL operation failed with code 1. OpenSSL Error messages:
-            //error:1416F086:SSL routines:tls_process_server_certificate:certificate verify failed'
-            $arrContextOptions =
-                [
-                    "ssl" =>
-                    [
-                        "verify_peer" => false,
-                        "verify_peer_name" => false,
-                    ],
-                ];
-            // Usamos SimpleXMLElement, que es nativo de PHP.
-            $xml = new \SimpleXMLElement(file_get_contents($rutaXml, false, stream_context_create($arrContextOptions)));
+            $arrContextOptions = [
+                "ssl" => [
+                    "verify_peer" => false,
+                    "verify_peer_name" => false,
+                ],
+                "http" => [
+                    "ignore_errors" => true 
+                ]
+            ];
 
-            // Devolvemos un array con los datos que nos interesan.
-            return
-                [
-                    'total' => (float) $xml['Total'],
-                    'moneda' => (string) $xml['Moneda'],
-                ];
+            $contenido = file_get_contents($rutaXml, false, stream_context_create($arrContextOptions));
+
+            if ($contenido === false || trim($contenido) === '') {
+                throw new \Exception("Contenido vacío o fallo HTTP.");
+            }
+
+            if (stripos(trim($contenido), '<html') === 0 || stripos(trim($contenido), '<!DOCTYPE') === 0) {
+                throw new \Exception("Respuesta HTML (Posible 404 o 403).");
+            }
+
+            libxml_use_internal_errors(true);
+            $xml = simplexml_load_string($contenido);
+
+            if ($xml === false) {
+                $errores = libxml_get_errors();
+                $mensajeError = $errores[0]->message ?? 'Estructura XML inválida';
+                libxml_clear_errors();
+                throw new \Exception("XML inválido: " . trim($mensajeError));
+            }
+
+            return [
+                'total' => (float) $xml['Total'],
+                'moneda' => (string) $xml['Moneda'],
+            ];
+
         } catch (\Throwable $e) {
-            Log::error("Error al parsear el XML {$rutaXml}: " . $e->getMessage());
-            return
-                [
-                    'total' => -1,
-                    'moneda' => 'N/A',
-                ];
+            Log::error("[Error XML] Pedimento: {$pedimento} | Op: {$tipoOperacion} | Archivo: {$rutaXml} | Detalle: " . $e->getMessage());
+            
+            return [
+                'total' => -1,
+                'moneda' => 'N/A',
+            ];
         }
     }
 
@@ -3304,7 +3362,7 @@ class AuditoriaImpuestosController extends Controller
                 }
 
                 // Parseamos el XML reutilizando la lógica de fletes (CFDI estándar)
-                $datosFacturaXml = $this->parsearXmlFlete($datosMuestra['path_xml_mue']) ?? ['total' => -1, 'moneda' => 'N/A'];
+                $datosFacturaXml = $this->parsearXmlFlete($datosMuestra['path_xml_mue'], $pedimentoLimpio, class_basename($tipoOperacion)) ?? ['total' => -1, 'moneda' => 'N/A'];
                 
                 $montoFacturaMXN = (($datosFacturaXml['moneda'] == "USD" && $datosFacturaXml['total'] != -1) && $datosSC['tipo_cambio'] != -1) 
                     ? round($datosFacturaXml['total'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) 
@@ -3488,7 +3546,7 @@ class AuditoriaImpuestosController extends Controller
 
 
                 // Reutilizamos tu parseador de XML (CFDI genérico)
-                $datosFacturaXml = $this->parsearXmlFlete($datosManiobra['path_xml_man']) ?? ['total' => -1, 'moneda' => 'N/A'];
+                $datosFacturaXml = $this->parsearXmlFlete($datosManiobra['path_xml_man'], $pedimentoLimpio, class_basename($tipoOperacion)) ?? ['total' => -1, 'moneda' => 'N/A'];
                 
                 $montoFacturaMXN = (($datosFacturaXml['moneda'] == "USD" && $datosFacturaXml['total'] != -1) && $datosSC['tipo_cambio'] != -1) 
                     ? round($datosFacturaXml['total'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) 

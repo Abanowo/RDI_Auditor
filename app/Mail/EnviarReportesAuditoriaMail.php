@@ -126,7 +126,9 @@ class EnviarReportesAuditoriaMail extends Mailable
             'irvin.mendivil@intactics.com',
             'mirna.lopez@intactics.com',
             'sonia.gomez@intactics.com',
-            'oscar.sandoval@intactics.com'
+            'oscar.sandoval@intactics.com',
+            'carlos.perez@intactics.com',
+            'jose.sibrian@intactics.com'
         ]));
 
         $email = $this->from('info@intactics.com', 'Intactics')
