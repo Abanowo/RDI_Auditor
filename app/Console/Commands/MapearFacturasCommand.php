@@ -14,6 +14,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class MapearFacturasCommand extends Command
 {
@@ -235,27 +236,44 @@ class MapearFacturasCommand extends Command
         }
     }
 
+
     /**
-     * Lógica central para obtener y procesar los archivos de la API.
+     * Lógica central modificada para excluir fletes de clientes específicos.
      */
-    private function construirIndiceFacturas(Collection $pedimentosOperacion, string $sucursal, string $tipoOperacion): array
+    private function construirIndiceFacturas(Collection $pedimentosOperacion, string $sucursal, string $tipoOperacion, Collection $mapaConClientes): array
     {
         $indiceFacturas = [];
 
-        $mapeoFacturas =
-        [
+        $mapeoFacturasBase = [
             'HONORARIOS-SC' => 'sc',
-            'TransporTactics' => 'flete',
             'HONORARIOS-LLC' => 'llc',
             'PAGOS-DE-DERECHOS' => 'pago_derecho',
             'FACTURA-MUESTRA' => 'muestras',
+            'FACTURA-MANIOBRAS-EN-ALMACEN-FISCALIZADO' => 'maniobras'
         ];
+
         $bar = $this->output->createProgressBar($pedimentosOperacion->count());
         $bar->start();
 
         foreach ($pedimentosOperacion as $pedimento => $operacionID) {
             try {
+                $datosOp = $mapaConClientes->get($pedimento);
+                $esQuesosYQuesos = false;
 
+                if ($datosOp && isset($datosOp['id_cliente'])) {
+                    // Buscamos el nombre del cliente
+                    $clienteObj = \App\Models\Empresas::find($datosOp['id_cliente']);
+                    if ($clienteObj && str_contains(strtoupper($clienteObj->nombre), 'QUESOS Y QUESOS')) {
+                        $esQuesosYQuesos = true;
+                    }
+                }
+
+                // Definimos qué facturas buscar para este pedimento
+                $mapeoLocal = $mapeoFacturasBase;
+                if (!$esQuesosYQuesos) {
+                    $mapeoLocal['TransporTactics'] = 'flete'; // Solo incluimos flete si NO es el cliente excluido
+                }
+                
                 // --- 1. OBTENCIÓN DE DATOS ---
                 // Usamos el cliente HTTP de Laravel que es más seguro y maneja errores.
                 //Urls
@@ -265,9 +283,6 @@ class MapearFacturasCommand extends Command
                 $url_pdf = Http::withoutVerifying()->get("https://sistema.intactics.com/v3/operaciones/{$tipoOperacion}/{$operacionID['id_operacion']}/get-files-momentaneo");
 
                 if (!$url_pdf->successful()) {
-                    // Si la API falla para este ID, lo saltamos y continuamos con el siguiente.
-                    $this->warn("No se pudieron obtener los archivos para la importación ID: {$operacionID['id_operacion']}");
-                    Log::warning("No se pudieron obtener los archivos para la importación ID: {$operacionID['id_operacion']}");
                     $bar->advance();
                     continue;
                 }
@@ -283,26 +298,20 @@ class MapearFacturasCommand extends Command
                     'facturas' => [], // Aquí guardaremos las facturas encontradas
                 ];
 
-                // --- 3. FILTRADO Y PROCESAMIENTO DE FACTURAS (Nueva Lógica) ---
+                // Filtramos solo por los tipos permitidos para este cliente
+                $archivosFacturas = $archivos_pdf->whereIn('pivot.type', array_keys($mapeoLocal));
+
                 $agrupadorTemp = [];
-
-                $archivosFacturas = $archivos_pdf->whereIn('pivot.type', array_keys($mapeoFacturas));
-
                 foreach ($archivosFacturas as $archivo) {
                     $tipoJson = $archivo['pivot']['type'];
-                    $url = $archivo['url']['normal'];
-                    $fechaCreacion = $archivo['created_at'];
-                    $fechaActualizacion = $archivo['updated_at'];
-                    // Usamos el nombre del archivo sin extensión para agrupar PDF y XML
                     $nombreBase = pathinfo($archivo['name'], PATHINFO_FILENAME);
                     $extension = strtolower(pathinfo($archivo['name'], PATHINFO_EXTENSION));
 
-                    // Si aún no existe una entrada para este nombre base, la creamos.
                     if (!isset($agrupadorTemp[$nombreBase])) {
                         $agrupadorTemp[$nombreBase] = [
-                            'creation_date'  => $fechaCreacion,
-                            'update_date'    => $fechaActualizacion,
-                            'tipo_documento' => $mapeoFacturas[$tipoJson], // Usamos el nombre amigable
+                            'creation_date'  => $archivo['created_at'],
+                            'update_date'    => $archivo['updated_at'],
+                            'tipo_documento' => $mapeoLocal[$tipoJson],
                             'ruta_pdf'       => null,
                             'ruta_xml'       => null,
                             'ruta_txt'       => null,
@@ -311,40 +320,25 @@ class MapearFacturasCommand extends Command
 
                     // Asignamos la URL a la clave correcta según su extensión.
                     if ($extension === 'pdf') {
-                        $agrupadorTemp[$nombreBase]['ruta_pdf'] = $url;
+                        $agrupadorTemp[$nombreBase]['ruta_pdf'] = $archivo['url']['normal'];
                     } elseif ($extension === 'xml') {
-                        $agrupadorTemp[$nombreBase]['ruta_xml'] = $url;
+                        $agrupadorTemp[$nombreBase]['ruta_xml'] = $archivo['url']['normal'];
                     }
 
-                    // Obtenemos las rutas txt y su contenido
-                    if ($tipoJson != 'PAGOS-DE-DERECHOS') {
-                        switch($tipoJson){
-                            case 'HONORARIOS-SC':
-                            case 'TransporTactics':
-                                $agrupadorTemp[$nombreBase]['ruta_txt'] = "https://sistema.intactics.com/v2/uploads/{$nombreBase}.txt";
-                                break;
-
-                            case 'HONORARIOS-LLC':
-                                $agrupadorTemp[$nombreBase]['ruta_txt'] = "https://sistema.intactics.com/v2/uploads/llc-{$nombreBase}.txt";
-                                break;
-                        }
+                    // Generar ruta TXT si aplica
+                    if ($tipoJson === 'HONORARIOS-SC' || $tipoJson === 'TransporTactics') {
+                        $agrupadorTemp[$nombreBase]['ruta_txt'] = "https://sistema.intactics.com/v2/uploads/{$nombreBase}.txt";
+                    } elseif ($tipoJson === 'HONORARIOS-LLC') {
+                        $agrupadorTemp[$nombreBase]['ruta_txt'] = "https://sistema.intactics.com/v2/uploads/llc-{$nombreBase}.txt";
                     }
                 }
 
-                // Asignamos las facturas agrupadas y limpias al resultado final.
-                // array_values() reinicia los índices del array para que sea una lista limpia.
                 $indiceFacturas[$pedimento]['facturas'] = array_values($agrupadorTemp);
                 $bar->advance();
 
             } catch (\Exception $e) {
-                $this->error("Ocurrió un error procesando la operacion ID ({$tipoOperacion}) {$operacionID['id_operacion']}: " . $e->getMessage());
-                Log::error("Ocurrió un error procesando la operacion ID ({$tipoOperacion}) {$operacionID['id_operacion']}: " . $e->getMessage());
-                // Aseguramos que haya una entrada para este pedimento aunque falle, para evitar errores posteriores.
-                if (!isset($indiceFacturas[$pedimento])) {
-                     $indiceFacturas[$pedimento] = ['error' => $e->getMessage()];
-                }
+                Log::error("Error en mapeo pedimento {$pedimento}: " . $e->getMessage());
             }
-
         }
         $bar->finish();
         return $indiceFacturas;
