@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Console\Commands;
+
 use Illuminate\Support\Facades\Storage;
 use App\Http\Controllers\AuditoriaImpuestosController;
 use App\Models\AuditoriaTareas;
@@ -26,156 +27,192 @@ class ProcesarAuditoriaCompleta extends Command
         if (!$tarea) {
             $this->info('No hay tareas de auditoría pendientes.');
             return 0;
-
         }
 
         $this->info("Iniciando orquestación para la Tarea #{$tarea->id}...");
         $tarea->update(['status' => 'procesando']);
+
         try {
-
             $status = null;
+            $controller = new AuditoriaImpuestosController(); // Instanciamos una sola vez
 
-            // 1. Llama a cada comando en secuencia, pasándole el ID de la tarea
+            // ====================================================================
+            // BLOQUE 1: AUDITORÍAS LOCALES (BASE DE DATOS)
+            // Estas se ejecutan siempre, sin importar la sucursal.
+            // ====================================================================
+
+            // 1. IMPUESTOS (Fase 1)
             gc_collect_cycles();
             $this->info("--- [INICIO] Procesando Impuestos (Fase 1) para Tarea #{$tarea->id} ---");
-            Log::info("Tarea #{$tarea->ids}: Ejecutando comando de Impuestos...");
-            $status = (new AuditoriaImpuestosController())->importarImpuestosEnAuditorias($tarea->id); //Impuestos Fase (1)
-            if($status['code'] > 0) throw $status['message'];
+            $status = $controller->importarImpuestosEnAuditorias($tarea->id);
+            if ($status['code'] > 0) {
+                throw $status['message'];
+            }
 
-            $this->info("--- [FIN] Procesamiento de Impuestos.");
-            Log::info("--- [FIN] Procesamiento de Impuestos.");
-
-
-            // 2. Llama a cada comando en secuencia, pasándole el ID de la tarea
+            // 2. MAPEO
             gc_collect_cycles();
             $this->info("--- [INICIO] Creando mapeo para Tarea #{$tarea->id} ---");
-            Log::info("Tarea #{$tarea->id}: Ejecutando comando de mapeo...");
-            $status = (new AuditoriaImpuestosController())->mapearFacturasYFacturasSCEnAuditorias($tarea->id);  //Mapeado
-            if($status['code'] > 0) throw $status['message'];
+            $status = $controller->mapearFacturasYFacturasSCEnAuditorias($tarea->id);
+            if ($status['code'] > 0) {
+                throw $status['message'];
+            }
 
-            $this->info("--- [FIN] Creacion de mapeo.");
-            Log::info("--- [FIN] Creacion de mapeo.");
-
-
-            // 3. Llama a cada comando en secuencia, pasándole el ID de la tarea
+            // 3. SCs
             gc_collect_cycles();
             $this->info("--- [INICIO] Procesando SCs para Tarea #{$tarea->id} ---");
-            Log::info("Tarea #{$tarea->id}: Ejecutando comando de SC...");
-            $status = (new AuditoriaImpuestosController())->importarFacturasSCEnAuditoriasTotalesSC($tarea->id);  //SC
-            if($status['code'] > 0) throw $status['message'];
+            $status = $controller->importarFacturasSCEnAuditoriasTotalesSC($tarea->id);
+            if ($status['code'] > 0) {
+                throw $status['message'];
+            }
 
-            $this->info("--- [FIN] Procesamiento de SCs.");
-            Log::info("--- [FIN] Procesamiento de SCs.");
+            // ====================================================================
+            // BLOQUE 2: INSERCIÓN EN GOOGLE SHEETS (GPC)
+            // Se ejecuta SOLO si la sucursal es Manzanillo (ZLO).
+            // ====================================================================
+
+            // Validamos contra 'ZLO' o 'Manzanillo' dependiendo de cómo lo guardes
+            if (strtoupper($tarea->sucursal) === 'ZLO' || strtoupper($tarea->sucursal) === 'MANZANILLO') {
+                $this->info("--- INICIANDO INSERCIONES EN GPC (ZLO DETECTADO) ---");
+                Log::info("Sucursal ZLO detectada. Ejecutando métodos de inserción a GPC...");
+
+                // 9. IMPUESTOS A GPC (Con validación interna de Santander)
+                gc_collect_cycles();
+                $this->info("Enviando Impuestos a GPC...");
+                $status = $controller->enviarAGPCImpuestos($tarea->id);
+                if ($status['code'] > 0) {
+                    throw $status['message'];
+                }
+
+                // 10. PAGOS DE DERECHO A GPC
+                gc_collect_cycles();
+                $this->info("Enviando Pagos de Derecho a GPC...");
+                $status = $controller->enviarAGPCPagosDeDerecho($tarea->id);
+                if ($status['code'] > 0) {
+                    throw $status['message'];
+                }
+
+                // 11. MANIOBRAS A GPC
+                gc_collect_cycles();
+                $this->info("Enviando Maniobras a GPC...");
+                $status = $controller->enviarAGPCTerminales($tarea->id);
+                if ($status['code'] > 0) {
+                    throw $status['message'];
+                }
+
+                // 12. VACÍOS A GPC
+                gc_collect_cycles();
+                $this->info("Enviando Vacíos a GPC...");
+                $status = $controller->auditarFacturasDeVacios($tarea->id);
+                if ($status['code'] > 0) {
+                    throw $status['message'];
+                }
+
+                // 13. ALMACENAJE (XML TERMINALES) A GPC
+                gc_collect_cycles();
+                $this->info("Enviando Almacenaje de Terminales a GPC...");
+                $status = $controller->enviarAGPCTotalAlmacenaje($tarea->id);
+                if ($status['code'] > 0) {
+                    throw $status['message'];
+                }
+
+                // 14. ALMACÉN (EXTERNO ALMAN) A GPC
+                gc_collect_cycles();
+                $this->info("Enviando Almacén (ALMAN) a GPC...");
+                $status = $controller->enviarAGPCFacturasDeAlmacen($tarea->id);
+                if ($status['code'] > 0) {
+                    throw $status['message'];
+                }
+
+                $this->info("--- FIN DE INSERCIONES EN GPC ---");
+            } else {
+                // 4. IMPUESTOS (Fase 2)
+                gc_collect_cycles();
+                $this->info("--- [INICIO] Procesando Impuestos (Fase 2) para Tarea #{$tarea->id} ---");
+                $status = $controller->importarImpuestosEnAuditorias($tarea->id);
+                if ($status['code'] > 0) {
+                    throw $status['message'];
+                }
+
+                // 5. FLETES
+                gc_collect_cycles();
+                $this->info("--- [INICIO] Procesando Fletes para Tarea #{$tarea->id} ---");
+                $status = $controller->auditarFacturasDeFletes($tarea->id);
+                if ($status['code'] > 0) {
+                    throw $status['message'];
+                }
+
+                // 6. LLCs
+                gc_collect_cycles();
+                $this->info("--- [INICIO] Procesando LLCs para Tarea #{$tarea->id} ---");
+                $status = $controller->auditarFacturasDeLLC($tarea->id);
+                if ($status['code'] > 0) {
+                    throw $status['message'];
+                }
+
+                // 7. PAGOS DE DERECHO (Solo BD)
+                gc_collect_cycles();
+                $this->info("--- [INICIO] Procesando Pagos de derecho para Tarea #{$tarea->id} ---");
+                $status = $controller->auditarFacturasDePagosDeDerecho($tarea->id);
+                if ($status['code'] > 0) {
+                    throw $status['message'];
+                }
+
+                // 8. MUESTRAS
+                gc_collect_cycles();
+                $this->info("--- [INICIO] Procesando Muestras para Tarea #{$tarea->id} ---");
+                $status = $controller->auditarFacturasDeMuestras($tarea->id);
+                if ($status['code'] > 0) {
+                    throw $status['message'];
+                }
+                // 9. MANIOBRAS
+                gc_collect_cycles();
+                $this->info("--- [INICIO] Procesando Maniobras para Tarea #{$tarea->id} ---");
+                $status = $controller->auditarFacturasDeManiobras($tarea->id);
+                if ($status['code'] > 0) {
+                    throw $status['message'];
+                }
+            }
 
 
-            // 4. Llama a cada comando en secuencia, pasándole el ID de la tarea
+            // ====================================================================
+            // BLOQUE 3: EXPORTACIÓN Y REPORTES FINALES
+            // ====================================================================
+
+            // 15. EXPORTACIÓN FACTURADOS
             gc_collect_cycles();
-            $this->info("--- [INICIO] Procesando Impuestos (Fase 2) para Tarea #{$tarea->id} ---");
-            Log::info("Tarea #{$tarea->id}: Ejecutando comando de Impuestos...");
-            $status = (new AuditoriaImpuestosController())->importarImpuestosEnAuditorias($tarea->id); //Impuestos Fase (2)
-            if($status['code'] > 0) throw $status['message'];
+            $this->info("--- [INICIO] Exportando auditorias facturadas a Excel ---");
+            $status = $controller->exportarAuditoriasFacturadasAExcel($tarea->id);
+            if ($status['code'] > 0) {
+                throw $status['message'];
+            }
 
-            $this->info("--- [FIN] Procesamiento de Impuestos.");
-            Log::info("--- [FIN] Procesamiento de Impuestos.");
-
-
-            // 5. Llama a cada comando en secuencia, pasándole el ID de la tarea
+            // 16. EXPORTACIÓN PENDIENTES
             gc_collect_cycles();
-            $this->info("--- [INICIO] Procesando Fletes para Tarea #{$tarea->id} ---");
-            Log::info("Tarea #{$tarea->id}: Ejecutando comando de Fletes...");
-            $status = (new AuditoriaImpuestosController())->auditarFacturasDeFletes($tarea->id); //Fletes
-            if($status['code'] > 0) throw $status['message'];
+            $this->info("--- [INICIO] Exportando auditorias pendientes a Excel ---");
+            $status = $controller->exportarAuditoriasPendientesAExcel($tarea->id);
+            if ($status['code'] > 0) {
+                throw $status['message'];
+            }
 
-            $this->info("--- [FIN] Procesamiento de Fletes.");
-            Log::info("--- [FIN] Procesamiento de Fletes.");
-
-
-            // 6. Llama a cada comando en secuencia, pasándole el ID de la tarea
+            // 17. ENVÍO DE CORREO
             gc_collect_cycles();
-            $this->info("--- [INICIO] Procesando LLCs para Tarea #{$tarea->id} ---");
-            Log::info("Tarea #{$tarea->id}: Ejecutando comando de LLC...");
-            $status = (new AuditoriaImpuestosController())->auditarFacturasDeLLC($tarea->id); //LLC
-            if($status['code'] > 0) throw $status['message'];
-
-            $this->info("--- [FIN] Procesamiento de LLCs.");
-            Log::info("--- [FIN] Procesamiento de LLCs.");
+            $this->info("--- [INICIO] Enviando correo de reportes ---");
+            $status = $controller->enviarReportesPorCorreo($tarea->id);
+            if ($status['code'] > 0) {
+                throw $status['message'];
+            }
 
 
-            // 7. Llama a cada comando en secuencia, pasándole el ID de la tarea
-            gc_collect_cycles();
-            $this->info("--- [INICIO] Procesando Pagos de derecho para Tarea #{$tarea->id} ---");
-            Log::info("Tarea #{$tarea->id}: Ejecutando comando de Pagos de derecho...");
-            $status = (new AuditoriaImpuestosController())->auditarFacturasDePagosDeDerecho($tarea->id);  //Pagos de derecho
-            if($status['code'] > 0) throw $status['message'];
-
-            $this->info("--- [FIN] Procesamiento de Pagos de derecho.");
-            Log::info("--- [FIN] Procesamiento de Pagos de derecho.");
-
-
-            // 8. Llama a cada comando en secuencia, pasándole el ID de la tarea
-            gc_collect_cycles();
-            $this->info("--- [INICIO] Procesando Muestras para Tarea #{$tarea->id} ---");
-            Log::info("Tarea #{$tarea->id}: Ejecutando comando de Muestras...");
-            $status = (new AuditoriaImpuestosController())->auditarFacturasDeMuestras($tarea->id);  //Muestras
-            if($status['code'] > 0) throw $status['message'];
-
-            $this->info("--- [FIN] Procesamiento de Muestras.");
-            Log::info("--- [FIN] Procesamiento de Muestras.");
-
-            gc_collect_cycles();
-            $this->info("--- [INICIO] Procesando Maniobras para Tarea #{$tarea->id} ---");
-            Log::info("Tarea #{$tarea->id}: Ejecutando comando de Maniobras...");
-            $status = (new AuditoriaImpuestosController())->auditarFacturasDeManiobras($tarea->id);  //Maniobras
-            if($status['code'] > 0) throw $status['message'];
-
-            $this->info("--- [FIN] Procesamiento de Maniobras.");
-            Log::info("--- [FIN] Procesamiento de Maniobras.");
-
-            // 9. Llama a cada comando en secuencia, pasándole el ID de la tarea
-            gc_collect_cycles();
-            $this->info("--- [INICIO] Exportando auditorias facturadas a Excel para Tarea #{$tarea->id} ---");
-            Log::info("Tarea #{$tarea->id}: Ejecutando comando de Exportacion de auditorias...");
-            $status = (new AuditoriaImpuestosController())->exportarAuditoriasFacturadasAExcel($tarea->id);  //Exportacion a Excel - Facturados
-            if($status['code'] > 0) throw $status['message'];
-
-            $this->info("--- [FIN] Exportacion de auditorias facturadas a Excel.");
-            Log::info("--- [FIN] Exportacion de auditorias facturadas a Excel.");
-
-            // 10. Llama a cada comando en secuencia, pasándole el ID de la tarea
-            gc_collect_cycles();
-            $this->info("--- [INICIO] Exportando auditorias pendientes a Excel para Tarea #{$tarea->id} ---");
-            Log::info("Tarea #{$tarea->id}: Ejecutando comando de Exportacion de auditorias...");
-            $status = (new AuditoriaImpuestosController())->exportarAuditoriasPendientesAExcel($tarea->id);  //Exportacion a Excel - Pendientes
-            if($status['code'] > 0) throw $status['message'];
-
-            $this->info("--- [FIN] Exportacion de auditorias pendientes a Excel.");
-            Log::info("--- [FIN] Exportacion de auditorias pendientes a Excel.");
-
-            // 11. Llama a cada comando en secuencia, pasándole el ID de la tarea
-            gc_collect_cycles();
-            $this->info("--- [INICIO] Enviando correo de reportes a destinatario para Tarea #{$tarea->id} ---");
-            Log::info("Tarea #{$tarea->id}: Ejecutando comando de Envio de correo de reportes...");
-            $status = (new AuditoriaImpuestosController())->enviarReportesPorCorreo($tarea->id);  //Envio de correo
-            if($status['code'] > 0) throw $status['message'];
-
-            $this->info("--- [FIN] Enviando correo de reportes.");
-            Log::info("--- [FIN] Enviando correo de reportes.");
-
-            //6. Si todos los comandos terminan bien, marca la tarea como completada
+            // FIN. Marcar tarea completada
             $tarea->update(['status' => 'completado', 'resultado' => 'Proceso de auditoría finalizado con éxito.']);
             $this->info("¡Orquestación de la Tarea #{$tarea->id} completada con éxito!");
             $tarea->refresh();
             Storage::delete($tarea->mapeo_completo_facturas);
-
         } catch (\Exception $e) {
-            // Si algún comando falla, la excepción lanzada será capturada aquí.
-            // No es necesario actualizar el estado a 'fallido' aquí, porque el subcomando ya debería haberlo hecho.
-            // Solo registramos el error en el orquestador.
             $this->error("Falló la orquestación de la Tarea #{$tarea->id}: " . $e->getMessage());
             Log::error("Fallo en orquestación Tarea #{$tarea->id}: " . $e->getMessage());
             gc_collect_cycles();
             (new AuditoriaImpuestosController())->enviarErrorDeReportePorCorreo($tarea, $e);
-            // Opcional: puedes añadir un resultado más específico del orquestador si lo deseas.
             $tarea->refresh()->update(['resultado' => 'La orquestación se detuvo debido a un fallo en un subproceso. ' . $e->getMessage()]);
             Storage::delete($tarea->mapeo_completo_facturas);
         }
