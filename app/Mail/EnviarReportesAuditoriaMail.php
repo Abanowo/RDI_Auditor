@@ -8,6 +8,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class EnviarReportesAuditoriaMail extends Mailable
 {
@@ -33,79 +34,67 @@ class EnviarReportesAuditoriaMail extends Mailable
         $this->discrepancias = [];
         
         try {
-            // 1. Obtenemos el mapa de vinculación exacto (La misma solución que en Excel)
-            $rutaMapeo = $tarea->mapeo_completo_facturas;
-            
-            if ($rutaMapeo && Storage::exists($rutaMapeo)) {
-                $contenidoJson = Storage::get($rutaMapeo);
-                $mapeadoFacturas = (array) json_decode($contenidoJson, true);
+            // 1. Extraemos los pedimentos que se procesaron en esta tarea
+            $pedimentosProcesados = json_decode($tarea->pedimentos_procesados, true) ?? [];
+
+            if (!empty($pedimentosProcesados)) {
                 
-                // Extraemos los IDs reales de la base de datos
-                $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'] ?? [];
-                
-                if (!empty($mapaPedimentoAId)) {
-                    $idsPedDb = \Illuminate\Support\Arr::pluck($mapaPedimentoAId, 'id_pedimiento');
+                // 2. Usamos la relación 'auditorias' directa (más segura y general)
+                $pedimentos = \App\Models\Pedimento::whereIn('num_pedimiento', $pedimentosProcesados)
+                    ->with([
+                        'importacion.auditorias',
+                        'importacion.auditoriasTotalSC',
+                        'exportacion.auditorias',
+                        'exportacion.auditoriasTotalSC'
+                    ])
+                    ->get();
+
+                // 3. Recorremos los pedimentos encontrados
+                foreach ($pedimentos as $pedimento) {
                     
-                    // 2. Buscamos usando los IDs internos, ignorando si el texto está "sucio"
-                    $pedimentos = \App\Models\Pedimento::whereIn('id_pedimiento', $idsPedDb)
-                        ->with([
-                            'importacion.auditorias',
-                            'importacion.auditoriasTotalSC',
-                            'exportacion.auditorias',
-                            'exportacion.auditoriasTotalSC'
-                        ])
-                        ->get();
+                    $operacion = $pedimento->importacion ?? $pedimento->exportacion;
+                    if (!$operacion) {
+                        continue;
+                    }
 
-                    // 3. Recorremos los pedimentos encontrados
-                    foreach ($pedimentos as $pedimento) {
+                    $sc = $operacion->auditoriasTotalSC;
+                    $auditorias = $operacion->auditorias;
+
+                    if (!$auditorias) {
+                        continue;
+                    }
+
+                    // Buscamos discrepancias
+                    foreach ($auditorias as $auditoria) {
+                        // Convertimos a minúsculas para evitar problemas de formato
+                        $estadoLower = strtolower($auditoria->estado);
                         
-                        $operacion = $pedimento->importacion ?? $pedimento->exportacion;
-                        if (!$operacion) {
-                            continue;
-                        }
+                        // Validamos ÚNICAMENTE pagos de más o pagos de menos (ignorando acentos)
+                        $esDiscrepancia = Str::contains($estadoLower, 'pago de mas') || 
+                                          Str::contains($estadoLower, 'pago de más') || 
+                                          Str::contains($estadoLower, 'pago de menos');
 
-                        $sc = $operacion->auditoriasTotalSC;
-                        $auditorias = $operacion->auditorias;
-
-                        if (!$auditorias) {
-                            continue;
-                        }
-
-                        // Buscamos discrepancias
-                        foreach ($auditorias as $auditoria) {
-                            // Convertimos a minúsculas para evitar problemas de formato
-                            $estadoLower = strtolower($auditoria->estado);
+                        if ($esDiscrepancia) {
+                            $tipo = $auditoria->tipo_documento;
+                            $montoFactura = (float) $auditoria->monto_total_mxn;
+                            $diferencia = (float) $auditoria->monto_diferencia_sc;
                             
-                            // Validamos ÚNICAMENTE pagos de más o pagos de menos (ignorando acentos)
-                            $esDiscrepancia = str_contains($estadoLower, 'pago de mas') || 
-                                              str_contains($estadoLower, 'pago de más') || 
-                                              str_contains($estadoLower, 'pago de menos');
-
-                            if ($esDiscrepancia) {
-                                $tipo = $auditoria->tipo_documento;
-                                $montoFactura = (float) $auditoria->monto_total_mxn;
-                                $diferencia = (float) $auditoria->monto_diferencia_sc;
-                                
-                                $montoSC = 0;
-                                if ($sc && isset($sc->desglose_conceptos['montos'])) {
-                                    $llaveSc = $tipo === 'pago_derecho' ? 'pago_derecho_mxn' : $tipo . '_mxn';
-                                    $montoSC = (float) ($sc->desglose_conceptos['montos'][$llaveSc] ?? 0);
-                                } else {
-                                    $montoSC = $montoFactura + $diferencia;
-                                }
-
-                                // Extraemos los 7 dígitos para que en el correo se vea bonito y no sucio
-                                preg_match('/\b([4-7]\d{6})\b/', $pedimento->num_pedimiento, $matchPed);
-                                $pedimentoLimpio = $matchPed[1] ?? $pedimento->num_pedimiento;
-
-                                $this->discrepancias[$tipo][$pedimentoLimpio] = [
-                                    'pedimento'     => $pedimentoLimpio,
-                                    'monto_factura' => $montoFactura,
-                                    'monto_sc'      => $montoSC,
-                                    'diferencia'    => $diferencia,
-                                    'estado'        => $auditoria->estado // Guardamos el estado original
-                                ];
+                            $montoSC = 0;
+                            if ($sc && isset($sc->desglose_conceptos['montos'])) {
+                                $llaveSc = $tipo === 'pago_derecho' ? 'pago_derecho_mxn' : $tipo . '_mxn';
+                                $montoSC = (float) ($sc->desglose_conceptos['montos'][$llaveSc] ?? 0);
+                            } else {
+                                $montoSC = $montoFactura + $diferencia;
                             }
+
+                            // Al usar el número de pedimento como llave, evitamos registros duplicados en pantalla
+                            $this->discrepancias[$tipo][$pedimento->num_pedimiento] = [
+                                'pedimento'     => $pedimento->num_pedimiento,
+                                'monto_factura' => $montoFactura,
+                                'monto_sc'      => $montoSC,
+                                'diferencia'    => $diferencia,
+                                'estado'        => $auditoria->estado // Guardamos el estado original
+                            ];
                         }
                     }
                 }
@@ -122,20 +111,14 @@ class EnviarReportesAuditoriaMail extends Mailable
      */
     public function build()
     {
-        // Obtenemos las rutas completas a los archivos desde el disco de storage
-        $rutaReportePrincipal = $this->tarea->ruta_reporte_impuestos;
-        $rutaReportePendientes = $this->tarea->ruta_reporte_impuestos_pendientes;
-
-        // Validación dinámica del destinatario
-        // Verificamos si existe el usuario ligado a la tarea y tomamos su email
-        if ($this->tarea->user_id && $this->tarea->user) {
-            $destinatario = $this->tarea->user->email;
+        // 1. Configuración de Destinatarios
+        if (app()->environment('production')) {
+            $destinatario = ($this->tarea->user_id && $this->tarea->user) ? $this->tarea->user->email : 'sayda.leyva@intactics.com';
         } else {
-            // Correo de respaldo si fue un proceso automático o no hay usuario
-            $destinatario = 'sayda.leyva@intactics.com';
+            $destinatario = 'carlos.perez@intactics.com'; 
         }
 
-        $cc = [
+        $cc = array_unique(array_filter([
             'sayda.leyva@intactics.com',
             'felipe.villarreal@intactics.com',
             'antonio.piedra@intactics.com',
@@ -144,42 +127,45 @@ class EnviarReportesAuditoriaMail extends Mailable
             'mirna.lopez@intactics.com',
             'sonia.gomez@intactics.com',
             'oscar.sandoval@intactics.com'
-        ];
-        $cc = array_unique(array_filter($cc)); // Aseguramos que no haya correos repetidos
+        ]));
 
-        // Construimos el correo asignando remitente (from), destinatario (to), asunto y vista
+        $email = $this->from('info@intactics.com', 'Intactics')
+            ->to($destinatario)
+            ->subject('Reporte de Auditoría de Impuestos - ' . $this->tarea->nombre_archivo)
+            ->view('cuerpo_correo_reporte_auditoria')
+            ->with([
+                'tarea' => $this->tarea,
+                'discrepancias' => $this->discrepancias,
+            ]);
+
         if (app()->environment('production')) {
-            $email = $this
-                ->from('info@intactics.com', 'Intactics')
-                ->to($destinatario)
-                ->cc($cc)
-                ->subject('Reporte de Auditoría de Impuestos - ' . $this->tarea->nombre_archivo)
-                ->view('cuerpo_correo_reporte_auditoria'); // Usaremos una vista de Blade para el cuerpo del correo   
-        } else {
-            $email = $this
-                ->from('info@intactics.com', 'Intactics')
-                ->to($destinatario)
-                //->cc($cc)
-                ->subject('Reporte de Auditoría de Impuestos - ' . $this->tarea->nombre_archivo)
-                ->view('cuerpo_correo_reporte_auditoria'); // Usaremos una vista de Blade para el cuerpo del correo
+            $email->cc($cc);
         }
 
-        // Adjuntamos el primer reporte si existe
-        // Verificamos que el archivo exista DENTRO del nuevo disco.
-        if (Storage::disk('storageOldProyect')->exists($rutaReportePrincipal)) {
-
-            // Usamos attachFromStorageDisk para especificar el disco correcto
-            $email->attachFromStorageDisk('storageOldProyect', $rutaReportePrincipal, $this->tarea->nombre_reporte_impuestos, [
-                'mime' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            ]);
+        // 2. Adjuntar Reportes Globales (Excel)
+        if (Storage::disk('storageOldProyect')->exists($this->tarea->ruta_reporte_impuestos)) {
+            $email->attachFromStorageDisk('storageOldProyect', $this->tarea->ruta_reporte_impuestos, $this->tarea->nombre_reporte_impuestos);
         }
 
-        // Adjuntamos el segundo reporte si existe
-        if (Storage::disk('storageOldProyect')->exists($rutaReportePendientes)) {
+        if (Storage::disk('storageOldProyect')->exists($this->tarea->ruta_reporte_impuestos_pendientes)) {
+            $email->attachFromStorageDisk('storageOldProyect', $this->tarea->ruta_reporte_impuestos_pendientes, $this->tarea->nombre_reporte_pendientes);
+        }
 
-            $email->attachFromStorageDisk('storageOldProyect', $rutaReportePendientes, $this->tarea->nombre_reporte_pendientes, [
-                'mime' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            ]);
+        // 3. ADJUNTAR PDFS INDIVIDUALES CON DISCREPANCIAS
+        foreach ($this->discrepancias as $tipo => $items) {
+            foreach ($items as $item) {
+                if (!empty($item['ruta_pdf'])) {
+                    $rutaFisica = $item['ruta_pdf'];
+                    
+                    // Verificamos si es una ruta absoluta o de storage
+                    if (file_exists($rutaFisica)) {
+                        $email->attach($rutaFisica, [
+                            'as' => 'Discrepancia_' . $tipo . '_' . $item['pedimento'] . '.pdf',
+                            'mime' => 'application/pdf',
+                        ]);
+                    }
+                }
+            }
         }
 
         return $email;
