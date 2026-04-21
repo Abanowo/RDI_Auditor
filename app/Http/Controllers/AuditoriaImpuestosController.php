@@ -2912,7 +2912,6 @@ class AuditoriaImpuestosController extends Controller
                     
                     $pasaFiltro = $esCarpetaValida && $esAlmacenaje && !empty($factura['ruta_pdf']);
 
-                    Log::info("🔎 DEBUG ALMACENAJE | Ped: {$pedimento} | Folio: {$nombre} | Tipo: {$tipo} | ¿Pasa?: " . ($pasaFiltro ? 'SÍ' : 'NO'));
                     return $pasaFiltro;
                 });
 
@@ -4321,8 +4320,6 @@ class AuditoriaImpuestosController extends Controller
 
                     // Pasa solo si está en una carpeta válida, tiene la palabra clave correcta y NO está en la lista de exclusión
                     $pasaFiltro = $esCarpetaValida && $hasKeyword && !$esExcluido && !empty($factura['ruta_pdf']);
-
-                    Log::info("🔎 DEBUG TERMINALES | Ped: {$pedimento} | Folio: {$nombre} | Tipo: {$tipo} | ¿Pasa?: " . ($pasaFiltro ? 'SÍ' : 'NO'));
                     return $pasaFiltro;
                 });
 
@@ -4480,7 +4477,6 @@ class AuditoriaImpuestosController extends Controller
                     
                     $pasaFiltro = $esCarpetaValida && $esVacio && !empty($factura['ruta_pdf']);
 
-                    Log::info("🔎 DEBUG VACÍOS | Ped: {$pedimento} | Folio: {$nombre} | Tipo: {$tipo} | ¿Pasa?: " . ($pasaFiltro ? 'SÍ' : 'NO'));
                     return $pasaFiltro;
                 });
 
