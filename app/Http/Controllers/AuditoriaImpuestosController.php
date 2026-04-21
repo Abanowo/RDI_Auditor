@@ -2008,7 +2008,8 @@ class AuditoriaImpuestosController extends Controller
         if (!$tarea || $tarea->status !== 'procesando') {
             return ['code' => 1, 'message' => new \Exception("Pagos derecho: Tarea no válida.")];
         }
-        
+        Log::info('--- INICIANDO AUDITORÍA PAGOS DE DERECHO (Anti-Colisiones Upsert) ---');
+
         try {
             $mapeadoFacturas = (array) json_decode(Storage::get($tarea->mapeo_completo_facturas), true);
             $mapaPedimentoAImportacionId = $mapeadoFacturas['pedimentos_importacion'] ?? [];
@@ -2019,99 +2020,83 @@ class AuditoriaImpuestosController extends Controller
             $indicePagosDerecho = $this->construirIndiceOperacionesPagosDerecho($indicesOperaciones);
             $pagosParaGuardar = [];
 
-            //  LIMPIEZA NUCLEAR: Borramos TODO rastro viejo en la BD para estos pedimentos
-            /* $idsPedDb = \Illuminate\Support\Arr::pluck($mapaPedimentoAId, 'id_pedimiento');
-            if (!empty($idsPedDb)) {
-                $borrados = Auditoria::whereIn('pedimento_id', $idsPedDb)->where('tipo_documento', 'pago_derecho')->delete();
-                Log::info("PDD Limpieza -> Se eliminaron {$borrados} registros obsoletos de la Base de Datos.");
-            } */
-
             foreach ($mapaPedimentoAId as $pedimentoLimpio => $pedimentoSucioYId) {
                 $operacionId = $mapaPedimentoAImportacionId[$pedimentoSucioYId['num_pedimiento']] ?? null;
                 $tipoOperacion = Importacion::class;
 
-                if (!$operacionId) { 
+                if (!$operacionId) {
                     $operacionId = $mapaPedimentoAExportacionId[$pedimentoSucioYId['num_pedimiento']] ?? null;
                     $tipoOperacion = Exportacion::class;
                 }
-                if (!$operacionId) $tipoOperacion = Pedimento::class;
-                if (!$operacionId) continue;
+                if (!$operacionId) {
+                    $tipoOperacion = Pedimento::class;
+                }
+                if (!$operacionId) {
+                    continue;
+                }
 
                 $rutasPdfs = $indicePagosDerecho[$pedimentoSucioYId['num_pedimiento']] ?? null;
-                if (!$rutasPdfs) continue;
+                if (!$rutasPdfs) {
+                    continue;
+                }
 
-                // 1. Extraemos los PDFs
                 $parsedPdfs = [];
                 foreach ($rutasPdfs as $rutaPdf) {
                     $datosPago = $this->parsearPdfPagoDeDerecho($rutaPdf);
                     if ($datosPago) {
                         $datosPago['ruta_pdf_original'] = $rutaPdf;
                         $parsedPdfs[] = $datosPago;
-                        Log::info("PDD Extractor -> Ped: {$pedimentoLimpio} | Monto extraído: {$datosPago['monto_total']} | Archivo: " . basename($rutaPdf));
                     }
                 }
 
-                if (empty($parsedPdfs)) continue;
+                if (empty($parsedPdfs)) {
+                    continue;
+                }
 
-                // 2. DEDUPLICACIÓN INTELIGENTE: Eliminamos copias y rescatamos el mejor valor
+                // 🚀 DEDUPLICACIÓN ESTRICTA POR LLAVE DE PAGO
+                // Esto asegura que NUNCA enviemos 2 registros con la misma llave al Upsert
                 $mejoresPagos = [];
                 foreach ($parsedPdfs as $p) {
-                    // Agrupamos por monto y llave (ej. 3356_A1B2C3)
-                    $montoStr = (string)(float)$p['monto_total'];
-                    $llave = !empty($p['llave_pago']) ? $p['llave_pago'] : 'sin_llave';
-                    
-                    // Si el monto es 0, lo mandamos a un grupo "basura" para que pierda ante los buenos
-                    $clave = ($montoStr > 0) ? "{$montoStr}_{$llave}" : "cero_{$llave}";
+                    $llave = !empty($p['llave_pago']) ? $p['llave_pago'] : uniqid();
 
-                    if (!isset($mejoresPagos[$clave])) {
-                        $mejoresPagos[$clave] = $p;
+                    if (!isset($mejoresPagos[$llave])) {
+                        $mejoresPagos[$llave] = $p;
                     } else {
-                        // Si ya hay uno, preferimos el archivo 'Normal' (Sin Intactics en el nombre)
-                        $nombreActual = strtoupper(basename($p['ruta_alternativa'] ?? $p['ruta_pdf_original']));
-                        if (!str_contains($nombreActual, 'INTACTICS')) {
-                            $mejoresPagos[$clave] = $p;
+                        // Si hay choque (misma llave), evaluamos quién gana:
+                        $montoActual = (float)$p['monto_total'];
+                        $montoGuardado = (float)$mejoresPagos[$llave]['monto_total'];
+
+                        if ($montoActual > 0 && $montoGuardado <= 0) {
+                            // Gana el que tiene dinero
+                            $mejoresPagos[$llave] = $p;
+                        } elseif ($montoActual == $montoGuardado) {
+                            // Gana el que NO es Intactics
+                            $nombreActual = strtoupper(basename($p['ruta_alternativa'] ?? $p['ruta_pdf_original']));
+                            if (!str_contains($nombreActual, 'INTACTICS')) {
+                                $mejoresPagos[$llave] = $p;
+                            }
                         }
                     }
                 }
 
-                // 3. FILTRO FINAL: Si hay pagos exitosos (>0), ignoramos todos los grupos basura (0)
-                $hayValidos = false;
-                foreach ($mejoresPagos as $p) {
-                    if ((float)$p['monto_total'] > 0) {
-                        $hayValidos = true;
-                        break;
-                    }
-                }
-
-                foreach ($mejoresPagos as $datosPago) {
-                    // Ignorar los "cero" a menos que todo el pedimento haya fallado
-                    if ($hayValidos && (float)$datosPago['monto_total'] <= 0) {
-                        /* Log::info("PDD Descarte -> Ped: {$pedimentoLimpio} | Se descartó un PDF de $0.00 porque existe uno válido."); */
-                        continue; 
-                    }
-
-                    $llave = !empty($datosPago['llave_pago']) ? $datosPago['llave_pago'] : uniqid();
+                foreach ($mejoresPagos as $llaveUnica => $datosPago) {
                     $rutaFinal = $datosPago['ruta_alternativa'] ?? $datosPago['ruta_pdf_original'];
-                    
-                    // 🚀 CANDADO ABSOLUTO DE ESTADO (Por nombre de archivo)
                     $nombreFinal = strtoupper(basename($rutaFinal));
                     $estadoReal = str_contains($nombreFinal, 'INTACTICS') ? 'Intactics' : 'Normal';
-                    
-                    /* Log::info("PDD Inserción -> Ped: {$pedimentoLimpio} | Monto: {$datosPago['monto_total']} | Estado Final: {$estadoReal} | Archivo: {$nombreFinal}"); */
 
                     $pagosParaGuardar[] = [
                         'operacion_id' => $operacionId['id_operacion'],
                         'pedimento_id' => $pedimentoSucioYId['id_pedimiento'],
                         'operation_type' => $tipoOperacion,
                         'tipo_documento' => 'pago_derecho',
-                        'concepto_llave' => $llave,
+                        'concepto_llave' => $llaveUnica, // <--- Garantizado que no se repite en el batch
                         'fecha_documento' => $datosPago['fecha_pago'] ?? now()->format('Y-m-d'),
                         'monto_total' => $datosPago['monto_total'],
                         'monto_total_mxn' => $datosPago['monto_total'],
                         'monto_diferencia_sc' => 0,
                         'moneda_documento' => 'MXN',
-                        'estado' => $estadoReal, 
-                        'llave_pago_pdd' => $llave,
+                        'estado' => $estadoReal,
+                        'llave_pago_pdd' => $datosPago['llave_pago'] ?? '',
                         'num_operacion_pdd' => $datosPago['numero_operacion'] ?? '',
                         'ruta_pdf' => $rutaFinal,
                         'created_at' => now(),
@@ -2121,14 +2106,32 @@ class AuditoriaImpuestosController extends Controller
             }
 
             if (!empty($pagosParaGuardar)) {
-                Auditoria::insert($pagosParaGuardar); 
-                Log::info("--- FIN PDD: ¡Éxito! Se insertaron " . count($pagosParaGuardar) . " pagos impecables en BD. ---");
+                Log::info("\nGuardando/Actualizando " . count($pagosParaGuardar) . " registros de Pagos de Derecho...");
+
+                // El Upsert ahora sí funcionará porque la bolsa de $pagosParaGuardar 
+                // ya no tiene clones peleándose por la misma llave.
+                Auditoria::upsert(
+                    $pagosParaGuardar,
+                    ['operacion_id', 'pedimento_id', 'operation_type', 'tipo_documento', 'concepto_llave'], 
+                    [
+                        'fecha_documento',
+                        'monto_total', 
+                        'monto_total_mxn',
+                        'monto_diferencia_sc',
+                        'moneda_documento',
+                        'estado',
+                        'llave_pago_pdd',
+                        'num_operacion_pdd',
+                        'ruta_pdf',
+                        'updated_at'
+                    ]
+                );
             }
 
             return ['code' => 0, 'message' => 'completado'];
-            
+
         } catch (\Throwable $e) {
-            Log::error("Error auditarFacturasDePagosDeDerecho: " . $e->getMessage() . " en linea " . $e->getLine());
+            Log::error("Error PDD: " . $e->getMessage() . " en la línea " . $e->getLine());
             return ['code' => 1, 'message' => $e];
         }
     }
@@ -2861,95 +2864,163 @@ class AuditoriaImpuestosController extends Controller
         return $indice;
     }
 
-    //--- METODO DEDICADO: EXTRAER TOTAL DE ALMACENAJE (XML TERMINALES) Y ENVIAR A GPC
+    /**
+     * Lee los archivos y crea un mapa EXCLUSIVO para Almacenaje.
+     */
+    private function construirIndiceOperacionesAlmacenaje(array $indicesOperacion): array
+    {
+        gc_collect_cycles();
+        $indice = [];
+        try {
+            foreach ($indicesOperacion as $pedimento => $datos) {
+                if (isset($datos['error'])) continue;
+
+                $coleccionFacturas = collect($datos['facturas']);
+                $facturasAgrupadas = [];
+                
+                foreach ($coleccionFacturas as $factura) {
+                    $rutaF = $factura['ruta_pdf'] ?? $factura['ruta_xml'] ?? '';
+                    if (empty($rutaF)) continue;
+
+                    $filename = pathinfo(parse_url($rutaF, PHP_URL_PATH), PATHINFO_FILENAME);
+                    $nombreLimpio = preg_replace('/[-_\s]?\(\d+\)$/', '', $filename);
+
+                    if (empty($nombreLimpio)) $nombreLimpio = 'UNK_' . uniqid();
+
+                    if (!isset($facturasAgrupadas[$nombreLimpio])) {
+                        $facturasAgrupadas[$nombreLimpio] = [
+                            'ruta_pdf' => null,
+                            'ruta_xml' => null,
+                            'tipo_documento' => strtolower($factura['tipo_documento'] ?? ''),
+                            'folio' => $factura['folio'] ?? $filename
+                        ];
+                    }
+
+                    if (!empty($factura['ruta_pdf'])) $facturasAgrupadas[$nombreLimpio]['ruta_pdf'] = $factura['ruta_pdf'];
+                    if (!empty($factura['ruta_xml'])) $facturasAgrupadas[$nombreLimpio]['ruta_xml'] = $factura['ruta_xml'];
+                }
+
+                $facturasAlmacenaje = collect(array_values($facturasAgrupadas))->filter(function ($factura) use ($pedimento) {
+                    $tipo = $factura['tipo_documento'] ?? '';
+                    $nombre = strtolower($factura['folio'] ?? '');
+                    
+                    // Ahora permitimos que también se encuentre dentro de la sección "Terminal"
+                    $esCarpetaValida = str_contains($tipo, 'proveedor') || str_contains($tipo, 'terminal');
+                    
+                    // La condición de oro: el nombre DEBE decir almacen o storage
+                    $esAlmacenaje = str_contains($nombre, 'almacen') || str_contains($nombre, 'storage');
+                    
+                    $pasaFiltro = $esCarpetaValida && $esAlmacenaje && !empty($factura['ruta_pdf']);
+
+                    Log::info("🔎 DEBUG ALMACENAJE | Ped: {$pedimento} | Folio: {$nombre} | Tipo: {$tipo} | ¿Pasa?: " . ($pasaFiltro ? 'SÍ' : 'NO'));
+                    return $pasaFiltro;
+                });
+
+                foreach ($facturasAlmacenaje as $factura) {
+                    $indice[$pedimento][] = [
+                        'folio'    => $factura['folio'],
+                        'ruta_xml' => $factura['ruta_xml'] ?? null, 
+                        'ruta_pdf' => $factura['ruta_pdf'],
+                    ];
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::error("Error construyendo índice de almacenaje: " . $e->getMessage());
+        }
+        return $indice;
+    }
+
+    //--- METODO DEDICADO: EXTRAER TOTAL DE ALMACENAJE Y ENVIAR A GPC
     public function enviarAGPCTotalAlmacenaje(string $tareaId)
     {
         gc_collect_cycles();
         $tarea = AuditoriaTareas::find($tareaId);
         
-        if (!$tarea || $tarea->status !== 'procesando') {
-            return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
-        }
+        if (!$tarea || $tarea->status !== 'procesando') return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
 
-        Log::info("Tarea #{$tarea->id}: Iniciando extracción de Total de Almacenaje (Terminales) para Google Sheets...");
+        Log::info("Tarea #{$tarea->id}: Iniciando extracción de Total de Almacenaje...");
 
         try {
             $rutaMapeo = $tarea->mapeo_completo_facturas;
-            if (!$rutaMapeo || !Storage::exists($rutaMapeo)) {
-                return ['code' => 1, 'message' => new \Exception("No se encontró el archivo de mapeo universal.")];
-            }
+            if (!$rutaMapeo || !Storage::exists($rutaMapeo)) return ['code' => 1, 'message' => new \Exception("No se encontró el archivo de mapeo universal.")];
 
             $mapeadoFacturas = (array) json_decode(Storage::get($rutaMapeo), true);
             $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'] ?? [];
-            $indicesOperaciones = array_merge($mapeadoFacturas['indices_importacion'] ?? [], $mapeadoFacturas['indices_exportacion'] ?? []);
+            $indicesOperaciones = ($mapeadoFacturas['indices_importacion'] ?? []) + ($mapeadoFacturas['indices_exportacion'] ?? []);
 
             $auditoriasSC = $mapeadoFacturas['auditorias_sc'] ?? [];
             $indiceTiposCambio = [];
             foreach ($auditoriasSC as $auditoria) {
-                $desglose = $auditoria['desglose_conceptos'];
+                $desglose = is_array($auditoria['desglose_conceptos']) ? $auditoria['desglose_conceptos'] : json_decode($auditoria['desglose_conceptos'], true);
                 $indiceTiposCambio[$auditoria['pedimento_id']] = (float) ($desglose['tipo_cambio'] ?? 1.0);
             }
 
+            $indiceAlmacen = $this->construirIndiceOperacionesAlmacenaje($indicesOperaciones);
             $almacenajeParaSheets = []; 
 
             foreach ($mapaPedimentoAId as $pedimentoLimpio => $datosId) {
-                $datosOperacion = $indicesOperaciones[$pedimentoLimpio] ?? null;
-                
-                if (!$datosOperacion || isset($datosOperacion['error'])) {
-                    continue;
-                }
+                $listaFacturasAlmacen = $indiceAlmacen[$pedimentoLimpio] ?? [];
+                if (empty($listaFacturasAlmacen)) continue;
 
-                $coleccionFacturas = collect($datosOperacion['facturas']);
-                $facturasTerminales = $coleccionFacturas->where('tipo_documento', 'terminales');
+                $opId = $datosId['id_operacion'];
+                $tipoOp = ($datosId['tipo'] == 'Importacion') ? Importacion::class : Exportacion::class;
+                $queryOp = ($tipoOp === Importacion::class) ? Importacion::with('cliente')->find($opId) : Exportacion::with('cliente')->find($opId);
 
-                if ($facturasTerminales->isEmpty()) {
-                    continue;
-                }
+                $facturasValidas = 0;
+                $filasTemp = [];
 
-                $montoTotalMXN = 0;
-                $fechaAlmacenaje = null;
-                $navieraAlmacenaje = ''; // <-- 1. Agrega esta variable inicializada
+                foreach ($listaFacturasAlmacen as $factura) {
+                    $info = $this->extraerMontoYNaviera($factura['ruta_xml'] ?? null, $factura['ruta_pdf'] ?? null);
 
-                foreach ($facturasTerminales as $factura) {
-                    if (!empty($factura['ruta_xml'])) {
-                        $xmlData = $this->parsearXmlFlete($factura['ruta_xml']);
-
-                        if ($xmlData && $xmlData['total'] != -1) {
-                            $tipoCambio = $indiceTiposCambio[$datosId['id_pedimiento']] ?? 1.0;
-                            $montoConvertido = ($xmlData['moneda'] === "USD")
-                                ? round($xmlData['total'] * $tipoCambio, 2)
-                                : $xmlData['total'];
-                            $montoTotalMXN += $montoConvertido;
-
-                            if (!$fechaAlmacenaje && !empty($xmlData['fecha'])) {
-                                $fechaAlmacenaje = $xmlData['fecha'];
-                            }
-
-                            // <-- 2. Capturamos la naviera (emisor) extraída del XML
-                            if (empty($navieraAlmacenaje) && !empty($xmlData['emisor'])) {
-                                $navieraAlmacenaje = $xmlData['emisor'];
+                    if ($info['monto'] > 0) {
+                        $tipoCambio = $indiceTiposCambio[$datosId['id_pedimiento']] ?? 1.0;
+                        $montoMXN = $info['monto'];
+                        
+                        if (!empty($factura['ruta_xml'])) {
+                            $xmlData = $this->parsearXmlFlete($factura['ruta_xml']);
+                            if ($xmlData && strtoupper($xmlData['moneda']) === 'USD') {
+                                $montoMXN = round($info['monto'] * $tipoCambio, 2);
                             }
                         }
+
+                        $facturasValidas++;
+                        
+                        $filasTemp[] = [
+                            'fecha'      => $info['fecha'] ?: now()->format('Y-m-d'),
+                            'cliente'    => $queryOp ? optional($queryOp->cliente)->nombre : '',
+                            'contenedor' => $queryOp ? ($queryOp->contenedor ?? '') : '',
+                            'bl'         => $queryOp ? ($queryOp->bol ?? '') : '', 
+                            'naviera'    => $info['naviera'], 
+                            'pedimento'  => $pedimentoLimpio,
+                            'concepto'   => 'Almacenaje', // Se reescribe abajo si son varias
+                            'monto'      => (float) $montoMXN,
+                            'moneda'     => 'MXN'
+                        ];
                     }
                 }
 
-                if ($montoTotalMXN > 0) {
-                    $almacenajeParaSheets[] = [
-                        'fecha'     => $fechaAlmacenaje ?: now()->format('Y-m-d'),
-                        'pedimento' => $pedimentoLimpio,
-                        'concepto'  => 'Almacenaje',
-                        'monto'     => $montoTotalMXN,
-                        'moneda'    => 'MXN',
-                        'naviera'   => $navieraAlmacenaje // <-- 3. Inyectamos la naviera al payload
-                    ];
+                // 🚀 LÓGICA SIN SUMATORIA: Solo las individuales
+                if ($facturasValidas === 1) {
+                    $filasTemp[0]['concepto'] = 'Almacenaje';
+                    $almacenajeParaSheets[] = $filasTemp[0];
+                } elseif ($facturasValidas > 1) {
+                    foreach ($filasTemp as $index => $fila) {
+                        $fila['concepto'] = 'Almacenaje ' . ($index + 1);
+                        $almacenajeParaSheets[] = $fila; // Agrega las individuales solamente
+                    }
                 }
             }
 
             if (!empty($almacenajeParaSheets)) {
-                $this->enviarDatosAGoogleSheets($almacenajeParaSheets, 'ZLO');
-                Log::info("Enviados " . count($almacenajeParaSheets) . " totales de Almacenaje a Sheets.");
+                $paquetes = array_chunk($almacenajeParaSheets, 50);
+                foreach ($paquetes as $idx => $paquete) {
+                    $esUltimo = ($idx === count($paquetes) - 1);
+                    $this->enviarDatosAGoogleSheets($paquete, 'ZLO', $esUltimo);
+                    sleep(2);
+                }
+                Log::info("Enviados " . count($almacenajeParaSheets) . " registros de Almacenaje a Sheets.");
             } else {
-                Log::info("Almacenaje: No se encontraron datos válidos en los XML de terminales para enviar a Sheets.");
+                Log::info("Almacenaje: No se encontraron datos válidos para enviar a Sheets.");
             }
 
             return ['code' => 0, 'message' => 'completado'];
@@ -3242,7 +3313,7 @@ class AuditoriaImpuestosController extends Controller
 
                 if (!empty($rutasFinales)) {
                     $indice[$pedimento] = array_unique($rutasFinales);
-                    Log::info("PDD Buscador -> Ped: {$pedimento} | " . count($rutasNormales) . " Normales | " . count($rutasIntactics) . " Intactics. Guardando " . count($indice[$pedimento]));
+                    /* Log::info("PDD Buscador -> Ped: {$pedimento} | " . count($rutasNormales) . " Normales | " . count($rutasIntactics) . " Intactics. Guardando " . count($indice[$pedimento])); */
                 }
             }
         } catch (\Throwable $e) {
@@ -4193,162 +4264,7 @@ class AuditoriaImpuestosController extends Controller
 
                 $coleccionFacturas = collect($datos['facturas']);
                 $facturasAgrupadas = [];
-                foreach ($coleccionFacturas as $factura) {
-                    $rutaF = $factura['ruta_pdf'] ?? $factura['ruta_xml'] ?? '';
-                    if (empty($rutaF)) {
-                        continue;
-                    }
-
-                    // 1. Extraemos el nombre del archivo directamente del link
-                    $filename = pathinfo(parse_url($rutaF, PHP_URL_PATH), PATHINFO_FILENAME);
-                    
-                    // 2. Limpiamos el ID que le pone el sistema al principio (ej. 4168714-)
-                    $nombreLimpio = preg_replace('/^\d+-/', '', $filename);
-                    
-                    // 3. Limpiamos las copias (ej. -(1), _1)
-                    $nombreLimpio = preg_replace('/[-_]?\(\d+\)$/', '', $nombreLimpio);
-                    $nombreLimpio = preg_replace('/-\d+$/', '', $nombreLimpio);
-
-                    // Si por algún motivo extremo queda vacío, le asignamos un ID único para que no sobreescriba
-                    if (empty($nombreLimpio)) {
-                        $nombreLimpio = 'UNK_' . uniqid();
-                    }
-
-                    if (!isset($facturasAgrupadas[$nombreLimpio])) {
-                        $facturasAgrupadas[$nombreLimpio] = [
-                            'ruta_pdf' => null,
-                            'ruta_xml' => null,
-                            'tipo_documento' => '',
-                            'folio' => $factura['folio'] ?? $nombreLimpio
-                        ];
-                    }
-
-                    // Llenamos las rutas asegurándonos de unir la pareja
-                    if (!empty($factura['ruta_pdf'])) {
-                        $facturasAgrupadas[$nombreLimpio]['ruta_pdf'] = $factura['ruta_pdf'];
-                    }
-                    if (!empty($factura['ruta_xml'])) {
-                        $facturasAgrupadas[$nombreLimpio]['ruta_xml'] = $factura['ruta_xml'];
-                    }
-
-                    // Priorizamos guardar el tipo de documento correcto
-                    if (!empty($factura['tipo_documento']) && strtolower($factura['tipo_documento']) !== 'sc') {
-                        $facturasAgrupadas[$nombreLimpio]['tipo_documento'] = strtolower($factura['tipo_documento']);
-                    }
-                }
-
-                $coleccionAgrupada = collect(array_values($facturasAgrupadas));
-
-                // Filtro ESTRICTO: Solo atrapa si dice 'terminal'
-                $facturasTerminal = $coleccionAgrupada->filter(function ($factura) {
-                    $tipo = $factura['tipo_documento'] ?? '';
-                    return (str_contains($tipo, 'terminal')) && !empty($factura['ruta_pdf']);
-                });
-
-                foreach ($facturasTerminal as $factura) {
-                    $indice[$pedimento][] = [
-                        'folio' => $factura['folio'],
-                        'path_xml_man' => $factura['ruta_xml'] ?? null, 
-                        'path_pdf_man' => $factura['ruta_pdf'],
-                    ];
-                }
-            }
-        } catch (\Throwable $e) {
-            Log::error("Error construyendo índice de terminales: " . $e->getMessage());
-        }
-        return $indice;
-    }
-
-    //--- METODO DEDICADO: EXTRAER MANIOBRAS (TERMINALES) Y ENVIAR A GPC
-    public function enviarAGPCTerminales(string $tareaId)
-    {
-        gc_collect_cycles();
-        $tarea = AuditoriaTareas::find($tareaId);
-        
-        if (!$tarea || $tarea->status !== 'procesando') {
-            return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
-        }
-
-        Log::info("Tarea #{$tarea->id}: Iniciando extracción de Terminales...");
-
-        try {
-            $rutaMapeo = $tarea->mapeo_completo_facturas;
-            $mapeadoFacturas = (array) json_decode(Storage::get($rutaMapeo), true);
-
-            $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'] ?? [];
-            $indicesOperaciones = ($mapeadoFacturas['indices_importacion'] ?? []) + ($mapeadoFacturas['indices_exportacion'] ?? []);
-            
-            $indiceManiobras = $this->construirIndiceOperacionesTerminales($indicesOperaciones);
-
-            $maniobrasParaSheets = []; 
-
-            foreach ($mapaPedimentoAId as $pedimentoLimpio => $datosId) {
-                $listaFacturasManiobra = $indiceManiobras[$pedimentoLimpio] ?? [];
-
-                foreach ($listaFacturasManiobra as $index => $datosManiobra) {
-
-                    $infoExtraccion = $this->extraerMontoYNaviera($datosManiobra['path_xml_man'] ?? null, $datosManiobra['path_pdf_man'] ?? null);
-                    /* Log::info("Extracción naviera en terminales - Ped: {$pedimentoLimpio} | Monto: {$infoExtraccion['monto']} | Naviera extraída: [{$infoExtraccion['naviera']}]"); */
-
-                    if ($infoExtraccion['monto'] > 0) {
-                        $conceptoNombre = 'Maniobras en Terminal' . ($index > 0 ? ' ' . ($index + 1) : '');
-
-                        $maniobrasParaSheets[] = [
-                            'fecha'     => $infoExtraccion['fecha'],
-                            'pedimento' => $pedimentoLimpio,
-                            'concepto'  => $conceptoNombre,
-                            'monto'     => $infoExtraccion['monto'],
-                            'moneda'    => 'MXN',
-                            'naviera'   => $infoExtraccion['naviera']
-                        ];
-                    }
-                }
-            }
-
-            if (!empty($maniobrasParaSheets)) {
-                Log::info("Terminales listas para enviar a GPC: " . count($maniobrasParaSheets));
-                $paquetes = array_chunk($maniobrasParaSheets, 50);
-                foreach ($paquetes as $index => $paquete) {
-                    $numeroPaquete = $index + 1;
-                    $totalPaquetes = count($paquetes);
-
-                    // Si estamos en el último ciclo, esto será true
-                    $esUltimo = ($numeroPaquete === $totalPaquetes);
-
-                    Log::info("Enviando paquete {$numeroPaquete} de {$totalPaquetes}...");
-
-                    // Le pasamos la bandera a la función
-                    $this->enviarDatosAGoogleSheets($paquete, 'ZLO', $esUltimo);
-
-                    sleep(2);
-                }
-                Log::info("¡Todas las Terminales enviadas con éxito!");
-            }
-
-            return ['code' => 0, 'message' => 'completado'];
-        } catch (\Throwable $e) {
-            Log::error("Error Terminales: " . $e->getMessage());
-            return ['code' => 1, 'message' => $e];
-        }
-    }
-
-    /**
-     * Lee los archivos y crea un mapa [pedimento => rutas] EXCLUSIVO para Vacíos.
-     */
-    private function construirIndiceOperacionesVacios(array $indicesOperacion): array
-    {
-        gc_collect_cycles();
-        $indice = [];
-        try {
-            foreach ($indicesOperacion as $pedimento => $datos) {
-                if (isset($datos['error'])) {
-                    continue;
-                }
-
-                $coleccionFacturas = collect($datos['facturas']);
-                $facturasAgrupadas = [];
                 
-                // 1. Agrupamos PDF y XML por su nombre base para asegurar que no se separen
                 foreach ($coleccionFacturas as $factura) {
                     $rutaF = $factura['ruta_pdf'] ?? $factura['ruta_xml'] ?? '';
                     if (empty($rutaF)) {
@@ -4381,18 +4297,197 @@ class AuditoriaImpuestosController extends Controller
                     }
                 }
 
-                // 2. FILTRO: Atrapamos el archivo si su tipo es 'vacios' o si el nombre del archivo contiene 'vacio'
-                $facturasVacio = collect(array_values($facturasAgrupadas))->filter(function ($factura) {
+                // 🚀 FILTRO ESTRICTO: NO importa la carpeta, importa el nombre del archivo.
+                $facturasTerminal = collect(array_values($facturasAgrupadas))->filter(function ($factura) use ($pedimento) {
                     $tipo = $factura['tipo_documento'] ?? '';
-                    $folio = strtolower($factura['folio']); // El folio trae el nombre del archivo
-                    return (str_contains($tipo, 'vacio') || str_contains($folio, 'vacio')) && !empty($factura['ruta_pdf']);
+                    $nombre = strtolower($factura['folio'] ?? '');
+                    
+                    // Puede venir de la sección Terminal o Proveedores
+                    $esCarpetaValida = str_contains($tipo, 'terminal') || str_contains($tipo, 'proveedor');
+                    
+                    // DEBE decir terminal, maniobra o reacomodo en el nombre del archivo
+                    $keywordsTerminal = ['terminal', 'maniobra', 'reacomodo'];
+                    $hasKeyword = false;
+                    foreach($keywordsTerminal as $key) {
+                        if(str_contains($nombre, $key)) { $hasKeyword = true; break; }
+                    }
+
+                    // EXCLUSIÓN: Asegurarnos de que no sea almacen, vacio, conexion o admin
+                    $esExcluido = str_contains($nombre, 'conexion') || 
+                                  str_contains($nombre, 'admin') || 
+                                  str_contains($nombre, 'ctrol') || 
+                                  str_contains($nombre, 'almacen') || 
+                                  str_contains($nombre, 'vacio');
+
+                    // Pasa solo si está en una carpeta válida, tiene la palabra clave correcta y NO está en la lista de exclusión
+                    $pasaFiltro = $esCarpetaValida && $hasKeyword && !$esExcluido && !empty($factura['ruta_pdf']);
+
+                    Log::info("🔎 DEBUG TERMINALES | Ped: {$pedimento} | Folio: {$nombre} | Tipo: {$tipo} | ¿Pasa?: " . ($pasaFiltro ? 'SÍ' : 'NO'));
+                    return $pasaFiltro;
                 });
 
-                // 3. Guardamos con las LLAVES EXACTAS que espera auditarFacturasDeVacios
+                foreach ($facturasTerminal as $factura) {
+                    $indice[$pedimento][] = [
+                        'folio' => $factura['folio'],
+                        'path_xml_man' => $factura['ruta_xml'] ?? null, 
+                        'path_pdf_man' => $factura['ruta_pdf'],
+                    ];
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::error("Error construyendo índice de terminales: " . $e->getMessage());
+        }
+        return $indice;
+    }
+
+    //--- METODO DEDICADO: EXTRAER MANIOBRAS (TERMINALES) Y ENVIAR A GPC
+    public function enviarAGPCTerminales(string $tareaId)
+    {
+        gc_collect_cycles();
+        $tarea = AuditoriaTareas::find($tareaId);
+        if (!$tarea || $tarea->status !== 'procesando') {
+            return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
+        }
+
+        Log::info("Tarea #{$tarea->id}: Iniciando envío de Terminales a GPC...");
+
+        try {
+            $mapeadoFacturas = (array) json_decode(Storage::get($tarea->mapeo_completo_facturas), true);
+            $indicesOperaciones = ($mapeadoFacturas['indices_importacion'] ?? []) + ($mapeadoFacturas['indices_exportacion'] ?? []);
+            $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'] ?? [];
+            
+            $indiceManiobras = $this->construirIndiceOperacionesTerminales($indicesOperaciones);
+            $maniobrasParaSheets = []; 
+
+            foreach ($mapaPedimentoAId as $pedimentoLimpio => $datosId) {
+                $listaFacturasManiobra = $indiceManiobras[$pedimentoLimpio] ?? [];
+                if (empty($listaFacturasManiobra)) {
+                    continue;
+                }
+
+                $opId = $datosId['id_operacion'];
+                $tipoOp = ($datosId['tipo'] == 'Importacion') ? Importacion::class : Exportacion::class;
+                $queryOp = ($tipoOp === Importacion::class) ? Importacion::with('cliente')->find($opId) : Exportacion::with('cliente')->find($opId);
+
+                $facturasValidas = 0;
+                $filasTemp = [];
+
+                foreach ($listaFacturasManiobra as $datosManiobra) {
+                    $infoExtraccion = $this->extraerMontoYNaviera($datosManiobra['path_xml_man'] ?? null, $datosManiobra['path_pdf_man'] ?? null);
+
+                    if ($infoExtraccion['monto'] > 0) {
+                        $facturasValidas++;
+                        
+                        $filasTemp[] = [
+                            'fecha'      => $infoExtraccion['fecha'],
+                            'cliente'    => $queryOp ? optional($queryOp->cliente)->nombre : '',
+                            'contenedor' => $queryOp ? ($queryOp->contenedor ?? '') : '',
+                            'bl'         => $queryOp ? ($queryOp->bol ?? '') : '',
+                            'pedimento'  => $pedimentoLimpio,
+                            'concepto'   => 'Maniobras en Terminal', // Se reescribe abajo si son varias
+                            'monto'      => $infoExtraccion['monto'],
+                            'moneda'     => 'MXN',
+                            'naviera'    => $infoExtraccion['naviera']
+                        ];
+                    }
+                }
+
+                // 🚀 LÓGICA SIN SUMATORIA: Solo las individuales
+                if ($facturasValidas === 1) {
+                    $filasTemp[0]['concepto'] = 'Maniobras en Terminal';
+                    $maniobrasParaSheets[] = $filasTemp[0];
+                } elseif ($facturasValidas > 1) {
+                    foreach ($filasTemp as $index => $fila) {
+                        $fila['concepto'] = 'Maniobras en Terminal ' . ($index + 1);
+                        $maniobrasParaSheets[] = $fila; // Agrega las individuales solamente
+                    }
+                }
+            }
+
+            if (!empty($maniobrasParaSheets)) {
+                Log::info("Terminales encontradas para enviar: " . count($maniobrasParaSheets));
+                $paquetes = array_chunk($maniobrasParaSheets, 50);
+                foreach ($paquetes as $idx => $paquete) {
+                    $esUltimo = ($idx === count($paquetes) - 1);
+                    $this->enviarDatosAGoogleSheets($paquete, 'ZLO', $esUltimo);
+                    sleep(1);
+                }
+                Log::info("¡Envío de Terminales completado!");
+            } else {
+                Log::warning("No se encontraron montos de Terminales para enviar.");
+            }
+
+            return ['code' => 0, 'message' => 'completado'];
+        } catch (\Throwable $e) {
+            Log::error("Error en Terminales: " . $e->getMessage());
+            return ['code' => 1, 'message' => $e];
+        }
+    }
+
+    /**
+     * Lee los archivos y crea un mapa EXCLUSIVO para Vacíos.
+     */
+    private function construirIndiceOperacionesVacios(array $indicesOperacion): array
+    {
+        gc_collect_cycles();
+        $indice = [];
+        try {
+            foreach ($indicesOperacion as $pedimento => $datos) {
+                if (isset($datos['error'])) {
+                    continue;
+                }
+
+                $coleccionFacturas = collect($datos['facturas']);
+                $facturasAgrupadas = [];
+                
+                foreach ($coleccionFacturas as $factura) {
+                    $rutaF = $factura['ruta_pdf'] ?? $factura['ruta_xml'] ?? '';
+                    if (empty($rutaF)) {
+                        continue;
+                    }
+
+                    $filename = pathinfo(parse_url($rutaF, PHP_URL_PATH), PATHINFO_FILENAME);
+                    $nombreLimpio = preg_replace('/[-_\s]?\(\d+\)$/', '', $filename);
+
+                    if (empty($nombreLimpio)) $nombreLimpio = 'UNK_' . uniqid();
+
+                    if (!isset($facturasAgrupadas[$nombreLimpio])) {
+                        $facturasAgrupadas[$nombreLimpio] = [
+                            'ruta_pdf' => null,
+                            'ruta_xml' => null,
+                            'tipo_documento' => strtolower($factura['tipo_documento'] ?? ''),
+                            'folio' => $factura['folio'] ?? $filename
+                        ];
+                    }
+
+                    if (!empty($factura['ruta_pdf'])) {
+                        $facturasAgrupadas[$nombreLimpio]['ruta_pdf'] = $factura['ruta_pdf'];
+                    }
+                    if (!empty($factura['ruta_xml'])) {
+                        $facturasAgrupadas[$nombreLimpio]['ruta_xml'] = $factura['ruta_xml'];
+                    }
+                }
+
+                $facturasVacio = collect(array_values($facturasAgrupadas))->filter(function ($factura) use ($pedimento) {
+                    $tipo = $factura['tipo_documento'] ?? '';
+                    $nombre = strtolower($factura['folio'] ?? '');
+                    
+                    // Permitimos las 3 carpetas donde el usuario podría equivocarse
+                    $esCarpetaValida = str_contains($tipo, 'vacio') || str_contains($tipo, 'proveedor') || str_contains($tipo, 'terminal');
+                    
+                    // La condición de oro: el nombre DEBE decir vacio
+                    $esVacio = str_contains($nombre, 'vacio');
+                    
+                    $pasaFiltro = $esCarpetaValida && $esVacio && !empty($factura['ruta_pdf']);
+
+                    Log::info("🔎 DEBUG VACÍOS | Ped: {$pedimento} | Folio: {$nombre} | Tipo: {$tipo} | ¿Pasa?: " . ($pasaFiltro ? 'SÍ' : 'NO'));
+                    return $pasaFiltro;
+                });
+
                 foreach ($facturasVacio as $factura) {
                     $indice[$pedimento][] = [
                         'folio'    => $factura['folio'],
-                        'ruta_xml' => $factura['ruta_xml'], 
+                        'ruta_xml' => $factura['ruta_xml'] ?? null, 
                         'ruta_pdf' => $factura['ruta_pdf'],
                     ];
                 }
@@ -4422,60 +4517,76 @@ class AuditoriaImpuestosController extends Controller
             }
 
             $mapeadoFacturas = (array) json_decode(Storage::get($rutaMapeo), true);
-
             $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'] ?? [];
             $indicesOperaciones = ($mapeadoFacturas['indices_importacion'] ?? []) + ($mapeadoFacturas['indices_exportacion'] ?? []);
             
             $indiceVacios = $this->construirIndiceOperacionesVacios($indicesOperaciones);
             $vaciosParaSheets = []; 
 
-            Log::info("Vacíos: Analizando " . count($indiceVacios) . " pedimentos con posible cobro de vacíos...");
-
             foreach ($mapaPedimentoAId as $pedimentoLimpio => $datosId) {
                 $listaFacturasVacio = $indiceVacios[$pedimentoLimpio] ?? [];
+                if (empty($listaFacturasVacio)) {
+                    continue;
+                }
                 
-                foreach ($listaFacturasVacio as $index => $datosVacio) {
+                $opId = $datosId['id_operacion'];
+                $tipoOp = ($datosId['tipo'] == 'Importacion') ? Importacion::class : Exportacion::class;
+                $queryOp = ($tipoOp === Importacion::class) ? Importacion::with('cliente')->find($opId) : Exportacion::with('cliente')->find($opId);
+
+                $facturasValidas = 0;
+                $filasTemp = [];
+
+                foreach ($listaFacturasVacio as $datosVacio) {
                     $infoExtraccion = $this->extraerMontoYNaviera($datosVacio['ruta_xml'] ?? null, $datosVacio['ruta_pdf'] ?? null);
 
-                    /* Log::info("DEBUG VACÍOS - Pedimento {$pedimentoLimpio} | Monto extraído: {$infoExtraccion['monto']} | XML: " . ($datosVacio['ruta_xml'] ?? 'NO') . " | PDF: " . ($datosVacio['ruta_pdf'] ?? 'NO')); */
-
                     if ($infoExtraccion['monto'] > 0) {
-                        $conceptoNombre = 'Maniobras de Vacios' . ($index > 0 ? ' ' . ($index + 1) : '');
-
-                        $vaciosParaSheets[] = [
-                            'fecha'     => $infoExtraccion['fecha'],
-                            'pedimento' => $pedimentoLimpio,
-                            'concepto'  => $conceptoNombre,
-                            'monto'     => $infoExtraccion['monto'],
-                            'moneda'    => 'MXN',
-                            'naviera'   => $infoExtraccion['naviera']
+                        $facturasValidas++;
+                        
+                        $filasTemp[] = [
+                            'fecha'      => $infoExtraccion['fecha'],
+                            'cliente'    => $queryOp ? optional($queryOp->cliente)->nombre : '',
+                            'contenedor' => $queryOp ? ($queryOp->contenedor ?? '') : '',
+                            'bl'         => $queryOp ? ($queryOp->bol ?? '') : '',
+                            'pedimento'  => $pedimentoLimpio,
+                            'concepto'   => 'Maniobras de Vacios', // Se reescribe abajo si son varias
+                            'monto'      => $infoExtraccion['monto'],
+                            'moneda'     => 'MXN',
+                            'naviera'    => $infoExtraccion['naviera']
                         ];
+                    }
+                }
+
+                // 🚀 LÓGICA SIN SUMATORIA: Solo las individuales
+                if ($facturasValidas === 1) {
+                    $filasTemp[0]['concepto'] = 'Maniobras de Vacios';
+                    $vaciosParaSheets[] = $filasTemp[0];
+                } elseif ($facturasValidas > 1) {
+                    foreach ($filasTemp as $index => $fila) {
+                        $fila['concepto'] = 'Maniobras de Vacios ' . ($index + 1);
+                        $vaciosParaSheets[] = $fila; // Agrega las individuales solamente
                     }
                 }
             }
 
             if (!empty($vaciosParaSheets)) {
                 Log::info("Vacíos listos para enviar a GPC: " . count($vaciosParaSheets));
-
                 $paquetes = array_chunk($vaciosParaSheets, 50);
                 foreach ($paquetes as $index => $paquete) {
                     $numeroPaquete = $index + 1;
                     $totalPaquetes = count($paquetes);
                     $esUltimo = ($numeroPaquete === $totalPaquetes);
 
-                    Log::info("Enviando paquete {$numeroPaquete} de {$totalPaquetes}...");
                     $this->enviarDatosAGoogleSheets($paquete, 'ZLO', $esUltimo);
                     sleep(2);
                 }
                 Log::info("¡Todos los Vacíos enviados con éxito!");
             } else {
-                Log::info("Vacíos: Búsqueda terminada. No se encontraron registros con monto para enviar a Sheets.");
+                Log::info("Vacíos: No se encontraron registros con monto para enviar a Sheets.");
             }
 
             return ['code' => 0, 'message' => 'completado'];
-
         } catch (\Throwable $e) {
-            Log::error("Error Vacíos: " . $e->getMessage() . " en la línea " . $e->getLine());
+            Log::error("Error Vacíos: " . $e->getMessage());
             return ['code' => 1, 'message' => $e];
         }
     }

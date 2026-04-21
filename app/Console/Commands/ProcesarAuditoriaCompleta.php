@@ -75,7 +75,7 @@ class ProcesarAuditoriaCompleta extends Command
                 $this->info("--- INICIANDO INSERCIONES EN GPC (ZLO DETECTADO) ---");
                 Log::info("Sucursal ZLO detectada. Ejecutando métodos de inserción a GPC...");
 
-                // 9. IMPUESTOS A GPC 
+                // 9. IMPUESTOS A GPC (Con validación interna de Santander)
                 gc_collect_cycles();
                 $this->info("Enviando Impuestos a GPC...");
                 $status = $controller->enviarAGPCImpuestos($tarea->id);
