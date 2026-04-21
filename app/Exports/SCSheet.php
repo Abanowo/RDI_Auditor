@@ -32,43 +32,31 @@ WithStrictNullComparison
         $this->operaciones = $operaciones;
     }
 
-    /**
-     * Define la consulta a la base de datos, incluyendo filtros.
-     */
-
-    // El método collection() simplemente devuelve los datos que ya tenemos
     public function collection()
     {
-
-        // Filtramos para quedarnos solo con las operaciones que tienen SC
         return $this->operaciones->map( function ($pedimento) {
-            // 1. Primero, determinamos de forma segura cuál operación existe
             $operacion = $pedimento->importacion ?? $pedimento->exportacion;
 
-            // Si por alguna razón un pedimento no tiene ni impo ni expo, lo saltamos
             if (!$operacion) {
-                return null; // Será eliminado por ->filter() más adelante
+                return null; 
             }
 
-            // 2. Ahora que sabemos que $operacion existe, accedemos a sus relaciones de forma segura
             $sc = $operacion->auditoriasTotalSC;
             $cliente = $operacion->cliente;
 
-            // 3. Si no hay una factura SC para esta operación, la saltamos
             if (!$sc) {
                 return null;
             }
 
-            // 4. Si todo está en orden, devolvemos el array con los datos para el Excel
+            $tipo = $pedimento->importacion ? 'Importación' : 'Exportación';
+
             return [
+                'tipo' => $tipo,
                 'pedimento' => $pedimento->num_pedimiento,
-                'cliente'   => $cliente, // Usamos optional() por si el cliente fuera nulo
-                'sc'        => $sc,
+                'cliente' => $cliente, 
+                'sc' => $sc,
             ];
         })->filter();
-
-
-
     }
 
     public function title(): string
@@ -76,26 +64,20 @@ WithStrictNullComparison
         return "SC AF";
     }
 
-    /**
-     * Define las cabeceras de las columnas.
-     */
     public function headings(): array
     {
-         return [
-            'Fecha', 'Pedimento', 'Cliente', 'Saldo SC',
+        return [
+            'Fecha', 'Pedimento', 'Operación', 'Cliente', 'Saldo SC',
             'Saldo SC MXN', 'Moneda', 'Folio SC', 'PDF SC'
         ];
     }
 
-    /**
-     * Mapea los datos de cada operación a las columnas del Excel.
-     */
     public function map($row): array
     {
         $sc = $row['sc'] ?? null;
         $cliente = $row['cliente'] ?? null;
         $pedimento = $row['pedimento'] ?? null;
-        
+
         $montoSc = 0;
         $montoScMxn = 0;
         $folioSc = '';
@@ -108,7 +90,7 @@ WithStrictNullComparison
             $montoSc = (float)($montosSc['sc'] ?? 0);
             $montoScMxn = (float)($montosSc['sc_mxn'] ?? 0);
             $folioSc = $sc->folio;
-            $nombreCliente = optional($cliente)->nombre; 
+            $nombreCliente = optional($cliente)->nombre;
 
             if ($sc->ruta_pdf) {
                 $pdfSc = '=HYPERLINK("' . $sc->ruta_pdf . '", "Acceder PDF")';
@@ -116,14 +98,13 @@ WithStrictNullComparison
 
             $monedaConTC = $desgloseSc['moneda'] == "MXN" ? $desgloseSc['moneda'] : $desgloseSc['moneda']. " (" . number_format($desgloseSc['tipo_cambio'], 2) . " MXN)";
         } else {
-             // Si no hay SC, definimos valores default para evitar variables indefinidas
-             $nombreCliente = optional($cliente)->nombre;
+            $nombreCliente = optional($cliente)->nombre;
         }
 
-        $resultado =
-        [
+        $resultado = [
             optional($sc)->fecha_documento,
             $pedimento,
+            $row['tipo'] ?? '',
             $nombreCliente,
             $montoSc,
             $montoScMxn,
@@ -131,38 +112,30 @@ WithStrictNullComparison
             $folioSc,
             $pdfSc,
         ];
+        
         return $resultado;
     }
-    /**
-     * Define anchos específicos para cada columna.
-     */
-     public function columnWidths(): array
+
+    public function columnWidths(): array
     {
         return [
-            'A' => 12, 'B' => 15, 'C' => 30, 'D' => 15,
-            'E' => 15, 'F' => 15, 'G' => 15, 'H' => 15,
+            'A' => 12, 'B' => 15, 'C' => 15, 'D' => 30, 'E' => 15,
+            'F' => 15, 'G' => 15, 'H' => 15, 'I' => 15,
         ];
     }
-    /**
-     * Define los formatos de número para columnas específicas.
-     */
+
     public function columnFormats(): array
     {
-    return [
-            'D' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1, // Formato #,##0.00
-            'E' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1,
+        return [
+            'E' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1, 
+            'F' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1,
         ];
     }
 
-    /**
-     * Aplica estilos generales a la hoja.
-     */
     public function styles(Worksheet $sheet)
     {
-        // Centra todo el contenido de todas las celdas
         $sheet->getStyle($sheet->calculateWorksheetDimension())->getAlignment()->setHorizontal('center');
 
-        // Estilo para la cabecera
         return [
             1 => [
                 'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
@@ -171,9 +144,6 @@ WithStrictNullComparison
         ];
     }
 
-    /**
-     * Registra eventos. Usaremos AfterSheet para aplicar estilos condicionales.
-     */
     public function registerEvents(): array
     {
         return [
@@ -182,42 +152,32 @@ WithStrictNullComparison
                 $lastColumn = $sheet->getHighestColumn();
                 $lastRow = $sheet->getHighestRow();
 
-                // Inmoviliza la fila 1 (los encabezados) para que no se mueva al hacer scroll.
-                // 'A2' le dice a Excel que congele todo lo que está por encima y a la izquierda de la celda A2.
                 $sheet->freezePane('A2');
-
                 $sheet->setAutoFilter('A1:' . $lastColumn . '1');
 
-                if ($sheet->getHighestRow() >= 2)
-                {
-                    foreach ($sheet->getRowIterator(2) as $row)
-                    { // Empezamos desde la fila 2
+                if ($sheet->getHighestRow() >= 2) {
+                    foreach ($sheet->getRowIterator(2) as $row) { 
                         $rowIndex = $row->getRowIndex();
-                        $styleArray=
-                        [
-                            'borders' =>
-                                [
+                        $styleArray = [
+                            'borders' => [
                                 'bottom' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF95B3D7']],
                                 'top' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF95B3D7']],
-                                ],
-                                'font' => ['color' => ['argb' => 'FF006100']],
-                                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFDDEBF7']],
+                            ],
+                            'font' => ['color' => ['argb' => 'FF006100']],
+                            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFDDEBF7']],
                         ];
 
                         $sheet->getStyle('A' . $rowIndex . ':' . $lastColumn . $rowIndex)->applyFromArray($styleArray);
-                        //Subrayado para Hyperlinks
-                        foreach (['H'] as $col)
-                        {
+                        
+                        foreach (['I'] as $col) {
                             $cell = $sheet->getCell($col . $rowIndex);
                             if (is_string($cell->getValue()) && str_starts_with($cell->getValue(), '=HYPERLINK')) {
-                                $cell->getStyle()->applyFromArray(
-                                        ['font' =>
-                                            [
-                                                'bold' => true,
-                                                'underline' => Font::UNDERLINE_SINGLE,
-                                            ],
-                                        ]
-                                );
+                                $cell->getStyle()->applyFromArray([
+                                    'font' => [
+                                        'bold' => true,
+                                        'underline' => Font::UNDERLINE_SINGLE,
+                                    ],
+                                ]);
                             }
                         }
                     }
