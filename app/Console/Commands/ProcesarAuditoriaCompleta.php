@@ -67,7 +67,6 @@ class ProcesarAuditoriaCompleta extends Command
 
             // ====================================================================
             // BLOQUE 2: INSERCIÓN EN GOOGLE SHEETS (GPC)
-            // Se ejecuta SOLO si la sucursal es Manzanillo (ZLO).
             // ====================================================================
 
             // Validamos contra 'ZLO' o 'Manzanillo' dependiendo de cómo lo guardes
@@ -173,6 +172,7 @@ class ProcesarAuditoriaCompleta extends Command
                 if ($status['code'] > 0) {
                     throw $status['message'];
                 }
+
                 // 9. MANIOBRAS
                 gc_collect_cycles();
                 $this->info("--- [INICIO] Procesando Maniobras para Tarea #{$tarea->id} ---");
@@ -180,8 +180,20 @@ class ProcesarAuditoriaCompleta extends Command
                 if ($status['code'] > 0) {
                     throw $status['message'];
                 }
-            }
 
+                // ====================================================================
+                // NUEVO: INSERCIÓN EN GPC PARA EL RESTO DE SUCURSALES
+                // ====================================================================
+                $this->info("--- INICIANDO INSERCIONES EN GPC MULTI-SUCURSAL ---");
+                Log::info("Enviando datos al nuevo Google Sheet de sucursales...");
+
+                gc_collect_cycles();
+                $this->info("Enviando todos los conceptos a GPC...");
+                $status = $controller->enviarAGPCMultiSucursal($tarea->id);
+                if ($status['code'] > 0) {
+                    throw $status['message'];
+                }
+            }
 
             // ====================================================================
             // BLOQUE 3: EXPORTACIÓN Y REPORTES FINALES
@@ -210,7 +222,6 @@ class ProcesarAuditoriaCompleta extends Command
             if ($status['code'] > 0) {
                 throw $status['message'];
             }
-
 
             // FIN. Marcar tarea completada
             $tarea->update(['status' => 'completado', 'resultado' => 'Proceso de auditoría finalizado con éxito.']);

@@ -882,7 +882,9 @@ class AuditoriaImpuestosController extends Controller
                 );
             }
 
-            $fechasEncontradas = $operacionesLimpias->map(function($item) { return \Carbon\Carbon::parse($item['fecha_str']); });
+            $fechasEncontradas = $operacionesLimpias->map(function($item) { 
+                return \Carbon\Carbon::parse($item['fecha_str']); 
+            });
             $tarea->update([
                 'pedimentos_procesados' => json_encode($operacionesLimpias->pluck('pedimento')->unique()->values()->all()),
                 'fecha_documento' => $fechasEncontradas->max()->addDays(15)->format('Y-m-d')
@@ -897,6 +899,209 @@ class AuditoriaImpuestosController extends Controller
         }
     }
 
+    // ==================================================================================
+    // MÉTODOS EXCLUSIVOS PARA NUEVAS SUCURSALES (NOGALES, LAREDO, TIJUANA, MEXICALI)
+    // ==================================================================================
+
+    /**
+     * Orquestador que recolecta todas las facturas y las envía al nuevo Google Sheet (Plantilla de 6 PXCC)
+     * Reglas: Sin monto = Sin proveedor. Si hay monto -> ECI(SENASICA), Maniobras NOG(SAFINSA), NL(IFA).
+     */
+    public function enviarAGPCMultiSucursal(string $tareaId)
+    {
+        gc_collect_cycles();
+        $tarea = AuditoriaTareas::find($tareaId);
+        if (!$tarea || $tarea->status !== 'procesando') {
+            return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
+        }
+
+        Log::info("Iniciando envío a GPC con Plantillas y Reglas de Proveedores para Tarea #{$tarea->id}");
+
+        try {
+            $mapeadoFacturas = (array) json_decode(Storage::get($tarea->mapeo_completo_facturas), true);
+            $mapaFacturas = $mapeadoFacturas['pedimentos_totales'] ?? [];
+            $indicesOperaciones = ($mapeadoFacturas['indices_importacion'] ?? []) + ($mapeadoFacturas['indices_exportacion'] ?? []);
+            $pedimentosDelPdf = json_decode($tarea->pedimentos_procesados, true) ?? [];
+            
+            $sucursalesDic = ['NOG' => [1, 3711], 'TIJ' => [2, 3849], 'NL' => [3, 3711], 'MXL' => [4, 1038]];
+            $sucInfo = $sucursalesDic[$tarea->sucursal] ?? [1, 3711];
+            
+            $mapaPdf = !empty($pedimentosDelPdf) ? $this->construirMapaDePedimentos($pedimentosDelPdf, $sucInfo[1], $sucInfo[0]) : [];
+            $mapaPedimentoAId = $mapaFacturas + $mapaPdf;
+
+            $tiposDocumentos = [
+                'impuestos'    => 'IMPUESTOS',
+                'pago_derecho' => 'ECI',
+                'maniobras'    => 'MANIOBRAS',
+                'flete'        => 'FLETE',
+                'muestras'     => 'MUESTRAS',
+                'llc'          => 'LLC'
+            ];
+
+            $datosAgrupados = [];
+
+            foreach ($mapaPedimentoAId as $pedimentoLimpio => $datosId) {
+                $scFisica = AuditoriaTotalSC::where('pedimento_id', $datosId['id_pedimiento'])->first();
+                $folioSC = $scFisica ? $scFisica->folio : '';
+
+                $tipoOpClass = ($datosId['tipo'] == 'Importacion') ? Importacion::class : Exportacion::class;
+                $hojaDestino = $this->getHojaDestino($tarea->sucursal, $tipoOpClass);
+
+                $queryOp = ($tipoOpClass === Importacion::class) 
+                    ? Importacion::with('cliente')->find($datosId['id_operacion']) 
+                    : Exportacion::with('cliente')->find($datosId['id_operacion']);
+                
+                $cliente = $queryOp ? optional($queryOp->cliente)->nombre : '';
+                $navieraOp = $queryOp->naviera ?? 'N/A';
+
+                // Verificamos existencia de comprobante de muestras
+                $pagoMuestraExiste = false;
+                $facturasDelPedimento = $indicesOperaciones[$pedimentoLimpio]['facturas'] ?? [];
+                foreach ($facturasDelPedimento as $facturaInfo) {
+                    if (($facturaInfo['tipo_documento'] ?? '') === 'pago_muestras' && !empty($facturaInfo['ruta_pdf'])) {
+                        $pagoMuestraExiste = true;
+                        break;
+                    }
+                }
+
+                foreach ($tiposDocumentos as $tipoDoc => $pxccLabel) {
+                    $auditorias = Auditoria::where('pedimento_id', $datosId['id_pedimiento'])
+                        ->where('tipo_documento', $tipoDoc)
+                        ->where('monto_total', '>', 0)
+                        ->get();
+
+                    if ($auditorias->count() > 0) {
+                        $estatusConDatos = 'PENDIENTE';
+                        if (in_array($tipoDoc, ['impuestos', 'pago_derecho'])) {
+                            $estatusConDatos = 'PAGADO';
+                        }
+                        if ($tipoDoc === 'muestras') {
+                            $estatusConDatos = $pagoMuestraExiste ? 'PAGADO' : 'PENDIENTE';
+                        }
+
+                        foreach ($auditorias as $index => $aud) {
+                            $proveedor = $navieraOp; // Default
+                            if ($tipoDoc === 'flete') {
+                                $proveedor = 'TRANSPORTACTICS';
+                            } elseif ($tipoDoc === 'pago_derecho') {
+                                $proveedor = 'SENASICA';
+                            } elseif ($tipoDoc === 'maniobras') {
+                                if ($tarea->sucursal === 'NOG') {
+                                    $proveedor = 'SAFINSA';
+                                } elseif ($tarea->sucursal === 'NL') {
+                                    $proveedor = 'IFA';
+                                }
+                            } elseif ($tipoDoc === 'llc') {
+                                $proveedor = 'LLC';
+                            }
+
+                            $conceptoFinal = ($index > 0) ? $pxccLabel . ' ' . ($index + 1) : $pxccLabel;
+                            if (($datosId['es_recti'] ?? false) && $tipoDoc === 'impuestos') {
+                                $conceptoFinal = 'IMPUESTOS RECTI';
+                            }
+
+                            $fechaFmt = $aud->fecha_documento ? \Carbon\Carbon::parse($aud->fecha_documento)->format('m-d-Y') : now()->format('m-d-Y');
+                            $folioFactura = ($tipoDoc === 'maniobras') ? '' : ($aud->folio ?? '-');
+
+                            $datosAgrupados[$hojaDestino][] = [
+                                'fecha'      => $fechaFmt,
+                                'cliente'    => $cliente,
+                                'pedimento'  => $pedimentoLimpio,
+                                'pxcc'       => $conceptoFinal,
+                                'proveedor'  => $proveedor,
+                                'factura_p'  => $folioFactura,
+                                'monto'      => ($tipoDoc === 'llc') ? (float) $aud->monto_total_mxn : (float) $aud->monto_total,
+                                'moneda'     => strtoupper($aud->moneda_documento ?? 'MXN'),
+                                'factura_sc' => $folioSC,
+                                'estatus'    => $estatusConDatos,
+                                'monto_llc'  => ($tipoDoc === 'llc') ? (float) $aud->monto_total : '',
+                                'moneda_llc' => ($tipoDoc === 'llc') ? 'USD' : '',
+                                'fecha_pago' => ''
+                            ];
+                        }
+                    } else {
+                        
+                        $datosAgrupados[$hojaDestino][] = [
+                            'fecha'      => '',
+                            'cliente'    => $cliente,
+                            'pedimento'  => $pedimentoLimpio,
+                            'pxcc'       => $pxccLabel,        
+                            'proveedor'  => '',
+                            'factura_p'  => '',
+                            'monto'      => '',
+                            'moneda'     => '',
+                            'factura_sc' => $folioSC,          
+                            'estatus'    => '',
+                            'monto_llc'  => '',
+                            'moneda_llc' => '',
+                            'fecha_pago' => ''
+                        ];
+                    }
+                }
+            }
+
+            foreach ($datosAgrupados as $nombreHoja => $filas) {
+                $paquetes = array_chunk($filas, 50); 
+                foreach ($paquetes as $i => $p) {
+                    $ultimo = ($i === count($paquetes) - 1);
+                    $this->enviarDatosAGoogleSheetsMulti($p, $nombreHoja, $ultimo);
+                    sleep(1);
+                }
+            }
+            return ['code' => 0, 'message' => 'completado'];
+        } catch (\Throwable $e) {
+            Log::error("Error en GPC Multi-sucursal: " . $e->getMessage());
+            return ['code' => 1, 'message' => $e];
+        }
+    }
+
+    /**
+     * Webhook dedicado a la nueva URL de App Script
+     */
+    private function enviarDatosAGoogleSheetsMulti(array $datosParaEnviar, string $hoja, bool $esUltimo = true)
+    {
+        try {
+            if (empty($datosParaEnviar)) {
+                return;
+            }
+
+            if (app()->environment('production')) {
+                $scriptUrl = 'https://script.google.com/macros/s/AKfycbzaLZjOImg1nz_nywOTYoc-iM-LFhtFeVPIf3biXstCcOLK1BXfBmiomg29--cdDuS4iw/exec'; //PRODUCCIÓN
+            } else {
+                $scriptUrl = 'https://script.google.com/macros/s/AKfycbwYfBt6btEjIXLjnLBWlqEth9r7dricE1QOVAeAVK6wUEWitK1ZI3x2YRe5k243VvC5/exec'; //DESARROLLO
+            }
+
+            Log::info("Enviando " . count($datosParaEnviar) . " registros a GPC Multi. Hoja: $hoja");
+
+            $response = Http::timeout(400)->withoutVerifying()->post($scriptUrl, [
+                'hoja'       => $hoja,
+                'pedimentos' => $datosParaEnviar,
+                'es_ultimo'  => $esUltimo
+            ]);
+
+            if (!$response->successful()) {
+                Log::error("Error HTTP GPC Multi: " . $response->status());
+            }
+        } catch (\Throwable $e) {
+            Log::error("Error enviando a Sheets Multi: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Mapea la sucursal y la operación a la pestaña exacta
+     */
+    private function getHojaDestino($sucursalCod, $operationTypeClass) {
+        $sucursales = [
+            'NOG' => 'NOGALES',
+            'NL'  => 'LAREDO',
+            'TIJ' => 'TIJUANA',
+            'MXL' => 'MEXICALI'
+        ];
+        $nombre = $sucursales[$sucursalCod] ?? 'NOGALES';
+        $tipo = (str_contains($operationTypeClass, 'Importacion')) ? 'IMPO' : 'EXPO';
+        return "{$nombre} {$tipo}";
+    }
+    
     // 5. ENVÍO DE IMPUESTOS A GPC (Solo Santander)
     public function enviarAGPCImpuestos(string $tareaId)
     {
@@ -1031,29 +1236,39 @@ class AuditoriaImpuestosController extends Controller
      * MÉTODOS DE ESCRITURA EN GOOGLE SHEETS (SIN CREDENCIALES, VÍA WEBHOOK)
      * Método universal para enviar cualquier concepto (Impuestos, Maniobras, Demoras, etc.)
      */
-    private function enviarDatosAGoogleSheets(array $datosParaEnviar, string $hoja = 'ZLO', bool $esUltimo = true)
+    private function enviarDatosAGoogleSheets(array $datosParaEnviar, string $hoja, string $sucursal, bool $esUltimo = true)
     {
         try {
             if (empty($datosParaEnviar)) {
                 return;
             }
 
-            Log::info("Enviando " . count($datosParaEnviar) . " registros a Google Sheets...");
-
+            // 1. Determinamos las URLs basándonos en el entorno
             if (app()->environment('production')) {
-                $scriptUrl = 'https://script.google.com/a/macros/intactics.com/s/AKfycbzil8yuKDXwReWIA91kJFDXelMDGghbWeW9bb-jvgcC5FoZr3Z0HlIQFkuxlOg-og3kuQ/exec';
+                // --- URLs de PRODUCCIÓN ---
+                $urlZLO   = 'https://script.google.com/a/macros/intactics.com/s/AKfycbzil8yuKDXwReWIA91kJFDXelMDGghbWeW9bb-jvgcC5FoZr3Z0HlIQFkuxlOg-og3kuQ/exec';
+                $urlOtros = 'https://script.google.com/macros/s/AKfycbwYfBt6btEjIXLjnLBWlqEth9r7dricE1QOVAeAVK6wUEWitK1ZI3x2YRe5k243VvC5/exec';
             } else {
-                $scriptUrl = 'https://script.google.com/macros/s/AKfycbyXbQI3JkBufxYUXsYUUTmIIwJmYWuYDVOrYnV0xSXbTBe7lhNZvTjGBDKPuPoK7x6xpQ/exec';
+                // --- URLs de PRUEBAS / LOCAL ---
+                $urlZLO   = 'https://script.google.com/macros/s/AKfycbyXbQI3JkBufxYUXsYUUTmIIwJmYWuYDVOrYnV0xSXbTBe7lhNZvTjGBDKPuPoK7x6xpQ/exec';
+                // Si tienes un App Script de pruebas para las nuevas sucursales, reemplaza el link aquí abajo. 
+                // Por ahora le dejé el mismo que el de producción para evitar errores de variable indefinida.
+                $urlOtros = 'https://script.google.com/macros/s/AKfycbwYfBt6btEjIXLjnLBWlqEth9r7dricE1QOVAeAVK6wUEWitK1ZI3x2YRe5k243VvC5/exec';
             }
-            
 
-            // Agregamos 'es_ultimo' al payload que viaja a Google
+            // 2. Seleccionamos el script correcto según la sucursal
+            $scriptUrl = ($sucursal === 'ZLO') ? $urlZLO : $urlOtros;
+
+            Log::info("Enviando " . count($datosParaEnviar) . " registros a GPC. Sucursal: $sucursal | Hoja: $hoja | Entorno: " . app()->environment());
+
+            // 3. Enviamos el payload
             $response = Http::timeout(400)->withoutVerifying()->post($scriptUrl, [
                 'hoja'       => $hoja,
                 'pedimentos' => $datosParaEnviar,
                 'es_ultimo'  => $esUltimo
             ]);
 
+            // 4. Manejo de la respuesta y escudo Anti-Timeouts
             if ($response->successful()) {
                 $cuerpoRespuesta = $response->json();
                 
@@ -1074,7 +1289,7 @@ class AuditoriaImpuestosController extends Controller
             }
 
         } catch (\Throwable $e) {
-            Log::error("Error al enviar datos a Google Sheets: " . $e->getMessage());
+            Log::error("Error al enviar datos a Google Sheets ($sucursal): " . $e->getMessage());
         }
     }
 
@@ -2475,6 +2690,7 @@ class AuditoriaImpuestosController extends Controller
                 'PROVEEDORES' => 'proveedores',
                 'TERMINAL' => 'terminal',
                 'VACIOS' => 'vacios',
+                'PAGO-DE-MUESTRAS' => 'pago_muestras'
             ];
         //$bar = $this->output->createProgressBar($pedimentosOperacion->count());
         //$bar->start();
@@ -3840,17 +4056,19 @@ class AuditoriaImpuestosController extends Controller
                     }
                 }
 
-                // NUEVO: Fallback a PDF. Si el XML falló o dio 404, leemos el PDF obligatoriamente.
+                // =========================================================================
+                // NUEVO: Fallback a PDF CORREGIDO. (Ahora extrae correctamente el monto del arreglo)
+                // =========================================================================
                 if ($montoFacturaMXN === -1 && !empty($datosMuestra['path_pdf_mue'])) {
-                    $montoPdf = $this->extraerTotalDesdePdfProveedor($datosMuestra['path_pdf_mue']);
-                    if ($montoPdf !== null) {
-                        $montoFacturaMXN = $montoPdf;
+                    $pdfData = $this->extraerTotalDesdePdfProveedor($datosMuestra['path_pdf_mue']);
+                    if ($pdfData !== null && $pdfData['monto'] !== null) {
+                        $montoFacturaMXN = (float) $pdfData['monto']; // <-- Corrección aquí
                         $monedaDoc = 'MXN'; 
                     }
                 }
 
-                $montoTotalReportar = $montoFacturaMXN > 0 ? $montoFacturaMXN : 0;
-                $estado = $this->compararMontos_Muestras($datosSC['monto_muestras_sc_mxn'], $montoFacturaMXN);
+                $montoTotalReportar = $montoFacturaMXN > 0 ? (float) $montoFacturaMXN : 0.0;
+                $estado = $this->compararMontos_Muestras((float) $datosSC['monto_muestras_sc_mxn'], (float) $montoFacturaMXN);
 
                 $muestrasParaGuardar[] = [
                     'operacion_id' => $operacionId['id_operacion'],
@@ -4092,7 +4310,6 @@ class AuditoriaImpuestosController extends Controller
                 $datosSC = $indiceSC[$numPedRef] ?? ['monto_maniobras_sc_mxn' => -1, 'tipo_cambio' => 1.0];
 
                 if (!$listaManiobras) {
-                    Log::debug("Maniobras - Pedimento {$pedimentoLimpio}: Omitido (No hay archivos de maniobras en el índice).");
                     continue;
                 }
 
@@ -4102,8 +4319,6 @@ class AuditoriaImpuestosController extends Controller
                 $fechaDocumento = now()->format('Y-m-d');
                 $monedaDoc = 'MXN'; 
 
-                Log::info("Maniobras - Pedimento {$pedimentoLimpio}: Procesando. XML=" . ($datosManiobra['path_xml_man'] ?? 'N/A') . " | PDF=" . ($datosManiobra['path_pdf_man'] ?? 'N/A'));
-
                 if (!empty($datosManiobra['path_xml_man'])) {
                     $xmlData = $this->parsearXmlFlete($datosManiobra['path_xml_man']);
                     if ($xmlData && $xmlData['total'] != -1) {
@@ -4112,30 +4327,30 @@ class AuditoriaImpuestosController extends Controller
                             ? round($xmlData['total'] * $datosSC['tipo_cambio'], 2) 
                             : $xmlData['total'];
                         $fechaDocumento = $xmlData['fecha'] ?? $fechaDocumento;
-                        Log::info("Maniobras - Pedimento {$pedimentoLimpio}: ¡Éxito XML! Monto={$montoFacturaMXN}, Moneda={$monedaDoc}");
-                    } else {
-                        Log::warning("Maniobras - Pedimento {$pedimentoLimpio}: Falló la lectura del XML (o devolvió -1).");
                     }
                 }
 
                 if ($montoFacturaMXN === -1 && !empty($datosManiobra['path_pdf_man'])) {
-                    Log::info("Maniobras - Pedimento {$pedimentoLimpio}: Activando Fallback de lectura PDF...");
-                    $montoPdf = $this->extraerTotalDesdePdfProveedor($datosManiobra['path_pdf_man']);
-                    if ($montoPdf !== null) {
-                        $montoFacturaMXN = $montoPdf;
+                    $pdfData = $this->extraerTotalDesdePdfProveedor($datosManiobra['path_pdf_man']);
+                    
+                    // Aseguramos que sea un arreglo válido y tenga monto
+                    if ($pdfData !== null && $pdfData['monto'] !== null) {
+                        $montoFacturaMXN = (float) $pdfData['monto']; // <--- Corrección aplicada
                         $monedaDoc = 'MXN'; 
-                        Log::info("Maniobras - Pedimento {$pedimentoLimpio}: ¡Éxito PDF Fallback! Monto={$montoFacturaMXN} MXN");
-                    } else {
-                        Log::warning("Maniobras - Pedimento {$pedimentoLimpio}: PDF Fallback también falló al extraer el monto.");
+                        
+                        // Si el PDF traía fecha, la usamos
+                        if (!empty($pdfData['fecha'])) {
+                            $fechaDocumento = $pdfData['fecha'];
+                        }
                     }
                 }
 
                 $montoTotalReportar = $montoFacturaMXN > 0 ? $montoFacturaMXN : 0;
                 $montoSCMXN = $datosSC['monto_maniobras_sc_mxn'];
-                $estado = $this->compararMontos_Maniobras($montoSCMXN, $montoFacturaMXN);
+                
+                // Aquí ya ambos son de tipo float y no dará error
+                $estado = $this->compararMontos_Maniobras((float) $montoSCMXN, (float) $montoFacturaMXN);
                 $diferenciaSc = ($estado !== "Sin SC!") ? round($montoSCMXN - $montoTotalReportar, 2) : $montoTotalReportar;
-
-                Log::info("Maniobras - Pedimento {$pedimentoLimpio}: RESULTADO -> SC_MXN={$montoSCMXN} | Real={$montoTotalReportar} | Estado={$estado} | Diferencia={$diferenciaSc}");
 
                 $maniobrasParaGuardar[] = [
                     'operacion_id' => $pedimentoSucioYId['id_operacion'] ?? null,
