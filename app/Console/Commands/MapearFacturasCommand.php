@@ -354,6 +354,10 @@ class MapearFacturasCommand extends Command
         $regexPattern = implode('|', $pedimentosLimpios);
 
         // Obtenemos solo las columnas que necesitamos
+        //Esto lo hago debido a que hay pedimentos que estan bastante sucios que ni se pueden encontrar
+        //Un ejemplo es que haya dos registros con exactamente el mismo valor, pero con la diferencia de que tiene un carrete
+        //un enter o una tabulacion en el registro, volviendola 'unica'. Y aqui lo que hare es mostrar esos pedimentos que
+        //causan confusion y los subire a la tabla de tareas para que queden expuestos ante todo el mundo! awawaw
         $posiblesCoincidencias = $query->where('num_pedimiento', 'REGEXP', $regexPattern)->get(['id_pedimiento', 'num_pedimiento']);
 
         // 1. Creamos un mapa de los pedimentos que nos falta por encontrar.

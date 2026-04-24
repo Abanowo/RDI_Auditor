@@ -1215,7 +1215,7 @@ class AuditoriaImpuestosController extends Controller
                     Log::info("Enviando paquete {$numeroPaquete} de {$totalPaquetes}...");
 
                     // Le pasamos la bandera a la función
-                    $this->enviarDatosAGoogleSheets($paquete, 'ZLO', $esUltimo);
+                    $this->enviarDatosAGoogleSheets($paquete, 'ZLO', 'ZLO', $esUltimo);
 
                     sleep(2);
                 }
@@ -2461,7 +2461,7 @@ class AuditoriaImpuestosController extends Controller
                     Log::info("Enviando paquete {$numeroPaquete} de {$totalPaquetes}...");
 
                     // Le pasamos la bandera a la función
-                    $this->enviarDatosAGoogleSheets($paquete, 'ZLO', $esUltimo);
+                    $this->enviarDatosAGoogleSheets($paquete, 'ZLO', 'ZLO', $esUltimo);
 
                     sleep(2);
                 }
@@ -3230,7 +3230,7 @@ class AuditoriaImpuestosController extends Controller
                 $paquetes = array_chunk($almacenajeParaSheets, 50);
                 foreach ($paquetes as $idx => $paquete) {
                     $esUltimo = ($idx === count($paquetes) - 1);
-                    $this->enviarDatosAGoogleSheets($paquete, 'ZLO', $esUltimo);
+                    $this->enviarDatosAGoogleSheets($paquete, 'ZLO', 'ZLO', $esUltimo);
                     sleep(2);
                 }
                 Log::info("Enviados " . count($almacenajeParaSheets) . " registros de Almacenaje a Sheets.");
@@ -4449,7 +4449,7 @@ class AuditoriaImpuestosController extends Controller
                     Log::info("Enviando paquete {$numeroPaquete} de {$totalPaquetes}...");
 
                     // Le pasamos la bandera a la función
-                    $this->enviarDatosAGoogleSheets($paquete, 'ZLO', $esUltimo);
+                    $this->enviarDatosAGoogleSheets($paquete, 'ZLO', 'ZLO', $esUltimo);
 
                     sleep(2);
                 }
@@ -4621,7 +4621,7 @@ class AuditoriaImpuestosController extends Controller
                 $paquetes = array_chunk($maniobrasParaSheets, 50);
                 foreach ($paquetes as $idx => $paquete) {
                     $esUltimo = ($idx === count($paquetes) - 1);
-                    $this->enviarDatosAGoogleSheets($paquete, 'ZLO', $esUltimo);
+                    $this->enviarDatosAGoogleSheets($paquete, 'ZLO', 'ZLO', $esUltimo);
                     sleep(1);
                 }
                 Log::info("¡Envío de Terminales completado!");
@@ -4787,7 +4787,7 @@ class AuditoriaImpuestosController extends Controller
                     $totalPaquetes = count($paquetes);
                     $esUltimo = ($numeroPaquete === $totalPaquetes);
 
-                    $this->enviarDatosAGoogleSheets($paquete, 'ZLO', $esUltimo);
+                    $this->enviarDatosAGoogleSheets($paquete, 'ZLO', 'ZLO', $esUltimo);
                     sleep(2);
                 }
                 Log::info("¡Todos los Vacíos enviados con éxito!");
