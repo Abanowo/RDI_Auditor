@@ -950,6 +950,10 @@ class AuditoriaImpuestosController extends Controller
                 $queryOp = ($tipoOpClass === Importacion::class) 
                     ? Importacion::with('cliente')->find($datosId['id_operacion']) 
                     : Exportacion::with('cliente')->find($datosId['id_operacion']);
+
+                if (!$queryOp && $tipoOpClass === Exportacion::class) {
+                    Log::error("Error: No se encontró el registro de Exportación para el ID: " . $datosId['id_operacion']);
+                }
                 
                 $cliente = $queryOp ? optional($queryOp->cliente)->nombre : '';
                 $navieraOp = $queryOp->naviera ?? 'N/A';
@@ -1006,7 +1010,7 @@ class AuditoriaImpuestosController extends Controller
                             $datosAgrupados[$hojaDestino][] = [
                                 'fecha'      => $fechaFmt,
                                 'cliente'    => $cliente,
-                                'pedimento'  => $pedimentoLimpio,
+                                'pedimento'  => $datosId['num_pedimiento'],
                                 'pxcc'       => $conceptoFinal,
                                 'proveedor'  => $proveedor,
                                 'factura_p'  => $folioFactura,
@@ -1024,7 +1028,7 @@ class AuditoriaImpuestosController extends Controller
                         $datosAgrupados[$hojaDestino][] = [
                             'fecha'      => '',
                             'cliente'    => $cliente,
-                            'pedimento'  => $pedimentoLimpio,
+                            'pedimento'  => $datosId['num_pedimiento'],
                             'pxcc'       => $pxccLabel,        
                             'proveedor'  => '',
                             'factura_p'  => '',
@@ -1078,7 +1082,7 @@ class AuditoriaImpuestosController extends Controller
                 'pedimentos' => $datosParaEnviar,
                 'es_ultimo'  => $esUltimo
             ]);
-
+            Log::info("Respuesta Real de Google para {$hoja}: " . $response->body());
             if (!$response->successful()) {
                 Log::error("Error HTTP GPC Multi: " . $response->status());
             }
@@ -1090,15 +1094,21 @@ class AuditoriaImpuestosController extends Controller
     /**
      * Mapea la sucursal y la operación a la pestaña exacta
      */
-    private function getHojaDestino($sucursalCod, $operationTypeClass) {
+    private function getHojaDestino($sucursalCod, $operationTypeClass)
+    {
         $sucursales = [
-            'NOG' => 'NOGALES',
+            'NOG' => 'NOGALES', // Asegúrate que sea "NOGALES" y no "NOGAL"
             'NL'  => 'LAREDO',
             'TIJ' => 'TIJUANA',
             'MXL' => 'MEXICALI'
         ];
         $nombre = $sucursales[$sucursalCod] ?? 'NOGALES';
+
+        // Si $operationTypeClass es "App\Models\Exportacion", 
+        // str_contains($operationTypeClass, 'Importacion') será FALSO y devolverá "EXPO".
+        // Esto está correcto, PERO asegúrate que la clase se llame así exactamente.
         $tipo = (str_contains($operationTypeClass, 'Importacion')) ? 'IMPO' : 'EXPO';
+
         return "{$nombre} {$tipo}";
     }
     
@@ -1390,10 +1400,10 @@ class AuditoriaImpuestosController extends Controller
             // PROCESAR EXPORTACIONES
             $mapaPedimentoAExportacionId = Exportacion::query()
                 ->selectRaw('id_pedimiento, MAX(id_exportacion) as id_exportacion')
-                ->whereBetween('operaciones_exportacion.created_at', [$fecha_inicio, $fecha_fin])
-                ->where(['operaciones_exportacion.patente' => $patenteSucursal, 'operaciones_exportacion.sucursal' => $numeroSucursal])
+                //->whereBetween('operaciones_exportacion.created_at', [$fecha_inicio, $fecha_fin])
+                //->where(['operaciones_exportacion.patente' => $patenteSucursal, 'operaciones_exportacion.sucursal' => $numeroSucursal])
                 ->whereIn('operaciones_exportacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
-                ->whereNull('parent')
+                //->whereNull('parent')
                 ->orderBy('operaciones_exportacion.created_at', 'desc')
                 ->groupBy('id_pedimiento')
                 ->get()
@@ -3796,41 +3806,71 @@ class AuditoriaImpuestosController extends Controller
             return [];
         }
 
-        $regexPattern = implode('|', array_map(function ($p) {
-            return "[[:<:]]{$p}[[:>:]]";
-        }, array_unique($pedimentosLimpios)));
+        // 1. Extraer puramente los números de 7 dígitos
+        $sieteDigitos = [];
+        foreach (array_unique($pedimentosLimpios) as $p) {
+            if (preg_match_all('/[4-7]\d{6}/', $p, $matches)) {
+                foreach ($matches[0] as $match) {
+                    $sieteDigitos[] = $match;
+                }
+            }
+        }
+        $sieteDigitos = array_unique($sieteDigitos);
 
+        if (empty($sieteDigitos)) {
+            return [];
+        }
+
+        // 2. BÚSQUEDA AMPLIA: Quitamos los filtros de patente y sucursal. 
+        // Si el número existe, lo trae.
         $posiblesCoincidencias = Pedimento::query()
-            ->whereRaw("num_pedimiento REGEXP ?", [$regexPattern])
-            ->where(function ($q) use ($patenteSucursal, $numeroSucursal) {
-                $q->whereHas('importacion', function ($im) use ($patenteSucursal, $numeroSucursal) {
-                    $im->where('patente', $patenteSucursal)->where('sucursal', $numeroSucursal);
-                })
-                    ->orWhereHas('exportacion', function ($ex) use ($patenteSucursal, $numeroSucursal) {
-                        $ex->where('patente', $patenteSucursal)->where('sucursal', $numeroSucursal);
-                    });
+            ->where(function ($q) use ($sieteDigitos) {
+                foreach ($sieteDigitos as $digito) {
+                    $q->orWhere('num_pedimiento', 'LIKE', "%{$digito}%");
+                }
             })
             ->with(['importacion', 'exportacion'])
             ->get();
 
         $mapaFinal = [];
-        foreach ($pedimentosLimpios as $pedimentoBuscado) {
-            foreach ($posiblesCoincidencias as $registro) {
-                if (preg_match("/\b" . preg_quote($pedimentoBuscado, '/') . "\b/", $registro->num_pedimiento)) {
+        
+        foreach (array_unique($pedimentosLimpios) as $pedimentoBuscado) {
+            
+            if (!preg_match_all('/[4-7]\d{6}/', $pedimentoBuscado, $matches)) {
+                continue; 
+            }
+            $digitosBuscados = $matches[0];
 
+            foreach ($posiblesCoincidencias as $registro) {
+                
+                $matchEncontrado = false;
+                foreach ($digitosBuscados as $digito) {
+                    if (strpos($registro->num_pedimiento, $digito) !== false) {
+                        $matchEncontrado = true;
+                        break;
+                    }
+                }
+
+                if ($matchEncontrado) {
                     $esImpo = !is_null($registro->importacion);
                     $operacion = $esImpo ? $registro->importacion : $registro->exportacion;
                     $esRecti = ($operacion && !is_null($operacion->parent));
 
-                    if (!isset($mapaFinal[$pedimentoBuscado]) ||
-                        (!$mapaFinal[$pedimentoBuscado]['es_recti'] && $esRecti) ||
+                    // Mapeamos incluso si no tiene operación asignada
+                    $idOperacion = $operacion ? ($esImpo ? $operacion->id_importacion : $operacion->id_exportacion) : null;
+                    $tipoOp = $esImpo ? 'Importacion' : ($registro->exportacion ? 'Exportacion' : 'Sin Operacion');
+
+                    $tieneAuditorias = Auditoria::where('pedimento_id', $registro->id_pedimiento)->exists();
+
+                    if (!isset($mapaFinal[$pedimentoBuscado]) || 
+                        $tieneAuditorias || 
                         ($registro->id_pedimiento > $mapaFinal[$pedimentoBuscado]['id_pedimiento'])) {
 
                         $mapaFinal[$pedimentoBuscado] = [
-                            'id_pedimiento' => $registro->id_pedimiento,
-                            'id_operacion'  => $esImpo ? $operacion->id_importacion : $operacion->id_exportacion,
+                            'id_pedimiento'  => $registro->id_pedimiento,
+                            'id_operacion'   => $idOperacion,
                             'num_pedimiento' => $registro->num_pedimiento,
-                            'tipo'           => $esImpo ? 'Importacion' : 'Exportacion',
+                            'tipo'           => $tipoOp,
                             'es_recti'       => $esRecti
                         ];
                     }
