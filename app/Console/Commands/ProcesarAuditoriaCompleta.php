@@ -110,7 +110,7 @@ class ProcesarAuditoriaCompleta extends Command
                 // 12. VACÍOS A GPC
                 gc_collect_cycles();
                 $this->info("Enviando Vacíos a GPC...");
-                $status = $controller->auditarFacturasDeVacios($tarea->id);
+                $status = $controller->enviarAGPCVacios($tarea->id);
                 if ($status['code'] > 0) {
                     throw $status['message'];
                 }
@@ -127,6 +127,13 @@ class ProcesarAuditoriaCompleta extends Command
                 gc_collect_cycles();
                 $this->info("Enviando Almacén (ALMAN) a GPC...");
                 $status = $controller->enviarAGPCFacturasDeAlmacen($tarea->id);
+                if ($status['code'] > 0) {
+                    throw $status['message'];
+                }
+
+                gc_collect_cycles();
+                $this->info("Enviando Traslado Local (ALMAN) a GPC...");
+                $status = $controller->enviarAGPCTrasladoLocal($tarea->id);
                 if ($status['code'] > 0) {
                     throw $status['message'];
                 }
