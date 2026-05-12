@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Exports;
 
 use Illuminate\Support\Collection;
@@ -25,10 +26,24 @@ WithColumnWidths, ShouldAutoSize, WithColumnFormatting, WithStyles, WithEvents,
 WithStrictNullComparison
 {
     protected $operaciones;
+    protected $tcGlobal = 1.0; // Variable para almacenar el tipo de cambio de rescate
 
     public function __construct(Collection $operaciones)
     {
         $this->operaciones = $operaciones;
+
+        // Buscamos un Tipo de Cambio válido en TODA la hoja
+        foreach ($this->operaciones as $pedimento) {
+            $operacion = $pedimento->importacion ?? $pedimento->exportacion;
+            if ($operacion && $operacion->auditoriasTotalSC) {
+                $sc = $operacion->auditoriasTotalSC;
+                $desglose = is_array($sc->desglose_conceptos) ? $sc->desglose_conceptos : json_decode($sc->desglose_conceptos, true);
+                if (isset($desglose['tipo_cambio']) && (float)$desglose['tipo_cambio'] > 1) {
+                    $this->tcGlobal = (float)$desglose['tipo_cambio'];
+                    break; // Al encontrar el primero válido (ej. 18.24), nos detenemos.
+                }
+            }
+        }
     }
 
     public function collection()
@@ -46,9 +61,9 @@ WithStrictNullComparison
                 return null; 
             }
 
-            $facturaLLCs = $operacion->auditorias->firstWhere('tipo_documento', 'llc');
+            $facturaLLC = $operacion->auditorias->firstWhere('tipo_documento', 'llc');
 
-            if (!$facturaLLCs) {
+            if (!$facturaLLC) {
                 return null;
             }
 
@@ -60,7 +75,7 @@ WithStrictNullComparison
                 'tipo' => $tipo,
                 'pedimento' => $pedimento->num_pedimiento,
                 'cliente' => $cliente,
-                'llc' => $facturaLLCs, 
+                'llc' => $facturaLLC, 
                 'sc' => $sc,
             ];
         })->filter(); 
@@ -74,11 +89,33 @@ WithStrictNullComparison
             $factura = $row['llc'] ?? null;
             $sc = $row['sc'] ?? null;
 
-            $totalMontoFactura += (float) optional($factura)->monto_total;
-            $totalMontoFacturaMxn += (float) optional($factura)->monto_total_mxn;
+            $montoUsd = (float) optional($factura)->monto_total;
+            $montoMxn = (float) optional($factura)->monto_total_mxn;
+
+            // Determinamos el Tipo de Cambio para esta fila en específico
+            $tcFila = 1.0;
+            if ($sc) {
+                $desgloseSc = is_array($sc->desglose_conceptos) ? $sc->desglose_conceptos : json_decode($sc->desglose_conceptos, true);
+                if (isset($desgloseSc['tipo_cambio']) && (float)$desgloseSc['tipo_cambio'] > 1) {
+                    $tcFila = (float)$desgloseSc['tipo_cambio'];
+                }
+            }
+            
+            // Si la fila no tiene un TC válido, usamos el Global
+            if ($tcFila <= 1.0) {
+                $tcFila = $this->tcGlobal;
+            }
+
+            // Si la base de datos no se actualizó, reparamos la multiplicación de MXN "al vuelo"
+            if ($montoUsd > 0 && ($montoMxn == $montoUsd || $montoMxn == 0) && $tcFila > 1.0) {
+                $montoMxn = round($montoUsd * $tcFila, 2);
+            }
+
+            $totalMontoFactura += $montoUsd;
+            $totalMontoFacturaMxn += $montoMxn;
 
             if ($sc) {
-                $desgloseSc = $sc->desglose_conceptos;
+                $desgloseSc = is_array($sc->desglose_conceptos) ? $sc->desglose_conceptos : json_decode($sc->desglose_conceptos, true);
                 $totalMontoSc += (float)($desgloseSc['montos']['llc'] ?? 0);
                 $totalMontoScMxn += (float)($desgloseSc['montos']['llc_mxn'] ?? 0);
             }
@@ -132,13 +169,13 @@ WithStrictNullComparison
                 '', 
                 (float) optional($row['llc'])->monto_total,
                 (float) optional($row['llc'])->monto_total_mxn,
-                (float) optional($row['sc'])->desglose_conceptos['montos']['llc'] ?? 0,
-                (float) optional($row['sc'])->desglose_conceptos['montos']['llc_mxn'] ?? 0,
+                (float) ($row['sc']->desglose_conceptos['montos']['llc'] ?? 0),
+                (float) ($row['sc']->desglose_conceptos['montos']['llc_mxn'] ?? 0),
                 '', '', '', '', '', '' 
             ];
         }
 
-        $facturaLLCs = $row['llc'] ?? null;
+        $facturaLLC = $row['llc'] ?? null;
         $sc = $row['sc'] ?? null;
         $cliente = $row['cliente'] ?? null;
         $pedimento = $row['pedimento'] ?? null;
@@ -147,14 +184,21 @@ WithStrictNullComparison
         $montoScMxn = 'N/A';
         $folioSc = 'N/A';
         $pdfSc = 'Sin PDF!';
-        $estado = optional($facturaLLCs)->estado;
+        $estado = optional($facturaLLC)->estado;
+
+        $desgloseSc = [];
+        $tcFila = 1.0;
 
         if ($sc) {
-            $desgloseSc = $sc->desglose_conceptos;
+            $desgloseSc = is_array($sc->desglose_conceptos) ? $sc->desglose_conceptos : json_decode($sc->desglose_conceptos, true);
             $montosSc = $desgloseSc['montos'] ?? [];
             $montoSc = (float)($montosSc['llc'] ?? 0);
             $montoScMxn = (float)($montosSc['llc_mxn'] ?? 0);
             $folioSc = $sc->folio;
+
+            if (isset($desgloseSc['tipo_cambio']) && (float)$desgloseSc['tipo_cambio'] > 1) {
+                $tcFila = (float)$desgloseSc['tipo_cambio'];
+            }
 
             if ($sc->ruta_pdf) {
                 $pdfSc = '=HYPERLINK("' . $sc->ruta_pdf . '", "Acceder PDF")';
@@ -163,26 +207,47 @@ WithStrictNullComparison
             $estado = 'Sin SC!';
         }
 
-        $monedaConTC = optional($facturaLLCs)->moneda_documento;
-        if ($monedaConTC === 'USD' && isset($desgloseSc['tipo_cambio'])) {
-            $monedaConTC = "USD (" . number_format($desgloseSc['tipo_cambio'], 2) . " MXN)";
+        // Si no detectó un TC en su propia fila, hereda el TC Global
+        if ($tcFila <= 1.0) {
+            $tcFila = $this->tcGlobal;
         }
 
-        $pdfFactura = optional($facturaLLCs)->ruta_pdf
-            ? '=HYPERLINK("' . $facturaLLCs->ruta_pdf . '", "Acceder PDF")'
+        $montoUsd = (float) optional($facturaLLC)->monto_total;
+        $montoMxn = (float) optional($facturaLLC)->monto_total_mxn;
+
+        // Reparación al vuelo para el Excel si la BD está desactualizada
+        if ($montoUsd > 0 && ($montoMxn == $montoUsd || $montoMxn == 0) && $tcFila > 1.0) {
+            $montoMxn = round($montoUsd * $tcFila, 2);
+        }
+
+        // --- LÓGICA DE MONEDA PROTEGIDA ---
+        $monedaBase = optional($facturaLLC)->moneda_documento ?? 'USD';
+        $monedaColumna = $monedaBase;
+        
+        if ($monedaBase === 'USD' || str_contains($monedaBase, 'USD')) {
+            // Esto aniquila para siempre la posibilidad de que imprima (1.00 MXN)
+            if ($tcFila > 1.0) {
+                $monedaColumna = "USD (" . number_format($tcFila, 2) . " MXN)";
+            } else {
+                $monedaColumna = "USD";
+            }
+        }
+
+        $pdfFactura = optional($facturaLLC)->ruta_pdf
+            ? '=HYPERLINK("' . $facturaLLC->ruta_pdf . '", "Acceder PDF")'
             : 'Sin PDF!';
 
         return [
-            optional($facturaLLCs)->fecha_documento,
+            optional($facturaLLC)->fecha_documento,
             $pedimento,
             $row['tipo'] ?? '',
             optional($cliente)->nombre,
-            (float) optional($facturaLLCs)->monto_total, 
-            (float) optional($facturaLLCs)->monto_total_mxn, 
+            $montoUsd, 
+            $montoMxn, 
             $montoSc,
             $montoScMxn,
-            $monedaConTC,
-            optional($facturaLLCs)->folio, 
+            $monedaColumna,
+            optional($facturaLLC)->folio, 
             $folioSc,
             $estado,
             $pdfFactura,
@@ -263,19 +328,26 @@ WithStrictNullComparison
 
                         } else {
                             switch ($estado) {
-                                case 'Coinciden!': $styleArray = array_merge($styleArray, ['font' => ['color' => ['argb' => 'FF006100']],'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFC6EFCE']]]); break;
-                                case 'Pago de menos!': $styleArray = array_merge($styleArray, ['font' => ['color' => ['argb' => 'FF9C0006']],'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFFFC7CE']]]); break;
-                                case 'Pago de mas!': $styleArray = array_merge($styleArray, ['font' => ['color' => ['argb' => 'FF974700']],'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFFFCC99']]]); break;
+                                case 'Coinciden!': 
+                                    $styleArray = array_merge_recursive($styleArray, ['font' => ['color' => ['argb' => 'FF006100']],'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFC6EFCE']]]); 
+                                    break;
+                                case 'Pago de menos!': 
+                                    $styleArray = array_merge_recursive($styleArray, ['font' => ['color' => ['argb' => 'FF9C0006']],'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFFFC7CE']]]); 
+                                    break;
+                                case 'Pago de mas!': 
+                                    $styleArray = array_merge_recursive($styleArray, ['font' => ['color' => ['argb' => 'FF974700']],'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFFFCC99']]]); 
+                                    break;
                             }
                         }
 
-                        if (!empty($styleArray)) {
+                        if (count($styleArray) > 1) {
                             $sheet->getStyle('A' . $rowIndex . ':' . $lastColumn . $rowIndex)->applyFromArray($styleArray);
                         }
 
                         foreach (['M', 'N'] as $col) {
                             $cell = $sheet->getCell($col . $rowIndex);
-                            if (is_string($cell->getValue()) && str_starts_with($cell->getValue(), '=HYPERLINK')) {
+                            $val = $cell->getValue();
+                            if (is_string($val) && str_starts_with($val, '=HYPERLINK')) {
                                 $cell->getStyle()->applyFromArray([
                                     'font' => ['bold' => true, 'underline' => Font::UNDERLINE_SINGLE],
                                 ]);

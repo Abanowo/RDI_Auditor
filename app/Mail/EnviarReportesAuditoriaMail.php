@@ -34,42 +34,52 @@ class EnviarReportesAuditoriaMail extends Mailable
         $this->discrepancias = [];
         
         try {
-            // 1. Extraemos los pedimentos que se procesaron en esta tarea
-            $pedimentosProcesados = json_decode($tarea->pedimentos_procesados, true) ?? [];
+            // 1. Obtener el archivo de mapeo (Base de toda la auditoría)
+            $rutaMapeo = $this->tarea->mapeo_completo_facturas;
+            if (!$rutaMapeo || !Storage::exists($rutaMapeo)) {
+                \Illuminate\Support\Facades\Log::error("Correo Auditoría: No se encontró el archivo de mapeo en: " . $rutaMapeo);
+                return;
+            }
 
-            if (!empty($pedimentosProcesados)) {
+            $contenidoJson = Storage::get($rutaMapeo);
+            $mapeadoFacturas = json_decode($contenidoJson, true);
+            $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'] ?? [];
+
+            if (empty($mapaPedimentoAId)) {
+                return;
+            }
+
+            // 2. Extraer los IDs de los pedimentos procesados
+            $idsPedDb = \Illuminate\Support\Arr::pluck($mapaPedimentoAId, 'id_pedimiento');
+
+            // 3. Consultar Pedimentos con sus operaciones y auditorías (Carga masiva)
+            $pedimentos = \App\Models\Pedimento::whereIn('id_pedimiento', $idsPedDb)
+                ->with([
+                    'importacion.auditorias',
+                    'importacion.auditoriasTotalSC',
+                    'exportacion.auditorias',
+                    'exportacion.auditoriasTotalSC'
+                ])->get();
+
+            // 4. Procesar cada pedimento para encontrar discrepancias
+            foreach ($pedimentos as $pedimento) {
                 
-                // 2. Usamos la relación 'auditorias' directa (más segura y general)
-                $pedimentos = \App\Models\Pedimento::whereIn('num_pedimiento', $pedimentosProcesados)
-                    ->with([
-                        'importacion.auditorias',
-                        'importacion.auditoriasTotalSC',
-                        'exportacion.auditorias',
-                        'exportacion.auditoriasTotalSC'
-                    ])
-                    ->get();
+                // Revisamos tanto importación como exportación
+                $operaciones = array_filter([$pedimento->importacion, $pedimento->exportacion]);
 
-                // 3. Recorremos los pedimentos encontrados
-                foreach ($pedimentos as $pedimento) {
-                    
-                    $operacion = $pedimento->importacion ?? $pedimento->exportacion;
-                    if (!$operacion) {
-                        continue;
-                    }
-
+                foreach ($operaciones as $operacion) {
                     $sc = $operacion->auditoriasTotalSC;
                     $auditorias = $operacion->auditorias;
 
-                    if (!$auditorias) {
+                    if (!$auditorias || $auditorias->isEmpty()) {
                         continue;
                     }
 
-                    // Buscamos discrepancias
+                    // Buscamos discrepancias en la colección de auditorías
                     foreach ($auditorias as $auditoria) {
-                        // Convertimos a minúsculas para evitar problemas de formato
                         $estadoLower = strtolower($auditoria->estado);
                         
-                        // Validamos ÚNICAMENTE pagos de más o pagos de menos (ignorando acentos)
+                        // Verificamos si el estado indica un error de pago
                         $esDiscrepancia = Str::contains($estadoLower, 'pago de mas') || 
                                           Str::contains($estadoLower, 'pago de más') || 
                                           Str::contains($estadoLower, 'pago de menos');
@@ -79,6 +89,7 @@ class EnviarReportesAuditoriaMail extends Mailable
                             $montoFactura = (float) $auditoria->monto_total_mxn;
                             $diferencia = (float) $auditoria->monto_diferencia_sc;
                             
+                            // Cálculo del monto SC (igual que en el reporte)
                             $montoSC = 0;
                             if ($sc && isset($sc->desglose_conceptos['montos'])) {
                                 $llaveSc = $tipo === 'pago_derecho' ? 'pago_derecho_mxn' : $tipo . '_mxn';
@@ -87,20 +98,23 @@ class EnviarReportesAuditoriaMail extends Mailable
                                 $montoSC = $montoFactura + $diferencia;
                             }
 
-                            // Al usar el número de pedimento como llave, evitamos registros duplicados en pantalla
-                            $this->discrepancias[$tipo][$pedimento->num_pedimiento] = [
+                            // Usamos una llave única para evitar que registros se sobrescriban
+                            $llaveUnica = $pedimento->num_pedimiento . '_' . $auditoria->id;
+
+                            $this->discrepancias[$tipo][$llaveUnica] = [
                                 'pedimento'     => $pedimento->num_pedimiento,
                                 'monto_factura' => $montoFactura,
                                 'monto_sc'      => $montoSC,
                                 'diferencia'    => $diferencia,
-                                'estado'        => $auditoria->estado // Guardamos el estado original
+                                'estado'        => $auditoria->estado,
+                                'ruta_pdf'      => $auditoria->ruta_pdf
                             ];
                         }
                     }
                 }
             }
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('Error al generar tabla de discrepancias en correo: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::error('Fallo en el constructor del correo de auditoría: ' . $e->getMessage());
         }
     }
 

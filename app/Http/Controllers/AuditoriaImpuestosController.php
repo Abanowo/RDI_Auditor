@@ -792,12 +792,20 @@ class AuditoriaImpuestosController extends Controller
                                 $textoAnteriorLimpio = preg_replace('/\s+/', '', $textoAnterior);
                                 
                                 $fechaTransaccion = $fechaEstadoCuenta; // Inicia con el Plan B (Cabecera)
-                                
+
                                 // Buscamos un bloque de 8 dígitos que parezca una fecha DDMMAAAA terminando en "20XX"
-                                if (preg_match_all('/(\d{2})(\d{2})(20\d{2})/', $textoAnteriorLimpio, $mFechasTransaccion, PREG_SET_ORDER)) {
+                                if (preg_match_all('/(0[1-9]|[12]\d|3[01])(0[1-9]|1[0-2])(20\d{2})/', $textoAnteriorLimpio, $mFechasTransaccion, PREG_SET_ORDER)) {
                                     // Tomamos la última fecha encontrada en el bloque anterior a los montos
                                     $ultimaFechaEncontrada = end($mFechasTransaccion);
-                                    $fechaTransaccion = $ultimaFechaEncontrada[3] . '-' . $ultimaFechaEncontrada[2] . '-' . $ultimaFechaEncontrada[1];
+
+                                    $dia = $ultimaFechaEncontrada[1];
+                                    $mes = $ultimaFechaEncontrada[2];
+                                    $anio = $ultimaFechaEncontrada[3];
+
+                                    // Validación definitiva (evita el 31 de Febrero, por ejemplo)
+                                    if (checkdate((int)$mes, (int)$dia, (int)$anio)) {
+                                        $fechaTransaccion = "$anio-$mes-$dia";
+                                    }
                                 }
 
                                 // Guardamos en el array usando la fecha real de la tabla
@@ -2008,8 +2016,10 @@ class AuditoriaImpuestosController extends Controller
     }
 
 
-    //--- METODO AUDITAR E IMPORTAR LLCS A AUDITORIAS
-    // Se encarga de leer el archivo de TXT de las LLCs, obteniendo los montos y datos generales necesarios para la auditoria
+    /**
+     * Se encarga de leer el archivo de TXT de las LLCs, obteniendo los montos y datos generales necesarios para la auditoria.
+     * CASO ESPECIAL: Para SONORA AGROPECUARIA se fuerza la lectura del PDF.
+     */
     public function auditarFacturasDeLLC(string $tareaId)
     {
         gc_collect_cycles();
@@ -2042,7 +2052,6 @@ class AuditoriaImpuestosController extends Controller
                 Log::info("LLC: No hay pedimentos en la Tarea #{$tareaId} para procesar.");
                 return ['code' => 0, 'message' => 'completado'];
             }
-            Log::info("Procesando Facturas de LLC para Tarea #{$tarea->id} en la sucursal: {$sucursal}");
 
             //$mapasPedimento - Contienen todos los pedimentos del estado de cuenta, encontrados en Importacion/Exportacion
             $mapaPedimentoAImportacionId = $mapeadoFacturas['pedimentos_importacion'];
@@ -2065,151 +2074,121 @@ class AuditoriaImpuestosController extends Controller
             $indiceSC = [];
 
             foreach ($auditoriasSC as $auditoria) {
-
-                // Laravel ya ha convertido el `desglose_conceptos` en un array gracias a la propiedad `$casts`.
-                $desglose = $auditoria['desglose_conceptos'];
+                $desglose = is_array($auditoria['desglose_conceptos']) ? $auditoria['desglose_conceptos'] : json_decode($auditoria['desglose_conceptos'], true);
                 $arrPedimento = array_filter($mapaPedimentoAId, function ($datosAuditoria) use ($auditoria) {
                     return $datosAuditoria['id_pedimiento'] == $auditoria['pedimento_id'];
                 });
 
-                // Creamos la entrada en nuestro mapa.
-                $indiceSC[key($arrPedimento)] =
-                    [
-                        'monto_llc_sc' => (float) $desglose['montos']['llc'],
-                        'monto_llc_sc_mxn' => (float) $desglose['montos']['llc_mxn'],
-                        'moneda' => $desglose['moneda'],
-                        // Accedemos al tipo de cambio. Usamos el 'null coalescing operator' (??)
-                        // para asignar un valor por defecto (ej. 1) si no se encuentra.
-                        'tipo_cambio' => (float) $desglose['tipo_cambio'] ?? 1.0,
+                if(!empty($arrPedimento)){
+                    $indiceSC[key($arrPedimento)] = [
+                        'monto_llc_sc' => (float) ($desglose['montos']['llc'] ?? -1),
+                        'monto_llc_sc_mxn' => (float) ($desglose['montos']['llc_mxn'] ?? -1),
+                        'moneda' => $desglose['moneda'] ?? 'USD',
+                        'tipo_cambio' => (float) ($desglose['tipo_cambio'] ?? 1.0),
                     ];
+                }
             }
 
-            Log::info("Iniciando vinculacion de los " . count($mapaPedimentoAId) . " pedimentos.");
+            // --- BÚSQUEDA DE TIPO DE CAMBIO GLOBAL DE RESCATE ---
+            $tipoCambioGlobal = 1.0;
+            foreach ($indiceSC as $sc) {
+                if (isset($sc['tipo_cambio']) && $sc['tipo_cambio'] > 1) {
+                    $tipoCambioGlobal = $sc['tipo_cambio'];
+                    break; 
+                }
+            }
 
-            Log::info("Iniciando mapeo para Upsert.");
-            //--------------------------------------------------------------------------------------------------------
-            //========================================================================================================
-            //--------------------------------------------------------------------------------------------------------
-
-            //$bar = $this->output->createProgressBar(count($mapaPedimentoAId));
-            //$bar->start();
-            $llcsParaGuardar = [];
-
-            // 1. Definimos la lista de clientes excluidos (en mayúsculas y sin sufijos legales complejos)
             $clientesExcluidosLLC = [
                 'JULIAN FERNANDO CAJIGAS',
                 'SOUTH COAST PACKING',
                 'COMERCIALIZADORA INTERNACIONAL MANSIVA',
                 'CREMERIAS DE OCCIDENTE',
-                'COMPANIA MINERA LA PITALLA', // Parcial para evitar fallos por el S.A. DE C.V.
-                'MINAS DE ORO NACIONAL'       // Parcial para evitar fallos por el SA DE CV
+                'COMPANIA MINERA LA PITALLA', 
+                'MINAS DE ORO NACIONAL'       
             ];
 
+            $llcsParaGuardar = [];
+
             foreach ($mapaPedimentoAId as $pedimentoLimpio => $pedimentoSucioYId) {
-                // Obtemenos la operacionId por medio del pedimento sucio
-                // Se verifica si la operacion ID esta en Importacion
-                $operacionId = $mapaPedimentoAImportacionId[$pedimentoSucioYId['num_pedimiento']] ?? null;
-                $tipoOperacion = Importacion::class;
+                $numPedRef = $pedimentoSucioYId['num_pedimiento'];
+                $operacionId = $mapaPedimentoAImportacionId[$numPedRef] ?? $mapaPedimentoAExportacionId[$numPedRef] ?? null;
+                $tipoOperacion = isset($mapaPedimentoAImportacionId[$numPedRef]) ? Importacion::class : (isset($mapaPedimentoAExportacionId[$numPedRef]) ? Exportacion::class : Pedimento::class);
 
-                if (!$operacionId) { // Si no, entonces busca en Exportacion
-                    $operacionId = $mapaPedimentoAExportacionId[$pedimentoSucioYId['num_pedimiento']] ?? null;
-                    $tipoOperacion = Exportacion::class;
+                $idOp = $operacionId['id_operacion'] ?? null;
+                $objOperacion = null;
+                $nombreCliente = '';
+
+                if ($idOp && $tipoOperacion !== Pedimento::class) {
+                    $queryOp = ($tipoOperacion === Importacion::class) ? Importacion::with('cliente') : Exportacion::with('cliente');
+                    $objOperacion = $queryOp->find($idOp);
+                    if ($objOperacion && $objOperacion->cliente) {
+                        $nombreCliente = strtoupper(trim($objOperacion->cliente->nombre));
+                    }
                 }
 
-                if (!$operacionId) { // Si no esta ni en Importacion o en Exportacion, que lo guarde por pedimento_id
-                    $tipoOperacion = Pedimento::class;
-                }
-
-                if (!$operacionId) {
-                    /* Log::warning("Se omitió la SC del pedimento '{$pedimentoLimpio}' porque no se encontró una operación de importación asociada."); */
-                    //$bar->advance();
-                    continue; // Si no hay operación, no podemos guardar la SC
-                }
-
-                // Consultamos la operación y su relación con el cliente
-                $queryOp = ($tipoOperacion === Importacion::class) 
-                            ? Importacion::with('cliente') 
-                            : Exportacion::with('cliente');
-                
-                $objOperacion = $queryOp->find($operacionId['id_operacion']);
-
-                if ($objOperacion && $objOperacion->cliente) {
-                    $nombreCliente = strtoupper(trim($objOperacion->cliente->nombre));
-                    $omitir = false;
-
-                    // Revisamos si el nombre del cliente contiene alguno de los excluidos
-                    foreach ($clientesExcluidosLLC as $excluido) {
-                        if (str_contains($nombreCliente, $excluido)) {
-                            $omitir = true;
-                            break; // Si hace match con uno, dejamos de buscar
+                // 1. Verificación de Exclusiones
+                $omitir = false;
+                foreach ($clientesExcluidosLLC as $excluido) {
+                    if (str_contains($nombreCliente, $excluido)) {
+                        $omitir = true;
+                        break; // Si hace match con uno, dejamos de buscar
                         }
-                    }
-
-                    if ($omitir) {
-                        Log::info("LLC: Pedimento {$pedimentoLimpio} omitido (Cliente directo: {$nombreCliente}). Limpiando registros previos...");
-
-                        // Borramos cualquier registro viejo para no arrastrar basura en los reportes
-                        Auditoria::where('pedimento_id', $pedimentoSucioYId['id_pedimiento'])
-                            ->where('tipo_documento', 'llc')
-                            ->delete();
-
-                        continue; // Saltamos a la siguiente iteración del foreach
-                    }
                 }
-
+                if ($omitir) {
+                    Auditoria::where('pedimento_id', $pedimentoSucioYId['id_pedimiento'])->where('tipo_documento', 'llc')->delete();
+                    continue; // Saltamos a la siguiente iteración del foreach
+                }
                 // Buscamos en nuestros índices en memoria (búsqueda instantánea)
                 $datosSC = $indiceSC[$pedimentoLimpio] ?? null;
                 $datosLlc = $indiceLLC[$pedimentoLimpio] ?? null;
 
-                if (!$datosLlc) {
-                    //$bar->advance();
-                    continue;
-                } elseif (!$datosSC && $datosLlc) {
-                    // Aqui es cuando hay LLC pero no existe SC para esta factura.\\
-                    $datosSC =
-                        [
-                            'monto_llc_sc' => -1,
-                            'monto_llc_sc_mxn' => -1,
-                            'tipo_cambio' => -1,
-                            'moneda' => 'N/A',
-                        ];
+                if (str_contains($nombreCliente, 'SONORA AGROPECUARIA')) {
+                    if ($datosLlc && !empty($datosLlc['ruta_pdf'])) {
+                        Log::info("LLC: Detectado cliente SONORA AGROPECUARIA. Forzando lectura de PDF para pedimento {$pedimentoLimpio}");
+                        $pdfData = $this->extraerTotalDesdePdfProveedor($datosLlc['ruta_pdf']);
+                        if ($pdfData && $pdfData['monto'] !== null) {
+                            $datosLlc['monto_total'] = (float) $pdfData['monto'];
+                            $datosLlc['fecha'] = $pdfData['fecha'] ?? $datosLlc['fecha'];
+                            $datosLlc['folio'] = $pdfData['folio'] ?? $datosLlc['folio'];
+                        }
+                    }
                 }
 
-                $montoLLCMXN = $datosSC['monto_llc_sc'] != -1 ? round($datosLlc['monto_total'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) : -1;
-                $montoSCMXN = $datosSC['monto_llc_sc_mxn'];
-                // --- FASE 4: Comparar y Preparar Datos ---
+                if (!$datosLlc) continue;
+
+                // Cálculos y Comparativa
+                $tipoCambioUsar = (isset($datosSC['tipo_cambio']) && $datosSC['tipo_cambio'] > 1) ? $datosSC['tipo_cambio'] : $tipoCambioGlobal;
+                $montoLLCMXN = ($tipoCambioUsar > 1) ? round($datosLlc['monto_total'] * $tipoCambioUsar, 2, PHP_ROUND_HALF_UP) : $datosLlc['monto_total'];
+                $montoSCMXN = $datosSC['monto_llc_sc_mxn'] ?? -1;
+                
                 $estado = $this->compararMontos_LLC($montoSCMXN, $montoLLCMXN);
                 $diferenciaSc = ($estado !== "Sin SC!" && $estado !== "Sin operacion!") ? round($montoSCMXN - $montoLLCMXN, 2) : $montoLLCMXN;
-                $llcsParaGuardar[] =
-                    [
-                        'operacion_id' => $operacionId['id_operacion'],
-                        'pedimento_id' => $pedimentoSucioYId['id_pedimiento'],
-                        'operation_type' => $tipoOperacion,
-                        'tipo_documento' => 'llc',
-                        'concepto_llave' => 'principal',
-                        'folio' => $datosLlc['folio'],
-                        'fecha_documento' => $datosLlc['fecha'],
-                        'monto_total' => $datosLlc['monto_total'],
-                        'monto_total_mxn' => $montoLLCMXN,
-                        'monto_diferencia_sc' => $diferenciaSc,
-                        'moneda_documento' => 'USD',
-                        'estado' => $estado,
-                        'ruta_txt' => $datosLlc['ruta_txt'],
-                        'ruta_pdf' => $datosLlc['ruta_pdf'],
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
-
-                //$bar->advance();
+                
+                $llcsParaGuardar[] = [
+                    'operacion_id' => $idOp,
+                    'pedimento_id' => $pedimentoSucioYId['id_pedimiento'],
+                    'operation_type' => $tipoOperacion,
+                    'tipo_documento' => 'llc',
+                    'concepto_llave' => 'principal',
+                    'folio' => $datosLlc['folio'] ?? 'S/F',
+                    'fecha_documento' => $datosLlc['fecha'],
+                    'monto_total' => $datosLlc['monto_total'],
+                    'monto_total_mxn' => $montoLLCMXN,
+                    'monto_diferencia_sc' => $diferenciaSc,
+                    'moneda_documento' => 'USD',
+                    'estado' => $estado,
+                    'ruta_txt' => $datosLlc['ruta_txt'],
+                    'ruta_pdf' => $datosLlc['ruta_pdf'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
             }
             //$bar->finish();
 
             // --- FASE 5: Guardado Masivo ---
             if (!empty($llcsParaGuardar)) {
-                Log::info("\nGuardando/Actualizando " . count($llcsParaGuardar) . " registros de LLC...");
-                Auditoria::upsert(
-                    $llcsParaGuardar,
-                    ['operacion_id', 'pedimento_id', 'operation_type', 'tipo_documento', 'concepto_llave'],  // Columna única para identificar si debe actualizar o insertar
+                Auditoria::upsert($llcsParaGuardar, 
+                    ['operacion_id', 'pedimento_id', 'operation_type', 'tipo_documento', 'concepto_llave'], 
                     [
                         'fecha_documento',
                         'monto_total', // Asegúrate que estos nombres coincidan con tu migración
@@ -2217,15 +2196,14 @@ class AuditoriaImpuestosController extends Controller
                         'monto_diferencia_sc',
                         'moneda_documento',
                         'estado',
+                        'folio',
                         'ruta_txt',
                         'ruta_pdf',
                         'updated_at'
                     ]
                 );
-                Log::info("¡Guardado con éxito!");
             }
 
-            Log::info("\nAuditoría de LLC finalizada.");
             return ['code' => 0, 'message' => 'completado'];
         } catch (\Throwable $e) {
             // 5. Si algo falla, marca la tarea como 'fallido' y guarda el error
@@ -2235,8 +2213,8 @@ class AuditoriaImpuestosController extends Controller
                     'resultado' => $e->getMessage()
                 ]
             );
-            Log::error("Falló la tarea #{$tarea->id}: " . $e->getMessage());
-            return ['code' => 1, 'message' => new \Exception("Falló la tarea #{$tarea->id}: " . $e->getMessage())];
+            Log::error("Falló la auditoría de LLC: " . $e->getMessage());
+            return ['code' => 1, 'message' => $e];
         }
     }
 
@@ -2744,7 +2722,6 @@ class AuditoriaImpuestosController extends Controller
                 //$archivos_txt = json_decode($url_txt);
                 $archivos_pdf = collect($url_pdf->json());
                 unset($url_pdf);
-                gc_collect_cycles();
                 // Inicializamos la entrada para el pedimento actual
                 $indiceFacturas[$pedimento] = [
                     'tipo_operacion' => $tipoOperacion,
@@ -2760,14 +2737,21 @@ class AuditoriaImpuestosController extends Controller
                 foreach ($archivosFacturas as $archivo) {
                     $tipoJson = $archivo['pivot']['type'];
                     $url = $archivo['url']['normal'];
+                    $nombreArchivoReal = strtoupper($archivo['name']);
                     $fechaCreacion = $archivo['created_at'];
                     $fechaActualizacion = $archivo['updated_at'];
                     
-                    // Usamos el nombre del archivo sin extensión para agrupar PDF y XML
                     $nombreBase = pathinfo($archivo['name'], PATHINFO_FILENAME);
                     $extension = strtolower(pathinfo($archivo['name'], PATHINFO_EXTENSION));
 
-                    // 🚀 LÓGICA INTELIGENTE DE PARES: Busca un espacio libre (PDF o XML)
+                    // DETERMINACIÓN DEL TIPO DOCUMENTO CON RECLASIFICACIÓN
+                    $tipoFinal = $mapeoFacturas[$tipoJson];
+                    
+                    // Si el nombre dice VACIO pero viene de Proveedores o Terminales, lo movemos a vacios
+                    if (($tipoFinal === 'proveedores' || $tipoFinal === 'terminal') && str_contains($nombreArchivoReal, 'VACIO')) {
+                        $tipoFinal = 'vacios';
+                    }
+
                     $grupoEncontrado = false;
                     $sufijo = 0;
                     $llaveGrupo = $nombreBase;
@@ -2780,7 +2764,7 @@ class AuditoriaImpuestosController extends Controller
                             $agrupadorTemp[$llaveGrupo] = [
                                 'creation_date' => $fechaCreacion,
                                 'update_date' => $fechaActualizacion,
-                                'tipo_documento' => $mapeoFacturas[$tipoJson],
+                                'tipo_documento' => $tipoFinal,
                                 'ruta_pdf' => null,
                                 'ruta_xml' => null,
                                 'ruta_txt' => null,
@@ -2806,18 +2790,10 @@ class AuditoriaImpuestosController extends Controller
                         $agrupadorTemp[$llaveGrupo]['ruta_xml'] = $url;
                     }
 
-                    // Obtenemos las rutas txt y su contenido
-                    if ($tipoJson != 'PAGOS-DE-DERECHOS') {
-                        switch ($tipoJson) {
-                            case 'HONORARIOS-SC':
-                            case 'TransporTactics':
-                                $agrupadorTemp[$llaveGrupo]['ruta_txt'] = "https://sistema.intactics.com/v2/uploads/{$nombreBase}.txt";
-                                break;
-
-                            case 'HONORARIOS-LLC':
-                                $agrupadorTemp[$llaveGrupo]['ruta_txt'] = "https://sistema.intactics.com/v2/uploads/llc-{$nombreBase}.txt";
-                                break;
-                        }
+                    if ($tipoJson === 'HONORARIOS-SC' || $tipoJson === 'TransporTactics') {
+                        $agrupadorTemp[$llaveGrupo]['ruta_txt'] = "https://sistema.intactics.com/v2/uploads/{$nombreBase}.txt";
+                    } elseif ($tipoJson === 'HONORARIOS-LLC') {
+                        $agrupadorTemp[$llaveGrupo]['ruta_txt'] = "https://sistema.intactics.com/v2/uploads/llc-{$nombreBase}.txt";
                     }
                 }
 
@@ -2825,74 +2801,10 @@ class AuditoriaImpuestosController extends Controller
                 // array_values() reinicia los índices del array para que sea una lista limpia.
                 //NUEVA FORMA
                 $indiceFacturas[$pedimento]['facturas'] = $agrupadorTemp;
-                //VIEJA FORMA
-                //$indiceFacturas[$pedimento]['facturas'] = array_values($agrupadorTemp);
-                //$bar->advance();
-
-                // --- BORRAR ESTO EN CASO DE QUE TE INTERESE OBTENER TODAS LAS SC
-                // Este foreach de abajo tiene el proposito de arreglar el Bug que se tiene en ZLO en donde existen 2 SCs
-                // y aveces termina agarrando la SC incorrecta. Y lo que se hace aca es buscar la que tenga el numero de folio menor
-                // ya que por experiencia, esas suelen ser las SC que le corresponden al cliente
-
-                // Suponiendo que tu arreglo se llama $datos
-                // Usamos un bucle foreach con una referencia (&) para poder modificar el arreglo original directamente.
-                foreach ($indiceFacturas as &$operacion) {
-                    // 1. Convertimos el sub-arreglo de 'facturas' a una colección para trabajar más fácil.
-                    $facturas = collect($operacion['facturas']);
-
-                    // 2. Separamos las facturas: las que son 'sc' y las que no.
-                    $scInvoices = $facturas->filter(function ($factura) {
-                        return $factura['tipo_documento'] === 'sc';
-                    });
-
-                    // 3. Si hay más de una factura 'sc', procedemos a encontrar la menor.
-                    //    Si hay solo una o ninguna, no hacemos nada.
-                    if ($scInvoices->count() > 1) {
-                        // Encontramos la factura 'sc' con el número de serie más bajo en su clave.
-                        // `sortBy` ordena la colección. Usamos una función para extraer el número
-                        // de la clave (la llave del arreglo, ej. 'ZLO3205') y lo convierte a entero
-                        // para una comparación numérica correcta. `first()` nos da el primer elemento
-                        // después de ordenar, que será el más bajo.
-                        $lowestScInvoice = $scInvoices->sortBy(function ($factura, $key) {
-                            // Extraemos todos los dígitos de la clave y tomamos el último número encontrado.
-                            preg_match_all('/\d+/', $key, $matches);
-                            return (int) end($matches[0]);
-                        })->first();
-
-                        // Obtenemos la llave de la factura que queremos conservar.
-                        $keyToKeep = $scInvoices->search($lowestScInvoice);
-
-                        // 4. Filtramos las facturas que NO son 'sc'
-                        $otherInvoices = $facturas->filter(function ($factura) {
-                            return $factura['tipo_documento'] !== 'sc';
-                        });
-
-                        // 5. Reconstruimos el arreglo de facturas:
-                        //    Juntamos las que no eran 'sc' con la única 'sc' que decidimos conservar.
-                        $operacion['facturas'] = $otherInvoices
-                            ->put($keyToKeep, $lowestScInvoice) // Añadimos la factura 'sc' correcta.
-                            ->all(); // Convertimos la colección de vuelta a un array.
-                    }
-                }
-
-                // Es una buena práctica eliminar la referencia al final del bucle.
-                unset($operacion);
-                // --- HASTA ACA TERMINA EL FOREACH
             } catch (\Throwable $e) {
-                Log::error("Ocurrió un error procesando la operacion ID ({$tipoOperacion}) {$operacionID['id_operacion']}: " . $e->getMessage());
-                // Aseguramos que haya una entrada para este pedimento aunque falle, para evitar errores posteriores.
-                if (!isset($indiceFacturas[$pedimento])) {
-                    $indiceFacturas[$pedimento] = ['error' => $e->getMessage()];
-                }
+                Log::error("Error procesando operacion {$operacionID['id_operacion']}: " . $e->getMessage());
             }
         }
-        unset($archivosFacturas);
-        unset($archivo);
-        unset($pedimentosOperacion);
-        unset($pedimento);
-        unset($operacionID);
-        gc_collect_cycles();
-        //$bar->finish();
         return $indiceFacturas;
     }
 
@@ -3684,7 +3596,8 @@ class AuditoriaImpuestosController extends Controller
                     continue;
                 }
 
-                if (preg_match('/\b([4-7]\d{6})\b/', $pedimentoSucio, $m)) {
+                // Detecta los 7 dígitos sin importar el año
+                if (preg_match('/\b(\d{7})\b/', $pedimentoSucio, $m)) {
                     $pedimentoLimpio = $m[1];
                 } else {
                     continue;
@@ -3729,6 +3642,7 @@ class AuditoriaImpuestosController extends Controller
                         Log::warning("Error leyendo TXT de LLC para pedimento {$pedimentoLimpio}");
                     }
                 }
+                
                 if (!$datosLlc['txt_exitoso'] && !empty($datosLlc['ruta_pdf'])) {
                     $pdfData = $this->extraerTotalDesdePdfProveedor($datosLlc['ruta_pdf']);
                     
@@ -3740,8 +3654,16 @@ class AuditoriaImpuestosController extends Controller
                         if (!empty($pdfData['fecha'])) {
                             $datosLlc['fecha'] = $pdfData['fecha'];
                         }
+
+                        $nombreArchivo = basename($datosLlc['ruta_pdf']);
                         
-                        Log::info("LLC: Rescatado desde PDF para el pedimento {$pedimentoLimpio} | Monto: {$datosLlc['monto_total']}");
+                        if (preg_match('/(?:NOG|TIJ|NL|MXL|ZLO|REY|VRZ|ITK|FSSA)-?0*(\d+)/i', $nombreArchivo, $matchFolioArchivo)) {
+                            $datosLlc['folio'] = $matchFolioArchivo[1]; // Extraerá "64044" de NOG64044.pdf
+                        } elseif (!empty($pdfData['folio'])) {
+                            $datosLlc['folio'] = $pdfData['folio']; // Fallback por si el nombre es raro
+                        }
+                        
+                        Log::info("LLC: Rescatado desde PDF para el pedimento {$pedimentoLimpio} | Monto: {$datosLlc['monto_total']} | Folio: {$datosLlc['folio']}");
                     }
                 }
 
@@ -4470,8 +4392,8 @@ class AuditoriaImpuestosController extends Controller
     {
         try {
             $arrContextOptions = [
-                "ssl" => ["verify_peer" => false, "verify_peer_name" => false], 
-                "http" => ["ignore_errors" => true, "timeout" => 15]
+                "ssl" => ["verify_peer" => false, "verify_peer_name" => false],
+                "http" => ["ignore_errors" => true, "timeout" => 20]
             ];
             
             $contenidoPdf = @file_get_contents($rutaPdf, false, stream_context_create($arrContextOptions));
@@ -4486,52 +4408,60 @@ class AuditoriaImpuestosController extends Controller
             // Protección de Memoria
             $config = new \Smalot\PdfParser\Config();
             $config->setRetainImageContent(false);
-            $config->setDecodeMemoryLimit(10276800);
-
             $parser = new Parser([], $config);
             $pdf = $parser->parseContent($contenidoPdf);
             $texto = preg_replace('/\s+/', ' ', $pdf->getText());
-            unset($config, $parser, $pdf, $contenidoPdf);
-            gc_collect_cycles();
+            $textoSinEspacios = preg_replace('/\s+/', '', $texto);
 
             $monto = null;
             $fecha = null;
+            $folio = null;
 
-            // 1. 📅 EXTRACCIÓN DE FECHA (Busca formatos DD/MM/YYYY o YYYY-MM-DD)
-            if (preg_match('/(\d{2}[\/\-]\d{2}[\/\-]\d{4})/', $texto, $matchF)) {
-                $fechaStr = str_replace('-', '/', $matchF[1]); // Normaliza a slash por si acaso
-                try {
-                    $fecha = \Carbon\Carbon::createFromFormat('d/m/Y', $fechaStr)->format('Y-m-d');
-                } catch (\Exception $e) {
-                    $fecha = null;
-                }
-            } elseif (preg_match('/(\d{4}-\d{2}-\d{2})/', $texto, $matchF)) {
-                $fecha = $matchF[1];
+            if (preg_match('/PLEASE\s*PAY\s*THIS\s*AMOUNT[^\d]*([\d,]+\.\d{2})/i', $texto, $matches)) {
+                $monto = (float) str_replace(',', '', $matches[1]);
+            } 
+            elseif (preg_match('/PLEASEPAYTHISAMOUNT.*?([\d,]+\.\d{2})/i', $textoSinEspacios, $matchesEspacios)) {
+                $monto = (float) str_replace(',', '', $matchesEspacios[1]);
+            }
+            // Algunas LLC usan BALANCE DUE o TOTAL DUE
+            elseif (preg_match('/(?:BALANCE|TOTAL)\s+DUE[^\d]*([\d,]+\.\d{2})/i', $texto, $matches)) {
+                $monto = (float) str_replace(',', '', $matches[1]);
             }
 
-            if (str_contains($texto, 'Contecon Manzanillo') || str_contains($texto, 'Consultas de Pago')) {
-                if (preg_match('/Saldo\s+([\d,]+\.\d{2})/i', $texto, $matches)) {
+            if ($monto === null && str_contains(strtoupper($texto), 'SSA')) {
+                if (preg_match('/(?:Importe|Total\s+Servicios|Total\s+Facturado)[\s:]+([\d,]+\.\d{2})/i', $texto, $matches)) {
                     $monto = (float) str_replace(',', '', $matches[1]);
                 }
             }
 
-            $proveedores = ['SSA MEXICO', 'SSA Marine', 'OCUPA', 'FRIMAN', 'TIMSA', 'CIMA'];
-            foreach ($proveedores as $prov) {
-                if (str_contains($texto, $prov)) {
-                    if (preg_match('/TOTAL[:\s]+([\d,]+\.\d{2})/i', $texto, $matches)) {
-                        $monto = (float) str_replace(',', '', $matches[1]);
-                    }
+            if ($monto === null) {
+                if (preg_match('/(?:TOTAL|Saldo|Total a Pagar|NETO|IMPORTE\s+TOTAL|TOTAL\s+A\s+PAGAR)[\s:]+[\$]?\s*([\d,]+\.\d{2})\b/i', $texto, $matches)) {
+                    $monto = (float) str_replace(',', '', $matches[1]);
                 }
             }
 
-            // Fallback genérico para monto
-            if ($monto === null && preg_match('/(?:TOTAL|Saldo|Total a Pagar|NETO|IMPORTE\s+TOTAL)(?:\s+A\s+PAGAR|\s+DEL\s+COMPROBANTE)?\s*[:=]?\s*\$?\s*([\d,]+\.\d{2})\b/i', $texto, $matches)) {
-                $monto = (float) str_replace(',', '', $matches[1]);
+            if ($monto === null && str_contains(strtoupper($texto), 'INTACTICS')) {
+                if (preg_match_all('/(?:USD|\$)\s*([\d,]+\.\d{2})/i', $texto, $matchesExtras)) {
+                    $monto = (float) str_replace(',', '', end($matchesExtras[1])); // end() toma el último
+                }
+            }
+
+            // EXTRACCIÓN DE FECHA
+            if (preg_match('/(\d{2}[\/\-]\d{2}[\/\-]\d{4})/', $texto, $matchF)) {
+                try {
+                    $fecha = \Carbon\Carbon::createFromFormat('d/m/Y', str_replace('-', '/', $matchF[1]))->format('Y-m-d');
+                } catch (\Exception $e) { $fecha = null; }
+            }
+
+            // EXTRACCIÓN DE FOLIO
+            if (preg_match('/(?:Factura|Invoice|No\.)\s*[:]?\s*(\d{5,})/i', $texto, $matchFolio)) {
+                $folio = trim($matchFolio[1]);
             }
 
             return [
                 'monto' => $monto,
-                'fecha' => $fecha // Retornamos la fecha encontrada (o null si no hubo suerte)
+                'fecha' => $fecha,
+                'folio' => $folio 
             ];
             
         } catch (\Throwable $e) {
@@ -4992,42 +4922,18 @@ class AuditoriaImpuestosController extends Controller
                 if (isset($datos['error'])) continue;
 
                 $coleccionFacturas = collect($datos['facturas']);
-                $facturasAgrupadas = [];
-
-                foreach ($coleccionFacturas as $factura) {
-                    $rutaF = $factura['ruta_pdf'] ?? $factura['ruta_xml'] ?? '';
-                    if (empty($rutaF)) continue;
-
-                    // AGRUPACIÓN EXACTA: Usamos el nombre base exacto (Ej. CIMA-PV-2026048864)
-                    // Esto evita que la factura del vacío se sobrescriba con la del lavado
-                    $nombreExacto = pathinfo(parse_url($rutaF, PHP_URL_PATH), PATHINFO_FILENAME);
-
-                    if (!isset($facturasAgrupadas[$nombreExacto])) {
-                        $facturasAgrupadas[$nombreExacto] = [
-                            'ruta_pdf' => null,
-                            'ruta_xml' => null,
-                            'tipo_documento' => strtolower($factura['tipo_documento'] ?? ''),
-                            'folio' => $factura['folio'] ?? $nombreExacto
-                        ];
-                    }
-
-                    if (!empty($factura['ruta_pdf'])) $facturasAgrupadas[$nombreExacto]['ruta_pdf'] = $factura['ruta_pdf'];
-                    if (!empty($factura['ruta_xml'])) $facturasAgrupadas[$nombreExacto]['ruta_xml'] = $factura['ruta_xml'];
-                }
-
-                // Filtramos reactivando el validador XML para ignorar los lavados y dejar solo el vacío
-                $facturasVacio = collect(array_values($facturasAgrupadas))->filter(function ($factura) {
-                    $tipo = $factura['tipo_documento'] ?? '';
-                    if (!str_contains($tipo, 'vacio')) return false;
-
-                    // Solo aprueba si el XML confirma que es un vacío real
-                    return $this->esFacturaDeVacioXML($factura['ruta_xml']);
+                
+                // Filtramos las facturas que el mapeador universal marcó como 'vacios'
+                $facturasVacio = $coleccionFacturas->filter(function ($factura) {
+                    $tipo = strtolower($factura['tipo_documento'] ?? '');
+                    // Solo PDF es obligatorio para procesar el total
+                    return ($tipo === 'vacios' && !empty($factura['ruta_pdf']));
                 });
 
-                foreach ($facturasVacio as $factura) {
+                foreach ($facturasVacio as $nombreUnico => $factura) {
                     $indice[$pedimento][] = [
-                        'folio'    => $factura['folio'],
-                        'ruta_xml' => $factura['ruta_xml'],
+                        'folio'    => $factura['folio'] ?? $nombreUnico,
+                        'ruta_xml' => $factura['ruta_xml'] ?? null,
                         'ruta_pdf' => $factura['ruta_pdf'],
                     ];
                 }
@@ -5037,43 +4943,6 @@ class AuditoriaImpuestosController extends Controller
         }
 
         return $indice;
-    }
-
-    /**
-     * Helper para extraer la descripción real del XML (Ej. LAVADO ESPECIAL o CAMION A PISO VACIO)
-     */
-    private function extraerDescripcionDeXML(?string $rutaXml): string
-    {
-        if (empty($rutaXml)) {
-            return '';
-        }
-        try {
-            $response = Http::withoutVerifying()->timeout(10)->get($rutaXml);
-            $xmlString = $response->successful() ? $response->body() : null;
-
-            if (!$xmlString) {
-                $rutaAlternativa = 'https://intactics.nyc3.cdn.digitaloceanspaces.com/production/uploads/' . basename($rutaXml);
-                $responseAlt = Http::withoutVerifying()->timeout(10)->get($rutaAlternativa);
-                $xmlString = $responseAlt->successful() ? $responseAlt->body() : null;
-            }
-
-            if ($xmlString) {
-                $pos = strpos($xmlString, '<?xml');
-                if ($pos !== false) {
-                    $xmlString = substr($xmlString, $pos);
-                }
-
-                $xml = new \SimpleXMLElement($xmlString);
-                $conceptos = $xml->xpath('//*[local-name()="Concepto"]');
-                if (!empty($conceptos)) {
-                    $attrs = $conceptos[0]->attributes();
-                    return strtoupper(trim((string) ($attrs['Descripcion'] ?? '')));
-                }
-            }
-        } catch (\Throwable $th) {
-            Log::warning("No se pudo extraer descripción del XML: " . $th->getMessage());
-        }
-        return '';
     }
 
     // Enviar a Google Sheets el resultado de Vacíos
@@ -5381,7 +5250,7 @@ class AuditoriaImpuestosController extends Controller
             [
                 'banco' => $datosValidados['banco'],
                 'sucursal' => $datosValidados['sucursal'],
-                'periodo_meses' => '4',
+                'periodo_meses' => '12',
                 'nombre_archivo' => $nombreArchivo,
                 'ruta_estado_de_cuenta' => $rutaPrincipal,
                 'rutas_extras' => $rutasExtras,
