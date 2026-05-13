@@ -166,15 +166,9 @@ export default {
       return this.selectedFile && this.selectedBank && this.selectedSucursal;
     },
     filteredBanks() {
-      // Si la sucursal seleccionada es Tijuana ('TIJ')...
-      if (this.selectedSucursal === "TIJ") {
-        // ...devolvemos la lista completa de bancos.
-        return this.allBanks;
-      } else {
-        // ...de lo contrario, devolvemos la lista de bancos
-        // filtrada para excluir la opción 'EXTERNO'.
-        return this.allBanks.filter((bank) => bank.value !== "EXTERNO");
-      }
+      // Al devolver 'this.allBanks' directamente, la opción 'EXTERNO' 
+      // estará disponible para todas las sucursales sin restricciones.
+      return this.allBanks;
     },
     // NUEVO: Propiedad computada para el atributo 'accept' del input
     acceptedFileTypes() {

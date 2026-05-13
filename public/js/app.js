@@ -6560,27 +6560,15 @@ __webpack_require__.r(__webpack_exports__);
     };
   },
   computed: {
-    /**
-     * Esta propiedad computada devuelve una lista de bancos
-     * que depende de la sucursal seleccionada.
-     */
     isFormValid: function isFormValid() {
       // Esta función recalcula automáticamente su valor
       // cada vez que una de estas 3 variables cambia.
       return this.selectedFile && this.selectedBank && this.selectedSucursal;
     },
     filteredBanks: function filteredBanks() {
-      // Si la sucursal seleccionada es Tijuana ('TIJ')...
-      if (this.selectedSucursal === "TIJ") {
-        // ...devolvemos la lista completa de bancos.
-        return this.allBanks;
-      } else {
-        // ...de lo contrario, devolvemos la lista de bancos
-        // filtrada para excluir la opción 'EXTERNO'.
-        return this.allBanks.filter(function (bank) {
-          return bank.value !== "EXTERNO";
-        });
-      }
+      // Al devolver 'this.allBanks' directamente, la opción 'EXTERNO' 
+      // estará disponible para todas las sucursales sin restricciones.
+      return this.allBanks;
     },
     // NUEVO: Propiedad computada para el atributo 'accept' del input
     acceptedFileTypes: function acceptedFileTypes() {
