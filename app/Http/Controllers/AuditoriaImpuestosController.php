@@ -697,10 +697,8 @@ class AuditoriaImpuestosController extends Controller
             return ['code' => 1, 'message' => new \Exception('Se requiere el ID de la tarea.')];
         }
 
-        // 1. Buscar la tarea
         $tarea = AuditoriaTareas::find($tareaId);
         if (!$tarea || $tarea->status !== 'procesando') {
-            Log::warning("Tarea #{$tareaId} no encontrada o no está en procesando.");
             return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
         }
 
@@ -714,17 +712,13 @@ class AuditoriaImpuestosController extends Controller
             return ['code' => 1, 'message' => new \Exception("Archivo no encontrado.")];
         }
 
-        // Si el usuario seleccionó "SANTANDER" pero subió un Excel, lo auto-corregimos a "EXTERNO"
-        // para que use el lector de Excel en lugar de intentar leerlo como PDF.
         $extension = strtolower(pathinfo($rutaPdf, PATHINFO_EXTENSION));
         if (in_array($extension, ['xls', 'xlsx', 'csv'])) {
-            Log::info("Archivo Excel detectado. Auto-cambiando lector a modo EXTERNO.");
             $banco = 'EXTERNO'; 
         }
 
         try {
-            $tablaDeDatos = [];
-            $indiceUnico = [];
+            $operacionesLimpiasArray = [];
             
             if ($banco !== "EXTERNO") {
                 $config = new \Smalot\PdfParser\Config();
@@ -734,24 +728,20 @@ class AuditoriaImpuestosController extends Controller
                 $textoPdf = $pdf->getText();
                 $yearEstadoCuenta = date('Y');
 
-                // --- LÓGICA BBVA ---
                 if ($banco === 'BBVA') {
                     $tipoSplit = '/(\d{2}-\d{2}\n.*PEDMT\s*O:\s*([\w\s\-\/]+)\n.*\n.*\n)/';
                     foreach (preg_split($tipoSplit, $textoPdf, -1, PREG_SPLIT_DELIM_CAPTURE) as $linea) {
                         if (preg_match('/(\d{2}\/\d{2}\/(\d{4}))/', $linea, $matchYear)) {
                             $yearEstadoCuenta = $matchYear[2];
                         }
-
-                        // BUSQUEDA MULTIPEDIMENTO (Extrae todos los de 7 dígitos)
                         if (strpos($linea, 'PEDMT') !== false && preg_match_all('/\b([4-7]\d{6})\b/', $linea, $matchPedimentos)) {
                             preg_match('/\d{2}-\d{2}/', $linea, $matchFecha);
                             preg_match('/\$\s*([0-9.,]+)/', $linea, $matchCargo);
 
                             if (isset($matchFecha[0]) && isset($matchCargo[1])) {
                                 $fechaPed = $matchFecha[0] . "-{$yearEstadoCuenta}";
-                                
                                 foreach ($matchPedimentos[1] as $pedIndividual) {
-                                    $indiceUnico[$pedIndividual] = [
+                                    $operacionesLimpiasArray[] = [
                                         'pedimento' => $pedIndividual,
                                         'fecha_str' => \Carbon\Carbon::createFromFormat('d-m-Y', $fechaPed)->format('Y-m-d'),
                                         'cargo_str' => $matchCargo[1],
@@ -760,80 +750,74 @@ class AuditoriaImpuestosController extends Controller
                             }
                         }
                     }
-                } 
-                // --- LÓGICA SANTANDER ---
-                else if ($banco === 'SANTANDER') {
-                    
-                    // Extraer la fecha del estado de cuenta de la cabecera (Fallback / Plan B)
+                } else if ($banco === 'SANTANDER') {
                     $fechaEstadoCuenta = now()->format('Y-m-d');
                     if (preg_match('/Periodo:\s*\d{2}\/\d{2}\/\d{4}\s*al\s*(\d{2})\/(\d{2})\/(\d{4})/', $textoPdf, $mFecha)) {
                         $fechaEstadoCuenta = $mFecha[3] . '-' . $mFecha[2] . '-' . $mFecha[1];
                     }
 
-                    $patron = '/(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})\s+(-?[\d,]+\.\d{2})\s+([4-7]\d{6})\b/';
+                    // Regex Ultra-Robusto: Atrapa el cargo sin importar si tiene 0.00 en medio
+                    $patron = '/([\d,]+\.\d{2})\s+(?:[\d,.-]+\s+)*([4-7]\d{6})\b/';
 
-                    // Añadimos PREG_OFFSET_CAPTURE para saber en qué posición exacta encontró la fila
                     if (preg_match_all($patron, $textoPdf, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
                         foreach ($matches as $match) {
-                            $cargoStr = $match[1][0]; // Columna Importe Cargo
-                            $pedimento = $match[4][0]; // Columna Referencia
-                            $offsetMatch = $match[0][1]; // Posición en el texto donde encontró el patrón
+                            $cargoStr = $match[1][0]; 
+                            $pedimento = $match[2][0]; 
+                            $offsetMatch = $match[0][1]; 
 
                             $montoFinal = (float) str_replace(',', '', $cargoStr);
 
                             if ($montoFinal > 0) {
-                                /* Log::info("=> MATCH ESTRUCTURAL SANTANDER: Pedimento [{$pedimento}] vinculado al Cargo [{$montoFinal}]"); */
-                                
-                                // === NUEVA LÓGICA DE EXTRACCIÓN DE FECHA DE LA TABLA ===
-                                // Cortamos un pedazo de texto hacia atrás (150 caracteres) desde donde encontró los montos
                                 $textoAnterior = substr($textoPdf, max(0, $offsetMatch - 150), 150);
-                                
-                                // Limpiamos espacios y saltos de línea (por si Smalot partió la celda 01042 \n 026)
                                 $textoAnteriorLimpio = preg_replace('/\s+/', '', $textoAnterior);
-                                
-                                $fechaTransaccion = $fechaEstadoCuenta; // Inicia con el Plan B (Cabecera)
+                                $fechaTransaccion = $fechaEstadoCuenta;
 
-                                // Buscamos un bloque de 8 dígitos que parezca una fecha DDMMAAAA terminando en "20XX"
                                 if (preg_match_all('/(0[1-9]|[12]\d|3[01])(0[1-9]|1[0-2])(20\d{2})/', $textoAnteriorLimpio, $mFechasTransaccion, PREG_SET_ORDER)) {
-                                    // Tomamos la última fecha encontrada en el bloque anterior a los montos
                                     $ultimaFechaEncontrada = end($mFechasTransaccion);
-
                                     $dia = $ultimaFechaEncontrada[1];
                                     $mes = $ultimaFechaEncontrada[2];
                                     $anio = $ultimaFechaEncontrada[3];
 
-                                    // Validación definitiva (evita el 31 de Febrero, por ejemplo)
                                     if (checkdate((int)$mes, (int)$dia, (int)$anio)) {
                                         $fechaTransaccion = "$anio-$mes-$dia";
                                     }
                                 }
 
-                                // Guardamos en el array usando la fecha real de la tabla
-                                $indiceUnico[$pedimento] = [
+                                $operacionesLimpiasArray[] = [
                                     'pedimento' => $pedimento,
                                     'fecha_str' => $fechaTransaccion,
                                     'cargo_str' => (string)$montoFinal
                                 ];
                             }
                         }
-                    } else {
-                        Log::warning("SANTANDER: No se encontraron coincidencias con el patrón de montos y referencias.");
                     }
                 }
-                $operacionesLimpias = collect(array_values($indiceUnico));
+                
+                $operacionesLimpias = collect($operacionesLimpiasArray)->unique(function ($item) {
+                    $montoLimpio = (float) filter_var(str_replace(',', '', $item['cargo_str'] ?? 0), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+                    return $item['pedimento'] . '_' . $item['fecha_str'] . '_' . round($montoLimpio, 2);
+                })->values();
+
             } else {
                 $import = new LecturaEstadoCuentaExcel($tarea);
                 Excel::import($import, $rutaPdf);
-                $operacionesLimpias = $import->getProcessedData();
+                $datosExcel = $import->getProcessedData();
                 
-                // LÓGICA EXCEL/GOOGLE SHEETS: Tomar el último que dice impuestos
-                $operacionesLimpias = $operacionesLimpias->groupBy('pedimento')->map(function ($grupo) {
-                    $ultimoConImpuestos = $grupo->filter(function ($item) {
-                        return str_contains(strtolower($item['descripcion_larga'] ?? ''), 'impuestos') ||
-                               str_contains(strtolower($item['concepto'] ?? ''), 'impuestos');
-                    })->sortByDesc('fecha_str')->first();
+                $operacionesLimpias = $datosExcel->groupBy('pedimento')->flatMap(function ($grupo) {
+                    $impuestos = $grupo->filter(function ($item) {
+                        $fullText = strtolower(($item['descripcion_larga'] ?? '') . ' ' . ($item['concepto'] ?? '') . ' ' . ($item['descripcion'] ?? ''));
+                        // <-- SOLUCIÓN "IMPTO": Ahora también busca la abreviatura
+                        return str_contains($fullText, 'impuesto') || str_contains($fullText, 'impto') || str_contains($fullText, 'cgo');
+                    })->sortBy('fecha_str')->values();
                     
-                    return $ultimoConImpuestos ?? $grupo->sortByDesc('fecha_str')->first();
+                    if ($impuestos->isNotEmpty()) {
+                        return $impuestos; 
+                    }
+                    return [$grupo->sortByDesc('fecha_str')->first()];
+                })->unique(function ($item) {
+                    $montoStr = $item['cargo_str'] ?? ($item['cargo'] ?? ($item['monto'] ?? '0'));
+                    $montoLimpio = (float) filter_var(str_replace(',', '', $montoStr), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+                    return $item['pedimento'] . '_' . ($item['fecha_str'] ?? '') . '_' . round($montoLimpio, 2);
                 })->values();
             }
 
@@ -841,32 +825,42 @@ class AuditoriaImpuestosController extends Controller
                 throw new \Exception("No se encontraron pedimentos en el Estado de Cuenta.");
             }
 
-            // --- FASE 2: CRUCE CON BASE DE DATOS Y SC ---
             $sucursalesDic = [
-                'NOG' => [1, 3711], 
-                'TIJ' => [2, 3849], 
-                'NL'  => [3, 3711], 
-                'MXL' => [4, 1038],
-                'ZLO' => [5, 3711],
-                'REY' => [11, 3577],
-                'VRZ' => [12, 1864]];
+                'NOG' => [1, 3711], 'TIJ' => [2, 3849], 'NL'  => [3, 3711], 
+                'MXL' => [4, 1038], 'ZLO' => [5, 3711], 'REY' => [11, 3577], 
+                'VRZ' => [12, 1864]
+            ];
             $sucInfo = $sucursalesDic[$sucursal] ?? [1, 3711];
             
             $numerosDePedimento = $operacionesLimpias->pluck('pedimento')->unique()->toArray();
             $mapaPedimentoAId = $this->construirMapaDePedimentos($numerosDePedimento, $sucInfo[1], $sucInfo[0]);
-            $idsPedDb = Arr::pluck($mapaPedimentoAId, 'id_pedimiento');
+            
+            // --- EXORCISTA DE FANTASMAS ---
+            $idsPedDb = [];
+            foreach ($mapaPedimentoAId as $info) {
+                if (!empty($info['all_ids'])) {
+                    $idsPedDb = array_merge($idsPedDb, $info['all_ids']);
+                } else {
+                    $idsPedDb[] = $info['id_pedimiento'];
+                }
+            }
+            $idsPedDb = array_unique($idsPedDb);
 
-            $mapaImpo = Importacion::whereIn('id_pedimiento', $idsPedDb)->whereNull('parent')->get()->keyBy('id_pedimiento');
-            $mapaExpo = Exportacion::whereIn('id_pedimiento', $idsPedDb)->whereNull('parent')->get()->keyBy('id_pedimiento');
+            if (!empty($idsPedDb)) {
+                Auditoria::whereIn('pedimento_id', $idsPedDb)->where('tipo_documento', 'impuestos')->delete();
+            }
+
+            $mapaImpo = Importacion::whereIn('id_pedimiento', $idsPedDb)->orderBy('id_importacion', 'asc')->get()->keyBy('id_pedimiento');
+            $mapaExpo = Exportacion::whereIn('id_pedimiento', $idsPedDb)->orderBy('id_exportacion', 'asc')->get()->keyBy('id_pedimiento');
             $auditoriasSC = AuditoriaTotalSC::whereIn('pedimento_id', $idsPedDb)->get()->keyBy('pedimento_id');
 
-            $datosParaUpsert = $operacionesLimpias->map(function ($op) use ($mapaPedimentoAId, $mapaImpo, $mapaExpo, $auditoriasSC, $tarea) {
+            $conteoConceptos = [];
+
+            $datosParaUpsert = $operacionesLimpias->map(function ($op) use ($mapaPedimentoAId, $mapaImpo, $mapaExpo, $auditoriasSC, $tarea, &$conteoConceptos) {
                 $pedLimpio = $op['pedimento'];
                 $dbInfo = $mapaPedimentoAId[$pedLimpio] ?? null;
 
-                if (!$dbInfo) {
-                    return null;
-                }
+                if (!$dbInfo) return null;
 
                 $id_db = $dbInfo['id_pedimiento'];
                 $impo = $mapaImpo->get($id_db);
@@ -874,9 +868,18 @@ class AuditoriaImpuestosController extends Controller
                 $operacionId = $impo ? $impo->id_importacion : ($expo ? $expo->id_exportacion : null);
                 $tipoOp = $impo ? Importacion::class : ($expo ? Exportacion::class : Pedimento::class);
 
+                $llaveConteo = $id_db . '-' . $tipoOp;
+                if (!isset($conteoConceptos[$llaveConteo])) {
+                    $conteoConceptos[$llaveConteo] = 1;
+                } else {
+                    $conteoConceptos[$llaveConteo]++;
+                }
+                
+                $conceptoLlave = $conteoConceptos[$llaveConteo] === 1 ? 'principal' : 'rectificacion_' . $conteoConceptos[$llaveConteo];
+
                 $sc = $auditoriasSC->get($id_db);
                 $montoSCMXN = ($sc && isset($sc->desglose_conceptos['montos']['impuestos_mxn'])) ? (float)$sc->desglose_conceptos['montos']['impuestos_mxn'] : -1.1;
-                $montoImpuestoMXN = (float) filter_var(str_replace(',', '', $op['cargo_str']), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+                $montoImpuestoMXN = (float) filter_var(str_replace(',', '', $op['cargo_str'] ?? ($op['monto'] ?? 0)), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
 
                 $estado = $this->compararMontos($montoSCMXN, $montoImpuestoMXN, $tipoOp);
                 $diferenciaSc = ($estado !== "Sin SC!" && $estado !== "Sin operacion!") ? round($montoSCMXN - $montoImpuestoMXN, 2) : $montoImpuestoMXN;
@@ -886,8 +889,9 @@ class AuditoriaImpuestosController extends Controller
                     'pedimento_id' => $id_db,
                     'operation_type' => $tipoOp,
                     'tipo_documento' => 'impuestos',
-                    'concepto_llave' => 'principal',
-                    'fecha_documento' => $op['fecha_str'], // ESTA ES LA NUEVA FECHA CORRECTA
+                    'concepto_llave' => $conceptoLlave, 
+                    'folio' => $pedLimpio, // <-- CAMBIO 1 APLICADO AQUÍ
+                    'fecha_documento' => $op['fecha_str'],
                     'monto_total' => $montoImpuestoMXN,
                     'monto_total_mxn' => $montoImpuestoMXN,
                     'monto_diferencia_sc' => $diferenciaSc,
@@ -899,10 +903,7 @@ class AuditoriaImpuestosController extends Controller
             })->filter()->all();
 
             if (!empty($datosParaUpsert)) {
-                Auditoria::upsert($datosParaUpsert, 
-                    ['operacion_id', 'pedimento_id', 'operation_type', 'tipo_documento', 'concepto_llave'], 
-                    ['fecha_documento', 'monto_total', 'monto_total_mxn', 'monto_diferencia_sc', 'estado', 'updated_at']
-                );
+                Auditoria::insert($datosParaUpsert); 
             }
 
             $fechasEncontradas = $operacionesLimpias->map(function($item) { 
@@ -974,10 +975,6 @@ class AuditoriaImpuestosController extends Controller
                 $queryOp = ($tipoOpClass === Importacion::class) 
                     ? Importacion::with('cliente')->find($datosId['id_operacion']) 
                     : Exportacion::with('cliente')->find($datosId['id_operacion']);
-
-                if (!$queryOp && $tipoOpClass === Exportacion::class) {
-                    Log::error("Error: No se encontró el registro de Exportación para el ID: " . $datosId['id_operacion']);
-                }
                 
                 $cliente = $queryOp ? optional($queryOp->cliente)->nombre : '';
                 $navieraOp = $queryOp->naviera ?? 'N/A';
@@ -999,10 +996,20 @@ class AuditoriaImpuestosController extends Controller
                 }
 
                 foreach ($tiposDocumentos as $tipoDoc => $pxccLabel) {
-                    $auditorias = Auditoria::where('pedimento_id', $datosId['id_pedimiento'])
+                    $auditoriasConsulta = Auditoria::where('pedimento_id', $datosId['id_pedimiento'])
                         ->where('tipo_documento', $tipoDoc)
                         ->where('monto_total', '>', 0)
+                        ->orderBy('fecha_documento', 'asc') // <-- Ordenar cronológicamente garantiza el orden Principal -> Recti
+                        ->orderBy('id', 'asc')
                         ->get();
+
+                    // Filtro Anti-Fantasmas: Eliminamos registros que tengan exactamente la misma fecha y el mismo monto.
+                    $auditorias = $auditoriasConsulta;
+                    if ($tipoDoc === 'impuestos') {
+                        $auditorias = $auditoriasConsulta->unique(function ($aud) {
+                            return $aud->fecha_documento . '_' . round((float)$aud->monto_total, 2);
+                        })->values();
+                    }
 
                     if ($auditorias->count() > 0) {
                         $estatusConDatos = 'PENDIENTE';
@@ -1027,8 +1034,7 @@ class AuditoriaImpuestosController extends Controller
                                 }
                             } elseif ($tipoDoc === 'llc') {
                                 $proveedor = 'LLC';
-                            }
-                            elseif ($tipoDoc === 'muestras') {
+                            } elseif ($tipoDoc === 'muestras') {
                                 if (!empty($aud->ruta_xml)) {
                                     $xmlMuestra = $this->parsearXmlFlete($aud->ruta_xml);
                                     if ($xmlMuestra && str_contains(strtoupper($xmlMuestra['emisor'] ?? ''), 'LABORATORIOS DE ANALISIS DE PRODUCTOS AGROPECUARIOS DEL NORESTE')) {
@@ -1037,7 +1043,13 @@ class AuditoriaImpuestosController extends Controller
                                 }
                             }
 
-                            $conceptoFinal = ($index > 0) ? $pxccLabel . ' ' . ($index + 1) : $pxccLabel;
+                            // <-- NUEVA LÓGICA DE NOMBRES (Sin importar si lleva "R1" o no, es por posición)
+                            if ($tipoDoc === 'impuestos') {
+                                $conceptoFinal = ($index === 0) ? 'IMPUESTOS' : 'IMPUESTOS RECTI'; 
+                            } else {
+                                $conceptoFinal = ($index > 0) ? $pxccLabel . ' ' . ($index + 1) : $pxccLabel;
+                            }
+                            
                             $folioFactura = $aud->folio ?? '-';
 
                             if ($tipoDoc === 'maniobras' && $tarea->sucursal === 'NOG' && !empty($folioFactura) && $folioFactura !== '-') {
@@ -1064,12 +1076,11 @@ class AuditoriaImpuestosController extends Controller
                             ];
                         }
                     } else {
-                        
                         $datosAgrupados[$hojaDestino][] = [
                             'fecha'      => '',
                             'cliente'    => $cliente,
                             'pedimento'  => $datosId['num_pedimiento'],
-                            'pxcc'       => $pxccLabel,        
+                            'pxcc'       => $pxccLabel,       
                             'proveedor'  => '',
                             'factura_p'  => '',
                             'monto'      => '',
@@ -1163,32 +1174,22 @@ class AuditoriaImpuestosController extends Controller
         }
 
         if (strtoupper($tarea->banco) !== 'SANTANDER') {
-            Log::info("Tarea #{$tarea->id}: No es Santander, se omite el envío de impuestos a GPC.");
             return ['code' => 0, 'message' => 'Omitido (No es Santander)'];
         }
 
-        Log::info("Tarea #{$tarea->id}: Enviando Impuestos (Santander) a GPC...");
-
         try {
-            // 1. LISTA A (Desde las Facturas)
             $mapeadoFacturas = (array) json_decode(Storage::get($tarea->mapeo_completo_facturas), true);
             $mapaFacturas = $mapeadoFacturas['pedimentos_totales'] ?? [];
 
-            // 2. LISTA B (Desde el PDF del Banco que acabamos de leer)
             $pedimentosDelPdf = json_decode($tarea->pedimentos_procesados, true) ?? [];
             
             $sucursalesDic = [
-                'NOG' => [1, 3711], 
-                'TIJ' => [2, 3849], 
-                'NL'  => [3, 3711],
-                'MXL' => [4, 1038], 
-                'ZLO' => [5, 3711],
-                'REY' => [11, 3577], 
+                'NOG' => [1, 3711], 'TIJ' => [2, 3849], 'NL'  => [3, 3711],
+                'MXL' => [4, 1038], 'ZLO' => [5, 3711], 'REY' => [11, 3577], 
                 'VRZ' => [12, 1864]
             ];
             $sucInfo = $sucursalesDic[$tarea->sucursal] ?? [1, 3711];
             
-            // Convertimos la lista del PDF a IDs de tu base de datos
             $mapaPdf = [];
             if (!empty($pedimentosDelPdf)) {
                 $mapaPdf = $this->construirMapaDePedimentos($pedimentosDelPdf, $sucInfo[1], $sucInfo[0]);
@@ -1196,52 +1197,58 @@ class AuditoriaImpuestosController extends Controller
 
             $mapaPedimentoAId = $mapaFacturas + $mapaPdf;
 
-            $impuestosParaSheets = [];
-            $pedimentosEnviadosLog = [];
+            $impuestosParaSheetsDict = [];
+            $familiasProcesadas = []; 
 
             foreach ($mapaPedimentoAId as $pedimentoLimpio => $datosId) {
                 
-                $auditoriaBase = Auditoria::where('pedimento_id', $datosId['id_pedimiento'])
-                    ->where('tipo_documento', 'impuestos')
-                    ->first();
+                $idsParaBuscar = $datosId['all_ids'] ?? [$datosId['id_pedimiento']];
+                sort($idsParaBuscar);
+                
+                // AGRUPACIÓN FAMILIAR: Unimos los IDs para procesar todos los pagos (Normal y Recti) 
+                // en una sola pasada. Esto evita que los pagos se excluyan entre sí.
+                $hashFamilia = implode('-', $idsParaBuscar);
 
-                if ($auditoriaBase && $auditoriaBase->monto_total > 0) {
+                if (in_array($hashFamilia, $familiasProcesadas)) continue; 
+                $familiasProcesadas[] = $hashFamilia;
+
+                $auditoriasBase = Auditoria::whereIn('pedimento_id', $idsParaBuscar)
+                    ->where('tipo_documento', 'impuestos')
+                    ->where('monto_total', '>', 0)
+                    ->orderBy('fecha_documento', 'asc') 
+                    ->orderBy('id', 'asc')
+                    ->get()
+                    ->unique(function ($aud) {
+                        return $aud->pedimento_id . '_' . $aud->fecha_documento . '_' . round((float)$aud->monto_total, 2);
+                    })->values();
+
+                foreach ($auditoriasBase as $index => $auditoriaBase) {
                     
-                    $pedimentosEnviadosLog[] = $pedimentoLimpio;
+                    $operacionId = $auditoriaBase->operacion_id;
+                    $operationType = $auditoriaBase->operation_type;
                     
-                    $nombreCliente = '';
-                    $contenedor    = '';
-                    $bl            = '';
-                    $naviera       = '';
+                    $esImpo = ($operationType === Importacion::class);
+                    $operacion = $esImpo ? Importacion::find($operacionId) : Exportacion::find($operacionId);
+
+                    // LÓGICA INFALIBLE: El primer pago (index 0) siempre es el original. 
+                    // Cualquier pago extra (index > 0) es detectado automáticamente como Rectificación.
+                    $esRecti = ($index > 0);
+                    $conceptoAEnviar = $esRecti ? 'Impuestos Recti' : 'Impuestos';
+
+                    $nombreCliente = optional($operacion->cliente)->nombre ?? '';
+                    $contenedor    = $operacion->contenedor ?? '';
+                    $bl            = $operacion->bol ?? ''; 
+                    $naviera       = $operacion->naviera ?? '';
                     $fechaOp       = $auditoriaBase->fecha_documento ?? now()->format('Y-m-d');
 
-                    // Extracción de datos para las columnas del Excel
-                    if ($auditoriaBase->operation_type === Importacion::class) {
-                        $operacion = Importacion::with('cliente')->find($auditoriaBase->operacion_id);
-                    } else {
-                        $operacion = Exportacion::with('cliente')->find($auditoriaBase->operacion_id);
-                    }
-
-                    if ($operacion) {
-                        $nombreCliente = optional($operacion->cliente)->nombre ?? '';
-                        $contenedor    = $operacion->contenedor ?? ''; // Tu ajuste actual
-                        $bl            = $operacion->bol ?? ''; 
-                        $naviera       = $operacion->naviera ?? '';
-                        
-                        /* Log::info("Rastreo Pedimento {$pedimentoLimpio}: Contenedor extraído = '{$contenedor}', BL = '{$bl}'"); */
-                    }
-
-                    $esRecti = $datosId['es_recti'] ?? false;
-                    $conceptoAEnviar = $esRecti ? 'Impuesto Recti' : 'Impuesto';
-
-                    $impuestosParaSheets[] = [
+                    $impuestosParaSheetsDict[$hashFamilia . '_' . $index] = [
                         'fecha'      => $fechaOp,
                         'cliente'    => $nombreCliente,
                         'contenedor' => $contenedor,
                         'bl'         => $bl, 
                         'naviera'    => $naviera,
                         'anticipo'   => '', 
-                        'pedimento'  => $pedimentoLimpio,
+                        'pedimento'  => $datosId['num_pedimiento'], // Nombre íntegro de BD para anclar celda en Sheets
                         'concepto'   => $conceptoAEnviar, 
                         'monto'      => (float) $auditoriaBase->monto_total,
                         'moneda'     => 'MXN'
@@ -1249,30 +1256,18 @@ class AuditoriaImpuestosController extends Controller
                 }
             }
 
-            if (!empty($impuestosParaSheets)) {
-                Log::info("Pedimentos listos para enviar a GPC: " . count($impuestosParaSheets));
-                Log::info("Lista exacta de pedimentos: " . implode(', ', $pedimentosEnviadosLog));
-                
-                $paquetes = array_chunk(array_values($impuestosParaSheets), 50);
+            $impuestosParaSheets = array_values($impuestosParaSheetsDict);
 
+            if (!empty($impuestosParaSheets)) {
+                $paquetes = array_chunk($impuestosParaSheets, 50);
                 foreach ($paquetes as $index => $paquete) {
                     $numeroPaquete = $index + 1;
                     $totalPaquetes = count($paquetes);
-
-                    // Si estamos en el último ciclo, esto será true
                     $esUltimo = ($numeroPaquete === $totalPaquetes);
 
-                    Log::info("Enviando paquete {$numeroPaquete} de {$totalPaquetes}...");
-
-                    // Le pasamos la bandera a la función
                     $this->enviarDatosAGoogleSheets($paquete, 'ZLO', 'ZLO', $esUltimo);
-
                     sleep(2);
                 }
-                
-                Log::info("Se enviaron exitosamente todos los paquetes de impuestos a Sheets.");
-            } else {
-                Log::info("Impuestos: No se encontraron registros guardados para enviar a Sheets.");
             }
 
             return ['code' => 0, 'message' => 'completado'];
@@ -3138,8 +3133,8 @@ class AuditoriaImpuestosController extends Controller
                 $tipoOp = ($datosId['tipo'] == 'Importacion') ? Importacion::class : Exportacion::class;
                 $queryOp = ($tipoOp === Importacion::class) ? Importacion::with('cliente')->find($opId) : Exportacion::with('cliente')->find($opId);
 
-                $facturasValidas = 0;
                 $filasTemp = [];
+                $montosRegistrados = [];
 
                 foreach ($listaFacturasAlmacen as $factura) {
                     $info = $this->extraerMontoYNaviera($factura['ruta_xml'] ?? null, $factura['ruta_pdf'] ?? null);
@@ -3155,7 +3150,24 @@ class AuditoriaImpuestosController extends Controller
                             }
                         }
 
-                        $facturasValidas++;
+                        $numeroDeContenedores = $this->contarContenedoresUniversal($factura['ruta_xml'] ?? null, $factura['ruta_pdf'] ?? null);
+                        $montoDivididoMXN = round($montoMXN / $numeroDeContenedores, 2);
+
+                        // Deduplicación estricta por monto dividido
+                        $montoKey = (string)$montoDivididoMXN;
+                        if (in_array($montoKey, $montosRegistrados)) {
+                            continue;
+                        }
+                        $montosRegistrados[] = $montoKey;
+
+                        $indexActual = count($filasTemp);
+                        
+                        // Permite hasta dos entradas con el mismo nombre base para el formato manual
+                        if ($indexActual === 0 || $indexActual === 1) {
+                            $conceptoNombre = 'Almacen';
+                        } else {
+                            $conceptoNombre = 'Almacen ' . ($indexActual + 1);
+                        }
                         
                         $filasTemp[] = [
                             'fecha'      => $info['fecha'] ?: now()->format('Y-m-d'),
@@ -3164,22 +3176,16 @@ class AuditoriaImpuestosController extends Controller
                             'bl'         => $queryOp ? ($queryOp->bol ?? '') : '', 
                             'naviera'    => $info['naviera'], 
                             'pedimento'  => $pedimentoLimpio,
-                            'concepto'   => 'Almacenaje', // Se reescribe abajo si son varias
-                            'monto'      => (float) $montoMXN,
+                            'concepto'   => $conceptoNombre,
+                            'monto'      => (float) $montoDivididoMXN,
                             'moneda'     => 'MXN'
                         ];
                     }
                 }
 
-                // 🚀 LÓGICA SIN SUMATORIA: Solo las individuales
-                if ($facturasValidas === 1) {
-                    $filasTemp[0]['concepto'] = 'Almacenaje';
-                    $almacenajeParaSheets[] = $filasTemp[0];
-                } elseif ($facturasValidas > 1) {
-                    foreach ($filasTemp as $index => $fila) {
-                        $fila['concepto'] = 'Almacenaje ' . ($index + 1);
-                        $almacenajeParaSheets[] = $fila; // Agrega las individuales solamente
-                    }
+                // Vaciamos el paquete filtrado por pedimento al general
+                foreach ($filasTemp as $fila) {
+                    $almacenajeParaSheets[] = $fila;
                 }
             }
 
@@ -3978,27 +3984,18 @@ class AuditoriaImpuestosController extends Controller
     private function construirMapaDePedimentos(array $pedimentosLimpios, string $patenteSucursal, $numeroSucursal): array
     {
         gc_collect_cycles();
-        if (empty($pedimentosLimpios)) {
-            return [];
-        }
+        if (empty($pedimentosLimpios)) return [];
 
-        // 1. Extraer puramente los números de 7 dígitos
+        // Extrae todos los números de 7 dígitos (Soporta múltiples por celda como "3711-6031393 \n R1-3711-6031459")
         $sieteDigitos = [];
         foreach (array_unique($pedimentosLimpios) as $p) {
             if (preg_match_all('/[4-7]\d{6}/', $p, $matches)) {
-                foreach ($matches[0] as $match) {
-                    $sieteDigitos[] = $match;
-                }
+                foreach ($matches[0] as $match) $sieteDigitos[] = $match;
             }
         }
         $sieteDigitos = array_unique($sieteDigitos);
+        if (empty($sieteDigitos)) return [];
 
-        if (empty($sieteDigitos)) {
-            return [];
-        }
-
-        // 2. BÚSQUEDA AMPLIA: Quitamos los filtros de patente y sucursal. 
-        // Si el número existe, lo trae.
         $posiblesCoincidencias = Pedimento::query()
             ->where(function ($q) use ($sieteDigitos) {
                 foreach ($sieteDigitos as $digito) {
@@ -4011,46 +4008,44 @@ class AuditoriaImpuestosController extends Controller
         $mapaFinal = [];
         
         foreach (array_unique($pedimentosLimpios) as $pedimentoBuscado) {
-            
-            if (!preg_match_all('/[4-7]\d{6}/', $pedimentoBuscado, $matches)) {
-                continue; 
-            }
+            if (!preg_match_all('/[4-7]\d{6}/', $pedimentoBuscado, $matches)) continue; 
             $digitosBuscados = $matches[0];
+            
+            $all_ids = [];
+            $best_record = null;
 
             foreach ($posiblesCoincidencias as $registro) {
-                
-                $matchEncontrado = false;
                 foreach ($digitosBuscados as $digito) {
                     if (strpos($registro->num_pedimiento, $digito) !== false) {
-                        $matchEncontrado = true;
-                        break;
+                        $all_ids[] = $registro->id_pedimiento;
+                        
+                        $esImpo = !is_null($registro->importacion);
+                        $operacion = $esImpo ? $registro->importacion : $registro->exportacion;
+                        $esRecti = str_contains(strtoupper($registro->num_pedimiento), 'R1-');
+
+                        // Mantenemos el original o la rectificación como "ancla" de la celda
+                        if (!$best_record || $esRecti || $registro->id_pedimiento > $best_record->id_pedimiento) {
+                            $best_record = $registro;
+                        }
+                        break; 
                     }
                 }
+            }
 
-                if ($matchEncontrado) {
-                    $esImpo = !is_null($registro->importacion);
-                    $operacion = $esImpo ? $registro->importacion : $registro->exportacion;
-                    $esRecti = ($operacion && !is_null($operacion->parent));
+            if ($best_record) {
+                $esImpo = !is_null($best_record->importacion);
+                $operacion = $esImpo ? $best_record->importacion : $best_record->exportacion;
+                $idOperacion = $operacion ? ($esImpo ? $operacion->id_importacion : $operacion->id_exportacion) : null;
+                $tipoOp = $esImpo ? 'Importacion' : ($best_record->exportacion ? 'Exportacion' : 'Sin Operacion');
 
-                    // Mapeamos incluso si no tiene operación asignada
-                    $idOperacion = $operacion ? ($esImpo ? $operacion->id_importacion : $operacion->id_exportacion) : null;
-                    $tipoOp = $esImpo ? 'Importacion' : ($registro->exportacion ? 'Exportacion' : 'Sin Operacion');
-
-                    $tieneAuditorias = Auditoria::where('pedimento_id', $registro->id_pedimiento)->exists();
-
-                    if (!isset($mapaFinal[$pedimentoBuscado]) || 
-                        $tieneAuditorias || 
-                        ($registro->id_pedimiento > $mapaFinal[$pedimentoBuscado]['id_pedimiento'])) {
-
-                        $mapaFinal[$pedimentoBuscado] = [
-                            'id_pedimiento'  => $registro->id_pedimiento,
-                            'id_operacion'   => $idOperacion,
-                            'num_pedimiento' => $registro->num_pedimiento,
-                            'tipo'           => $tipoOp,
-                            'es_recti'       => $esRecti
-                        ];
-                    }
-                }
+                $mapaFinal[$pedimentoBuscado] = [
+                    'id_pedimiento'  => $best_record->id_pedimiento,
+                    'id_operacion'   => $idOperacion,
+                    'num_pedimiento' => $best_record->num_pedimiento,
+                    'tipo'           => $tipoOp,
+                    'es_recti'       => str_contains(strtoupper($best_record->num_pedimiento), 'R1-'),
+                    'all_ids'        => array_unique($all_ids) // <-- GUARDA TODOS LOS IDs DE LA CELDA (ORIGINAL + RECTI)
+                ];
             }
         }
         return $mapaFinal;
@@ -4921,38 +4916,54 @@ class AuditoriaImpuestosController extends Controller
                 $tipoOp = ($datosId['tipo'] == 'Importacion') ? Importacion::class : Exportacion::class;
                 $queryOp = ($tipoOp === Importacion::class) ? Importacion::with('cliente')->find($opId) : Exportacion::with('cliente')->find($opId);
 
-                $facturasValidas = 0;
                 $filasTemp = [];
+                $montosRegistrados = []; 
 
                 foreach ($listaFacturasManiobra as $datosManiobra) {
+                    
                     $infoExtraccion = $this->extraerMontoYNaviera($datosManiobra['path_xml_man'] ?? null, $datosManiobra['path_pdf_man'] ?? null);
 
                     if ($infoExtraccion['monto'] > 0) {
-                        $facturasValidas++;
                         
+                        $numeroDeContenedores = $this->contarContenedoresUniversal($datosManiobra['path_xml_man'] ?? null, $datosManiobra['path_pdf_man'] ?? null);
+                        $montoDividido = round($infoExtraccion['monto'] / $numeroDeContenedores, 2);
+
+                        // Deduplicación estricta por monto dividido
+                        $montoKey = (string)$montoDividido;
+
+                        if (in_array($montoKey, $montosRegistrados)) {
+                            Log::info("Refrenando duplicado en GPC - Ped: {$pedimentoLimpio} | Monto: {$montoDividido} ya procesado.");
+                            continue;
+                        }
+
+                        $montosRegistrados[] = $montoKey;
+                        
+                        $indexActual = count($filasTemp);
+                        
+                        // Permite hasta dos entradas con el mismo nombre base para el formato manual
+                        if ($indexActual === 0 || $indexActual === 1) {
+                            $conceptoNombre = 'Maniobras en Terminal';
+                        } else {
+                            $conceptoNombre = 'Maniobras en Terminal ' . ($indexActual + 1);
+                        }
+
                         $filasTemp[] = [
                             'fecha'      => $infoExtraccion['fecha'],
                             'cliente'    => $queryOp ? optional($queryOp->cliente)->nombre : '',
                             'contenedor' => $queryOp ? ($queryOp->contenedor ?? '') : '',
                             'bl'         => $queryOp ? ($queryOp->bol ?? '') : '',
                             'pedimento'  => $pedimentoLimpio,
-                            'concepto'   => 'Maniobras en Terminal', // Se reescribe abajo si son varias
-                            'monto'      => $infoExtraccion['monto'],
+                            'concepto'   => $conceptoNombre,
+                            'monto'      => $montoDividido,
                             'moneda'     => 'MXN',
                             'naviera'    => $infoExtraccion['naviera']
                         ];
                     }
                 }
 
-                // 🚀 LÓGICA SIN SUMATORIA: Solo las individuales
-                if ($facturasValidas === 1) {
-                    $filasTemp[0]['concepto'] = 'Maniobras en Terminal';
-                    $maniobrasParaSheets[] = $filasTemp[0];
-                } elseif ($facturasValidas > 1) {
-                    foreach ($filasTemp as $index => $fila) {
-                        $fila['concepto'] = 'Maniobras en Terminal ' . ($index + 1);
-                        $maniobrasParaSheets[] = $fila; // Agrega las individuales solamente
-                    }
+                // Agregamos las filas filtradas al paquete global
+                foreach($filasTemp as $filaFinal) {
+                    $maniobrasParaSheets[] = $filaFinal;
                 }
             }
 
@@ -5023,7 +5034,7 @@ class AuditoriaImpuestosController extends Controller
 
     /**
      * Lee los archivos y crea un mapa EXCLUSIVO para Vacíos.
-     * Corregido: Ya no sobrescribe facturas con distinto número de folio.
+     * Integrado con el validador inteligente para descartar lavados/limpiezas.
      */
     private function construirIndiceOperacionesVacios(array $indicesOperacion): array
     {
@@ -5039,8 +5050,23 @@ class AuditoriaImpuestosController extends Controller
                 // Filtramos las facturas que el mapeador universal marcó como 'vacios'
                 $facturasVacio = $coleccionFacturas->filter(function ($factura) {
                     $tipo = strtolower($factura['tipo_documento'] ?? '');
+                    
                     // Solo PDF es obligatorio para procesar el total
-                    return ($tipo === 'vacios' && !empty($factura['ruta_pdf']));
+                    if ($tipo !== 'vacios' || empty($factura['ruta_pdf'])) {
+                        return false;
+                    }
+
+                    // 🚀 AQUÍ INTEGRAMOS TU VALIDADOR INTELIGENTE
+                    if (!empty($factura['ruta_xml'])) {
+                        // Si el XML indica que NO es de vacío (ej. es puro lavado), lo descartamos.
+                        if (!$this->esFacturaDeVacioXML($factura['ruta_xml'])) {
+                            Log::info("Factura descartada inteligentemente: No es un cobro de vacío real (XML: {$factura['ruta_xml']})");
+                            return false;
+                        }
+                    }
+
+                    // Si pasó la validación (o si no tiene XML para revisar), lo dejamos pasar.
+                    return true;
                 });
 
                 foreach ($facturasVacio as $nombreUnico => $factura) {
@@ -5056,6 +5082,102 @@ class AuditoriaImpuestosController extends Controller
         }
 
         return $indice;
+    }
+
+    /**
+     * Método Maestro: Cuenta el número de contenedores en una factura.
+     * PRIORIDAD 1: Busca matrículas reales en el PDF (Infalible para Terminales y Almacenaje).
+     * PRIORIDAD 2: Usa la 'Cantidad' del XML como respaldo (Útil para Vacíos escaneados).
+     */
+    private function contarContenedoresUniversal(?string $rutaXml, ?string $rutaPdf): int
+    {
+        // FASE 1: Búsqueda infalible por matrículas (4 Letras + 7 Números) en el PDF
+        if (!empty($rutaPdf)) {
+            try {
+                $arrContextOptions = [
+                    "ssl" => ["verify_peer" => false, "verify_peer_name" => false],
+                    "http" => ["ignore_errors" => true, "timeout" => 15]
+                ];
+                
+                $contenidoPdf = @file_get_contents($rutaPdf, false, stream_context_create($arrContextOptions));
+                
+                if (!$contenidoPdf || str_contains($http_response_header[0] ?? '', '404')) {
+                    $rutaAlternativa = 'https://intactics.nyc3.cdn.digitaloceanspaces.com/production/uploads/' . basename($rutaPdf);
+                    $contenidoPdf = @file_get_contents($rutaAlternativa, false, stream_context_create($arrContextOptions));
+                }
+
+                if ($contenidoPdf) {
+                    $config = new \Smalot\PdfParser\Config();
+                    $config->setRetainImageContent(false);
+                    $parser = new Parser([], $config);
+                    $pdf = $parser->parseContent($contenidoPdf);
+                    $textoPdf = $pdf->getText();
+
+                    // Regex estándar: 4 Letras + 7 Números (Ej. MNBU9063533)
+                    if (preg_match_all('/\b([A-Z]{4}\d{7})\b/', $textoPdf, $matches)) {
+                        $contenedoresUnicos = array_unique($matches[1]);
+                        if (count($contenedoresUnicos) > 0) {
+                            return count($contenedoresUnicos);
+                        }
+                    }
+                }
+            } catch (\Throwable $th) {
+                // Falla silenciosa, pasa a Fase 2
+            }
+        }
+
+        // FASE 2: Respaldo por XML (Útil para Vacíos si el PDF es una imagen ilegible)
+        if (!empty($rutaXml)) {
+            try {
+                $arrContextOptions = [
+                    "ssl" => ["verify_peer" => false, "verify_peer_name" => false],
+                    "http" => ["ignore_errors" => true]
+                ];
+                
+                $xmlString = @file_get_contents($rutaXml, false, stream_context_create($arrContextOptions));
+                
+                if (!$xmlString || str_contains($http_response_header[0] ?? '', '404')) {
+                    $rutaAlternativa = 'https://intactics.nyc3.cdn.digitaloceanspaces.com/production/uploads/' . basename($rutaXml);
+                    $xmlString = @file_get_contents($rutaAlternativa, false, stream_context_create($arrContextOptions));
+                }
+
+                if ($xmlString) {
+                    $xmlObj = @simplexml_load_string($xmlString);
+                    if ($xmlObj !== false) {
+                        $namespaces = $xmlObj->getNamespaces(true);
+                        $cfdi = $xmlObj->children($namespaces['cfdi'] ?? 'cfdi');
+                        
+                        if (isset($cfdi->Conceptos->Concepto)) {
+                            $cantidadMaxima = 0;
+                            
+                            foreach ($cfdi->Conceptos->Concepto as $concepto) {
+                                $descripcion = strtoupper((string) ($concepto['Descripcion'] ?? ''));
+                                $claveProdServ = trim((string) ($concepto['ClaveProdServ'] ?? ''));
+                                
+                                // Detecta conceptos relevantes
+                                if (str_contains($descripcion, 'VACIO') || str_contains($descripcion, 'ALMACEN') || 
+                                    str_contains($descripcion, 'MANIOBRA') || str_contains($descripcion, 'MUELLE') ||
+                                    in_array($claveProdServ, ['78141800', '78131702', '78101802'])) {
+                                    
+                                    $cantidadActual = (float) $concepto['Cantidad'];
+                                    if ($cantidadActual > $cantidadMaxima) {
+                                        $cantidadMaxima = $cantidadActual;
+                                    }
+                                }
+                            }
+                            
+                            if ($cantidadMaxima > 0) {
+                                return (int) $cantidadMaxima;
+                            }
+                        }
+                    }
+                }
+            } catch (\Throwable $th) {
+                // Falla silenciosa
+            }
+        }
+
+        return 1; // Por defecto 1 para evitar división por cero
     }
 
     // Enviar a Google Sheets el resultado de Vacíos
@@ -5085,29 +5207,58 @@ class AuditoriaImpuestosController extends Controller
 
             foreach ($mapaPedimentoAId as $pedimentoLimpio => $datosId) {
                 $listaFacturasVacio = $indiceVacios[$pedimentoLimpio] ?? [];
-                if (empty($listaFacturasVacio)) continue;
+                if (empty($listaFacturasVacio)) {
+                    continue;
+                }
                 
                 $opId = $datosId['id_operacion'];
                 $tipoOp = ($datosId['tipo'] == 'Importacion') ? Importacion::class : Exportacion::class;
                 $queryOp = ($tipoOp === Importacion::class) ? Importacion::with('cliente')->find($opId) : Exportacion::with('cliente')->find($opId);
 
-                // Como ya depuramos el Lavado, lo que llegue aquí es 100% el Vacío correcto.
+                $filasTemp = [];
+                $montosRegistrados = [];
+
                 foreach ($listaFacturasVacio as $datosVacio) {
                     $infoExtraccion = $this->extraerMontoYNaviera($datosVacio['ruta_xml'] ?? null, $datosVacio['ruta_pdf'] ?? null);
 
                     if ($infoExtraccion['monto'] > 0) {
-                        $vaciosParaSheets[] = [
+                        
+                        $numeroDeContenedores = $this->contarContenedoresUniversal($datosVacio['ruta_xml'] ?? null, $datosVacio['ruta_pdf'] ?? null);
+                        $montoDividido = round($infoExtraccion['monto'] / $numeroDeContenedores, 2);
+
+                        // Deduplicación estricta por monto dividido
+                        $montoKey = (string)$montoDividido;
+                        if (in_array($montoKey, $montosRegistrados)) {
+                            continue;
+                        }
+                        $montosRegistrados[] = $montoKey;
+
+                        $indexActual = count($filasTemp);
+                        
+                        // Permite hasta dos entradas con el mismo nombre base para el formato manual
+                        if ($indexActual === 0 || $indexActual === 1) {
+                            $conceptoNombre = 'Maniobras de Vacios';
+                        } else {
+                            $conceptoNombre = 'Maniobras de Vacios ' . ($indexActual + 1);
+                        }
+
+                        $filasTemp[] = [
                             'fecha'      => $infoExtraccion['fecha'],
                             'cliente'    => $queryOp ? optional($queryOp->cliente)->nombre : '',
                             'contenedor' => $queryOp ? ($queryOp->contenedor ?? '') : '',
                             'bl'         => $queryOp ? ($queryOp->bol ?? '') : '',
                             'pedimento'  => $pedimentoLimpio,
-                            'concepto'   => 'Maniobras de Vacios', 
-                            'monto'      => $infoExtraccion['monto'],
+                            'concepto'   => $conceptoNombre, 
+                            'monto'      => $montoDividido, 
                             'moneda'     => 'MXN',
                             'naviera'    => $infoExtraccion['naviera']
                         ];
                     }
+                }
+
+                // Vaciamos las filas temporales al acumulador global
+                foreach($filasTemp as $fila) {
+                    $vaciosParaSheets[] = $fila;
                 }
             }
 
