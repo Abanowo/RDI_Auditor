@@ -3062,14 +3062,18 @@ class AuditoriaImpuestosController extends Controller
         $indice = [];
         try {
             foreach ($indicesOperacion as $pedimento => $datos) {
-                if (isset($datos['error'])) continue;
+                if (isset($datos['error'])) {
+                    continue;
+                }
 
                 $coleccionFacturas = collect($datos['facturas']);
                 $facturasAgrupadas = [];
                 
                 foreach ($coleccionFacturas as $factura) {
                     $rutaF = $factura['ruta_pdf'] ?? $factura['ruta_xml'] ?? '';
-                    if (empty($rutaF)) continue;
+                    if (empty($rutaF)) {
+                        continue;
+                    }
 
                     $filename = pathinfo(parse_url($rutaF, PHP_URL_PATH), PATHINFO_FILENAME);
                     
@@ -3077,7 +3081,9 @@ class AuditoriaImpuestosController extends Controller
                     $nombreLimpio = preg_replace('/[-_\s]?\(\d+\)$/', '', $nombreLimpio);
                     $nombreLimpio = preg_replace('/[-_]+\d+$/', '', $nombreLimpio);
 
-                    if (empty($nombreLimpio)) $nombreLimpio = 'UNK_' . uniqid();
+                    if (empty($nombreLimpio)) {
+                        $nombreLimpio = 'UNK_' . uniqid();
+                    }
 
                     if (!isset($facturasAgrupadas[$nombreLimpio])) {
                         $facturasAgrupadas[$nombreLimpio] = [
@@ -3089,8 +3095,12 @@ class AuditoriaImpuestosController extends Controller
                         ];
                     }
 
-                    if (!empty($factura['ruta_pdf'])) $facturasAgrupadas[$nombreLimpio]['ruta_pdf'] = $factura['ruta_pdf'];
-                    if (!empty($factura['ruta_xml'])) $facturasAgrupadas[$nombreLimpio]['ruta_xml'] = $factura['ruta_xml'];
+                    if (!empty($factura['ruta_pdf'])) {
+                        $facturasAgrupadas[$nombreLimpio]['ruta_pdf'] = $factura['ruta_pdf'];
+                    }
+                    if (!empty($factura['ruta_xml'])) {
+                        $facturasAgrupadas[$nombreLimpio]['ruta_xml'] = $factura['ruta_xml'];
+                    }
                 }
 
                 $facturasAlmacenaje = collect(array_values($facturasAgrupadas))->filter(function ($factura) {
@@ -3211,8 +3221,17 @@ class AuditoriaImpuestosController extends Controller
                 }
 
                 // Vaciamos el paquete filtrado por pedimento al general
-                foreach ($filasTemp as $fila) {
-                    $almacenajeParaSheets[] = $fila;
+                if (!empty($filasTemp)) {
+                    $sumaConsolidada = 0;
+                    foreach ($filasTemp as $fila) {
+                        $sumaConsolidada += $fila['monto'];
+                    }
+                    
+                    $filaFinal = $filasTemp[0];
+                    $filaFinal['monto'] = $sumaConsolidada;
+                    $filaFinal['concepto'] = 'Almacen'; // Aseguramos el nombre base sin sufijos numéricos
+                    
+                    $almacenajeParaSheets[] = $filaFinal;
                 }
             }
 
@@ -3245,46 +3264,148 @@ class AuditoriaImpuestosController extends Controller
             return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
         }
 
-        Log::info("Tarea #{$tarea->id}: Extrayendo ALMAN (Deduplicación Visual por Pedimento)...");
+        Log::info("Tarea #{$tarea->id}: Extrayendo ALMAN (Cruce de Información con ZLO activado y forzado)...");
 
         try {
             if (app()->environment('production')) {
-                $csvUrl = "https://docs.google.com/spreadsheets/d/1FvhWp2AeOyoiv1KIrmQNOKf9ZoDRy5L7HVd5FcRQBio/gviz/tq?tqx=out:csv&sheet=ALMAN&_cb=" . time();
+                $urlBase = "https://docs.google.com/spreadsheets/d/1FvhWp2AeOyoiv1KIrmQNOKf9ZoDRy5L7HVd5FcRQBio/gviz/tq?tqx=out:csv&_cb=" . time();
             } else {
-                $csvUrl = "https://docs.google.com/spreadsheets/d/1yOcPGlvycRBCg5KpWs5-b8EmLQrUNPgh4aqurXQT1Uo/gviz/tq?tqx=out:csv&sheet=ALMAN&_cb=" . time();
-            }
-            
-            $response = Http::withoutVerifying()
-                ->timeout(60) 
-                ->retry(2, 2000)
-                ->withOptions(['curl' => [CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1]])
-                ->get($csvUrl);
-
-            if (!$response->successful()) {
-                throw new \Exception("Error al leer ALMAN. HTTP: " . $response->status());
+                $urlBase = "https://docs.google.com/spreadsheets/d/1yOcPGlvycRBCg5KpWs5-b8EmLQrUNPgh4aqurXQT1Uo/gviz/tq?tqx=out:csv&_cb=" . time();
             }
 
-            $lineas = explode("\n", $response->body());
+            $csvUrlZLO = $urlBase . "&sheet=ZLO";
+            $csvUrlALMAN = $urlBase . "&sheet=ALMAN";
+
+            // ====================================================================
+            // PASO A: LEER LA HOJA ZLO EN MEMORIA PARA CREAR EL MAPA MAESTRO
+            // ====================================================================
+            Log::info("🔄 Leyendo pestaña ZLO para extraer emparejamientos de contenedores y pedimentos...");
+            $responseZLO = Http::withoutVerifying()->timeout(60)->get($csvUrlZLO);
+            if (!$responseZLO->successful()) {
+                throw new \Exception("Error al leer la hoja ZLO. HTTP: " . $responseZLO->status());
+            }
+
+            $streamZLO = fopen('php://memory', 'r+');
+            fwrite($streamZLO, $responseZLO->body());
+            rewind($streamZLO);
+
+            $zloIdxPedimento = -1;
+            $zloIdxContenedor = -1;
+
+            $mapaContenedorAPedimentoZLO = [];
+            $mapaContenedorAExactoZLO = []; 
+            $ultimoPedimentoZLO = '';
+
+            // Primero, leemos todas las filas para procesarlas
+            $rowsZLO = [];
+            while (($colsZLO = fgetcsv($streamZLO)) !== false) {
+                if (empty(trim(implode('', $colsZLO)))) {
+                    continue;
+                }
+                $rowsZLO[] = $colsZLO;
+            }
+            fclose($streamZLO);
+
+            // Búsqueda de cabeceras
+            foreach ($rowsZLO as $colsZLO) {
+                if ($zloIdxPedimento === -1 || $zloIdxContenedor === -1) {
+                    foreach ($colsZLO as $i => $col) {
+                        $txt = strtolower(trim($col));
+                        if (strpos($txt, 'pedimento') !== false && $zloIdxPedimento === -1) {
+                            $zloIdxPedimento = $i;
+                        }
+                        if (strpos($txt, 'contenedor') !== false && $zloIdxContenedor === -1) {
+                            $zloIdxContenedor = $i;
+                        }
+                    }
+                }
+                // Sabueso Inteligente
+                if ($zloIdxPedimento === -1 || $zloIdxContenedor === -1) {
+                    foreach ($colsZLO as $i => $val) {
+                        $valClean = trim($val);
+                        if ($zloIdxPedimento === -1 && preg_match('/[4-7]\d{6}/', $valClean)) {
+                            $zloIdxPedimento = $i;
+                        }
+                        if ($zloIdxContenedor === -1 && preg_match('/[A-Za-z]{4}[\s\-]*\d{7}/', $valClean)) {
+                            $zloIdxContenedor = $i;
+                        }
+                    }
+                }
+                if ($zloIdxPedimento !== -1 && $zloIdxContenedor !== -1) {
+                    break;
+                }
+            }
+
+            $pColZLO = ($zloIdxPedimento !== -1) ? $zloIdxPedimento : 1; 
+            $cColZLO = ($zloIdxContenedor !== -1) ? $zloIdxContenedor : 2; 
+
+            // Recorrido oficial ZLO (Herencia garantizada)
+            foreach ($rowsZLO as $colsZLO) {
+                $pedimentoCeldaZLO  = trim($colsZLO[$pColZLO] ?? '');
+                $contenedorCeldaZLO = trim($colsZLO[$cColZLO] ?? '');
+
+                if (preg_match('/[4-7]\d{6}/', $pedimentoCeldaZLO, $mPed)) {
+                    $ultimoPedimentoZLO = $mPed[0];
+                }
+
+                if ($contenedorCeldaZLO !== '' && $ultimoPedimentoZLO !== '') {
+                    $contenedoresAExtraer = [];
+                    if (preg_match_all('/[A-Za-z]{4}[\s\-]*\d{7}/', $contenedorCeldaZLO, $matches)) {
+                        $contenedoresAExtraer = $matches[0];
+                    } else {
+                        $posibles = preg_split('/[\s,\n\r]+/', $contenedorCeldaZLO);
+                        foreach ($posibles as $posible) {
+                            $limpio = strtoupper(preg_replace('/[^A-Z0-9]/', '', $posible));
+                            if (strlen($limpio) >= 10 && strlen($limpio) <= 12) {
+                                $contenedoresAExtraer[] = $limpio;
+                            }
+                        }
+                    }
+
+                    foreach ($contenedoresAExtraer as $cont) {
+                        $limpio = strtoupper(preg_replace('/[^A-Z0-9]/', '', $cont));
+                        $mapaContenedorAPedimentoZLO[$limpio] = $ultimoPedimentoZLO;
+                        $mapaContenedorAExactoZLO[$limpio] = $contenedorCeldaZLO; 
+                    }
+                }
+            }
             
+            Log::info("✓ Mapeo maestro ZLO finalizado. Contenedores indexados correctamente.");
+
+            // ====================================================================
+            // PASO B: LEER LA HOJA ALMAN Y PROCESAR MONTOS
+            // ====================================================================
+            Log::info("🔄 Leyendo pestaña ALMAN para procesar los cobros...");
+            $responseALMAN = Http::withoutVerifying()->timeout(60)->get($csvUrlALMAN);
+            if (!$responseALMAN->successful()) {
+                throw new \Exception("Error al leer la hoja ALMAN. HTTP: " . $responseALMAN->status());
+            }
+
+            $streamALMAN = fopen('php://memory', 'r+');
+            fwrite($streamALMAN, $responseALMAN->body());
+            rewind($streamALMAN);
+
+            $rowsALMAN = [];
+            while (($columnas = fgetcsv($streamALMAN)) !== false) {
+                if (empty(trim(implode('', $columnas)))) {
+                    continue;
+                }
+                $rowsALMAN[] = $columnas;
+            }
+            fclose($streamALMAN);
+
+            $idxFolio = -1;
             $idxTotal = -1;
             $idxContenedor = -1;
             $idxPedimento = -1;
             
-            $ultimoContenedorValido = '';
-            $ultimoPedimentoValido = '';
-            
-            $agrupadoPorPedimento = [];
-            $contenedoresUnicos = [];
-
-            foreach ($lineas as $index => $linea) {
-                $columnas = str_getcsv($linea);
-                if (empty(trim(implode('', $columnas)))) {
-                    continue;
-                }
-
-                if ($index < 5 && ($idxTotal === -1 || $idxContenedor === -1 || $idxPedimento === -1)) {
+            foreach ($rowsALMAN as $columnas) {
+                if ($idxFolio === -1 || $idxContenedor === -1 || $idxTotal === -1) {
                     foreach ($columnas as $i => $col) {
                         $txt = strtolower(trim($col));
+                        if (strpos($txt, 'folio') !== false && $idxFolio === -1) {
+                            $idxFolio = $i;
+                        }
                         if (strpos($txt, 'total') !== false && $idxTotal === -1) {
                             $idxTotal = $i;
                         }
@@ -3295,113 +3416,225 @@ class AuditoriaImpuestosController extends Controller
                             $idxPedimento = $i;
                         }
                     }
-                    if ($idxTotal !== -1 && $idxContenedor !== -1) {
-                        continue; 
-                    }
                 }
+                if ($idxFolio !== -1 && $idxContenedor !== -1 && $idxTotal !== -1) break;
+            }
 
-                $tCol = $idxTotal !== -1 ? $idxTotal : 2;
-                $cCol = $idxContenedor !== -1 ? $idxContenedor : 3;
-                $pCol = $idxPedimento !== -1 ? $idxPedimento : 4; // Por lo general la Columna E (Índice 4)
+            $fCol = $idxFolio !== -1 ? $idxFolio : 1;
+            $tCol = $idxTotal !== -1 ? $idxTotal : 9;
+            $cCol = $idxContenedor !== -1 ? $idxContenedor : 3;
+            $pCol = $idxPedimento !== -1 ? $idxPedimento : 4;
 
-                $totalCelda = trim($columnas[$tCol] ?? '0');
+            $almacenTemp = [];
+            $ultimoFolio = '';
+            $ultimoContenedorALMAN = '';
+            $ultimoPedimentoALMAN = ''; 
+
+            foreach ($rowsALMAN as $columnas) {
+                $folioCelda      = trim($columnas[$fCol] ?? '');
+                $totalCelda      = trim($columnas[$tCol] ?? '');
                 $contenedorCelda = trim($columnas[$cCol] ?? '');
-                $pedimentoCelda = trim($columnas[$pCol] ?? '');
+                $pedimentoCelda  = trim($columnas[$pCol] ?? '');
 
-                // 1. Arrastre de Pedimento (Atrapa el número base de 7 dígitos)
-                if (preg_match('/[4-7]\d{6}/', $pedimentoCelda, $mPed)) {
-                    $ultimoPedimentoValido = $mPed[0];
-                }
-
-                // 2. Arrastre de Contenedor
-                $contenedorLimpio = strtoupper(preg_replace('/[^A-Z0-9]/', '', $contenedorCelda));
-                if (strlen($contenedorLimpio) >= 10 && strlen($contenedorLimpio) <= 12) {
-                    $ultimoContenedorValido = $contenedorLimpio;
+                if ($contenedorCelda !== '') {
+                    $ultimoContenedorALMAN = $contenedorCelda;
                 } else {
-                    $contenedorLimpio = $ultimoContenedorValido;
+                    $contenedorCelda = $ultimoContenedorALMAN;
                 }
 
-                if ($contenedorLimpio !== '') {
-                    $montoNumerico = (float) filter_var(str_replace(',', '', $totalCelda), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+                if ($folioCelda !== '') {
+                    if ($ultimoFolio !== '' && $ultimoFolio !== $folioCelda) {
+                        $ultimoPedimentoALMAN = ''; 
+                    }
+                    $ultimoFolio = $folioCelda;
+                } else {
+                    $folioCelda = $ultimoFolio;
+                }
 
-                    if ($montoNumerico > 0) {
-                        // Agrupamos usando el Pedimento detectado en el CSV. Si por algún motivo no hubiera, usamos el contenedor.
-                        $idGrupo = $ultimoPedimentoValido !== '' ? $ultimoPedimentoValido : 'DESC_' . $contenedorLimpio;
+                $montoLimpio = (float) filter_var(str_replace(',', '', $totalCelda), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
 
-                        if (!isset($agrupadoPorPedimento[$idGrupo])) {
-                            $agrupadoPorPedimento[$idGrupo] = [
-                                'monto_total'  => 0,
-                                'contenedores' => [],
-                            ];
+                if ($montoLimpio > 0 && stripos($folioCelda, 'total') === false && stripos($columnas[0] ?? '', 'total') === false) {
+                    
+                    if (preg_match('/[4-7]\d{6}/', $pedimentoCelda, $mPed)) {
+                        $ultimoPedimentoALMAN = $mPed[0]; 
+                    }
+
+                    $pedimentoLimpio = $ultimoPedimentoALMAN;
+
+                    $contenedoresAExtraer = [];
+                    if (preg_match_all('/[A-Za-z]{4}[\s\-]*\d{7}/', $contenedorCelda, $matches)) {
+                        foreach ($matches[0] as $cont) {
+                            $contenedoresAExtraer[] = strtoupper(preg_replace('/[^A-Z0-9]/', '', $cont));
                         }
+                    } else {
+                        $posibles = preg_split('/[\s,\n\r]+/', $contenedorCelda);
+                        foreach ($posibles as $posible) {
+                            $limpio = strtoupper(preg_replace('/[^A-Z0-9]/', '', $posible));
+                            if (strlen($limpio) >= 10 && strlen($limpio) <= 12) {
+                                $contenedoresAExtraer[] = $limpio;
+                            }
+                        }
+                    }
 
-                        // SUMAMOS LOS MONTOS DEL MISMO GRUPO/PEDIMENTO
-                        $agrupadoPorPedimento[$idGrupo]['monto_total'] += $montoNumerico;
-                        
-                        if (!in_array($contenedorLimpio, $agrupadoPorPedimento[$idGrupo]['contenedores'])) {
-                            $agrupadoPorPedimento[$idGrupo]['contenedores'][] = $contenedorLimpio;
-                            $contenedoresUnicos[] = $contenedorLimpio;
+                    if ($pedimentoLimpio === '' && count($contenedoresAExtraer) > 0) {
+                        foreach ($contenedoresAExtraer as $cont) {
+                            if (isset($mapaContenedorAPedimentoZLO[$cont])) {
+                                $pedimentoLimpio = $mapaContenedorAPedimentoZLO[$cont];
+                                $ultimoPedimentoALMAN = $pedimentoLimpio;
+                                break;
+                            }
+                        }
+                    }
+
+                    if ($pedimentoLimpio === '' && $ultimoPedimentoALMAN !== '') {
+                        $pedimentoLimpio = $ultimoPedimentoALMAN;
+                    }
+
+                    if (count($contenedoresAExtraer) > 0) {
+                        $montoDividido = round($montoLimpio / count($contenedoresAExtraer), 2);
+                        foreach ($contenedoresAExtraer as $cont) {
+                            $almacenTemp[] = [
+                                'contenedor' => $cont,
+                                'monto'      => $montoDividido,
+                                'ped_csv'    => $pedimentoLimpio 
+                            ];
                         }
                     }
                 }
             }
 
-            if (empty($agrupadoPorPedimento)) {
-                Log::warning("ALMAN: No se encontró ningún monto mayor a 0 para enviar.");
+            if (empty($almacenTemp)) {
                 return ['code' => 0, 'message' => 'completado'];
             }
 
-            Log::info("ALMAN: Bucle de lectura terminado. Grupos únicos de Pedimentos encontrados: " . count($agrupadoPorPedimento));
-
-            // Búsqueda de navieras en la BD asegurando Impo y Expo para mayor cobertura
-            // 2. BUSCAR A QUÉ PEDIMENTO PERTENECE CADA CONTENEDOR EN LA BD (Solo Importaciones)
-            $operaciones = Importacion::whereIn('contenedor', $contenedoresUnicos)->get();
-            
-            $navierasDict = [];
-            $pedimentosDict = []; 
-            
-            foreach ($operaciones as $op) {
-                $cont = strtoupper(trim($op->contenedor));
-                if (!empty($cont)) {
-                    if (!empty($op->naviera)) {
-                        $navierasDict[$cont] = $op->naviera;
-                    }
-                    $pedimentosDict[$cont] = $op->id_pedimiento;
+            // ====================================================================
+            // PASO C: CONSOLIDACIÓN Y VERIFICACIÓN EN BASE DE DATOS (LIKE QUERY)
+            // ====================================================================
+            $contenedoresConsolidados = [];
+            foreach ($almacenTemp as $item) {
+                $cont = $item['contenedor'];
+                if (!isset($contenedoresConsolidados[$cont])) {
+                    $contenedoresConsolidados[$cont] = [
+                        'monto' => 0,
+                        'ped_csv' => $item['ped_csv']
+                    ];
+                }
+                $contenedoresConsolidados[$cont]['monto'] += $item['monto'];
+                
+                if ($contenedoresConsolidados[$cont]['ped_csv'] === '' && $item['ped_csv'] !== '') {
+                    $contenedoresConsolidados[$cont]['ped_csv'] = $item['ped_csv'];
                 }
             }
+
+            $contenedoresUnicosArray = array_keys($contenedoresConsolidados);
             
+            $chunks = array_chunk($contenedoresUnicosArray, 50);
+            $operacionesTodas = collect();
+            
+            foreach ($chunks as $chunk) {
+                $resultados = Importacion::where(function($q) use ($chunk) {
+                    foreach ($chunk as $cont) {
+                        // Busca si el contenedor está anidado en el string de la DB
+                        $q->orWhere('contenedor', 'LIKE', '%' . $cont . '%');
+                    }
+                })->get();
+                $operacionesTodas = $operacionesTodas->merge($resultados);
+            }
+
+            $idsBusqueda = $operacionesTodas->pluck('id_pedimiento')->unique()->filter()->toArray();
+            $pedimentosRealesDb = Pedimento::whereIn('id_pedimiento', $idsBusqueda)->pluck('num_pedimiento', 'id_pedimiento');
+
+            $dbPedimentosDict = [];
+            $navierasDict = [];
+
+            foreach ($operacionesTodas as $op) {
+                $contDb = strtoupper(trim($op->contenedor));
+                $numPedReal = isset($pedimentosRealesDb[$op->id_pedimiento]) ? trim($pedimentosRealesDb[$op->id_pedimiento]) : '';
+
+                // Comprobamos cuál de nuestros contenedores únicos está dentro de este registro DB
+                foreach ($contenedoresUnicosArray as $contBuscado) {
+                    if (str_contains($contDb, $contBuscado)) {
+                        if (!empty($op->naviera)) {
+                            $navierasDict[$contBuscado] = $op->naviera;
+                        }
+                        if ($numPedReal !== '') {
+                            $dbPedimentosDict[$contBuscado] = $numPedReal;
+                        }
+                    }
+                }
+            }
+
+            $agrupadoPorPedimento = [];
+
+            foreach ($contenedoresConsolidados as $cont => $data) {
+                
+                $pedimentoDB  = $dbPedimentosDict[$cont] ?? null;
+                $pedimentoZLO = $mapaContenedorAPedimentoZLO[$cont] ?? null;
+                $pedimentoCSV = $data['ped_csv'] !== '' ? $data['ped_csv'] : null;
+
+                $pedimentoId = $pedimentoDB ?? $pedimentoZLO ?? $pedimentoCSV ?? ('DESC_' . $cont);
+
+                $pedimentoBase = $pedimentoId;
+                
+                if (!str_starts_with($pedimentoId, 'DESC_') && preg_match('/[4-7]\d{6}/', $pedimentoId, $m)) {
+                    $pedimentoBase = $m[0];
+                }
+
+                if (!isset($agrupadoPorPedimento[$pedimentoBase])) {
+                    $agrupadoPorPedimento[$pedimentoBase] = [
+                        'monto_total'  => 0,
+                        'contenedores' => [],
+                        'naviera'      => $navierasDict[$cont] ?? '',
+                        'celda_zlo_original' => $mapaContenedorAExactoZLO[$cont] ?? null
+                    ];
+                }
+
+                $agrupadoPorPedimento[$pedimentoBase]['monto_total'] += $data['monto'];
+                $agrupadoPorPedimento[$pedimentoBase]['contenedores'][] = $cont;
+                
+                if (empty($agrupadoPorPedimento[$pedimentoBase]['celda_zlo_original']) && !empty($mapaContenedorAExactoZLO[$cont])) {
+                    $agrupadoPorPedimento[$pedimentoBase]['celda_zlo_original'] = $mapaContenedorAExactoZLO[$cont];
+                }
+            }
+
+            // ====================================================================
+            // 5. PREPARAR EL PAQUETE FINAL PARA GOOGLE SHEETS
+            // ====================================================================
             $almacenParaSheets = [];
 
-            foreach ($agrupadoPorPedimento as $pedimentoId => $datosAgrupados) {
-                // Selecciona el primer contenedor de la lista de este pedimento para guiar al Webhook en Sheets
-                $contenedorRepresentativo = $datosAgrupados['contenedores'][0] ?? '';
-                $naviera = $navierasDict[$contenedorRepresentativo] ?? '';
+            foreach ($agrupadoPorPedimento as $pedimentoBase => $datosAgrupados) {
+                
+                $celdaExacta = $datosAgrupados['celda_zlo_original'];
+                
+                if (!empty($celdaExacta)) {
+                    $contenedorRepresentativo = $celdaExacta;
+                } else {
+                    $contsUnicos = array_unique($datosAgrupados['contenedores']);
+                    $contenedorRepresentativo = implode("\n", $contsUnicos);
+                }
 
                 $almacenParaSheets[] = [
-                    'contenedor' => $contenedorRepresentativo,
+                    'contenedor' => $contenedorRepresentativo, 
                     'concepto'   => 'Almacen', 
                     'monto'      => round($datosAgrupados['monto_total'], 2), 
                     'moneda'     => 'MXN',
-                    'naviera'    => $naviera
+                    'naviera'    => $datosAgrupados['naviera']
                 ];
-                
             }
+
             if (!empty($almacenParaSheets)) {
                 $paquetes = array_chunk($almacenParaSheets, 20);
-                Log::info("ALMAN: Enviando " . count($almacenParaSheets) . " registros filtrados a GPC...");
-                
                 foreach ($paquetes as $idx => $paquete) {
                     $esUltimo = ($idx === count($paquetes) - 1);
                     $this->enviarDatosAlmacenSpecializedWebhook($paquete, $esUltimo);
                     sleep(2); 
                 }
-                Log::info("ALMAN: Todos los paquetes enviados con éxito.");
             }
 
             return ['code' => 0, 'message' => 'completado'];
 
         } catch (\Throwable $e) {
-            Log::error("Error procesando Almacén ALMAN: " . $e->getMessage() . " en la línea " . $e->getLine());
+            Log::error("Error procesando Almacén ALMAN con cruce ZLO: " . $e->getMessage() . " en la línea " . $e->getLine());
             return ['code' => 1, 'message' => $e];
         }
     }
@@ -3448,7 +3681,7 @@ class AuditoriaImpuestosController extends Controller
             return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
         }
 
-        Log::info("Tarea #{$tarea->id}: Procesando Traslado Local (Mapeo Inteligente)...");
+        Log::info("Tarea #{$tarea->id}: Procesando Traslado Local (Motor CSV a prueba de saltos de línea)...");
 
         try {
             if (app()->environment('production')) {
@@ -3458,90 +3691,101 @@ class AuditoriaImpuestosController extends Controller
             }
             
             $response = Http::withoutVerifying()->timeout(60)->get($csvUrl);
-            if (!$response->successful()) throw new \Exception("Error al leer EXTRAS. HTTP: " . $response->status());
+            if (!$response->successful()) {
+                throw new \Exception("Error al leer EXTRAS. HTTP: " . $response->status());
+            }
 
-            $lineas = explode("\n", $response->body());
+            $stream = fopen('php://memory', 'r+');
+            fwrite($stream, $response->body());
+            rewind($stream);
             
             $idxReferencia = -1;
             $idxContenedor = -1;
             $idxTotal = -1;
 
             $bloques = [];
-            $bloqueActual = null;
+            $idxBloqueActivo = -1; 
 
-            foreach ($lineas as $index => $linea) {
-                $linea = trim($linea);
-                if (empty($linea)) {
+            // Leemos fila por fila respetando la estructura real del CSV
+            while (($columnas = fgetcsv($stream)) !== false) {
+                if (!is_array($columnas) || count($columnas) < 2) {
                     continue;
                 }
 
-                $columnas = str_getcsv($linea);
-                if (!is_array($columnas) || count($columnas) < 2) {
-                    continue; 
-                }
-
+                // --- Detección de Cabeceras Exacta ---
                 if ($idxReferencia === -1 || $idxContenedor === -1 || $idxTotal === -1) {
                     foreach ($columnas as $i => $col) {
                         $txt = strtolower(trim($col));
                         
-                        if ($idxReferencia === -1 && (strpos($txt, 'referencia') !== false || strpos($txt, 'concepto') !== false || (strpos($txt, 'traslado') !== false && strpos($txt, 'local') !== false))) {
+                        if ($idxReferencia === -1 && strpos($txt, 'referencia') !== false) {
                             $idxReferencia = $i;
                         }
-                        // Detecta la cabecera "contenedor" o lee directamente el formato de contenedor (Ej. SUDU8210065)
                         if ($idxContenedor === -1 && (strpos($txt, 'contenedor') !== false || preg_match('/^[a-z]{4}\d{7}$/i', trim($col)))) {
                             $idxContenedor = $i;
                         }
-                        // Detecta la cabecera "total" o una celda que contenga un signo de dólar "$"
                         if ($idxTotal === -1 && (strpos($txt, 'total') !== false || strpos($txt, 'monto') !== false || strpos($txt, '$') !== false)) {
                             $idxTotal = $i;
                         }
                     }
                 }
 
-                // Índices de respaldo por si el mapeo dinámico falla en archivos muy raros
                 $rCol = ($idxReferencia !== -1) ? $idxReferencia : 3;
                 $cCol = ($idxContenedor !== -1) ? $idxContenedor : 4;
                 $tCol = ($idxTotal      !== -1) ? $idxTotal      : 5;
 
                 $fechaExtraida   = trim($columnas[0] ?? '');
-                $referenciaCelda = strtolower(trim($columnas[$rCol] ?? ''));
+                // Limpiamos saltos de línea internos en la referencia para que el strpos no falle
+                $referenciaCelda = strtolower(trim(preg_replace('/\s+/u', ' ', $columnas[$rCol] ?? '')));
                 $contenedorCelda = trim($columnas[$cCol] ?? '');
                 $totalCelda      = trim($columnas[$tCol] ?? '');
 
-                // Lógica de "celdas separadas" (Mismo bloque)
+                // --- Lógica de la Máquina de Estados ---
                 if ($referenciaCelda !== '') {
                     if (strpos($referenciaCelda, 'traslado') !== false && strpos($referenciaCelda, 'local') !== false) {
+                        $montoLimpio = (float) preg_replace('/[^0-9.]/', '', $totalCelda);
                         $bloques[] = [
                             'fecha' => $fechaExtraida,
-                            'monto' => (float) preg_replace('/[^0-9.]/', '', $totalCelda),
+                            'monto' => $montoLimpio,
                             'contenedores' => []
                         ];
-                        $ultimoIndice = is_array($bloques) ? count($bloques) - 1 : 0;
-                        $bloqueActual = &$bloques[$ultimoIndice];
+                        $idxBloqueActivo = count($bloques) - 1; 
                     } else {
-                        // Si hay texto pero NO es traslado local, cortamos el bloque para no mezclar
-                        $bloqueActual = null;
+                        $idxBloqueActivo = -1; 
                     }
                 }
 
-                // Añadimos el contenedor al bloque (sea de la misma celda combinada o una fila separada debajo)
-                if ($bloqueActual !== null) {
-                    $contenedorLimpio = strtoupper(preg_replace('/[^A-Z0-9]/', '', $contenedorCelda));
-                    if (strlen($contenedorLimpio) >= 10 && strlen($contenedorLimpio) <= 12) {
-                        $bloqueActual['contenedores'][] = $contenedorLimpio;
+                // Extracción agresiva de contenedores
+                if ($idxBloqueActivo !== -1 && $contenedorCelda !== '') {
+                    // Busca el patrón exacto de contenedor ignorando basura alrededor
+                    if (preg_match_all('/[A-Za-z]{4}[\s\-]*\d{7}/', $contenedorCelda, $matches)) {
+                        foreach ($matches[0] as $cont) {
+                            $limpio = strtoupper(preg_replace('/[^A-Z0-9]/', '', $cont));
+                            $bloques[$idxBloqueActivo]['contenedores'][] = $limpio;
+                        }
+                    } else {
+                        $posiblesContenedores = preg_split('/[\s,\n\r]+/', $contenedorCelda);
+                        foreach ($posiblesContenedores as $posible) {
+                            $limpio = strtoupper(preg_replace('/[^A-Z0-9]/', '', $posible));
+                            if (strlen($limpio) >= 10 && strlen($limpio) <= 12) {
+                                $bloques[$idxBloqueActivo]['contenedores'][] = $limpio;
+                            }
+                        }
                     }
                 }
             }
+            fclose($stream); // Cerramos el archivo virtual
 
             $trasladosFinales = [];
             $contenedoresUnicos = [];
 
             foreach ($bloques as $bloque) {
-                $contenedoresEnBloque = $bloque['contenedores'] ?? [];
-                $numContenedores = is_array($contenedoresEnBloque) ? count($contenedoresEnBloque) : 0;
+                $contenedoresEnBloque = array_unique($bloque['contenedores'] ?? []);
+                $numContenedores = count($contenedoresEnBloque);
                 
                 if ($numContenedores > 0 && $bloque['monto'] > 0) {
+                    // Dividimos el monto equitativamente entre los contenedores
                     $montoDividido = round($bloque['monto'] / $numContenedores, 2);
+
                     foreach ($contenedoresEnBloque as $cont) {
                         $trasladosFinales[] = [
                             'contenedor'  => $cont,
@@ -3554,56 +3798,62 @@ class AuditoriaImpuestosController extends Controller
             }
 
             if (empty($trasladosFinales)) {
+                Log::warning("No se extrajeron Traslados Locales válidos del Excel.");
                 return ['code' => 0, 'message' => 'completado'];
             }
 
-            $operaciones = Importacion::whereIn('contenedor', array_unique($contenedoresUnicos))->get();
+            // Búsqueda en Base de Datos
+            $contenedoresUnicosArray = array_unique($contenedoresUnicos);
+            $impos = collect();
+            
+            $chunks = array_chunk($contenedoresUnicosArray, 50);
+            foreach ($chunks as $chunk) {
+                $resultados = Importacion::where(function($q) use ($chunk) {
+                    foreach ($chunk as $cont) {
+                        $q->orWhere('contenedor', 'LIKE', '%' . $cont . '%');
+                    }
+                })->get();
+                $impos = $impos->merge($resultados);
+            }
+
+            $idsBusqueda = $impos->pluck('id_pedimiento')->unique()->filter()->toArray();
+            $pedimentosReales = Pedimento::whereIn('id_pedimiento', $idsBusqueda)->pluck('num_pedimiento', 'id_pedimiento');
+
             $navierasDict = [];
             $pedimentosDict = [];
 
-            foreach ($operaciones as $op) {
-                $cont = strtoupper(trim($op->contenedor));
-                if (!empty($cont)) {
-                    $navierasDict[$cont] = $op->naviera ?? '';
-                    $pedimentosDict[$cont] = $op->id_pedimiento;
+            foreach ($impos as $op) {
+                $contDb = strtoupper(trim($op->contenedor));
+                foreach ($contenedoresUnicosArray as $contBuscado) {
+                    if (str_contains($contDb, $contBuscado)) {
+                        $navierasDict[$contBuscado] = $op->naviera ?? '';
+                        $numPed = $pedimentosReales[$op->id_pedimiento] ?? (string)$op->id_pedimiento;
+                        
+                        if (preg_match('/[4-7]\d{6}/', $numPed, $m)) {
+                            $pedimentosDict[$contBuscado] = $m[0];
+                        } else {
+                            $pedimentosDict[$contBuscado] = $numPed;
+                        }
+                    }
                 }
             }
-            
-            // 3. Agrupamos por Pedimento
-            $agrupadoPorPedimento = [];
+
+            $payloadParaSheets = [];
 
             foreach ($trasladosFinales as $item) {
                 $cont = $item['contenedor'];
                 $pedimentoId = $pedimentosDict[$cont] ?? 'DESC_' . $cont;
-
-                if (!isset($agrupadoPorPedimento[$pedimentoId])) {
-                    $agrupadoPorPedimento[$pedimentoId] = [
-                        'monto_total'  => 0,
-                        'contenedores' => [],
-                        'fecha'        => $item['fecha'],
-                        'naviera'      => $navierasDict[$cont] ?? ''
-                    ];
-                }
-
-                $agrupadoPorPedimento[$pedimentoId]['monto_total'] += $item['monto'];
-                $agrupadoPorPedimento[$pedimentoId]['contenedores'][] = $cont;
-            }
-
-            // 4. Preparamos el Payload asegurando el concepto "Traslado Local" puro
-            $payloadParaSheets = [];
-
-            foreach ($agrupadoPorPedimento as $pedimentoId => $datosAgrupados) {
-                $contenedorRepresentativo = $datosAgrupados['contenedores'][0];
+                $naviera = $navierasDict[$cont] ?? '';
 
                 $payloadParaSheets[] = [
-                    'contenedor' => $contenedorRepresentativo,
+                    'pedimento'  => $pedimentoId, 
+                    'contenedor' => $cont, 
                     'concepto'   => 'Traslado Local',
-                    'monto'      => round($datosAgrupados['monto_total'], 2), 
+                    'monto'      => round($item['monto'], 2), 
                     'moneda'     => 'MXN',
-                    'fecha'      => $datosAgrupados['fecha'],
-                    'naviera'    => $datosAgrupados['naviera']
+                    'fecha'      => $item['fecha'],
+                    'naviera'    => $naviera
                 ];
-                
             }
 
             $paquetes = array_chunk($payloadParaSheets, 20);
@@ -3613,11 +3863,11 @@ class AuditoriaImpuestosController extends Controller
                 sleep(2); 
             }
 
-            Log::info("¡Traslados Locales enviados a GPC con éxito!");
+            Log::info("¡Todos los contenedores de Traslados Locales se enviaron de forma individual con éxito!");
             return ['code' => 0, 'message' => 'completado'];
 
         } catch (\Throwable $e) {
-            Log::error("Error en Traslado Local: " . $e->getMessage());
+            Log::error("Error en Traslado Local: " . $e->getMessage() . " línea " . $e->getLine());
             return ['code' => 1, 'message' => $e];
         }
     }
@@ -3642,6 +3892,7 @@ class AuditoriaImpuestosController extends Controller
 
         try {
             $response = Http::timeout(180) 
+                ->withoutVerifying()
                 ->withBody(json_encode($payload), 'application/json')
                 ->post($webhookUrl);
         } catch (\Throwable $e) {
