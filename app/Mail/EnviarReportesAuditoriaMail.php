@@ -85,6 +85,16 @@ class EnviarReportesAuditoriaMail extends Mailable
                                           Str::contains($estadoLower, 'pago de menos');
 
                         if ($esDiscrepancia) {
+                        
+                            $claseOp = $auditoria->operation_type ?? '';
+                            $tipoOperacionNombre = 'Desconocida';
+                            
+                            if (str_contains($claseOp, 'Importacion')) {
+                                $tipoOperacionNombre = 'Importación';
+                            } elseif (str_contains($claseOp, 'Exportacion')) {
+                                $tipoOperacionNombre = 'Exportación';
+                            }
+
                             $tipo = $auditoria->tipo_documento;
                             $montoFactura = (float) $auditoria->monto_total_mxn;
                             $diferencia = (float) $auditoria->monto_diferencia_sc;
@@ -102,12 +112,13 @@ class EnviarReportesAuditoriaMail extends Mailable
                             $llaveUnica = $pedimento->num_pedimiento . '_' . $auditoria->id;
 
                             $this->discrepancias[$tipo][$llaveUnica] = [
-                                'pedimento'     => $pedimento->num_pedimiento,
-                                'monto_factura' => $montoFactura,
-                                'monto_sc'      => $montoSC,
-                                'diferencia'    => $diferencia,
-                                'estado'        => $auditoria->estado,
-                                'ruta_pdf'      => $auditoria->ruta_pdf
+                                'pedimento'      => $pedimento->num_pedimiento,
+                                'tipo_operacion' => $tipoOperacionNombre,
+                                'monto_factura'  => $montoFactura,
+                                'monto_sc'       => $montoSC,
+                                'diferencia'     => $diferencia,
+                                'estado'         => $auditoria->estado,
+                                'ruta_pdf'       => $auditoria->ruta_pdf
                             ];
                         }
                     }
@@ -165,23 +176,6 @@ class EnviarReportesAuditoriaMail extends Mailable
 
         if (Storage::disk('storageOldProyect')->exists($this->tarea->ruta_reporte_impuestos_pendientes)) {
             $email->attachFromStorageDisk('storageOldProyect', $this->tarea->ruta_reporte_impuestos_pendientes, $this->tarea->nombre_reporte_pendientes);
-        }
-
-        // 3. ADJUNTAR PDFS INDIVIDUALES CON DISCREPANCIAS
-        foreach ($this->discrepancias as $tipo => $items) {
-            foreach ($items as $item) {
-                if (!empty($item['ruta_pdf'])) {
-                    $rutaFisica = $item['ruta_pdf'];
-                    
-                    // Verificamos si es una ruta absoluta o de storage
-                    if (file_exists($rutaFisica)) {
-                        $email->attach($rutaFisica, [
-                            'as' => 'Discrepancia_' . $tipo . '_' . $item['pedimento'] . '.pdf',
-                            'mime' => 'application/pdf',
-                        ]);
-                    }
-                }
-            }
         }
 
         return $email;

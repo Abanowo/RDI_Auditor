@@ -1630,13 +1630,7 @@ class AuditoriaImpuestosController extends Controller
                 return ['code' => 0, 'message' => 'completado'];
             }
             Log::info("Procesando Facturas SC para Tarea #{$tarea->id} en la sucursal: {$sucursal}");
-            //$mapasPedimento - Contienen todos los pedimentos del estado de cuenta, encontrados en Importacion/Exportacion
-            $mapaPedimentoAImportacionId = $mapeadoFacturas['pedimentos_importacion'];
-            $mapaPedimentoAExportacionId = $mapeadoFacturas['pedimentos_exportacion'];
-
-            //$operacionesId - Contienen todas las operaciones_id de los pedimentos del estado de cuenta, encontrados en Importacion/Exportacion
-            $operacionesId = array_merge(array_column($mapaPedimentoAImportacionId, 'id_operacion'), array_column($mapaPedimentoAExportacionId, 'id_operacion'));
-
+            
             $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'];
             $indicesOperaciones = $mapeadoFacturas['indices_importacion'] + $mapeadoFacturas['indices_exportacion'];
 
@@ -1678,43 +1672,41 @@ class AuditoriaImpuestosController extends Controller
                 return ['code' => 0, 'message' => 'completado'];
             }
             Log::info("Se encontraron " . count($indiceSC) . " facturas SC en los archivos.");
-            // 4. PREPARAR DATOS PARA GUARDAR EN 'auditorias_totales_sc'
-
-            Log::info("Iniciando mapeo para Upsert.");
-
             $auditoriasParaGuardar = [];
-            //$bar = $this->output->createProgressBar(count($indiceSC));
-            //$bar->start();
-            foreach ($indiceSC as $pedimento => $datosSC) {
+            
+            // === CAMBIO CLAVE: Iteramos sobre el mapa maestro, no sobre el índice SC ===
+            foreach ($mapaPedimentoAId as $pedimentoExcel => $pedimentoReal) {
+                
+                $numPedBD = $pedimentoReal['num_pedimiento'];
+                
+                // Extraemos los 7 dígitos puros para que haga match con el índice SC
+                preg_match('/[4-7]\d{6}/', $numPedBD, $matchDigitos);
+                $pedimentoLimpio = $matchDigitos[0] ?? '';
 
-                // Buscamos el id_importacion en nuestro mapa
-                $pedimentoReal = $mapaPedimentoAId[$pedimento] ?? null;
-                if (!$pedimentoReal) {
-                    /* Log::warning("Se omitió la SC del pedimento '{$pedimento}' porque no se encontró una operación de importación asociada."); */
-                    continue; // Si no hay operación, no podemos guardar la SC
-                }
-                $tipoOperacion = Importacion::class;
+                // Buscamos en el índice SC usando todas las combinaciones posibles
+                $datosSC = $indiceSC[$pedimentoLimpio] ?? $indiceSC[$numPedBD] ?? $indiceSC[$pedimentoExcel] ?? null;
 
-                //Se verifica si la operacion ID esta en Importacion
-                $operacionId = $mapaPedimentoAImportacionId[$pedimentoReal['num_pedimiento']] ?? null;
-
-                if (!$operacionId) { //Si no, entonces busca en Exportacion
-                    $operacionId = $mapaPedimentoAExportacionId[$pedimentoReal['num_pedimiento']] ?? null;
-                    $tipoOperacion = Exportacion::class;
+                if (!$datosSC) {
+                    Log::warning("[SC Fallo Enlace] No se encontró SC en el índice para {$pedimentoExcel} / {$pedimentoLimpio}");
+                    continue; 
                 }
 
-                if (!$operacionId) { //Si no esta ni en Importacion o en Exportacion, que lo guarde por pedimento_id
-                    $tipoOperacion = "N/A";
+                $operacionIdVal = $pedimentoReal['id_operacion'] ?? null;
+                $tipoOperacionStr = $pedimentoReal['tipo'] ?? '';
+                
+                if ($tipoOperacionStr === 'Importacion') {
+                    $tipoOperacionClass = Importacion::class;
+                } elseif ($tipoOperacionStr === 'Exportacion') {
+                    $tipoOperacionClass = Exportacion::class;
+                } else {
+                    $tipoOperacionClass = "N/A";
                 }
 
-                if (!$operacionId) {
-                    /* Log::warning("Se omitió la SC del pedimento '{$pedimento}' porque no se encontró una operación de importación asociada."); */
-                    //$bar->advance();
-                    continue; // Si no hay operación, no podemos guardar la SC
+                if (!$operacionIdVal || $tipoOperacionClass === "N/A") {
+                    continue; 
                 }
 
-                // Preparamos el desglose para guardarlo como JSON
-                $desgloseSC =
+                $desgloseSC = 
                     [
                         'moneda' => $datosSC['moneda'],
                         'tipo_cambio' => $datosSC['tipo_cambio'],
@@ -1751,9 +1743,9 @@ class AuditoriaImpuestosController extends Controller
 
                 $auditoriasParaGuardar[] =
                     [
-                        'operacion_id' => isset($operacionId['id_operacion']) ? $operacionId['id_operacion'] : null, // ¡La vinculación auxiliar correcta!
-                        'pedimento_id' => isset($operacionId['id_pedimento']) ? $operacionId['id_pedimento'] : $pedimentoReal['id_pedimiento'], // ¡La vinculación correcta! REVISAR AQUI EN CASO DE QUE LAS SCs NO SE REFLEJEN BIEN
-                        'operation_type' => $tipoOperacion,
+                        'operacion_id' => $operacionIdVal, 
+                        'pedimento_id' => $pedimentoReal['id_pedimiento'],
+                        'operation_type' => $tipoOperacionClass,
                         'folio' => $datosSC['folio_sc'],
                         'fecha_documento' => $datosSC['fecha_sc'],
                         'desglose_conceptos' => json_encode($desgloseSC),
@@ -1778,12 +1770,46 @@ class AuditoriaImpuestosController extends Controller
 
                 Log::info("¡Guardado con éxito!");
 
+                Log::info("Re-auditando Impuestos con las nuevas SC encontradas...");
+                foreach ($auditoriasParaGuardar as $scData) {
+                    $pedId = $scData['pedimento_id'];
+                    $tipoOp = $scData['operation_type'];
+                    $folioSc = $scData['folio'];
+                    
+                    $desglose = is_string($scData['desglose_conceptos']) ? json_decode($scData['desglose_conceptos'], true) : $scData['desglose_conceptos'];
+                    $montoSC_MXN = (float)($desglose['montos']['impuestos_mxn'] ?? -1.1);
+
+                    $auditoriasImpuestos = Auditoria::where('pedimento_id', $pedId)
+                        ->where('tipo_documento', 'impuestos')
+                        ->get();
+
+                    if ($auditoriasImpuestos->isEmpty()) {
+                        Log::warning("[ALERTA RE-AUDITORIA] Se guardó la SC Folio {$folioSc} para el pedimento_id {$pedId}, ¡Pero no se encontró ningún cargo de impuestos en la BD para emparejarlo!");
+                        continue;
+                    }
+
+                    foreach ($auditoriasImpuestos as $audit) {
+                        $montoImpuestoMXN = (float) $audit->monto_total_mxn;
+                        
+                        $nuevoEstado = $this->compararMontos($montoSC_MXN, $montoImpuestoMXN, $tipoOp);
+                        $nuevaDiferencia = ($nuevoEstado !== "Sin SC!" && $nuevoEstado !== "Sin operacion!") 
+                                            ? round($montoSC_MXN - $montoImpuestoMXN, 2) 
+                                            : $montoImpuestoMXN;
+                        
+                        $audit->update([
+                            'estado' => $nuevoEstado,
+                            'monto_diferencia_sc' => $nuevaDiferencia
+                        ]);
+                        
+                        Log::info("[RE-AUDITORIA EXITOSA] Impuestos Ped_ID {$pedId} actualizado a: {$nuevoEstado} | Diferencia: {$nuevaDiferencia}");
+                    }
+                }
+                Log::info("Re-auditoría de Impuestos completada.");
+
                 Log::info("Actualizando mapeo...");
+                $idsPedDb = \Illuminate\Support\Arr::pluck($mapaPedimentoAId, 'id_pedimiento');
+                $operacionesId = array_column($auditoriasParaGuardar, 'operacion_id');
 
-                // Extraemos los IDs reales de la base de datos
-                $idsPedDb = Arr::pluck($mapaPedimentoAId, 'id_pedimiento');
-
-                // Creamos el JSON con las SC encontradas, usando pedimento_id
                 $auditoriasSC = AuditoriaTotalSC::query()
                     ->whereIn('operacion_id', $operacionesId)
                     ->orWhereIn('pedimento_id', $idsPedDb)
@@ -2738,37 +2764,82 @@ class AuditoriaImpuestosController extends Controller
 
         foreach ($pedimentosOperacion as $pedimento => $operacionID) {
             try {
-                $url_pdf = Http::withoutVerifying()->get("https://sistema.intactics.com/v3/operaciones/{$tipoOperacion}/{$operacionID['id_operacion']}/get-files-momentaneo");
+                $archivos_pdf = [];
+                $idOp = $operacionID['id_operacion'];
 
-                if (!$url_pdf->successful()) {
-                    Log::warning("No se pudieron obtener los archivos para la importación ID: {$operacionID['id_operacion']}");
-                    continue;
+                // 1. Buscar archivos en la operación original (El Hijo)
+                $urlApi = "https://sistema.intactics.com/v3/operaciones/{$tipoOperacion}/{$idOp}/get-files-momentaneo";
+                $url_pdf = Http::withoutVerifying()->get($urlApi);
+
+                if ($url_pdf->successful() && is_array($url_pdf->json())) {
+                    $archivos_pdf = array_merge($archivos_pdf, $url_pdf->json());
                 }
 
-                $archivos_pdf = collect($url_pdf->json());
-                unset($url_pdf);
+                // Determinamos el modelo a buscar basándonos en si es impo o expo
+                $modeloOp = ($tipoOperacion === 'importaciones') ? Importacion::find($idOp) : Exportacion::find($idOp);
+
+                // Si la operación existe y tiene un padre asignado
+                if ($modeloOp && !empty($modeloOp->parent)) {
+                    $parentId = $modeloOp->parent;
+                    
+                    $urlApiParent = "https://sistema.intactics.com/v3/operaciones/{$tipoOperacion}/{$parentId}/get-files-momentaneo";
+                    $url_pdf_parent = Http::withoutVerifying()->get($urlApiParent);
+
+                    if ($url_pdf_parent->successful() && is_array($url_pdf_parent->json())) {
+                        // Mezclamos los archivos del padre con los del hijo
+                        $archivos_pdf = array_merge($archivos_pdf, $url_pdf_parent->json());
+                    }
+                }
+
+                if (empty($archivos_pdf)) {
+                    continue;
+                }
                 
                 $indiceFacturas[$pedimento] = [
                     'tipo_operacion' => $tipoOperacion,
-                    'operacion_id' => $operacionID['id_operacion'],
+                    'operacion_id' => $idOp,
                     'facturas' => [], 
                 ];
 
                 $agrupadorTemp = [];
-                $archivosFacturas = $archivos_pdf->whereIn('pivot.type', array_keys($mapeoFacturas));
 
-                foreach ($archivosFacturas as $archivo) {
-                    $tipoJson = $archivo['pivot']['type'];
-                    $url = $archivo['url']['normal'];
-                    $nombreArchivoReal = strtoupper($archivo['name']);
-                    $fechaCreacion = $archivo['created_at'];
-                    $fechaActualizacion = $archivo['updated_at'];
-                    
-                    $nombreBase = pathinfo($archivo['name'], PATHINFO_FILENAME);
-                    $extension = strtolower(pathinfo($archivo['name'], PATHINFO_EXTENSION));
+                foreach ($archivos_pdf as $archivo) {
+                    $pivotType = $archivo['pivot']['type'] ?? '';
+                    if (empty($pivotType)) {
+                        continue;
+                    }
 
-                    $tipoFinal = $mapeoFacturas[$tipoJson];
+                    $normalizedPivot = strtolower(str_replace([' ', '-', '_'], '', $pivotType));
+                    $tipoFinal = null;
+                    $tipoOriginalMapeo = null;
+
+                    foreach ($mapeoFacturas as $key => $value) {
+                        $normalizedKey = strtolower(str_replace([' ', '-', '_'], '', $key));
+                        if ($normalizedPivot === $normalizedKey) {
+                            $tipoFinal = $value;
+                            $tipoOriginalMapeo = $key;
+                            break;
+                        }
+                    }
+
+                    if (!$tipoFinal) {
+                        if (in_array(strtolower($pivotType), $mapeoFacturas)) {
+                            $tipoFinal = strtolower($pivotType);
+                        }
+                    }
+
+                    if (!$tipoFinal) {
+                        continue;
+                    }
+
+                    $url = $archivo['url']['normal'] ?? '';
+                    $nombreArchivoReal = strtoupper($archivo['name'] ?? '');
+                    $fechaCreacion = $archivo['created_at'] ?? now();
+                    $fechaActualizacion = $archivo['updated_at'] ?? now();
                     
+                    $nombreBase = pathinfo($archivo['name'] ?? '', PATHINFO_FILENAME);
+                    $extension = strtolower(pathinfo($archivo['name'] ?? '', PATHINFO_EXTENSION));
+
                     if (($tipoFinal === 'proveedores' || $tipoFinal === 'terminal') && str_contains($nombreArchivoReal, 'VACIO')) {
                         $tipoFinal = 'vacios';
                     }
@@ -2807,9 +2878,9 @@ class AuditoriaImpuestosController extends Controller
                         $agrupadorTemp[$llaveGrupo]['ruta_xml'] = $url;
                     }
 
-                    if ($tipoJson === 'HONORARIOS-SC' || $tipoJson === 'TransporTactics') {
+                    if ($tipoFinal === 'sc' || $tipoOriginalMapeo === 'HONORARIOS-SC' || $tipoFinal === 'flete') {
                         $agrupadorTemp[$llaveGrupo]['ruta_txt'] = "https://sistema.intactics.com/v2/uploads/{$nombreBase}.txt";
-                    } elseif ($tipoJson === 'HONORARIOS-LLC') {
+                    } elseif ($tipoFinal === 'llc' || $tipoOriginalMapeo === 'HONORARIOS-LLC') {
                         $agrupadorTemp[$llaveGrupo]['ruta_txt'] = "https://sistema.intactics.com/v2/uploads/llc-{$nombreBase}.txt";
                     }
                 }
@@ -2855,35 +2926,72 @@ class AuditoriaImpuestosController extends Controller
                     //$bar->advance();
                     continue;
                 }
-                try {   //Cuando la URL esta mal construida, lo que se hace es buscar por medio del get el txt
-                    $contenido = file_get_contents($facturaSC['ruta_txt']);
+
+                $contenido = null;
+                try {   
+                    // Intento original: Lee el archivo desde la ruta directa en el storage
+                    $contenido = @file_get_contents($facturaSC['ruta_txt']);
                 } catch (\Throwable $th) {
+                    $contenido = null;
+                }
+                // Si el archivo no existe, OR si lo que leyó no es una SC real
+                if (!$contenido || stripos($contenido, '[encOBSERVACION]') === false) {
 
                     $operacionID = $datos['operacion_id'];
                     $url_txt = Http::withoutVerifying()->get("https://sistema.intactics.com/v3/operaciones/{$datos['tipo_operacion']}/{$operacionID}/get-files-txt-momentaneo");
 
-                    if (!$url_txt->successful()) {
-                        // Si la API falla para este ID, lo saltamos y continuamos con el siguiente.
-                        Log::warning("No se pudieron obtener los archivos para la importación ID: {$operacionID}");
-                        //$bar->advance();
-                        continue;
+                    if ($url_txt->successful()) {
+                        $urls = json_decode($url_txt->body(), true);
+
+                        //$arrContextOptions resuelve el siguiente error:
+                        //'file_get_contents(): SSL operation failed with code 1. OpenSSL Error messages:
+                        //error:1416F086:SSL routines:tls_process_server_certificate:certificate verify failed'
+                        $arrContextOptions = [
+                            "ssl" => [
+                                "verify_peer" => false,
+                                "verify_peer_name" => false,
+                            ],
+                        ];
+
+                        $rutaCorrecta = null;
+                        if ($urls && is_array($urls)) {
+                            // Limpiamos la ruta del PDF por si incluye parámetros extras en la URL
+                            $rutaPdfLimpia = explode('?', $facturaSC['ruta_pdf'] ?? '')[0];
+                            $nombrePdfBase = pathinfo($rutaPdfLimpia, PATHINFO_FILENAME);
+                            
+                            foreach ($urls as $url) {
+                                if (!isset($url['path'])) {
+                                    continue;
+                                }
+                                $pathLocal = strtolower($url['path']);
+                                
+                                // 1. Descartamos explícitamente los archivos de Notas de Cargo
+                                if (strpos($pathLocal, 'notacargo') === false) {
+                                    
+                                    // 2. Si el nombre del TXT coincide con el del PDF, encontramos el archivo exacto
+                                    if ($nombrePdfBase && strpos($pathLocal, strtolower($nombrePdfBase)) !== false) {
+                                        $rutaCorrecta = $url['path'];
+                                        break;
+                                    }
+                                    
+                                    // 3. Si no hay coincidencia exacta de nombre pero es un TXT válido, lo dejamos como candidato
+                                    if (!$rutaCorrecta) {
+                                        $rutaCorrecta = $url['path'];
+                                    }
+                                }
+                            }
+                            
+                            // 4. Si el filtro estricto falló por completo, usamos el primer archivo como último recurso
+                            if (!$rutaCorrecta && count($urls) > 0) {
+                                $rutaCorrecta = $urls[0]['path'];
+                            }
+                        }
+
+                        if ($rutaCorrecta) {
+                            $contenido = @file_get_contents('https://sistema.intactics.com' . $rutaCorrecta, false, stream_context_create($arrContextOptions));
+                        }
                     }
-
-                    $urls = json_decode($url_txt, true);
-
-                    //$arrContextOptions resuelve el siguiente error:
-                    //'file_get_contents(): SSL operation failed with code 1. OpenSSL Error messages:
-                    //error:1416F086:SSL routines:tls_process_server_certificate:certificate verify failed'
-                    $arrContextOptions = [
-                        "ssl" => [
-                            "verify_peer" => false,
-                            "verify_peer_name" => false,
-                        ],
-                    ];
-
-                    $contenido = $urls ? file_get_contents('https://sistema.intactics.com' . $urls[0]['path'], false, stream_context_create($arrContextOptions)) : null;
                 }
-
 
                 if (!$contenido) {
                     //$bar->advance();
@@ -2896,9 +3004,9 @@ class AuditoriaImpuestosController extends Controller
                 // (?:\d{1,5}-)*        -> acepta prefijos como "3711-" o "3711-3711-" repetidos (opcional)
                 // ([45]\d{6})          -> captura el pedimento: 7 dígitos empezando con 4 o 5
                 // Se agregó [4-7] para aceptar pedimentos que inician con 4, 5, 6 o 7
-                if (preg_match('/\[encOBSERVACION\][^\d]*(?:\d{1,5}-)*([4-7]\d{6})/i', $contenido, $matchesPedimento)) {
+                if (preg_match('/\[encOBSERVACION\][^\r\n]*?(?:(?:\d{1,5}[-\s]*)+)?([4-7]\d{6})/i', $contenido, $matchesPedimento)) {
 
-                    $pedimento = trim($matchesPedimento[1]);
+                    $pedimentoLimpioBD = trim($matchesPedimento[1]);
                     //[encTEXTOEXTRA1] = IMPUESTOS (EDC - SC)
                     preg_match('/\[encTEXTOEXTRA1\](.*?)(\r|\n)/', $contenido, $matchM_Impuesto);
                     //[encTEXTOEXTRA2] = EMISION DE CERTIFICADO INTERNACIONAL (PAGOS DE DERECHO - SADER)
@@ -2929,7 +3037,7 @@ class AuditoriaImpuestosController extends Controller
                         preg_match('/\[encTIPOCAMBIO\]([^\r\n]*)/', $contenido, $matchTC);
                     }
 
-                    $indice[$pedimento] =
+                    $indice[$pedimentoLimpioBD] =
                         [
                             'monto_impuestos' => isset($matchM_Impuesto[1]) && strlen($matchM_Impuesto[1]) > 0 ? (float) trim($matchM_Impuesto[1]) : -1,
                             'monto_flete' => isset($matchM_Tr[1]) && strlen($matchM_Tr[1]) > 0 ? (float) trim($matchM_Tr[1]) : -1,
@@ -2948,12 +3056,19 @@ class AuditoriaImpuestosController extends Controller
                             'monto_total_sc' => isset($matchTotalSC[1]) && strlen($matchTotalSC[1]) > 0 ? (float) trim($matchTotalSC[1]) : -1,
                         ];
 
+                    // Guardamos un alias con el pedimento original del array (ej. 3711-6002071) por si la base de datos lo pide así
+                    if ($pedimentoLimpioBD !== $pedimento) {
+                        $indice[$pedimento] = $indice[$pedimentoLimpioBD];
+                    }
+
                     $aux = $this->extraerMultiplesConceptos($contenido);
-                    if ($aux['monto_maniobras_2'] > $indice[$pedimento]['monto_maniobras']) {
-                        $indice[$pedimento]['monto_maniobras'] = $aux['monto_maniobras_2'];
+                    if ($aux['monto_maniobras_2'] > $indice[$pedimentoLimpioBD]['monto_maniobras']) {
+                        $indice[$pedimentoLimpioBD]['monto_maniobras'] = $aux['monto_maniobras_2'];
+                        $indice[$pedimento]['monto_maniobras'] = $aux['monto_maniobras_2']; // Reflejo al alias
                     }
 
                     unset($aux['monto_maniobras_2']);
+                    $indice[$pedimentoLimpioBD] = array_merge($indice[$pedimentoLimpioBD], $aux);
                     $indice[$pedimento] = array_merge($indice[$pedimento], $aux);
                 }
                 //$bar->advance();
@@ -4984,16 +5099,7 @@ class AuditoriaImpuestosController extends Controller
                         }
                     }
 
-                    // 2. Fallback a PDF
-                    if ($montoItem === -1 && !empty($datosManiobra['path_pdf_man'])) {
-                        $pdfData = $this->extraerTotalDesdePdfProveedor($datosManiobra['path_pdf_man']);
-                        if ($pdfData !== null && $pdfData['monto'] !== null) {
-                            $montoItem = (float) $pdfData['monto'];
-                            if (!empty($pdfData['fecha'])) $fechaDocumento = $pdfData['fecha'];
-                            $origen = "PDF";
-                            $monedaDoc = 'MXN';
-                        }
-                    }
+                    // Se eliminó el "Fallback a PDF" para maniobras por regla de negocio estricta
 
                     if ($montoItem > 0) {
                         if (in_array(round($montoItem, 2), $montosYaSumados)) {

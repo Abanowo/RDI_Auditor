@@ -187,19 +187,6 @@ class ProcesarAuditoriaCompleta extends Command
                 if ($status['code'] > 0) {
                     throw $status['message'];
                 }
-
-                // ====================================================================
-                // NUEVO: INSERCIÓN EN GPC PARA EL RESTO DE SUCURSALES
-                // ====================================================================
-                $this->info("--- INICIANDO INSERCIONES EN GPC MULTI-SUCURSAL ---");
-                Log::info("Enviando datos al nuevo Google Sheet de sucursales...");
-
-                gc_collect_cycles();
-                $this->info("Enviando todos los conceptos a GPC...");
-                $status = $controller->enviarAGPCMultiSucursal($tarea->id);
-                if ($status['code'] > 0) {
-                    throw $status['message'];
-                }
             }
 
             // ====================================================================
@@ -228,6 +215,20 @@ class ProcesarAuditoriaCompleta extends Command
             $status = $controller->enviarReportesPorCorreo($tarea->id);
             if ($status['code'] > 0) {
                 throw $status['message'];
+            }
+
+            // ====================================================================
+            // BLOQUE 4: INSERCIÓN EN GPC MULTI-SUCURSAL (DESPUÉS DEL CORREO)
+            // ====================================================================
+            if (strtoupper($tarea->sucursal) !== 'ZLO' && strtoupper($tarea->sucursal) !== 'MANZANILLO') {
+                gc_collect_cycles();
+                $this->info("--- INICIANDO INSERCIONES EN GPC MULTI-SUCURSAL ---");
+                Log::info("Enviando datos al nuevo Google Sheet de sucursales (POST-CORREO)...");
+                
+                $status = $controller->enviarAGPCMultiSucursal($tarea->id);
+                if ($status['code'] > 0) {
+                    throw $status['message'];
+                }
             }
 
             // FIN. Marcar tarea completada
