@@ -1175,7 +1175,7 @@ class AuditoriaImpuestosController extends Controller
         return "{$nombre} {$tipo}";
     }
     
-    // 5. ENVÍO DE IMPUESTOS A GPC (Solo Santander)
+    // 5. ENVÍO DE IMPUESTOS A GPC (Solo Santander / Manzanillo)
     public function enviarAGPCImpuestos(string $tareaId)
     {
         gc_collect_cycles();
@@ -1190,6 +1190,32 @@ class AuditoriaImpuestosController extends Controller
         }
 
         try {
+            // 🚀 PASO 1: EL TRADUCTOR - Leemos Google Sheets para obtener los nombres EXACTOS
+            $urlBase = app()->environment('production') 
+                ? "https://docs.google.com/spreadsheets/d/1FvhWp2AeOyoiv1KIrmQNOKf9ZoDRy5L7HVd5FcRQBio/gviz/tq?tqx=out:csv&_cb=" . time()
+                : "https://docs.google.com/spreadsheets/d/1yOcPGlvycRBCg5KpWs5-b8EmLQrUNPgh4aqurXQT1Uo/gviz/tq?tqx=out:csv&_cb=" . time();
+            
+            $csvUrlZLO = $urlBase . "&sheet=ZLO";
+            $responseZLO = Http::withoutVerifying()->timeout(60)->get($csvUrlZLO);
+            
+            $diccionarioNombresSheet = [];
+            if ($responseZLO->successful()) {
+                $streamZLO = fopen('php://memory', 'r+');
+                fwrite($streamZLO, $responseZLO->body());
+                rewind($streamZLO);
+                while (($cols = fgetcsv($streamZLO)) !== false) {
+                    foreach ($cols as $col) {
+                        // 🚀 NO limpiamos saltos de línea aquí. Queremos la celda original intacta.
+                        $colExacta = trim($col);
+                        if (preg_match('/[4-7]\d{6}/', $colExacta)) {
+                            $diccionarioNombresSheet[] = $colExacta;
+                        }
+                    }
+                }
+                fclose($streamZLO);
+                $diccionarioNombresSheet = array_unique($diccionarioNombresSheet);
+            }
+
             $mapeadoFacturas = (array) json_decode(Storage::get($tarea->mapeo_completo_facturas), true);
             $mapaFacturas = $mapeadoFacturas['pedimentos_totales'] ?? [];
 
@@ -1210,36 +1236,86 @@ class AuditoriaImpuestosController extends Controller
             $mapaPedimentoAId = $mapaFacturas + $mapaPdf;
 
             $impuestosParaSheetsDict = [];
-            $familiasProcesadas = []; 
+            $familias = []; 
 
             foreach ($mapaPedimentoAId as $pedimentoLimpio => $datosId) {
                 
-                $idsParaBuscar = $datosId['all_ids'] ?? [$datosId['id_pedimiento']];
-                sort($idsParaBuscar);
+                $idsActuales = $datosId['all_ids'] ?? [$datosId['id_pedimiento']];
+                $mergedIndex = -1;
+
+                preg_match_all('/[4-7]\d{6}/', $pedimentoLimpio . ' ' . ($datosId['num_pedimiento'] ?? ''), $mCurr);
+                $digitosCurrent = array_unique($mCurr[0] ?? []);
+
+                foreach ($familias as $index => $familia) {
+                    if (count(array_intersect($familia['ids'], $idsActuales)) > 0) {
+                        $mergedIndex = $index;
+                        break;
+                    }
+                    
+                    $digitosFamilia = [];
+                    foreach ($familia['claves'] as $claveFamiliar) {
+                        preg_match_all('/[4-7]\d{6}/', $claveFamiliar, $mFam);
+                        $digitosFamilia = array_merge($digitosFamilia, $mFam[0] ?? []);
+                    }
+                    
+                    if (count(array_intersect($digitosCurrent, array_unique($digitosFamilia))) > 0) {
+                        $mergedIndex = $index;
+                        break;
+                    }
+                }
                 
-                // AGRUPACIÓN FAMILIAR: Unimos los IDs para procesar todos los pagos (Normal y Recti) 
-                // en una sola pasada. Esto evita que los pagos se excluyan entre sí.
-                $hashFamilia = implode('-', $idsParaBuscar);
+                if ($mergedIndex !== -1) {
+                    $familias[$mergedIndex]['ids'] = array_unique(array_merge($familias[$mergedIndex]['ids'], $idsActuales));
+                    $familias[$mergedIndex]['claves'][] = $pedimentoLimpio;
+                    if (isset($datosId['num_pedimiento'])) $familias[$mergedIndex]['claves'][] = $datosId['num_pedimiento'];
+                } else {
+                    $familias[] = [
+                        'ids' => $idsActuales,
+                        'claves' => [$pedimentoLimpio, $datosId['num_pedimiento'] ?? '']
+                    ];
+                }
+            }
 
-                if (in_array($hashFamilia, $familiasProcesadas)) continue; 
-                $familiasProcesadas[] = $hashFamilia;
+            // 🚀 PASO 3: TRADUCIR EL NOMBRE Y ELIMINAR DUPLICADOS EXACTOS
+            foreach ($familias as $familia) {
+                // Fallback por si la celda no existe en el Sheet (aplica limpieza básica)
+                usort($familia['claves'], function($a, $b) { return strlen($b) - strlen($a); });
+                $pedimentoAEnviar = preg_replace('/\s+/', ' ', trim($familia['claves'][0]));
+                $pedimentoAEnviar = preg_replace('/\b\d{4}-/', '', $pedimentoAEnviar); 
 
-                $auditoriasBase = Auditoria::whereIn('pedimento_id', $idsParaBuscar)
+                // Extracción de dígitos para buscar en el Sheet
+                $digitosDeNuestraFamilia = [];
+                foreach ($familia['claves'] as $c) {
+                    if (preg_match_all('/[4-7]\d{6}/', $c, $m)) {
+                        $digitosDeNuestraFamilia = array_merge($digitosDeNuestraFamilia, $m[0]);
+                    }
+                }
+                $digitosDeNuestraFamilia = array_unique($digitosDeNuestraFamilia);
+
+                // 🚀 TRADUCTOR EN ACCIÓN: Reemplaza nuestro nombre por el original de Sheets
+                foreach ($diccionarioNombresSheet as $nombreExactoDelSheet) {
+                    foreach ($digitosDeNuestraFamilia as $digito) {
+                        if (str_contains($nombreExactoDelSheet, $digito)) {
+                            $pedimentoAEnviar = $nombreExactoDelSheet; // Mantiene los saltos de línea originales
+                            break 2; 
+                        }
+                    }
+                }
+
+                // Fusiona las facturas idénticas en 1
+                $auditoriasBase = Auditoria::whereIn('pedimento_id', $familia['ids'])
                     ->where('tipo_documento', 'impuestos')
                     ->where('monto_total', '>', 0)
                     ->orderBy('fecha_documento', 'asc') 
                     ->orderBy('id', 'asc')
                     ->get()
                     ->unique(function ($aud) {
-                        return $aud->pedimento_id . '_' . $aud->fecha_documento . '_' . round((float)$aud->monto_total, 2);
+                        return ($aud->fecha_documento ?? 's/f') . '_' . round((float)$aud->monto_total, 2);
                     })->values();
 
                 foreach ($auditoriasBase as $index => $auditoriaBase) {
-                    
                     $operacionId = $auditoriaBase->operacion_id;
-                    $operationType = $auditoriaBase->operation_type;
-                    
-                    $esImpo = ($operationType === Importacion::class);
+                    $esImpo = ($auditoriaBase->operation_type === Importacion::class);
                     $operacion = $esImpo ? Importacion::find($operacionId) : Exportacion::find($operacionId);
 
                     // LÓGICA INFALIBLE: El primer pago (index 0) siempre es el original. 
@@ -1247,20 +1323,14 @@ class AuditoriaImpuestosController extends Controller
                     $esRecti = ($index > 0);
                     $conceptoAEnviar = $esRecti ? 'Impuestos Recti' : 'Impuestos';
 
-                    $nombreCliente = optional($operacion->cliente)->nombre ?? '';
-                    $contenedor    = $operacion->contenedor ?? '';
-                    $bl            = $operacion->bol ?? ''; 
-                    $naviera       = $operacion->naviera ?? '';
-                    $fechaOp       = $auditoriaBase->fecha_documento ?? now()->format('Y-m-d');
-
-                    $impuestosParaSheetsDict[$hashFamilia . '_' . $index] = [
-                        'fecha'      => $fechaOp,
-                        'cliente'    => $nombreCliente,
-                        'contenedor' => $contenedor,
-                        'bl'         => $bl, 
-                        'naviera'    => $naviera,
+                    $impuestosParaSheetsDict[] = [
+                        'fecha'      => $auditoriaBase->fecha_documento ?? now()->format('Y-m-d'),
+                        'cliente'    => optional($operacion->cliente)->nombre ?? '',
+                        'contenedor' => $operacion->contenedor ?? '',
+                        'bl'         => $operacion->bol ?? '', 
+                        'naviera'    => $operacion->naviera ?? '',
                         'anticipo'   => '', 
-                        'pedimento'  => $datosId['num_pedimiento'], // Nombre íntegro de BD para anclar celda en Sheets
+                        'pedimento'  => $pedimentoAEnviar, // Nombre íntegro de BD para anclar celda en Sheets
                         'concepto'   => $conceptoAEnviar, 
                         'monto'      => (float) $auditoriaBase->monto_total,
                         'moneda'     => 'MXN'
@@ -1268,10 +1338,10 @@ class AuditoriaImpuestosController extends Controller
                 }
             }
 
-            $impuestosParaSheets = array_values($impuestosParaSheetsDict);
-
-            if (!empty($impuestosParaSheets)) {
-                $paquetes = array_chunk($impuestosParaSheets, 50);
+            if (!empty($impuestosParaSheetsDict)) {
+                Log::info("🚀 Impuestos listos para enviar a GPC: " . count($impuestosParaSheetsDict));
+                
+                $paquetes = array_chunk($impuestosParaSheetsDict, 50);
                 foreach ($paquetes as $index => $paquete) {
                     $numeroPaquete = $index + 1;
                     $totalPaquetes = count($paquetes);
@@ -1687,7 +1757,6 @@ class AuditoriaImpuestosController extends Controller
                 $datosSC = $indiceSC[$pedimentoLimpio] ?? $indiceSC[$numPedBD] ?? $indiceSC[$pedimentoExcel] ?? null;
 
                 if (!$datosSC) {
-                    Log::warning("[SC Fallo Enlace] No se encontró SC en el índice para {$pedimentoExcel} / {$pedimentoLimpio}");
                     continue; 
                 }
 
@@ -1801,7 +1870,6 @@ class AuditoriaImpuestosController extends Controller
                             'monto_diferencia_sc' => $nuevaDiferencia
                         ]);
                         
-                        Log::info("[RE-AUDITORIA EXITOSA] Impuestos Ped_ID {$pedId} actualizado a: {$nuevoEstado} | Diferencia: {$nuevaDiferencia}");
                     }
                 }
                 Log::info("Re-auditoría de Impuestos completada.");
@@ -2419,19 +2487,38 @@ class AuditoriaImpuestosController extends Controller
         Log::info("Tarea #{$tarea->id}: Enviando Pagos de Derecho a GPC...");
 
         try {
-            // 1. LISTA A (Desde las Facturas)
+            // 🚀 PASO 1: EL TRADUCTOR - Leemos Google Sheets para obtener los nombres exactos
+            $urlBase = app()->environment('production') 
+                ? "https://docs.google.com/spreadsheets/d/1FvhWp2AeOyoiv1KIrmQNOKf9ZoDRy5L7HVd5FcRQBio/gviz/tq?tqx=out:csv&_cb=" . time()
+                : "https://docs.google.com/spreadsheets/d/1yOcPGlvycRBCg5KpWs5-b8EmLQrUNPgh4aqurXQT1Uo/gviz/tq?tqx=out:csv&_cb=" . time();
+            
+            $csvUrlZLO = $urlBase . "&sheet=ZLO";
+            $responseZLO = Http::withoutVerifying()->timeout(60)->get($csvUrlZLO);
+            
+            $diccionarioNombresSheet = [];
+            if ($responseZLO->successful()) {
+                $streamZLO = fopen('php://memory', 'r+');
+                fwrite($streamZLO, $responseZLO->body());
+                rewind($streamZLO);
+                while (($cols = fgetcsv($streamZLO)) !== false) {
+                    foreach ($cols as $col) {
+                        $colTrimmed = trim($col);
+                        if (preg_match('/[4-7]\d{6}/', $colTrimmed)) {
+                            $diccionarioNombresSheet[] = preg_replace('/\s+/', ' ', $colTrimmed);
+                        }
+                    }
+                }
+                fclose($streamZLO);
+                $diccionarioNombresSheet = array_unique($diccionarioNombresSheet);
+            }
+
             $mapeadoFacturas = (array) json_decode(Storage::get($tarea->mapeo_completo_facturas), true);
             $mapaFacturas = $mapeadoFacturas['pedimentos_totales'] ?? [];
 
-            // 2. LISTA B (Desde el PDF del Banco)
             $pedimentosDelPdf = json_decode($tarea->pedimentos_procesados, true) ?? [];
             $sucursalesDic = [
-                'NOG' => [1, 3711], 
-                'TIJ' => [2, 3849], 
-                'NL' => [3, 3711],
-                'MXL' => [4, 1038], 
-                'ZLO' => [5, 3711], 
-                'REY' => [11, 3577], 
+                'NOG' => [1, 3711], 'TIJ' => [2, 3849], 'NL' => [3, 3711],
+                'MXL' => [4, 1038], 'ZLO' => [5, 3711], 'REY' => [11, 3577], 
                 'VRZ' => [12, 1864]
             ];
             $sucInfo = $sucursalesDic[$tarea->sucursal] ?? [1, 3711];
@@ -2442,34 +2529,95 @@ class AuditoriaImpuestosController extends Controller
             }
 
             $mapaPedimentoAId = $mapaFacturas + $mapaPdf;
-
             $pagosParaSheets = [];
-
+            
+            // 🚀 PASO 2: FUSIÓN DE FAMILIAS
+            $familias = [];
             foreach ($mapaPedimentoAId as $pedimentoLimpio => $datosId) {
-                
-                // Buscamos el registro base para obtener las relaciones (Cliente, BL)
-                $auditoriaBase = Auditoria::where('pedimento_id', $datosId['id_pedimiento'])
-                    ->where('tipo_documento', 'pago_derecho')
-                    ->first();
+                $idsActuales = $datosId['all_ids'] ?? [$datosId['id_pedimiento']];
+                $mergedIndex = -1;
 
-                if ($auditoriaBase) {
+                preg_match_all('/[4-7]\d{6}/', $pedimentoLimpio . ' ' . ($datosId['num_pedimiento'] ?? ''), $mCurr);
+                $digitosCurrent = array_unique($mCurr[0] ?? []);
+
+                foreach ($familias as $index => $familia) {
+                    if (count(array_intersect($familia['ids'], $idsActuales)) > 0) {
+                        $mergedIndex = $index;
+                        break;
+                    }
                     
-                    // Sumamos los montos por si hay más de un pago de derecho para el mismo pedimento
-                    $montoTotal = Auditoria::where('pedimento_id', $datosId['id_pedimiento'])
-                        ->where('tipo_documento', 'pago_derecho')
-                        ->sum('monto_total');
+                    $digitosFamilia = [];
+                    foreach ($familia['claves'] as $claveFamiliar) {
+                        preg_match_all('/[4-7]\d{6}/', $claveFamiliar, $mFam);
+                        $digitosFamilia = array_merge($digitosFamilia, $mFam[0] ?? []);
+                    }
+                    
+                    if (count(array_intersect($digitosCurrent, array_unique($digitosFamilia))) > 0) {
+                        $mergedIndex = $index;
+                        break;
+                    }
+                }
+                
+                if ($mergedIndex !== -1) {
+                    $familias[$mergedIndex]['ids'] = array_unique(array_merge($familias[$mergedIndex]['ids'], $idsActuales));
+                    $familias[$mergedIndex]['claves'][] = $pedimentoLimpio;
+                    if (isset($datosId['num_pedimiento'])) $familias[$mergedIndex]['claves'][] = $datosId['num_pedimiento'];
+                } else {
+                    $familias[] = [
+                        'ids' => $idsActuales,
+                        'claves' => [$pedimentoLimpio, $datosId['num_pedimiento'] ?? ''],
+                        'datos' => $datosId
+                    ];
+                }
+            }
+
+            // 🚀 PASO 3: TRADUCIR EL NOMBRE Y PROCESAR
+            foreach ($familias as $familia) {
+                usort($familia['claves'], function($a, $b) { return strlen($b) - strlen($a); });
+                $pedimentoAEnviar = preg_replace('/\s+/', ' ', trim($familia['claves'][0]));
+                $pedimentoAEnviar = preg_replace('/\b\d{4}-/', '', $pedimentoAEnviar);
+
+                $digitosDeNuestraFamilia = [];
+                foreach ($familia['claves'] as $c) {
+                    if (preg_match_all('/[4-7]\d{6}/', $c, $m)) {
+                        $digitosDeNuestraFamilia = array_merge($digitosDeNuestraFamilia, $m[0]);
+                    }
+                }
+                $digitosDeNuestraFamilia = array_unique($digitosDeNuestraFamilia);
+
+                // TRADUCTOR: Reemplaza nuestro nombre por el que exista en Sheets
+                foreach ($diccionarioNombresSheet as $nombreExactoDelSheet) {
+                    foreach ($digitosDeNuestraFamilia as $digito) {
+                        if (str_contains($nombreExactoDelSheet, $digito)) {
+                            $pedimentoAEnviar = $nombreExactoDelSheet;
+                            break 2;
+                        }
+                    }
+                }
+
+                $auditoriasBase = Auditoria::whereIn('pedimento_id', $familia['ids'])
+                    ->where('tipo_documento', 'pago_derecho')
+                    ->get()
+                    ->unique(function ($aud) {
+                        return ($aud->fecha_documento ?? 's/f') . '_' . round((float)$aud->monto_total, 2);
+                    })->values();
+
+                if ($auditoriasBase->isNotEmpty()) {
+                    
+                    $montoTotal = $auditoriasBase->sum('monto_total');
+                    $auditoriaReferencia = $auditoriasBase->first();
 
                     if ($montoTotal > 0) {
                         $nombreCliente = '';
                         $contenedor    = '';
                         $bl            = '';
                         $naviera       = '';
-                        $fechaOp       = $auditoriaBase->fecha_documento ?? now()->format('Y-m-d');
+                        $fechaOp       = $auditoriaReferencia->fecha_documento ?? now()->format('Y-m-d');
 
-                        if ($auditoriaBase->operation_type === Importacion::class) {
-                            $operacion = Importacion::with('cliente')->find($auditoriaBase->operacion_id);
+                        if ($auditoriaReferencia->operation_type === Importacion::class) {
+                            $operacion = Importacion::with('cliente')->find($auditoriaReferencia->operacion_id);
                         } else {
-                            $operacion = Exportacion::with('cliente')->find($auditoriaBase->operacion_id);
+                            $operacion = Exportacion::with('cliente')->find($auditoriaReferencia->operacion_id);
                         }
 
                         if ($operacion) {
@@ -2479,7 +2627,7 @@ class AuditoriaImpuestosController extends Controller
                             $naviera       = $operacion->naviera ?? '';
                         }
 
-                        $esRecti = $datosId['es_recti'] ?? false;
+                        $esRecti = $familia['datos']['es_recti'] ?? false;
                         // El nombre debe coincidir con la plantilla del Excel ("Pago de Derechos")
                         $conceptoAEnviar = $esRecti ? 'Pago de Derecho Recti' : 'Pago de Derechos'; 
 
@@ -2490,7 +2638,7 @@ class AuditoriaImpuestosController extends Controller
                             'bl'         => $bl, 
                             'naviera'    => $naviera,
                             'anticipo'   => '', 
-                            'pedimento'  => $pedimentoLimpio,
+                            'pedimento'  => $pedimentoAEnviar,
                             'concepto'   => $conceptoAEnviar, 
                             'monto'      => (float) $montoTotal,
                             'moneda'     => 'MXN'
@@ -2510,17 +2658,11 @@ class AuditoriaImpuestosController extends Controller
                     // Si estamos en el último ciclo, esto será true
                     $esUltimo = ($numeroPaquete === $totalPaquetes);
 
-                    Log::info("Enviando paquete {$numeroPaquete} de {$totalPaquetes}...");
-
                     // Le pasamos la bandera a la función
                     $this->enviarDatosAGoogleSheets($paquete, 'ZLO', 'ZLO', $esUltimo);
 
                     sleep(2);
                 }
-                
-                Log::info("Se enviaron exitosamente todos los Pagos de Derecho a Sheets.");
-            } else {
-                Log::info("Pagos de Derecho: No se encontraron registros guardados para enviar a Sheets.");
             }
 
             return ['code' => 0, 'message' => 'completado'];
