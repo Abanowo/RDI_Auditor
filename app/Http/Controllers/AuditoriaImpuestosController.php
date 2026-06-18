@@ -830,9 +830,22 @@ class AuditoriaImpuestosController extends Controller
                 'VRZ' => [12, 1864]
             ];
             $sucInfo = $sucursalesDic[$sucursal] ?? [1, 3711];
-            
+
             $numerosDePedimento = $operacionesLimpias->pluck('pedimento')->unique()->toArray();
-            $mapaPedimentoAId = $this->construirMapaDePedimentos($numerosDePedimento, $sucInfo[1], $sucInfo[0]);
+
+            // 1. Calculamos las fechas basándonos en la tarea para pasárselas al filtro anti-fantasmas
+            $fecha_fin = $tarea->fecha_documento;
+            $periodoMeses = $tarea->periodo_meses;
+            $fecha_inicio = \Carbon\Carbon::parse($fecha_fin)->subMonths($periodoMeses)->format('Y-m-d');
+
+            // 2. Llamamos a la función usando las variables correctas de este contexto ($sucInfo)
+            $mapaPedimentoAId = $this->construirMapaDePedimentos(
+                $numerosDePedimento,
+                $sucInfo[1], // Patente
+                $sucInfo[0], // Sucursal
+                $fecha_inicio,
+                $fecha_fin
+            );
             
             // --- EXORCISTA DE FANTASMAS ---
             $idsPedDb = [];
@@ -1479,7 +1492,13 @@ class AuditoriaImpuestosController extends Controller
             $numerosDePedimento = $pedimentos;
 
             // Construimos el mapa validado por Sucursal y Patente
-            $mapaPedimentoAId = $this->construirMapaDePedimentos($numerosDePedimento, $patenteSucursal, $numeroSucursal);
+            $mapaPedimentoAId = $this->construirMapaDePedimentos(
+                $numerosDePedimento,
+                $patenteSucursal,
+                $numeroSucursal,
+                $fecha_inicio,
+                $fecha_fin
+            );
             Log::info("Pedimentos encontrados en tabla 'pedimentos' (Validados por Sucursal): " . count($mapaPedimentoAId));
 
 
@@ -1493,11 +1512,9 @@ class AuditoriaImpuestosController extends Controller
             // PROCESAR IMPORTACIONES
             $mapaPedimentoAImportacionId = Importacion::query()
                 ->selectRaw('id_pedimiento, MAX(id_importacion) as id_importacion')
-                ->whereBetween('operaciones_importacion.created_at', [$fecha_inicio, $fecha_fin])
                 ->where(['operaciones_importacion.patente' => $patenteSucursal, 'operaciones_importacion.sucursal' => $numeroSucursal])
                 ->whereIn('operaciones_importacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
                 ->whereNull('parent')
-                ->orderBy('operaciones_importacion.created_at', 'desc')
                 ->groupBy('id_pedimiento')
                 ->get()
                 ->map(function ($operacion) use ($mapaPorId) {
@@ -1507,6 +1524,7 @@ class AuditoriaImpuestosController extends Controller
                         'pedimento' => $info['num_pedimiento'] ?? null, // Recuperamos num_pedimiento
                         'id_operacion' => $operacion->id_importacion,
                         'id_pedimento' => $operacion->id_pedimiento,
+                        'tipo' => 'Importacion', // Forzamos el tipo real para la API
                     ];
                 })
                 ->keyBy('pedimento');
@@ -1517,11 +1535,8 @@ class AuditoriaImpuestosController extends Controller
             // PROCESAR EXPORTACIONES
             $mapaPedimentoAExportacionId = Exportacion::query()
                 ->selectRaw('id_pedimiento, MAX(id_exportacion) as id_exportacion')
-                //->whereBetween('operaciones_exportacion.created_at', [$fecha_inicio, $fecha_fin])
-                //->where(['operaciones_exportacion.patente' => $patenteSucursal, 'operaciones_exportacion.sucursal' => $numeroSucursal])
+                ->where(['operaciones_exportacion.patente' => $patenteSucursal, 'operaciones_exportacion.sucursal' => $numeroSucursal]) // ¡ACTIVADOS PARA EVITAR CRUCES!
                 ->whereIn('operaciones_exportacion.id_pedimiento', Arr::pluck($mapaPedimentoAId, 'id_pedimiento'))
-                //->whereNull('parent')
-                ->orderBy('operaciones_exportacion.created_at', 'desc')
                 ->groupBy('id_pedimiento')
                 ->get()
                 ->map(function ($operacion) use ($mapaPorId) {
@@ -1535,7 +1550,6 @@ class AuditoriaImpuestosController extends Controller
                 })
                 ->keyBy('pedimento');
 
-            $pu = memory_get_usage();
             Log::info("Pedimentos encontrados en tabla 'pedimentos' y en 'operaciones_exportacion': " . $mapaPedimentoAExportacionId->count());
 
             // --- LOGICA PARA DETECTAR LOS NO ENCONTRADOS 
@@ -1571,14 +1585,22 @@ class AuditoriaImpuestosController extends Controller
 
                 $busquedaGlobal = Pedimento::whereRaw("num_pedimiento REGEXP ?", [$regexPattern])->get();
 
+                // Calculamos la misma fecha límite que pusimos en el filtro (Hace 1 año)
+                $fechaLimiteAntiguedad = now()->subYear()->format('Y-m-d');
+
                 foreach ($keysPorEncontrar as $pedimentoBuscado) {
                     foreach ($busquedaGlobal as $registro) {
-                        if (preg_match("/\b" . preg_quote($pedimentoBuscado, '/') . "\b/", $registro->num_pedimiento)) {
-                            // Guardamos la info para el reporte, indicando que existe pero no calificó
+                        preg_match('/[4-7]\d{6}/', $pedimentoBuscado, $matchBuscado);
+                        $digitosBuscados = $matchBuscado[0] ?? $pedimentoBuscado;
+
+                        if (str_contains($registro->num_pedimiento, $digitosBuscados)) {
+
+                            $fechaRealDB = $registro->created_at ? $registro->created_at->format('Y-m-d') : 'Sin fecha';
+
                             $mapaNoEncontrados[$pedimentoBuscado] = [
                                 'id_pedimiento' => $registro->id_pedimiento,
                                 'num_pedimiento' => $registro->num_pedimiento,
-                                'status_extra' => 'Encontrado en otra sucursal o sin operación'
+                                'fecha_bd' => $fechaRealDB,
                             ];
                             // OJO: No hacemos break para permitir encontrar la mejor coincidencia si hubiera
                         }
@@ -2370,7 +2392,7 @@ class AuditoriaImpuestosController extends Controller
                     continue;
                 }
 
-                $rutasPdfs = $indicePagosDerecho[$pedimentoSucioYId['num_pedimiento']] ?? null;
+                $rutasPdfs = $indicePagosDerecho[$pedimentoLimpio] ?? null;
                 if (!$rutasPdfs) {
                     continue;
                 }
@@ -2884,7 +2906,7 @@ class AuditoriaImpuestosController extends Controller
      * Lógica central para obtener y procesar los archivos de la API.
      * UTILIZADO EN [mapearFacturasYFacturasSCEnAuditorias()]
      */
-    private function construirIndiceFacturasParaMapeo(Collection $pedimentosOperacion, string $sucursal, string $tipoOperacion): array
+    private function construirIndiceFacturasParaMapeo(Collection $pedimentosOperacion, string $sucursal): array
     {
         gc_collect_cycles();
         $indiceFacturas = [];
@@ -2906,25 +2928,34 @@ class AuditoriaImpuestosController extends Controller
 
         foreach ($pedimentosOperacion as $pedimento => $operacionID) {
             try {
-                $archivos_pdf = [];
-                $idOp = $operacionID['id_operacion'];
+                $idOp = $operacionID['id_operacion'] ?? null;
+                $tipoReal = strtolower($operacionID['tipo'] ?? 'sin operacion');
 
-                // 1. Buscar archivos en la operación original (El Hijo)
-                $urlApi = "https://sistema.intactics.com/v3/operaciones/{$tipoOperacion}/{$idOp}/get-files-momentaneo";
+                // Si no hay operación válida o no hay ID, no perdemos tiempo (El filtro anti-fantasmas)
+                if (empty($idOp) || $tipoReal === 'sin operacion') {
+                    continue;
+                }
+
+                // Ajustamos el string para la API
+                $tipoApi = ($tipoReal === 'importacion') ? 'importaciones' : 'exportaciones';
+                $archivos_pdf = [];
+
+                // 1. Buscar archivos en la operación original usando la API correcta
+                $urlApi = "https://sistema.intactics.com/v3/operaciones/{$tipoApi}/{$idOp}/get-files-momentaneo";
                 $url_pdf = Http::withoutVerifying()->get($urlApi);
 
                 if ($url_pdf->successful() && is_array($url_pdf->json())) {
                     $archivos_pdf = array_merge($archivos_pdf, $url_pdf->json());
                 }
 
-                // Determinamos el modelo a buscar basándonos en si es impo o expo
-                $modeloOp = ($tipoOperacion === 'importaciones') ? Importacion::find($idOp) : Exportacion::find($idOp);
+                // Determinamos el modelo basándonos en el TIPO REAL, no en un parámetro duro
+                $modeloOp = ($tipoReal === 'importacion') ? Importacion::find($idOp) : Exportacion::find($idOp);
 
                 // Si la operación existe y tiene un padre asignado
                 if ($modeloOp && !empty($modeloOp->parent)) {
                     $parentId = $modeloOp->parent;
                     
-                    $urlApiParent = "https://sistema.intactics.com/v3/operaciones/{$tipoOperacion}/{$parentId}/get-files-momentaneo";
+                    $urlApiParent = "https://sistema.intactics.com/v3/operaciones/{$tipoApi}/{$parentId}/get-files-momentaneo";
                     $url_pdf_parent = Http::withoutVerifying()->get($urlApiParent);
 
                     if ($url_pdf_parent->successful() && is_array($url_pdf_parent->json())) {
@@ -2938,7 +2969,7 @@ class AuditoriaImpuestosController extends Controller
                 }
                 
                 $indiceFacturas[$pedimento] = [
-                    'tipo_operacion' => $tipoOperacion,
+                    'tipo_operacion' => $tipoApi, // Guardamos el real
                     'operacion_id' => $idOp,
                     'facturas' => [], 
                 ];
@@ -2964,10 +2995,8 @@ class AuditoriaImpuestosController extends Controller
                         }
                     }
 
-                    if (!$tipoFinal) {
-                        if (in_array(strtolower($pivotType), $mapeoFacturas)) {
-                            $tipoFinal = strtolower($pivotType);
-                        }
+                    if (!$tipoFinal && in_array(strtolower($pivotType), $mapeoFacturas)) {
+                        $tipoFinal = strtolower($pivotType);
                     }
 
                     if (!$tipoFinal) {
@@ -3020,10 +3049,13 @@ class AuditoriaImpuestosController extends Controller
                         $agrupadorTemp[$llaveGrupo]['ruta_xml'] = $url;
                     }
 
+                    // Codificamos el nombre base para que las URLs de TXT no se rompan por espacios
+                    $nombreBaseCodificado = rawurlencode($nombreBase);
+
                     if ($tipoFinal === 'sc' || $tipoOriginalMapeo === 'HONORARIOS-SC' || $tipoFinal === 'flete') {
-                        $agrupadorTemp[$llaveGrupo]['ruta_txt'] = "https://sistema.intactics.com/v2/uploads/{$nombreBase}.txt";
+                        $agrupadorTemp[$llaveGrupo]['ruta_txt'] = "https://sistema.intactics.com/v2/uploads/{$nombreBaseCodificado}.txt";
                     } elseif ($tipoFinal === 'llc' || $tipoOriginalMapeo === 'HONORARIOS-LLC') {
-                        $agrupadorTemp[$llaveGrupo]['ruta_txt'] = "https://sistema.intactics.com/v2/uploads/llc-{$nombreBase}.txt";
+                        $agrupadorTemp[$llaveGrupo]['ruta_txt'] = "https://sistema.intactics.com/v2/uploads/llc-{$nombreBaseCodificado}.txt";
                     }
                 }
 
@@ -4182,7 +4214,7 @@ class AuditoriaImpuestosController extends Controller
                 }
 
                 // Detecta los 7 dígitos sin importar el año
-                if (preg_match('/\b(\d{7})\b/', $pedimentoSucio, $m)) {
+                if (preg_match('/(\d{7})(?!\d)/', $pedimentoSucio, $m)) {
                     $pedimentoLimpio = $m[1];
                 } else {
                     continue;
@@ -4272,6 +4304,12 @@ class AuditoriaImpuestosController extends Controller
             foreach ($indicesOperacion as $pedimento => $datos) {
                 if (isset($datos['error'])) continue;
 
+                if (preg_match('/(\d{7})(?!\d)/', $pedimento, $m)) {
+                    $pedimentoLimpio = $m[1];
+                } else {
+                    continue; 
+                }
+
                 $facturasPagos = collect($datos['facturas'])->where('tipo_documento', 'pago_derecho');
                 if ($facturasPagos->isEmpty()) continue;
 
@@ -4295,8 +4333,7 @@ class AuditoriaImpuestosController extends Controller
                 $rutasFinales = !empty($rutasNormales) ? $rutasNormales : $rutasIntactics;
 
                 if (!empty($rutasFinales)) {
-                    $indice[$pedimento] = array_unique($rutasFinales);
-                    /* Log::info("PDD Buscador -> Ped: {$pedimento} | " . count($rutasNormales) . " Normales | " . count($rutasIntactics) . " Intactics. Guardando " . count($indice[$pedimento])); */
+                    $indice[$pedimentoLimpio] = array_unique($rutasFinales);
                 }
             }
         } catch (\Throwable $e) {
@@ -4567,7 +4604,7 @@ class AuditoriaImpuestosController extends Controller
      * @param array $pedimentosLimpios Array de números de pedimento de 7 dígitos.
      * @return array El mapa final.
      */
-    private function construirMapaDePedimentos(array $pedimentosLimpios, string $patenteSucursal, $numeroSucursal): array
+    private function construirMapaDePedimentos(array $pedimentosLimpios, string $patenteSucursal, $numeroSucursal, string $fecha_inicio = null, string $fecha_fin = null): array
     {
         gc_collect_cycles();
         if (empty($pedimentosLimpios)) return [];
@@ -4582,13 +4619,43 @@ class AuditoriaImpuestosController extends Controller
         $sieteDigitos = array_unique($sieteDigitos);
         if (empty($sieteDigitos)) return [];
 
+        // Calculamos la fecha límite (1 año hacia atrás desde el momento en que corre el código)
+        // Ejemplo: Si hoy es 18/06/2026, esto será '2025-06-18 00:00:00'
+        $fechaLimite = now()->subYear()->format('Y-m-d 00:00:00');
+
+        // EL FIX MAESTRO: Filtramos desde SQL para la Sucursal, Patente y máximo 1 año de antigüedad
         $posiblesCoincidencias = Pedimento::query()
+            ->where('created_at', '>=', $fechaLimite) // <-- EL ESCUDO ANTI-ANTIGÜEDADES (Cambia 'created_at' si usas otra columna de fecha)
             ->where(function ($q) use ($sieteDigitos) {
                 foreach ($sieteDigitos as $digito) {
                     $q->orWhere('num_pedimiento', 'LIKE', "%{$digito}%");
                 }
             })
-            ->with(['importacion', 'exportacion'])
+            ->where(function ($query) use ($patenteSucursal, $numeroSucursal, $fecha_inicio, $fecha_fin) {
+                // Solo pedimentos que tengan una operación en ESTA sucursal
+                $query->whereHas('importacion', function ($q) use ($patenteSucursal, $numeroSucursal, $fecha_inicio, $fecha_fin) {
+                    $q->where('patente', $patenteSucursal)->where('sucursal', $numeroSucursal);
+                    if ($fecha_inicio && $fecha_fin) {
+                        $fecha_extendida = \Carbon\Carbon::parse($fecha_inicio)->subDays(30)->format('Y-m-d');
+                        $q->whereBetween('created_at', [$fecha_extendida, $fecha_fin]);
+                    }
+                })->orWhereHas('exportacion', function ($q) use ($patenteSucursal, $numeroSucursal, $fecha_inicio, $fecha_fin) {
+                    $q->where('patente', $patenteSucursal)->where('sucursal', $numeroSucursal);
+                    if ($fecha_inicio && $fecha_fin) {
+                        $fecha_extendida = \Carbon\Carbon::parse($fecha_inicio)->subDays(30)->format('Y-m-d');
+                        $q->whereBetween('created_at', [$fecha_extendida, $fecha_fin]);
+                    }
+                });
+            })
+            ->with([
+                // Restringimos también la precarga para evitar cruces
+                'importacion' => function ($q) use ($patenteSucursal, $numeroSucursal) {
+                    $q->where('patente', $patenteSucursal)->where('sucursal', $numeroSucursal);
+                },
+                'exportacion' => function ($q) use ($patenteSucursal, $numeroSucursal) {
+                    $q->where('patente', $patenteSucursal)->where('sucursal', $numeroSucursal);
+                }
+            ])
             ->get();
 
         $mapaFinal = [];
@@ -4605,8 +4672,6 @@ class AuditoriaImpuestosController extends Controller
                     if (strpos($registro->num_pedimiento, $digito) !== false) {
                         $all_ids[] = $registro->id_pedimiento;
                         
-                        $esImpo = !is_null($registro->importacion);
-                        $operacion = $esImpo ? $registro->importacion : $registro->exportacion;
                         $esRecti = str_contains(strtoupper($registro->num_pedimiento), 'R1-');
 
                         // Mantenemos el original o la rectificación como "ancla" de la celda
