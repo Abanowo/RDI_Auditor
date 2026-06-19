@@ -2436,23 +2436,48 @@ class AuditoriaImpuestosController extends Controller
                     }
                 }
 
+                $auditoriasSC = $mapeadoFacturas['auditorias_sc'] ?? [];
+
                 foreach ($mejoresPagos as $llaveUnica => $datosPago) {
                     $rutaFinal = $datosPago['ruta_alternativa'] ?? $datosPago['ruta_pdf_original'];
                     $nombreFinal = strtoupper(basename($rutaFinal));
                     $estadoReal = str_contains($nombreFinal, 'INTACTICS') ? 'Intactics' : 'Normal';
+
+                    $idPedimentoBD = $pedimentoSucioYId['id_pedimiento'];
+                    $scDelPedimento = $auditoriasSC[$idPedimentoBD] ?? null;
+                    
+                    $montoScPDD = -1.1;
+                    if ($scDelPedimento) {
+                        $desglose = is_string($scDelPedimento['desglose_conceptos']) 
+                                    ? json_decode($scDelPedimento['desglose_conceptos'], true) 
+                                    : $scDelPedimento['desglose_conceptos'];
+                        
+                        $montoScPDD = (float)($desglose['montos']['pago_derecho_mxn'] ?? -1.1);
+                    }
+
+                    $montoPagoPDF = (float)$datosPago['monto_total'];
+
+                    // Comparamos los montos para sacar el estado ("Pagado", "Diferencia", "Sin SC!")
+                    $estadoValidacion = $this->compararMontos($montoScPDD, $montoPagoPDF, $tipoOperacion);
+                    
+                    $diferenciaSc = ($estadoValidacion !== "Sin SC!" && $estadoValidacion !== "Sin operacion!") 
+                        ? round($montoScPDD - $montoPagoPDF, 2) 
+                        : $montoPagoPDF;
+
+                    $estadoFinal = $estadoReal . ' - ' . $estadoValidacion;
 
                     $pagosParaGuardar[] = [
                         'operacion_id' => $operacionId['id_operacion'],
                         'pedimento_id' => $pedimentoSucioYId['id_pedimiento'],
                         'operation_type' => $tipoOperacion,
                         'tipo_documento' => 'pago_derecho',
-                        'concepto_llave' => $llaveUnica, // <--- Garantizado que no se repite en el batch
+                        'concepto_llave' => $llaveUnica,
                         'fecha_documento' => $datosPago['fecha_pago'] ?? now()->format('Y-m-d'),
-                        'monto_total' => $datosPago['monto_total'],
-                        'monto_total_mxn' => $datosPago['monto_total'],
-                        'monto_diferencia_sc' => 0,
+                        'monto_total' => $montoPagoPDF,
+                        'monto_total_mxn' => $montoPagoPDF,
+                        'monto_diferencia_sc' => $diferenciaSc,
                         'moneda_documento' => 'MXN',
-                        'estado' => $estadoReal,
+                        'estado' => $estadoFinal,
                         'llave_pago_pdd' => $datosPago['llave_pago'] ?? '',
                         'num_operacion_pdd' => $datosPago['numero_operacion'] ?? '',
                         'ruta_pdf' => $rutaFinal,

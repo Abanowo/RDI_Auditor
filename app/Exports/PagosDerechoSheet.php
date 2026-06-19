@@ -143,6 +143,7 @@ WithStrictNullComparison
         $montoScMxn = 'N/A';
         $folioSc = 'N/A';
         $pdfSc = 'Sin PDF!';
+        
         $estado = optional($facturaPDDs)->estado;
 
         if ($sc) {
@@ -156,7 +157,10 @@ WithStrictNullComparison
                 $pdfSc = '=HYPERLINK("' . $sc->ruta_pdf . '", "Acceder PDF")';
             }
         } else {
-            $estado = 'Sin SC!';
+            // Aseguramos mantener la alerta si no hay SC
+            if (!str_contains($estado, 'Sin SC!')) {
+                $estado = 'Sin SC!';
+            }
         }
 
         $monedaConTC = optional($facturaPDDs)->moneda_documento;
@@ -189,8 +193,8 @@ WithStrictNullComparison
     {
         return [
             'A' => 12, 'B' => 15, 'C' => 15, 'D' => 30, 'E' => 15, 'F' => 15,
-            'G' => 15, 'H' => 15, 'I' => 20, 'J' => 15, 'K' => 18,
-            'L' => 15, 'M' => 15,
+            'G' => 15, 'H' => 15, 'I' => 15, 'J' => 15, 'K' => 18, 'L' => 15, 
+            'M' => 15 
         ];
     }
 
@@ -231,14 +235,14 @@ WithStrictNullComparison
                 if ($sheet->getHighestRow() >= 2) {
                     foreach ($sheet->getRowIterator(2) as $row) { 
                         $rowIndex = $row->getRowIndex();
-                        $estado = $sheet->getCell($statusColumn . $rowIndex)->getValue();
+                        $estado = $sheet->getCell($statusColumn . $rowIndex)->getValue() ?? '';
                         $styleArray = [];
                         $styleArray['borders'] = [
                             'bottom' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF95B3D7']],
                             'top' => ['borderStyle' => Border::BORDER_THIN, 'color' => ['argb' => 'FF95B3D7']]
                         ];
 
-                        if ($estado === 'Sin SC!') {
+                        if ($estado === 'Sin SC!' || str_contains($estado, 'Sin SC!')) {
                             $dataStyle = [
                                 'font' => ['color' => ['argb' => 'FF1F497D']],
                                 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFDCE6F1']],
@@ -249,22 +253,39 @@ WithStrictNullComparison
                             ];
                             
                             $sheet->getStyle('A'.$rowIndex.':F'.$rowIndex)->applyFromArray($dataStyle);
-                            $sheet->getStyle('I'.$rowIndex)->applyFromArray($dataStyle);
-                            $sheet->getStyle('L'.$rowIndex)->applyFromArray($dataStyle);
-                            $sheet->getStyle('G'.$rowIndex.':H'.$rowIndex)->applyFromArray($scStyle);
-                            $sheet->getStyle('J'.$rowIndex.':K'.$rowIndex)->applyFromArray($scStyle);
-                            $sheet->getStyle('M'.$rowIndex)->applyFromArray($scStyle);
+                            $sheet->getStyle('I'.$rowIndex)->applyFromArray($dataStyle); // Moneda
+                            $sheet->getStyle('L'.$rowIndex)->applyFromArray($dataStyle); // PDF Factura
+                            
+                            $sheet->getStyle('G'.$rowIndex.':H'.$rowIndex)->applyFromArray($scStyle); // Montos SC
+                            $sheet->getStyle('J'.$rowIndex.':K'.$rowIndex)->applyFromArray($scStyle); // Folio y Estado
+                            $sheet->getStyle('M'.$rowIndex)->applyFromArray($scStyle); // PDF SC
 
                         } else {
-                            switch ($estado) {
-                                case 'Normal': $styleArray = array_merge($styleArray, ['font' => ['color' => ['argb' => 'FF006100']],'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFEBF1DE']]]); break;
-                                case 'Medio Pago':
-                                case 'Segundo Pago': $styleArray = ['font' => ['color' => ['argb' => 'FF006100']],'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFC4D79B']]]; break;
-                                case 'Intactics': $styleArray = ['font' => ['color' => ['argb' => 'FFFFFFFF']],'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFC0504D']]]; break;
+                            // Validamos PRIMERO si hay discrepancia (para evitar que "Normal - Pago de mas!" se pinte verde)
+                            if (str_contains($estado, 'Pago de mas!') || str_contains($estado, 'Pago de menos!') || str_contains($estado, 'Sin Pago!')) {
+                                $styleArray = array_merge($styleArray, [
+                                    'font' => ['color' => ['argb' => 'FF9C0006']],
+                                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFFFC7CE']]
+                                ]);
+                            } elseif (str_contains($estado, 'Intactics')) {
+                                $styleArray = array_merge($styleArray, [
+                                    'font' => ['color' => ['argb' => 'FFFFFFFF']],
+                                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFC0504D']]
+                                ]);
+                            } elseif (str_contains($estado, 'Coinciden!') || str_contains($estado, 'Normal') || str_contains($estado, 'Pagado')) {
+                                $styleArray = array_merge($styleArray, [
+                                    'font' => ['color' => ['argb' => 'FF006100']],
+                                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFEBF1DE']]
+                                ]);
+                            } elseif (str_contains($estado, 'Medio Pago') || str_contains($estado, 'Segundo Pago')) {
+                                $styleArray = array_merge($styleArray, [
+                                    'font' => ['color' => ['argb' => 'FF006100']],
+                                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFC4D79B']]
+                                ]);
                             }
                         }
 
-                        if (!empty($styleArray)) {
+                        if (!empty($styleArray) && !str_contains($estado, 'Sin SC!')) {
                             $sheet->getStyle('A' . $rowIndex . ':' . $lastColumn . $rowIndex)->applyFromArray($styleArray);
                         }
 
