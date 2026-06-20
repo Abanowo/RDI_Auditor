@@ -835,7 +835,6 @@ class AuditoriaImpuestosController extends Controller
 
             // 1. Calculamos las fechas basándonos en la tarea para pasárselas al filtro anti-fantasmas
             $fecha_fin = $tarea->fecha_documento;
-            $periodoMeses = $tarea->periodo_meses;
             $fecha_inicio = \Carbon\Carbon::parse($fecha_fin)->subMonths($periodoMeses)->format('Y-m-d');
 
             // 2. Llamamos a la función usando las variables correctas de este contexto ($sucInfo)
@@ -909,6 +908,20 @@ class AuditoriaImpuestosController extends Controller
                 $estado = $this->compararMontos($montoSCMXN, $montoImpuestoMXN, $tipoOp);
                 $diferenciaSc = ($estado !== "Sin SC!" && $estado !== "Sin operacion!") ? round($montoSCMXN - $montoImpuestoMXN, 2) : $montoImpuestoMXN;
 
+                $fechaCruda = $op['fecha_str'] ?? now()->format('Y-m-d');
+                $fechaFormateada = $fechaCruda;
+
+                if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $fechaCruda, $m)) {
+                    // Si viene en formato D/M/YYYY o DD/MM/YYYY
+                    $fechaFormateada = $m[3] . '-' . str_pad($m[2], 2, '0', STR_PAD_LEFT) . '-' . str_pad($m[1], 2, '0', STR_PAD_LEFT);
+                } else {
+                    try {
+                        $fechaFormateada = \Carbon\Carbon::parse($fechaCruda)->format('Y-m-d');
+                    } catch (\Exception $e) {
+                        $fechaFormateada = now()->format('Y-m-d');
+                    }
+                }
+
                 return [
                     'operacion_id' => $operacionId,
                     'pedimento_id' => $id_db,
@@ -916,7 +929,7 @@ class AuditoriaImpuestosController extends Controller
                     'tipo_documento' => 'impuestos',
                     'concepto_llave' => $conceptoLlave, 
                     'folio' => $pedLimpio, 
-                    'fecha_documento' => $op['fecha_str'],
+                    'fecha_documento' => $fechaFormateada,
                     'monto_total' => $montoImpuestoMXN,
                     'monto_total_mxn' => $montoImpuestoMXN,
                     'monto_diferencia_sc' => $diferenciaSc,
@@ -932,7 +945,16 @@ class AuditoriaImpuestosController extends Controller
             }
 
             $fechasEncontradas = $operacionesLimpias->map(function($item) { 
-                return \Carbon\Carbon::parse($item['fecha_str']); 
+                try {
+                    // Re-aplicamos parseo seguro por si alguna fecha en el $operacionesLimpias venía cruda
+                    $fecha = $item['fecha_str'] ?? now()->format('Y-m-d');
+                    if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/', $fecha, $m)) {
+                        $fecha = $m[3] . '-' . str_pad($m[2], 2, '0', STR_PAD_LEFT) . '-' . str_pad($m[1], 2, '0', STR_PAD_LEFT);
+                    }
+                    return \Carbon\Carbon::parse($fecha); 
+                } catch (\Exception $e) {
+                    return \Carbon\Carbon::now();
+                }
             });
             
             $tarea->update([
@@ -944,7 +966,7 @@ class AuditoriaImpuestosController extends Controller
 
         } catch (\Throwable $e) {
             $tarea->update(['status' => 'fallido', 'resultado' => $e->getMessage()]);
-            Log::error("Fallo tarea #{$tareaId}: " . $e->getMessage());
+            Log::error("Fallo tarea #{$tareaId}: " . $e->getMessage() . " Linea: " . $e->getLine());
             return ['code' => 1, 'message' => $e];
         }
     }
