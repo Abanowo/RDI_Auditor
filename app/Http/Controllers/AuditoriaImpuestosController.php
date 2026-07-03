@@ -1013,7 +1013,10 @@ class AuditoriaImpuestosController extends Controller
             $datosAgrupados = [];
 
             foreach ($mapaPedimentoAId as $pedimentoLimpio => $datosId) {
-                $scFisica = AuditoriaTotalSC::where('pedimento_id', $datosId['id_pedimiento'])->first();
+                $tipoOpClass = ($datosId['tipo'] == 'Importacion') ? Importacion::class : Exportacion::class;
+                $scFisica = AuditoriaTotalSC::where('pedimento_id', $datosId['id_pedimiento'])
+                    ->where('operation_type', $tipoOpClass) // <--- Filtro de seguridad
+                    ->first();
                 $folioSC = $scFisica ? $scFisica->folio : '';
 
                 $tipoOpClass = ($datosId['tipo'] == 'Importacion') ? Importacion::class : Exportacion::class;
@@ -1568,6 +1571,7 @@ class AuditoriaImpuestosController extends Controller
                         'pedimento' => $info['num_pedimiento'] ?? null, // Recuperamos num_pedimiento
                         'id_operacion' => $operacion->id_exportacion,
                         'id_pedimento' => $operacion->id_pedimiento,
+                        'tipo' => 'Exportacion',
                     ];
                 })
                 ->keyBy('pedimento');
