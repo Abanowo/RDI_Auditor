@@ -974,7 +974,6 @@ class AuditoriaImpuestosController extends Controller
     // ==================================================================================
     // MÉTODOS EXCLUSIVOS PARA NUEVAS SUCURSALES (NOGALES, LAREDO, TIJUANA, MEXICALI)
     // ==================================================================================
-
     /**
      * Orquestador que recolecta todas las facturas y las envía al nuevo Google Sheet (Plantilla de 6 PXCC)
      * Reglas: Sin monto = Sin proveedor. Si hay monto -> ECI(SENASICA), Maniobras NOG(SAFINSA), NL(IFA).
@@ -1010,6 +1009,11 @@ class AuditoriaImpuestosController extends Controller
                 'llc'          => 'LLC'
             ];
 
+            $indiceManiobras = [];
+            if ($tarea->sucursal === 'NL') {
+                $indiceManiobras = $this->construirIndiceOperacionesManiobras($indicesOperaciones);
+            }
+
             $datosAgrupados = [];
 
             foreach ($mapaPedimentoAId as $pedimentoLimpio => $datosId) {
@@ -1019,7 +1023,6 @@ class AuditoriaImpuestosController extends Controller
                     ->first();
                 $folioSC = $scFisica ? $scFisica->folio : '';
 
-                $tipoOpClass = ($datosId['tipo'] == 'Importacion') ? Importacion::class : Exportacion::class;
                 $hojaDestino = $this->getHojaDestino($tarea->sucursal, $tipoOpClass);
 
                 $queryOp = ($tipoOpClass === Importacion::class) 
@@ -1049,11 +1052,11 @@ class AuditoriaImpuestosController extends Controller
                     $auditoriasConsulta = Auditoria::where('pedimento_id', $datosId['id_pedimiento'])
                         ->where('tipo_documento', $tipoDoc)
                         ->where('monto_total', '>', 0)
-                        ->orderBy('fecha_documento', 'asc') // <-- Ordenar cronológicamente garantiza el orden Principal -> Recti
+                        ->orderBy('fecha_documento', 'asc') // Garantiza el orden Principal -> Recti
                         ->orderBy('id', 'asc')
                         ->get();
 
-                    // Filtro Anti-Fantasmas: Eliminamos registros que tengan exactamente la misma fecha y el mismo monto.
+                    // Filtro Anti-Fantasmas: Eliminamos registros con la misma fecha y monto exactos
                     $auditorias = $auditoriasConsulta;
                     if ($tipoDoc === 'impuestos') {
                         $auditorias = $auditoriasConsulta->unique(function ($aud) {
@@ -1085,15 +1088,53 @@ class AuditoriaImpuestosController extends Controller
                             } elseif ($tipoDoc === 'llc') {
                                 $proveedor = 'LLC';
                             } elseif ($tipoDoc === 'muestras') {
-                                if (!empty($aud->ruta_xml)) {
-                                    $xmlMuestra = $this->parsearXmlFlete($aud->ruta_xml);
-                                    if ($xmlMuestra && str_contains(strtoupper($xmlMuestra['emisor'] ?? ''), 'LABORATORIOS DE ANALISIS DE PRODUCTOS AGROPECUARIOS DEL NORESTE')) {
+                                $rutaXmlMuestra = $aud->ruta_xml ?? null;
+                                
+                                if (empty($rutaXmlMuestra)) {
+                                    foreach ($facturasDelPedimento as $fInfo) {
+                                        $tDoc = strtolower($fInfo['tipo_documento'] ?? '');
+                                        if (in_array($tDoc, ['muestras', 'pago_muestras']) && !empty($fInfo['ruta_xml'])) {
+                                            $rutaXmlMuestra = $fInfo['ruta_xml'];
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (!empty($rutaXmlMuestra)) {
+                                    $xmlMuestra = $this->parsearXmlFlete($rutaXmlMuestra);
+                                    if ($xmlMuestra) {
+                                        $emisorMuestra = strtoupper($xmlMuestra['emisor'] ?? '');
+                                        
+                                        if (str_contains($emisorMuestra, 'FITOSANITARIOS') || str_contains($emisorMuestra, 'GISENA') || str_contains($emisorMuestra, 'GRUPO INTEGRAL DE SERVICIOS FITOSANITARIOS ENA')) {
+                                            $proveedor = 'GISENA';
+                                        } elseif (str_contains($emisorMuestra, 'LABORATORIOS DE ANALISIS DE PRODUCTOS AGROPECUARIOS') || str_contains($emisorMuestra, 'LAPAN')) {
+                                            $proveedor = 'LAPAN';
+                                        } elseif (str_contains($emisorMuestra, 'COLEGIO DE POSTGRADUADOS') || str_contains($emisorMuestra, 'COLEGIO')) {
+                                            $proveedor = 'COLEGIO';
+                                        } elseif (!empty($emisorMuestra)) {
+                                            $proveedor = $emisorMuestra; // Toma dinámicamente cualquier otro proveedor
+                                        }
+
+                                        if (empty($aud->folio) || $aud->folio === '-' || $aud->folio === 'S/F' || str_starts_with(strtoupper($aud->folio), 'UNK_') || str_starts_with(strtoupper($aud->folio), 'PAGO-MUESTREO')) {
+                                            if (!empty($xmlMuestra['folio'])) {
+                                                $aud->folio = $xmlMuestra['folio']; 
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // Fallback en caso de que no haya XML pero el PDF o texto traiga pistas
+                                if (empty($proveedor) || $proveedor === $navieraOp || $proveedor === 'N/A') {
+                                    $textoCheck = strtoupper(($aud->folio ?? '') . ' ' . ($aud->ruta_pdf ?? ''));
+                                    if (str_contains($textoCheck, 'GISENA') || str_contains($textoCheck, 'FITOSANITARIO')) {
+                                        $proveedor = 'GISENA';
+                                    } elseif (str_contains($textoCheck, 'LAPAN')) {
                                         $proveedor = 'LAPAN';
                                     }
                                 }
                             }
 
-                            // <-- NUEVA LÓGICA DE NOMBRES (Sin importar si lleva "R1" o no, es por posición)
+                            // <-- LÓGICA DE NOMBRES
                             if ($tipoDoc === 'impuestos') {
                                 $conceptoFinal = ($index === 0) ? 'IMPUESTOS' : 'IMPUESTOS RECTI'; 
                             } else {
@@ -1102,10 +1143,105 @@ class AuditoriaImpuestosController extends Controller
                             
                             $folioFactura = $aud->folio ?? '-';
 
+                            $folioUpper = strtoupper(trim($folioFactura));
+                            if (in_array($folioUpper, ['S/F', 'PAGO-MUESTREO', 'PAGO-MUESTRA', 'PAGO MUESTRA', 'COMPROBANTE']) || str_starts_with($folioUpper, 'UNK_') || str_starts_with($folioUpper, 'ARCHIVO_')) {
+                                $folioFactura = '-';
+                            }
+
                             if ($tipoDoc === 'maniobras' && $tarea->sucursal === 'NOG' && !empty($folioFactura) && $folioFactura !== '-') {
                                 $folioFactura = strtoupper($folioFactura);
                                 if (!str_starts_with($folioFactura, 'GS0')) {
                                     $folioFactura = 'GS0' . $folioFactura;
+                                }
+                            }
+
+                            //Desgloce de maniobras para NL a clientes específicos
+                            $clientesDesgloseNL = [
+                                'CENTRO ABARROTERO DEL BAJIO',
+                                'ALMACENADORA Y MAQUILAS',
+                                'ALMACENADORAS Y MAQUILA',
+                                'ALMACENADORAS Y MAQUILAS',
+                                'SURTIDORA DEL BAJIO'
+                            ];
+
+                            if ($tipoDoc === 'maniobras' && $tarea->sucursal === 'NL' && Str::contains(strtoupper($cliente), $clientesDesgloseNL)) {
+                                
+                                $numPedRef = $datosId['num_pedimiento'];
+                                $listaFacturasManiobra = $indiceManiobras[$numPedRef] ?? $indiceManiobras[$pedimentoLimpio] ?? [];
+
+                                if (!empty($listaFacturasManiobra)) {
+                                    $contadoresConcepto = [];
+
+                                    foreach ($listaFacturasManiobra as $datosManiobra) {
+                                        // Leemos el monto, naviera y fecha real directamente del XML/PDF
+                                        $infoExtraccion = $this->extraerMontoYNaviera($datosManiobra['path_xml_man'] ?? null, $datosManiobra['path_pdf_man'] ?? null);
+
+                                        if ($infoExtraccion['monto'] > 0) {
+                                            $nombreArchivo = strtoupper(basename($datosManiobra['path_pdf_man'] ?? $datosManiobra['path_xml_man'] ?? ''));
+                                            $naviera = strtoupper($infoExtraccion['naviera']);
+
+                                            // Valores por defecto
+                                            $conceptoDesglose = 'MANIOBRAS';
+                                            $proveedorDesglose = 'MANIOBRAS NL';
+
+                                            // Clasificación exacta basada en nomenclatura y proveedores
+                                            if (str_contains($nombreArchivo, 'KCSM') || str_contains($naviera, 'KANSAS') || str_contains($naviera, 'KCSM')) {
+                                                $conceptoDesglose = 'FERROVIARIAS';
+                                                $proveedorDesglose = 'KANSAS';
+                                            } elseif (str_contains($nombreArchivo, 'FSA030920NT1') || str_contains($naviera, 'SANMOL') || str_contains($naviera, 'FUMIGA')) {
+                                                $conceptoDesglose = 'FUMIGACION';
+                                                $proveedorDesglose = 'SANMOL';
+                                            } elseif (str_contains($nombreArchivo, 'MSN1410164Q4') || str_contains($naviera, 'MANIOBRA')) {
+                                                $conceptoDesglose = 'MANIOBRAS';
+                                                $proveedorDesglose = 'MANIOBRAS NL';
+                                            }
+
+                                            // Sistema anti-colisiones para el Apps Script (Ej: FUMIGACION 1, FUMIGACION 2 si hubieran dos)
+                                            if (!isset($contadoresConcepto[$conceptoDesglose])) {
+                                                $contadoresConcepto[$conceptoDesglose] = 1;
+                                                $conceptoFinalAEnviar = $conceptoDesglose;
+                                            } else {
+                                                $contadoresConcepto[$conceptoDesglose]++;
+                                                $conceptoFinalAEnviar = $conceptoDesglose . ' ' . $contadoresConcepto[$conceptoDesglose];
+                                            }
+
+                                            // Extracción de Folio Real y Moneda
+                                            $folioItem = $datosManiobra['folio'] ?? '-';
+                                            $monedaItem = 'MXN';
+                                            if (!empty($datosManiobra['path_xml_man'])) {
+                                                $xmlData = $this->parsearXmlFlete($datosManiobra['path_xml_man']);
+                                                if ($xmlData) {
+                                                    if (!empty($xmlData['folio'])) {
+                                                        $folioItem = $xmlData['folio'];
+                                                    }
+                                                    if (!empty($xmlData['moneda'])) {
+                                                        $monedaItem = $xmlData['moneda'];
+                                                    }
+                                                }
+                                            }
+                                            
+                                            if (str_starts_with($folioItem, 'UNK_')) $folioItem = '-';
+
+                                            $fechaItem = $infoExtraccion['fecha'] ? \Carbon\Carbon::parse($infoExtraccion['fecha'])->format('m-d-Y') : now()->format('m-d-Y');
+
+                                            $datosAgrupados[$hojaDestino][] = [
+                                                'fecha'      => $fechaItem,
+                                                'cliente'    => $cliente,
+                                                'pedimento'  => $datosId['num_pedimiento'],
+                                                'pxcc'       => $conceptoFinalAEnviar, 
+                                                'proveedor'  => $proveedorDesglose,
+                                                'factura_p'  => $folioItem,
+                                                'monto'      => $infoExtraccion['monto'],
+                                                'moneda'     => $monedaItem,
+                                                'factura_sc' => $folioSC,
+                                                'estatus'    => $estatusConDatos,
+                                                'monto_llc'  => '',
+                                                'moneda_llc' => '',
+                                                'fecha_pago' => ''
+                                            ];
+                                        }
+                                    }
+                                    continue;
                                 }
                             }
 
