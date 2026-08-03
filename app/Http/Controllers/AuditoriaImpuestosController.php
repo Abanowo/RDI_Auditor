@@ -2433,7 +2433,7 @@ class AuditoriaImpuestosController extends Controller
                     if (str_contains($nombreCliente, $excluido)) {
                         $omitir = true;
                         break; // Si hace match con uno, dejamos de buscar
-                        }
+                    }
                 }
                 if ($omitir) {
                     Auditoria::where('pedimento_id', $pedimentoSucioYId['id_pedimiento'])->where('tipo_documento', 'llc')->delete();
@@ -2443,22 +2443,38 @@ class AuditoriaImpuestosController extends Controller
                 $datosSC = $indiceSC[$pedimentoLimpio] ?? null;
                 $datosLlc = $indiceLLC[$pedimentoLimpio] ?? null;
 
-                if (str_contains($nombreCliente, 'SONORA AGROPECUARIA')) {
-                    if ($datosLlc && !empty($datosLlc['ruta_pdf'])) {
-                        $pdfData = $this->extraerTotalDesdePdfProveedor($datosLlc['ruta_pdf']);
-                        if ($pdfData && $pdfData['monto'] !== null) {
+                if (!$datosLlc) {
+                    continue;
+                }
+
+                // LECTURA DINÁMICA DE PDF SIN RESTRICCIONES (Aplica para todo)
+                if (empty($datosLlc['txt_exitoso']) || $datosLlc['monto_total'] <= 0) {
+                    if (!empty($datosLlc['ruta_pdf'])) {
+                        // Enviamos el pedimentoLimpio para que el log lo intercepte
+                        $pdfData = $this->extraerTotalDesdePdfProveedor($datosLlc['ruta_pdf'], $pedimentoLimpio);
+                        
+                        if ($pdfData !== null && $pdfData['monto'] !== null) {
                             $datosLlc['monto_total'] = (float) $pdfData['monto'];
-                            $datosLlc['fecha'] = $pdfData['fecha'] ?? $datosLlc['fecha'];
-                            $datosLlc['folio'] = $pdfData['folio'] ?? $datosLlc['folio'];
+                            
+                            if (!empty($pdfData['fecha'])) {
+                                $datosLlc['fecha'] = $pdfData['fecha'];
+                            }
+
+                            $nombreArchivo = basename($datosLlc['ruta_pdf']);
+                            if (preg_match('/(?:NOG|TIJ|NL|MXL|ZLO|REY|VRZ|ITK|FSSA)-?0*(\d+)/i', $nombreArchivo, $matchFolioArchivo)) {
+                                $datosLlc['folio'] = $matchFolioArchivo[1]; 
+                            } elseif (!empty($pdfData['folio'])) {
+                                $datosLlc['folio'] = $pdfData['folio']; 
+                            }
                         }
                     }
                 }
 
-                if (!$datosLlc) continue;
+                $montoRealExtraido = (float) ($datosLlc['monto_total'] ?? 0);
 
                 // Cálculos y Comparativa
                 $tipoCambioUsar = (isset($datosSC['tipo_cambio']) && $datosSC['tipo_cambio'] > 1) ? $datosSC['tipo_cambio'] : $tipoCambioGlobal;
-                $montoLLCMXN = ($tipoCambioUsar > 1) ? round($datosLlc['monto_total'] * $tipoCambioUsar, 2, PHP_ROUND_HALF_UP) : $datosLlc['monto_total'];
+                $montoLLCMXN = ($tipoCambioUsar > 1) ? round($montoRealExtraido * $tipoCambioUsar, 2, PHP_ROUND_HALF_UP) : $montoRealExtraido;
                 $montoSCMXN = $datosSC['monto_llc_sc_mxn'] ?? -1;
                 
                 $estado = $this->compararMontos_LLC($montoSCMXN, $montoLLCMXN);
@@ -2471,8 +2487,8 @@ class AuditoriaImpuestosController extends Controller
                     'tipo_documento' => 'llc',
                     'concepto_llave' => 'principal',
                     'folio' => $datosLlc['folio'] ?? 'S/F',
-                    'fecha_documento' => $datosLlc['fecha'],
-                    'monto_total' => $datosLlc['monto_total'],
+                    'fecha_documento' => $datosLlc['fecha'] ?? now()->format('Y-m-d'),
+                    'monto_total' => $montoRealExtraido,
                     'monto_total_mxn' => $montoLLCMXN,
                     'monto_diferencia_sc' => $diferenciaSc,
                     'moneda_documento' => 'USD',
@@ -4446,29 +4462,6 @@ class AuditoriaImpuestosController extends Controller
                         Log::warning("Error leyendo TXT de LLC para pedimento {$pedimentoLimpio}");
                     }
                 }
-                
-                if (!$datosLlc['txt_exitoso'] && !empty($datosLlc['ruta_pdf'])) {
-                    $pdfData = $this->extraerTotalDesdePdfProveedor($datosLlc['ruta_pdf']);
-                    
-                    if ($pdfData !== null && $pdfData['monto'] !== null) {
-                        $datosLlc['monto_total'] = (float) $pdfData['monto'];
-                        $datosLlc['txt_exitoso'] = true; // Lo marcamos como exitoso por la vía del PDF
-                        
-                        // Si el PDF también nos arroja una fecha válida, la aprovechamos
-                        if (!empty($pdfData['fecha'])) {
-                            $datosLlc['fecha'] = $pdfData['fecha'];
-                        }
-
-                        $nombreArchivo = basename($datosLlc['ruta_pdf']);
-                        
-                        if (preg_match('/(?:NOG|TIJ|NL|MXL|ZLO|REY|VRZ|ITK|FSSA)-?0*(\d+)/i', $nombreArchivo, $matchFolioArchivo)) {
-                            $datosLlc['folio'] = $matchFolioArchivo[1]; // Extraerá "64044" de NOG64044.pdf
-                        } elseif (!empty($pdfData['folio'])) {
-                            $datosLlc['folio'] = $pdfData['folio']; // Fallback por si el nombre es raro
-                        }
-                        
-                    }
-                }
 
                 $indice[$pedimentoLimpio] = $datosLlc;
             }
@@ -5331,27 +5324,52 @@ class AuditoriaImpuestosController extends Controller
             $config->setRetainImageContent(false);
             $parser = new Parser([], $config);
             $pdf = $parser->parseContent($contenidoPdf);
-            $texto = preg_replace('/\s+/', ' ', $pdf->getText());
-            $textoSinEspacios = preg_replace('/\s+/', '', $texto);
+            $textoCrudo = $pdf->getText();
+            $texto = preg_replace('/\s+/', ' ', $textoCrudo);
 
             $monto = null;
             $fecha = null;
             $folio = null;
+            $regexMatched = 'Ninguno';
 
-            if (preg_match('/PLEASE\s*PAY\s*THIS\s*AMOUNT[^\d]*([\d,]+\.\d{2})/i', $texto, $matches)) {
-                $monto = (float) str_replace(',', '', $matches[1]);
-            } 
-            elseif (preg_match('/PLEASEPAYTHISAMOUNT.*?([\d,]+\.\d{2})/i', $textoSinEspacios, $matchesEspacios)) {
-                $monto = (float) str_replace(',', '', $matchesEspacios[1]);
+            $esInTactics = str_contains(strtoupper($texto), 'INTACTICS') 
+                        || str_contains(strtoupper($texto), 'PLEASE PAY THIS AMOUNT') 
+                        || preg_match('/ITK[0]*\d+/i', $texto);
+
+            if ($esInTactics) {
+                // 🚀 LÓGICA ANCLADA: Busca un número decimal EXACTAMENTE antes de la palabra "ENTRY:"
+                if (preg_match('/([\d,]+\.\d{2})\s*ENTRY:/i', $texto, $matches)) {
+                    $monto = (float) str_replace(',', '', $matches[1]);
+                    $regexMatched = 'INTACTICS: ANCLA ENTRY:';
+                } 
+                // Fallback goloso si falla la primera regla
+                elseif (preg_match('/PLEASE\s*PAY\s*THIS\s*AMOUNT.*?([\d,]+\.\d{2})\s*ENTRY/is', $texto, $matches)) {
+                    $monto = (float) str_replace(',', '', $matches[1]);
+                    $regexMatched = 'INTACTICS: PLEASE PAY -> ENTRY';
+                }
+
+                // Rescatamos el Folio exacto de InTactics (Ej. ITK00317118 -> 317118)
+                if (preg_match('/ITK[0]*(\d+)/i', $texto, $matchFolioITK)) {
+                    $folio = $matchFolioITK[1];
+                }
             }
-            // Algunas LLC usan BALANCE DUE o TOTAL DUE
-            elseif (preg_match('/(?:BALANCE|TOTAL)\s+DUE[^\d]*([\d,]+\.\d{2})/i', $texto, $matches)) {
-                $monto = (float) str_replace(',', '', $matches[1]);
+
+            // Lógica general para todos los demás proveedores (Solo se ejecuta si NO es Intactics o si falló la extracción)
+            if ($monto === null) {
+                if (preg_match('/PLEASE\s*PAY\s*THIS\s*AMOUNT[^\d]*([\d,]+\.\d{2})/i', $texto, $matches)) {
+                    $monto = (float) str_replace(',', '', $matches[1]);
+                    $regexMatched = 'PLEASE PAY THIS AMOUNT';
+                } 
+                elseif (preg_match('/(?:BALANCE|TOTAL)\s+DUE[^\d]*([\d,]+\.\d{2})/i', $texto, $matches)) {
+                    $monto = (float) str_replace(',', '', $matches[1]);
+                    $regexMatched = 'BALANCE/TOTAL DUE';
+                }
             }
 
             if ($monto === null && str_contains(strtoupper($texto), 'SSA')) {
                 if (preg_match('/(?:Importe|Total\s+Servicios|Total\s+Facturado)[\s:]+([\d,]+\.\d{2})/i', $texto, $matches)) {
                     $monto = (float) str_replace(',', '', $matches[1]);
+                    $regexMatched = 'SSA';
                 }
             }
 
@@ -5375,7 +5393,7 @@ class AuditoriaImpuestosController extends Controller
             }
 
             // EXTRACCIÓN DE FOLIO
-            if (preg_match('/(?:Factura|Invoice|No\.)\s*[:]?\s*(\d{5,})/i', $texto, $matchFolio)) {
+            if ($folio === null && preg_match('/(?:Factura|Invoice|No\.)\s*[:]?\s*(\d{5,})/i', $texto, $matchFolio)) {
                 $folio = trim($matchFolio[1]);
             }
 
