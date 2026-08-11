@@ -1,6 +1,6 @@
 <template>
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden flex flex-col">
 
             <!-- Header Modal -->
             <div class="bg-blue-600 px-4 py-3 flex justify-between items-center">

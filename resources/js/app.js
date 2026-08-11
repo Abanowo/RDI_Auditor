@@ -8,7 +8,7 @@ Vue.component('upload-form', require('./components/UploadForm.vue').default);
 
 //Vue.component('lista-auditorias', require('./components/AuditPage.vue').default);
 
- Vue.component('lista-auditorias', require('./components/VistaPrincipal.vue').default);
+Vue.component('lista-auditorias', require('./components/VistaPrincipal.vue').default);
 
 /**
  * Filtro global para formatear números como moneda

@@ -25,6 +25,21 @@
                     <multiselect v-model="form.sucursal_origen" :options="opcionesSucursal" placeholder="Seleccione..."
                         :show-labels="false" class="text-sm">
                     </multiselect>
+
+                    <!-- 🔥 CHECKBOXES INTELIGENTES -->
+                    <div v-if="sucursalSeleccionada" class="mt-2 flex items-center gap-3">
+                      
+                      <label v-if="esSucursalOtraBase" class="inline-flex items-center cursor-pointer bg-blue-50 px-2 py-1 rounded border border-blue-200 hover:bg-blue-100 transition-colors shadow-sm">
+                        <input v-model="checkTransportactics" type="checkbox" class="form-checkbox h-3.5 w-3.5 text-blue-600 rounded cursor-pointer">
+                        <span class="ml-1.5 text-[10px] text-blue-800 font-extrabold uppercase">Es Transportactics</span>
+                      </label>
+          
+                      <label v-if="esSucursalManzanilloBase" class="inline-flex items-center cursor-pointer bg-purple-50 px-2 py-1 rounded border border-purple-200 hover:bg-purple-100 transition-colors shadow-sm">
+                        <input v-model="checkIntshipperts" type="checkbox" class="form-checkbox h-3.5 w-3.5 text-purple-600 rounded cursor-pointer">
+                        <span class="ml-1.5 text-[10px] text-purple-800 font-extrabold uppercase">Es Intshipperts</span>
+                      </label>
+          
+                    </div>
                 </div>
 
                 <!-- BANCO -->
@@ -53,30 +68,32 @@
                     </multiselect>
                 </div>
 
-                <!-- REFERENCIA (MULTISELECT INTELIGENTE) -->
+                <!-- REFERENCIA -->
                 <div class="col-span-1">
-                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">PEDIMENTOS / FOLIOS
-                        DISPONIBLES</label>
-                    <div class="flex">
+                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">
+                        PEDIMENTOS / FOLIOS DISPONIBLES *
+                    </label>
+
+                    <!-- 🔥 Flexbox blindado (w-full min-w-0) para evitar que se aplaste el campo de Monto -->
+                    <div class="flex w-full min-w-0">
                         <multiselect v-model="form.referenciasObj" :options="opcionesPedimentos" :multiple="true"
                             :taggable="true" @tag="agregarReferencia" track-by="label" label="label"
                             :loading="cargandoSheet" :disabled="!form.sucursal_origen"
-                            placeholder="Seleccione folios o escriba..." class="w-full text-sm">
+                            placeholder="Seleccione folios o escriba..." class="w-full min-w-0 flex-1 text-sm">
                             <template slot="noResult">No se encontraron folios para este cliente</template>
                         </multiselect>
 
-                        <button @click="buscarYRecalcularPedimento" type="button" title="Calcular montos desde XML"
-                            :disabled="cargandoSheet"
-                            class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-r transition-colors flex items-center justify-center -ml-1 z-10 disabled:opacity-50">
+                        <button @click="buscarYRecalcularPedimento" type="button"
+                            title="Calcular montos desde XML / Sheet" :disabled="cargandoSheet"
+                            class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-r transition-colors flex items-center justify-center -ml-1 z-10 shrink-0 disabled:opacity-50">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                             </svg>
                         </button>
                     </div>
-                    <span v-if="!form.sucursal_origen" class="text-[9px] text-red-500 font-bold">⚠️ Selecciona una
-                        sucursal para cargar la
-                        lista.</span>
+                    <span v-if="!form.sucursal_origen" class="text-[9px] text-red-500 font-bold mt-1 block">⚠️
+                        Selecciona una sucursal para cargar la lista.</span>
                 </div>
 
                 <!-- MONTO -->
@@ -108,7 +125,78 @@
                 <!-- DESGLOSE -->
                 <div class="col-span-2 mt-2 border border-[#2A3A4D] rounded-lg p-3 bg-gray-50/50">
                     <h4 class="text-[11px] font-extrabold text-[#2A3A4D] uppercase tracking-wide mb-3">DESGLOSE:</h4>
-                    <div class="grid grid-cols-4 gap-3">
+
+                    <!-- 1. DESGLOSE EXCLUSIVO TRANSPORTACTICS -->
+                    <div class="grid grid-cols-3 gap-3" v-if="esTransportactics">
+                        <div>
+                            <label class="block text-[10px] text-gray-500 mb-1">Flete (XML):</label>
+                            <input v-model="form.flete" type="number" step="0.01" placeholder="0.00"
+                                class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-gray-500 mb-1">Pago Proveedor:</label>
+                            <input v-model="form.pago_proveedor" type="number" step="0.01" placeholder="0.00"
+                                class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-emerald-600 mb-1 font-bold">Ganancia:</label>
+                            <input
+                                :value="(parseFloat(form.flete || 0) - parseFloat(form.pago_proveedor || 0)).toFixed(2)"
+                                readonly type="number"
+                                class="w-full border border-emerald-200 rounded px-2 py-1.5 text-sm bg-emerald-50 text-emerald-700 font-bold focus:outline-none cursor-not-allowed">
+                        </div>
+                    </div>
+
+                    <!-- 2. DESGLOSE EXCLUSIVO INTSHIPPERTS -->
+                    <div class="grid grid-cols-2 gap-3" v-else-if="esIntshipperts">
+                      <div>
+                        <label class="block text-[10px] text-gray-500 mb-1">Anticipo:</label>
+                        <input v-model="form.anticipo" type="number" step="0.01" placeholder="0.00"
+                          class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+                      </div>
+                      <div>
+                        <label class="block text-[10px] text-gray-500 mb-1">ALMAN / Flete:</label>
+                        <input v-model="form.flete" type="number" step="0.01" placeholder="0.00"
+                          class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+                      </div>
+                    </div>
+
+                    <!-- 3. DESGLOSE EXCLUSIVO MANZANILLO (Normal) -->
+                    <div class="grid grid-cols-4 gap-3" v-else-if="esManzanillo">
+                        <div>
+                            <label class="block text-[10px] text-gray-500 mb-1">Anticipo:</label>
+                            <input v-model="form.anticipo" type="number" step="0.01" placeholder="0.00"
+                                class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-gray-500 mb-1">Garantías:</label>
+                            <input v-model="form.garantias" type="number" step="0.01" placeholder="0.00"
+                                class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-gray-500 mb-1">Desglose Naviera:</label>
+                            <input v-model="form.desglose_naviera" type="number" step="0.01" placeholder="0.00"
+                                class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-gray-500 mb-1">Impuestos:</label>
+                            <input v-model="form.impuestos" type="number" step="0.01" placeholder="0.00"
+                                class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-gray-500 mb-1">ALMAN / Flete:</label>
+                            <input v-model="form.flete" type="number" step="0.01" placeholder="0.00"
+                                class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-gray-500 mb-1">Honorarios:</label>
+                            <input v-model="form.honorarios" type="number" step="0.01" placeholder="0.00"
+                                class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+                        </div>
+                    </div>
+
+                    <!-- 4. DESGLOSE ESTÁNDAR (NO MANZANILLO, NO INTSHIPPERTS, NO TRANSPORTACTICS) -->
+                    <div class="grid grid-cols-4 gap-3" v-else>
                         <div>
                             <label class="block text-[10px] text-gray-500 mb-1">Honorarios:</label>
                             <input v-model="form.honorarios" type="number" step="0.01" placeholder="0.00"
@@ -144,29 +232,27 @@
                             <input v-model="form.llc" type="number" step="0.01" placeholder="0.00"
                                 class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
                         </div>
-
-                        <!-- RESUMEN DE TOTALES -->
-                        <div
-                            class="col-span-full mt-2 p-2.5 bg-white border border-gray-200 rounded flex flex-wrap items-center justify-between shadow-sm">
-                            <div class="flex items-center gap-2 px-2">
-                                <span class="text-[10px] text-gray-500 font-bold uppercase">Total GPC:</span>
-                                <span class="text-sm font-black text-blue-600">{{ formatearDinero(totalGPC) }}</span>
-                            </div>
-                            <div class="hidden md:block w-px h-6 bg-gray-200"></div>
-                            <div class="flex items-center gap-2 px-2">
-                                <span class="text-[10px] text-gray-500 font-bold uppercase">Total Honorarios:</span>
-                                <span class="text-sm font-black text-[#00C09F]">{{ formatearDinero(form.honorarios)
-                                    }}</span>
-                            </div>
-                            <div
-                                class="flex items-center gap-2 bg-yellow-50 border border-yellow-200 px-3 py-1.5 rounded ml-auto">
-                                <span class="text-[10px] text-yellow-700 font-bold uppercase">Suma Total:</span>
-                                <span class="text-base font-black text-yellow-600">{{ formatearDinero(sumaTotal)
-                                    }}</span>
-                            </div>
-                        </div>
-
                     </div>
+
+                    <!-- RESUMEN DE TOTALES -->
+                    <div
+                        class="col-span-full mt-2 p-2.5 bg-white border border-gray-200 rounded flex flex-wrap items-center justify-between shadow-sm">
+                        <div class="flex items-center gap-2 px-2">
+                            <span class="text-[10px] text-gray-500 font-bold uppercase">Total GPC:</span>
+                            <span class="text-sm font-black text-blue-600">{{ formatearDinero(totalGPC) }}</span>
+                        </div>
+                        <div class="hidden md:block w-px h-6 bg-gray-200"></div>
+                        <div class="flex items-center gap-2 px-2">
+                            <span class="text-[10px] text-gray-500 font-bold uppercase">Total Honorarios:</span>
+                            <span class="text-sm font-black text-[#00C09F]">{{ formatearDinero(form.honorarios) }}</span>
+                        </div>
+                        <div
+                            class="flex items-center gap-2 bg-yellow-50 border border-yellow-200 px-3 py-1.5 rounded ml-auto">
+                            <span class="text-[10px] text-yellow-700 font-bold uppercase">Suma Total:</span>
+                            <span class="text-base font-black text-yellow-600">{{ formatearDinero(sumaTotal) }}</span>
+                        </div>
+                    </div>
+
                 </div>
 
             </div>
@@ -210,6 +296,9 @@ export default {
             cargandoSheet: false,
             pedimentosSheet: [],
             tiposComprobanteArray: [],
+            // 🔥 Variables para los checkboxes
+            checkTransportactics: false,
+            checkIntshipperts: false,
             form: {
                 sucursal_origen: null,
                 banco_receptor: null,
@@ -222,6 +311,8 @@ export default {
                 operacion_id: null,
                 operation_type: null,
                 monto_deposito: null,
+                pago_proveedor: null,
+                ganancia: null,
                 honorarios: null,
                 impuestos: null,
                 eci: null,
@@ -229,6 +320,11 @@ export default {
                 flete: null,
                 muestras: null,
                 llc: null,
+
+                anticipo: null,
+                garantias: null,
+                desglose_naviera: null,
+
                 proveedor_maniobras: null,
                 factura_maniobras: null,
                 proveedor_flete: null,
@@ -241,20 +337,58 @@ export default {
         }
     },
     computed: {
+        sucursalSeleccionada() {
+          const s = this.form.sucursal_origen;
+          return typeof s === 'object' && s !== null ? (s.nombre || s.id) : (s || '');
+        },
+        esSucursalManzanilloBase() {
+          return String(this.sucursalSeleccionada).toUpperCase().includes('MANZANILLO');
+        },
+        esSucursalOtraBase() {
+          return this.sucursalSeleccionada && !this.esSucursalManzanilloBase;
+        },
+        // 🔥 Variable inteligente para conectar con Laravel
+        sucursalReal() {
+          let s = String(this.sucursalSeleccionada).toUpperCase();
+          
+          if (this.checkTransportactics && !s.includes('TRANSPORTACTIC')) {
+            s = s.replace(' IMPO', '').replace(' EXPO', '').trim() + ' TRANSPORTACTICS';
+          } else if (this.checkIntshipperts && !s.includes('INTSHIPPERT')) {
+            s = s.replace(' IMPO', '').replace(' EXPO', '').trim() + ' INTSHIPPERTS';
+          }
+          
+          return s;
+        },
+        esIntshipperts() {
+          const sucursalUpper = String(this.sucursalSeleccionada).toUpperCase();
+          const cliente = typeof this.form.cliente === 'object' && this.form.cliente !== null ? this.form.cliente.nombre : this.form.cliente;
+          const clienteUpper = String(cliente || '').toUpperCase();
+
+          return sucursalUpper.includes('INTSHIPPERT') || clienteUpper.includes('INTSHIPPERT') || this.checkIntshipperts;
+        },
+        esTransportactics() {
+            const sucursalUpper = String(this.sucursalSeleccionada).toUpperCase();
+            const cliente = typeof this.form.cliente === 'object' && this.form.cliente !== null ? this.form.cliente.nombre : this.form.cliente;
+            const clienteUpper = String(cliente || '').toUpperCase();
+
+            return sucursalUpper.includes('TRANSPORTACTIC') || clienteUpper.includes('TRANSPORTACTIC') || this.checkTransportactics;
+        },
+        esManzanillo() {
+            const sucursalUpper = String(this.sucursalSeleccionada).toUpperCase();
+            return sucursalUpper.includes('MANZANILLO') && !this.esIntshipperts;
+        },
         opcionesPedimentos() {
             let sheetArray = Array.isArray(this.pedimentosSheet) ? this.pedimentosSheet : [];
             let filtrados = [];
-            
+
             if (!this.form.cliente) {
                 filtrados = sheetArray;
             } else {
-                // Aseguramos obtener el nombre sea string o sea un objeto
-                const nombreC = typeof this.form.cliente === 'object' ? this.form.cliente.nombre : this.form.cliente;
+                const nombreC = typeof this.form.cliente === 'object' && this.form.cliente !== null ? this.form.cliente.nombre : this.form.cliente;
                 const clienteSeleccionado = String(nombreC).toUpperCase().trim();
-                
+
                 filtrados = sheetArray.filter(p => {
-                    // Si Laravel no manda el cliente, lo dejamos pasar para no vaciar la lista
-                    if (!p.cliente) return true; 
+                    if (!p.cliente) return true;
                     const clienteP = String(p.cliente).toUpperCase().trim();
                     return clienteP.includes(clienteSeleccionado) || clienteSeleccionado.includes(clienteP);
                 });
@@ -267,9 +401,7 @@ export default {
             combinados.forEach(item => {
                 if (item) {
                     let textoLabel = item.label || item.folio || item.pedimento || String(item);
-                    
-                    // Creamos un objeto nuevo en memoria para no romper la reactividad de Vue
-                    let newItem = typeof item === 'string' 
+                    let newItem = typeof item === 'string'
                         ? { label: textoLabel, folio: textoLabel, pedimento: textoLabel }
                         : { ...item, label: textoLabel };
 
@@ -282,6 +414,19 @@ export default {
             return Array.from(mapaUnicos.values());
         },
         totalGPC() {
+            if (this.esTransportactics) {
+                return parseFloat(this.form.flete) || 0;
+            }
+            if (this.esIntshipperts) {
+              return (parseFloat(this.form.anticipo) || 0) + (parseFloat(this.form.flete) || 0);
+            }
+            if (this.esManzanillo) {
+                return (parseFloat(this.form.impuestos) || 0) +
+                    (parseFloat(this.form.flete) || 0) +
+                    (parseFloat(this.form.anticipo) || 0) +
+                    (parseFloat(this.form.garantias) || 0) +
+                    (parseFloat(this.form.desglose_naviera) || 0);
+            }
             return (parseFloat(this.form.impuestos) || 0) + (parseFloat(this.form.eci) || 0) +
                 (parseFloat(this.form.maniobras) || 0) + (parseFloat(this.form.flete) || 0) +
                 (parseFloat(this.form.muestras) || 0) + (parseFloat(this.form.llc) || 0);
@@ -291,16 +436,32 @@ export default {
         }
     },
     watch: {
+        opcionesCliente: {
+            immediate: true,
+            handler(newVal) {
+                if (newVal && newVal.length > 0 && this.form.cliente && typeof this.form.cliente === 'string') {
+                    const clienteUpper = this.form.cliente.toUpperCase().trim();
+                    const encontrado = newVal.find(c => String(c.nombre).toUpperCase().trim() === clienteUpper);
+                    if (encontrado) {
+                        this.form.cliente = encontrado;
+                    }
+                }
+            }
+        },
         'form.sucursal_origen': function (newVal, oldVal) {
+            // Reiniciar checkboxes si cambia la sucursal manual
+            this.checkTransportactics = false;
+            this.checkIntshipperts = false;
+
             if (newVal && newVal !== oldVal) {
                 this.cargarListaPedimentos();
             }
         },
         'form.referenciasObj': function (newVal) {
             if (!this.form.cliente && newVal && newVal.length > 0) {
-                const refSeleccionada = newVal[0]; 
+                const refSeleccionada = newVal[0];
                 const sheetArray = Array.isArray(this.pedimentosSheet) ? this.pedimentosSheet : [];
-                
+
                 const refNombre = String(refSeleccionada.label || refSeleccionada.folio || '').trim();
 
                 const dataPedimento = sheetArray.find(p => {
@@ -325,11 +486,30 @@ export default {
     mounted() {
         this.form = { ...this.form, ...this.ingresoBase };
 
-        if (this.form.cliente_id && this.opcionesCliente.length > 0) {
-            this.form.cliente = this.opcionesCliente.find(c => c.id === this.form.cliente_id) || null;
+        // Autoseleccionar los checkboxes al abrir si la sucursal de la BD los contenía
+        const sucursalBaseStr = String(this.form.sucursal_origen || '').toUpperCase();
+        if (sucursalBaseStr.includes('TRANSPORTACTIC')) {
+            this.checkTransportactics = true;
+        } else if (sucursalBaseStr.includes('INTSHIPPERT')) {
+            this.checkIntshipperts = true;
         }
 
-        const clienteActual = this.form.cliente && this.form.cliente.nombre ? String(this.form.cliente.nombre).toUpperCase() : '';
+        if (this.form.cliente) {
+            const nombreClienteStr = typeof this.form.cliente === 'object' ? this.form.cliente.nombre : this.form.cliente;
+            const clienteUpper = String(nombreClienteStr).toUpperCase().trim();
+
+            const clienteEncontrado = this.opcionesCliente.find(c => String(c.nombre).toUpperCase().trim() === clienteUpper);
+
+            if (clienteEncontrado) {
+                this.form.cliente = clienteEncontrado;
+            } else if (typeof this.form.cliente === 'string') {
+                this.form.cliente = { id: this.form.cliente_id || null, nombre: this.form.cliente };
+            }
+        }
+
+        const clienteActual = typeof this.form.cliente === 'object' && this.form.cliente !== null
+            ? String(this.form.cliente.nombre).toUpperCase()
+            : '';
 
         if (this.form.referencia) {
             this.form.referenciasObj = String(this.form.referencia).split(',').map(r => {
@@ -348,7 +528,6 @@ export default {
             this.tiposComprobanteArray = [];
         }
 
-        // Dispara la carga si ya hay sucursal en Edit
         if (this.form.sucursal_origen) {
             this.cargarListaPedimentos();
         }
@@ -359,38 +538,35 @@ export default {
         },
 
         agregarReferencia(newTag) {
-            const clienteActual = this.form.cliente && this.form.cliente.nombre ? String(this.form.cliente.nombre).toUpperCase() : '';
-            const nuevoFolio = { label: newTag, folio: newTag, pedimento: newTag, cliente: clienteActual };
+            const clienteActual = typeof this.form.cliente === 'object' && this.form.cliente !== null
+                ? this.form.cliente.nombre
+                : (this.form.cliente || '');
+
+            const nuevoFolio = { label: newTag, folio: newTag, pedimento: newTag, cliente: String(clienteActual).toUpperCase() };
             this.form.referenciasObj.push(nuevoFolio);
         },
 
         async cargarListaPedimentos() {
-            if (this.cargandoSheet) return; 
+            if (this.cargandoSheet) return;
 
             this.cargandoSheet = true;
             try {
-                // Formato de seguridad para la sucursal
-                const nombreSucursal = typeof this.form.sucursal_origen === 'object' && this.form.sucursal_origen !== null 
-                    ? (this.form.sucursal_origen.nombre || this.form.sucursal_origen.id) 
-                    : this.form.sucursal_origen;
-
-                // 🚀 URL CORREGIDA: Apunta exactamente al mismo lugar que el Modal de Nuevo Ingreso
+                // 🔥 Siempre cargamos desde la sucursal base real (ej. NOGALES IMPO) para no perder folios
                 const response = await axios.get('/ingresos-conciliados/listar-pedimentos', {
-                    params: { sucursal: nombreSucursal }
+                    params: { sucursal: this.sucursalSeleccionada }
                 });
-                
+
                 let dataResult = response.data;
 
-                // Forzamos a Arreglo por si Laravel manda un objeto (como paginación o colecciones)
                 if (dataResult && typeof dataResult === 'object' && !Array.isArray(dataResult)) {
                     dataResult = dataResult.data || dataResult.pedimentos || Object.values(dataResult);
                 }
-                
+
                 this.pedimentosSheet = Array.isArray(dataResult) ? dataResult : [];
-                
+
             } catch (error) {
                 console.error("No se pudo cargar la lista", error);
-                this.pedimentosSheet = []; 
+                this.pedimentosSheet = [];
             } finally {
                 this.cargandoSheet = false;
             }
@@ -406,25 +582,21 @@ export default {
             }).filter(r => r !== '');
 
             Swal.fire({
-                title: 'Recalculando...',
+                title: 'Calculando...',
                 text: 'Buscando folios en el sistema...',
                 allowOutsideClick: false,
                 didOpen: () => { Swal.showLoading(); }
             });
 
             try {
-                const nombreSucursal = typeof this.form.sucursal_origen === 'object' && this.form.sucursal_origen !== null 
-                    ? (this.form.sucursal_origen.nombre || this.form.sucursal_origen.id) 
-                    : this.form.sucursal_origen;
-
                 const response = await axios.post('/ingresos-conciliados/buscar-sheet', {
                     pedimentos: pedimentosLimpios,
-                    sucursal: nombreSucursal,
+                    sucursal: this.sucursalReal, // 🔥 Usa la sucursal inteligente
                     tipo_comprobante: this.tiposComprobanteArray
                 });
-                
+
                 const datos = response.data;
-                
+
                 this.form.honorarios = Number(datos.honorarios) || 0;
                 this.form.impuestos = Number(datos.impuestos) || 0;
                 this.form.eci = Number(datos.eci) || 0;
@@ -432,6 +604,10 @@ export default {
                 this.form.flete = Number(datos.flete) || 0;
                 this.form.muestras = Number(datos.muestras) || 0;
                 this.form.llc = Number(datos.llc) || 0;
+                this.form.anticipo = Number(datos.anticipo) || 0;
+                this.form.garantias = Number(datos.garantias) || 0;
+                this.form.desglose_naviera = Number(datos.desglose_naviera) || 0;
+
                 this.form.proveedor_maniobras = datos.proveedor_maniobras || null;
                 this.form.factura_maniobras = datos.factura_maniobras || null;
                 this.form.proveedor_flete = datos.proveedor_flete || null;
@@ -445,34 +621,40 @@ export default {
                 this.form.operation_type = datos.operation_type || null;
                 this.form.pedimento_detectado = datos.pedimento_detectado || null;
                 this.form.operaciones = datos.operaciones || [];
-                
+
                 const sumatoriaTotal = this.form.honorarios +
                     this.form.impuestos +
                     this.form.eci +
                     this.form.maniobras +
                     this.form.flete +
                     this.form.muestras +
-                    this.form.llc;
+                    this.form.llc +
+                    this.form.anticipo +
+                    this.form.garantias +
+                    this.form.desglose_naviera;
 
                 if (sumatoriaTotal > 0) {
                     this.form.monto_deposito = Number(sumatoriaTotal.toFixed(2));
                 }
 
                 if (datos.cliente_detectado) {
-                    const nombreExcel = String(datos.cliente_detectado).trim().toUpperCase();
-                    const clienteEncontrado = this.opcionesCliente.find(c => String(c.nombre).trim().toUpperCase() === nombreExcel);
+                    const nombreExcel = datos.cliente_detectado.trim().toUpperCase();
+                    const clienteEncontrado = this.opcionesCliente.find(c => c.nombre.trim().toUpperCase() === nombreExcel);
                     if (clienteEncontrado) {
                         this.form.cliente = clienteEncontrado;
                     }
                 }
 
-                Swal.fire({ title: '¡Datos actualizados!', text: 'Montos recalculados.', icon: 'success', timer: 2000, showConfirmButton: false });
+                Swal.fire({ title: '¡Datos listos!', text: 'Montos cargados en el formulario.', icon: 'success', timer: 2000, showConfirmButton: false });
             } catch (error) {
-                if (error.response && error.response.status === 400) {
-                    Swal.fire('Atención', error.response.data.error, 'warning');
-                } else {
-                    Swal.fire('Información', 'No se encontraron montos adicionales o falló la red.', 'info');
+                console.error("🔍 ERROR CRUDO:", error);
+                let mensajeReal = 'No se pudo conectar con el servidor.';
+                if (error.response && error.response.data) {
+                  mensajeReal = error.response.data.message || error.response.data.error || mensajeReal;
+                } else if (error.message) {
+                  mensajeReal = "Error de Vue/JS: " + error.message;
                 }
+                Swal.fire({ title: 'Atención', text: mensajeReal, icon: (error.response && error.response.status === 404) ? 'info' : 'warning' });
             }
         },
 
@@ -481,10 +663,18 @@ export default {
                 return Swal.fire('Atención', 'Completa la fecha, cliente y el monto de depósito.', 'warning');
             }
 
+            if (!this.form.referenciasObj || this.form.referenciasObj.length === 0) {
+                return Swal.fire('Atención', 'Selecciona o escribe al menos una referencia/pedimento.', 'warning');
+            }
+
             this.isSubmitting = true;
             const payload = { ...this.form };
 
-            payload.cliente_id = payload.cliente.id;
+            payload.cliente_id = payload.cliente.id || null;
+            
+            // 🔥 Sobrescribir la sucursal real antes de guardar en BD
+            payload.sucursal_origen = this.sucursalReal;
+
             delete payload.cliente;
             delete payload._original;
             delete payload.cp;
@@ -498,15 +688,11 @@ export default {
                 payload.tipo_comprobante = this.tiposComprobanteArray[0] || 'N/A';
             }
 
-            if (payload.pedimento_detectado) {
+            if (payload.pedimento_detectado && !this.esManzanillo) {
                 payload.referencia = payload.pedimento_detectado;
-            } 
-            
-            delete payload.pedimento_detectado; 
-
-            if (this.form.pedimento_detectado) {
-                payload.referencia = this.form.pedimento_detectado;
             }
+
+            delete payload.pedimento_detectado;
 
             try {
                 const response = await axios.put(`/ingresos-conciliados/${this.form.id}`, payload);
@@ -535,10 +721,21 @@ input[type=number]::-webkit-outer-spin-button {
     border-color: #D1D5DB !important;
     padding-top: 6px !important;
     min-height: 38px !important;
+    overflow: hidden; /* 🔥 Previene estiramiento horizontal */
 }
 
 :deep(.multiselect__tag) {
     background-color: #2A3A4D !important;
+    max-width: 100%;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* 🔥 Corta el texto largo con "..." respetando el icono de cerrar */
+:deep(.multiselect__tag > span) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 :deep(.multiselect__option--highlight) {
@@ -551,5 +748,17 @@ input[type=number]::-webkit-outer-spin-button {
 
 :deep(.multiselect__tag-icon:hover) {
     background-color: #EF4444 !important;
+}
+
+:deep(.multiselect__option) {
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    line-height: 1.5 !important;
+    padding: 10px 12px !important;
+}
+
+:deep(.multiselect__content-wrapper) {
+    overflow-x: hidden !important;
 }
 </style>

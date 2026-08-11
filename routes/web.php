@@ -58,9 +58,12 @@ Route::delete('/ingresos-conciliados/{id}', [IngresoConciliadoController::class,
 Route::get('/saldos-favor', [IngresoConciliadoController::class, 'indexSaldos']);
 Route::post('/saldos-favor', [IngresoConciliadoController::class, 'storeSaldo']);
 Route::put('/saldos-favor/{id}/aplicar', [IngresoConciliadoController::class, 'marcarAplicadoSaldo']);
+Route::post('/saldos-favor/{id}/notificar', [IngresoConciliadoController::class, 'notificarCliente']);
 Route::put('/saldos-favor/{id}/reactivar', [IngresoConciliadoController::class, 'reactivarSaldo']);
 Route::put('/saldos-favor/{id}', [IngresoConciliadoController::class, 'updateSaldo']);
 Route::delete('/saldos-favor/{id}', [IngresoConciliadoController::class, 'destroySaldo']);
+
+Route::post('/complementos-pago/generar', [IngresoConciliadoController::class, 'generarComplemento']);
 
 // Atrapa cualquier URL que no coincida con las de arriba y le entrega el control a Vue Router.
 Route::get('/{any}', function () {

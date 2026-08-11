@@ -184,6 +184,14 @@
             placeholder="Todos" class="custom-filter-multiselect w-full"></multiselect>
         </div>
 
+        <!-- Filtro Tipo de Servicio -->
+        <div class="flex items-center gap-2 z-10 shrink-0 min-w-[200px]">
+          <span class="text-xs text-gray-600 shrink-0">Servicio:</span>
+          <multiselect v-model="filtros.tipoServicio" :options="opcionesTipoServicio" placeholder="Todos"
+            :show-labels="false" :allow-empty="false" class="custom-filter-multiselect w-full">
+          </multiselect>
+        </div>
+
         <!-- Filtro Tipo de Operación -->
         <div class="flex items-center gap-2 z-10 shrink-0 min-w-[220px]">
           <span class="text-xs text-gray-600 shrink-0">Tipo operación:</span>
@@ -193,7 +201,7 @@
           </multiselect>
         </div>
 
-        <!-- FILTRO DE TIPO DE COMPROBANTE (Vue Multiselect) -->
+        <!-- FILTRO DE TIPO DE COMPROBANTE -->
         <div class="flex items-center gap-2 z-10 shrink-0 min-w-[220px]">
           <span class="text-xs text-gray-600 shrink-0">TIPO COMPROBANTE:</span>
           <multiselect v-model="filtros.tipo_comprobante" :options="opcionesComprobante" placeholder="Seleccione..."
@@ -233,22 +241,50 @@
               <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">REFERENCIA</th>
               <th class="px-3 py-3 border-r border-slate-200 text-purple-700" style="min-width: 150px; width: 150px;">
                 MONTO DEPOSITO</th>
-              <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">HONORARIOS</th>
-              <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">IMPUESTOS</th>
-              <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">ECI</th>
-              <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">MANIOBRAS</th>
-              <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">FLETE</th>
-              <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">MUESTRAS</th>
-              <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">LLC</th>
+
+              <!-- ========================================== -->
+              <!-- ENCABEZADOS DINÁMICOS SEGÚN VISTA          -->
+              <!-- ========================================== -->
+              <template v-if="esVistaIntshipperts">
+                <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">ANTICIPO</th>
+                <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">ALMAN / FLETE</th>
+              </template>
+
+              <template v-else-if="esVistaTransportactics">
+                <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">FLETE (XML)</th>
+                <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">PAGO PROVEEDOR</th>
+                <th class="px-3 py-3 border-r border-slate-200 text-emerald-600" style="min-width: 150px; width: 150px;">GANANCIA</th>
+              </template>
+
+              <template v-else>
+                <template v-if="!esVistaManzanillo">
+                  <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">HONORARIOS</th>
+                  <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">IMPUESTOS</th>
+                  <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">ECI</th>
+                  <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">MANIOBRAS</th>
+                  <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">FLETE</th>
+                  <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">MUESTRAS</th>
+                  <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">LLC</th>
+                </template>
+
+                <template v-else>
+                  <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">ANTICIPO</th>
+                  <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">GARANTÍAS</th>
+                  <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">DESGLOSE NAVIERA</th>
+                  <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">IMPUESTOS</th>
+                  <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">ALMAN / FLETE</th>
+                  <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">HONORARIOS</th>
+                </template>
+              </template>
+
               <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">MONTO SC</th>
               <th class="px-3 py-3 border-r border-slate-200" style="min-width: 150px; width: 150px;">DIFERENCIA</th>
               <th class="px-3 py-3 border-r border-slate-200 text-center" style="min-width: 150px; width: 150px;">TIPO
                 COMPROBANTE</th>
-              <th class="px-3 py-3 border-r border-slate-200 text-center" style="min-width: 150px; width: 150px;">CP
+              <th class="px-3 py-3 border-r border-slate-200 text-center" style="min-width: 150px; width: 150px;">COMPLEMENTO DE PAGO
               </th>
               <th class="px-3 py-3 border-r border-slate-200 text-center" style="min-width: 150px; width: 150px;">
                 ESTATUS</th>
-              <!-- Ampliamos el min-width a 230px para que los 5 botones quepan bien -->
               <th class="px-3 py-3 text-center" style="min-width: 230px; width: 230px;">ACCIÓN</th>
             </tr>
           </thead>
@@ -256,7 +292,7 @@
             <tr v-for="(item, index) in ingresosFiltrados" :key="item.id"
               class="border-b border-slate-200 hover:bg-slate-50 transition-colors">
 
-              <!-- DATOS GENERALES (Solo Texto) -->
+              <!-- DATOS GENERALES -->
               <td class="px-3 py-2 text-[10px] align-middle border-r border-slate-100 whitespace-nowrap">{{
                 item.sucursal_origen || 'N/A' }}</td>
               <td class="px-3 py-2 text-[10px] align-middle border-r border-slate-100 whitespace-nowrap">{{
@@ -264,30 +300,50 @@
               <td class="px-3 py-2 text-[10px] align-middle border-r border-slate-100">{{ item.fecha }}</td>
               <td class="px-3 py-2 text-[10px] uppercase align-middle border-r border-slate-100 text-slate-800">{{
                 item.cliente }}</td>
-              <td class="px-3 py-2 text-[10px] align-middle border-r border-slate-100 font-bold text-gray-600">{{
-                item.referencia || 'S/N' }}</td>
+              <td class="px-4 py-3 text-center font-bold text-indigo-600">
+                {{ item.folio_sc ? item.folio_sc : '--' }}
+              </td>
 
-              <!-- MONTO TOTAL (Morado) -->
+              <!-- MONTO TOTAL -->
               <td
                 class="px-3 py-2 text-right text-purple-700 font-black align-middle border-r border-slate-100 bg-purple-50/30">
                 ${{ Number(item.monto_deposito || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
               </td>
 
-              <!-- DESGLOSE FINANCIERO -->
-              <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600">${{
-                Number(item.honorarios || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
-              <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600">${{
-                Number(item.impuestos || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
-              <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600">${{
-                Number(item.eci || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
-              <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600">${{
-                Number(item.maniobras || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
-              <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600">${{
-                Number(item.flete || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
-              <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600">${{
-                Number(item.muestras || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
-              <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600">${{
-                Number(item.llc || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+              <!-- ========================================== -->
+              <!-- CELDAS DINÁMICAS SEGÚN VISTA               -->
+              <!-- ========================================== -->
+              <template v-if="esVistaIntshipperts">
+                <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600">${{ Number(item.anticipo || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-black text-gray-700">${{ Number(item.flete || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+              </template>
+
+              <template v-else-if="esVistaTransportactics">
+                <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-black text-gray-700">${{ Number(item.flete || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600">${{ Number(item.pago_proveedor || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-bold text-emerald-600 bg-emerald-50/30">${{ Number(item.ganancia || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+              </template>
+
+              <template v-else>
+                <template v-if="!esVistaManzanillo">
+                  <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600">${{ Number(item.honorarios || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                  <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600">${{ Number(item.impuestos || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                  <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600">${{ Number(item.eci || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                  <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600">${{ Number(item.maniobras || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                  <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600">${{ Number(item.flete || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                  <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600">${{ Number(item.muestras || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                  <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600">${{ Number(item.llc || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                </template>
+
+                <template v-else>
+                  <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600">${{ Number(item.anticipo || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                  <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600">${{ Number(item.garantias || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                  <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600">${{ Number(item.desglose_naviera || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                  <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600">${{ Number(item.impuestos || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                  <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600">${{ Number(item.flete || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                  <td class="px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600">${{ Number(item.honorarios || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                </template>
+              </template>
 
               <!-- CÁLCULOS Y ESTATUS -->
               <td
@@ -310,7 +366,7 @@
                     item.tipo_comprobante || 'N/A' }}</span>
               </td>
               <td class="px-3 py-2 align-middle border-r border-slate-100 text-center font-bold text-slate-600">
-                {{ item.cp || 'S/N' }}
+                {{ item.folio_complemento || 'SIN COMPLEMENTO' }}
               </td>
               <td class="px-3 py-2 text-center font-bold align-middle border-r border-slate-100 text-[10px]">
                 <span :class="item.estado_envio === 'ENVIADO' ? 'text-green-600' : 'text-orange-500'">{{
@@ -340,7 +396,8 @@
                     title="Visualizar Complemento de Pago">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z">
+                      </path>
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
                       </path>
@@ -353,7 +410,8 @@
                     title="Enviar Complemento de Pago">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                        d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8">
+                      </path>
                     </svg>
                   </button>
 
@@ -457,6 +515,15 @@
                       </path>
                     </svg>
                   </button>
+                  <button @click="notificarCliente(saldo)"
+                    class="w-8 h-8 rounded bg-blue-50 flex items-center justify-center text-blue-600 hover:bg-blue-200 transition-colors shadow-sm"
+                    title="Notificar saldo al cliente">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
+                      </path>
+                    </svg>
+                  </button>
                   <button @click="aplicarSaldo(saldo.id)"
                     class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded font-bold text-[10px] transition-colors shadow-sm ml-1 uppercase tracking-wider">
                     Aplicar
@@ -528,7 +595,9 @@
       </div>
     </div>
 
-    <!-- MODALES -->
+    <!-- ============================================== -->
+    <!-- MODALES                                        -->
+    <!-- ============================================== -->
     <ModalNuevoIngreso v-if="showModal" :opciones-sucursal="opcionesSucursal" :opciones-banco="opcionesBanco"
       :opciones-cliente="opcionesClienteObj" @close="showModal = false" @ingreso-guardado="onIngresoGuardado" />
 
@@ -542,6 +611,14 @@
     <ModalEditarIngreso v-if="showModalEditarIngreso" :ingreso-base="ingresoAEditar"
       :opciones-sucursal="opcionesSucursal" :opciones-banco="opcionesBanco" :opciones-cliente="opcionesClienteObj"
       @close="showModalEditarIngreso = false" @ingreso-actualizado="onIngresoActualizadoDesdeModal" />
+
+    <!-- 🔥 MODAL DE COMPLEMENTO DE PAGO -->
+    <ModalComplementoPago 
+      v-if="showModalComplemento" 
+      :mostrar="showModalComplemento" 
+      :ingreso="ingresoParaComplemento"
+      @cerrar="showModalComplemento = false" 
+    />
 
   </div>
 </template>
@@ -558,6 +635,7 @@ import ModalNuevoIngreso from './ModalNuevoIngreso.vue';
 import ModalNuevoSaldoFavor from './ModalNuevoSaldoFavor.vue';
 import ModalEditarSaldoFavor from './ModalEditarSaldoFavor.vue';
 import ModalEditarIngreso from './ModalEditarIngreso.vue';
+import ModalComplementoPago from './ModalComplementoPago.vue'; 
 
 export default {
   name: 'VistaFinanzasIngresos',
@@ -566,6 +644,7 @@ export default {
     ModalNuevoSaldoFavor,
     ModalEditarSaldoFavor,
     ModalEditarIngreso,
+    ModalComplementoPago, 
     Multiselect,
     VueCtkDateTimePicker
   },
@@ -576,8 +655,11 @@ export default {
       showModalSaldo: false,
       showModalEditarSaldo: false,
       showModalEditarIngreso: false,
+      showModalComplemento: false, 
+      
       ingresoAEditar: null,
       saldoAEditar: null,
+      ingresoParaComplemento: null, 
 
       ingresosData: [],
       saldosData: [],
@@ -591,6 +673,7 @@ export default {
       opcionesClienteObj: [],
 
       opcionesComprobante: ['Todos', 'Ambos', 'CFDI', 'Nota Cargo'],
+      opcionesTipoServicio: ['Todos', 'InTactics', 'INTSHIPPERTS', 'Transportactics'],
 
       opcionesTipoOperacion: [
         { id: 'Ambos', label: 'Ambos' },
@@ -602,7 +685,8 @@ export default {
         cliente: null,
         rangoFechas: null,
         tipoOperacion: { id: 'Ambos', label: 'Ambos' },
-        tipo_comprobante: 'Todos'
+        tipo_comprobante: 'Todos',
+        tipoServicio: 'Todos'
       }
     }
   },
@@ -612,6 +696,16 @@ export default {
     this.cargarSaldos();
   },
   computed: {
+    esVistaManzanillo() {
+      const sucursal = this.filtroSucursalActiva ? this.filtroSucursalActiva.toUpperCase() : '';
+      return sucursal.includes('MANZANILLO') || sucursal.includes('INTSHIPPERT');
+    },
+    esVistaIntshipperts() {
+      return this.filtros.tipoServicio === 'INTSHIPPERTS';
+    },
+    esVistaTransportactics() {
+      return this.filtros.tipoServicio === 'Transportactics';
+    },
     ingresosFiltrados() {
       let data = this.ingresosData;
 
@@ -639,6 +733,30 @@ export default {
           }
           const itemDate = new Date(item.fecha).getTime();
           return itemDate >= start && itemDate <= end;
+        });
+      }
+
+      if (this.filtros.tipoServicio && this.filtros.tipoServicio !== 'Todos') {
+        data = data.filter(item => {
+          const nombreCliente = String(item.cliente || '').toUpperCase();
+          const sucursalOrigen = String(item.sucursal_origen || '').toUpperCase();
+
+          const isIntshipperts = nombreCliente.includes('INTSHIPPERTS') || sucursalOrigen.includes('INTSHIPPERT');
+          const isTransportactics = nombreCliente.includes('TRANSPORTACTICS') || sucursalOrigen.includes('TRANSPORTACTIC');
+
+          if (this.filtros.tipoServicio === 'INTSHIPPERTS') {
+            return isIntshipperts;
+          }
+          if (this.filtros.tipoServicio === 'Transportactics') {
+            return isTransportactics;
+          }
+          
+          // Si elige InTactics, retornamos los que NO sean Intshipperts ni Transportactics
+          if (this.filtros.tipoServicio === 'InTactics') {
+            return !isIntshipperts && !isTransportactics;
+          }
+
+          return true;
         });
       }
 
@@ -674,6 +792,14 @@ export default {
     },
     totalNotaCargo() {
       return this.ingresosFiltrados.reduce((acc, item) => {
+        const sucursal = item.sucursal_origen ? item.sucursal_origen.toUpperCase() : '';
+        const esManzanilloRow = sucursal.includes('MANZANILLO') || sucursal.includes('INTSHIPPERT');
+
+        if (esManzanilloRow) {
+          return acc + (Number(item.impuestos) || 0) + (Number(item.flete) || 0) +
+            (Number(item.anticipo) || 0) + (Number(item.garantias) || 0) + (Number(item.desglose_naviera) || 0);
+        }
+
         const gpc = (Number(item.impuestos) || 0) + (Number(item.eci) || 0) +
           (Number(item.maniobras) || 0) + (Number(item.flete) || 0) +
           (Number(item.muestras) || 0) + (Number(item.llc) || 0);
@@ -688,16 +814,9 @@ export default {
     }
   },
   methods: {
-    // ==========================================
-    // NUEVAS FUNCIONES PARA COMPLEMENTOS DE PAGO
-    // ==========================================
     generarComplemento(item) {
-      Swal.fire({
-        title: 'Generar Complemento',
-        text: `Aquí irá la lógica para generar el complemento del cliente: ${item.cliente}`,
-        icon: 'info',
-        confirmButtonColor: '#00C09F'
-      });
+      this.ingresoParaComplemento = item;
+      this.showModalComplemento = true;
     },
     visualizarComplemento(item) {
       Swal.fire({
@@ -729,7 +848,18 @@ export default {
       try {
         const response = await axios.get('/ingresos-conciliados/opciones');
         this.opcionesSucursal = response.data.sucursales;
-        this.sucursalesBase = response.data.sucursalesBase;
+        
+        // 2. Llenamos los botones superiores (EXCLUYENDO INTSHIPPERTS Y TRANSPORTACTICS)
+        if (response.data.sucursalesBase) {
+          this.sucursalesBase = response.data.sucursalesBase.filter(sucursal => {
+            const nombre = String(sucursal).toUpperCase();
+            return !nombre.includes('INTSHIPPERT') && !nombre.includes('TRANSPORTACTIC');
+          });
+        } else {
+          this.sucursalesBase = [];
+        }
+
+        // 3. Demás catálogos
         this.opcionesBanco = response.data.bancos;
         this.opcionesClienteObj = response.data.clientes;
         const nombresClientes = response.data.clientes.map(c => c.nombre);
@@ -765,6 +895,42 @@ export default {
     editarSaldo(saldo) {
       this.saldoAEditar = saldo;
       this.showModalEditarSaldo = true;
+    },
+    async notificarCliente(row) {
+      const confirmacion = await Swal.fire({
+        title: '¿Notificar al cliente?',
+        html: `Se enviará un correo a <b>${row.cliente}</b> informando sobre su saldo a favor de <b>$${parseFloat(row.monto).toLocaleString('en-US', {minimumFractionDigits: 2})}</b>.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#3182CE',
+        confirmButtonText: 'Sí, enviar correo',
+        cancelButtonText: 'Cancelar'
+      });
+
+      if (confirmacion.isConfirmed) {
+        try {
+          Swal.fire({
+            title: 'Enviando correo...',
+            text: 'Por favor espera un momento.',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+          });
+
+          await axios.post(`/saldos-favor/${row.id}/notificar`);
+
+          Swal.fire({
+            title: '¡Enviado!',
+            text: 'La notificación fue enviada correctamente al cliente.',
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false
+          });
+
+        } catch (error) {
+          console.error("Error al enviar el correo:", error);
+          Swal.fire('Error', 'Hubo un problema al intentar enviar el correo. Verifica tu configuración de SMTP.', 'error');
+        }
+      }
     },
     async eliminarSaldo(id) {
       if (confirm('¿Estás seguro de ELIMINAR permanentemente este saldo a favor?')) {
@@ -834,11 +1000,33 @@ export default {
         cliente: null,
         rangoFechas: null,
         tipoOperacion: { id: 'Ambos', label: 'Ambos' },
-        tipo_comprobante: 'Todos'
+        tipo_comprobante: 'Todos',
+        tipoServicio: 'Todos'
       };
       this.cargarIngresos();
+
     },
     calcularMontoSC(item) {
+      const nombreCliente = String(item.cliente || '').toUpperCase();
+      const sucursalOrigen = String(item.sucursal_origen || '').toUpperCase();
+      
+      const isTransportactics = nombreCliente.includes('TRANSPORTACTICS') || sucursalOrigen.includes('TRANSPORTACTIC');
+
+      if (isTransportactics) {
+        return Number(item.flete) || 0;
+      }
+
+      const esManzanilloRow = sucursalOrigen.includes('MANZANILLO') || sucursalOrigen.includes('INTSHIPPERT');
+
+      if (esManzanilloRow) {
+        return (Number(item.anticipo) || 0) +
+          (Number(item.garantias) || 0) +
+          (Number(item.desglose_naviera) || 0) +
+          (Number(item.impuestos) || 0) +
+          (Number(item.flete) || 0) +
+          (Number(item.honorarios) || 0);
+      }
+
       return (Number(item.honorarios) || 0) +
         (Number(item.impuestos) || 0) +
         (Number(item.eci) || 0) +
@@ -849,6 +1037,69 @@ export default {
     },
     calcularDiferencia(item) {
       return (Number(item.monto_deposito) || 0) - this.calcularMontoSC(item);
+    },
+    async notificarCliente(row) {
+      // 1. Buscamos el correo del cliente en el catálogo que ya tienes cargado
+      const clienteEncontrado = this.opcionesClienteObj.find(c => c.nombre === row.cliente);
+      
+      // ⚠️ IMPORTANTE: Cambia '.email' por el nombre real de tu columna (puede ser .correo o .correos)
+      const correosSugeridos = clienteEncontrado ? (clienteEncontrado.email || clienteEncontrado.correo || '') : '';
+
+      // 2. Mostramos el SweetAlert con un input (caja de texto)
+      const { value: correosDestino, isConfirmed } = await Swal.fire({
+        title: 'Confirmar Destinatarios',
+        html: `
+          <p class="text-sm text-gray-600 mb-3" style="font-family: sans-serif;">
+            Se enviará el aviso de saldo a favor de <b>$${parseFloat(row.monto).toLocaleString('en-US', {minimumFractionDigits: 2})}</b> para <b>${row.cliente}</b>.
+          </p>
+          <div class="text-left" style="font-family: sans-serif;">
+            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Correos a notificar (separados por coma):</label>
+            <input id="swal-input-correos" class="swal2-input" style="width: 100%; max-width: 100%; margin: 0; font-size: 14px;" value="${correosSugeridos}" placeholder="ejemplo@correo.com, contabilidad@correo.com">
+          </div>
+        `,
+        icon: 'info',
+        showCancelButton: true,
+        confirmButtonColor: '#002060', // Azul marino corporativo
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Sí, enviar correo',
+        cancelButtonText: 'Cancelar',
+        preConfirm: () => {
+          const input = document.getElementById('swal-input-correos').value;
+          if (!input || input.trim() === '') {
+            Swal.showValidationMessage('Debes ingresar al menos un correo electrónico');
+          }
+          return input; // Retornamos lo que el usuario escribió o dejó
+        }
+      });
+
+      // 3. Si el usuario confirma y hay correos
+      if (isConfirmed && correosDestino) {
+        try {
+          Swal.fire({
+            title: 'Enviando correo...',
+            text: 'Por favor espera un momento.',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+          });
+
+          // 4. Enviamos la petición POST incluyendo los correos que el usuario confirmó
+          await axios.post(`/saldos-favor/${row.id}/notificar`, {
+            correos: correosDestino
+          });
+
+          Swal.fire({
+            title: '¡Enviado!',
+            text: 'La notificación fue enviada correctamente a los destinatarios.',
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false
+          });
+
+        } catch (error) {
+          console.error("Error al enviar el correo:", error);
+          Swal.fire('Error', 'Hubo un problema al intentar enviar el correo. Verifica tu configuración.', 'error');
+        }
+      }
     }
   }
 }

@@ -4,7 +4,6 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-// AQUÍ ESTABA EL ERROR: Le quitamos la "s" a Ingreso para que coincida con tu archivo original
 class CreateIngresoConciliadosTable extends Migration
 {
     public function up()
@@ -38,6 +37,10 @@ class CreateIngresoConciliadosTable extends Migration
             
             $table->string('proveedor_flete')->nullable();
             $table->string('factura_flete')->nullable();
+            
+            // 🔥 AQUÍ ESTÁ LA CORRECCIÓN (Sin el ->after)
+            $table->decimal('pago_proveedor', 15, 2)->default(0)->nullable();
+            $table->decimal('ganancia', 15, 2)->default(0)->nullable();
             
             $table->string('proveedor_muestras')->nullable();
             $table->string('factura_muestras')->nullable();

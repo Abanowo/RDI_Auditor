@@ -1,9 +1,9 @@
 <template>
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-    <!-- 1. Quitamos la clase 'overflow-hidden' de este div -->
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-md flex flex-col">
+    <!-- 🔥 Se cambió 'max-w-md' por 'max-w-2xl' para hacerlo más ancho -->
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl flex flex-col mx-4">
 
-      <!-- Header Modal (2. Agregamos 'rounded-t-lg' para mantener las esquinas redondas arriba) -->
+      <!-- Header Modal -->
       <div class="bg-blue-600 rounded-t-lg px-4 py-3 flex justify-between items-center">
         <h3 class="text-white text-xs font-bold uppercase tracking-wider">REGISTRAR SALDO A FAVOR</h3>
         <button @click="$emit('close')" class="text-gray-400 hover:text-white transition-colors">
@@ -14,7 +14,7 @@
       </div>
 
       <!-- Body Modal -->
-      <div class="p-6 grid grid-cols-2 gap-4">
+      <div class="p-6 grid grid-cols-2 gap-5">
         <!-- CLIENTE -->
         <div class="col-span-2">
           <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">RAZÓN SOCIAL CLIENTE</label>
@@ -39,7 +39,6 @@
         <!-- FECHA DE DETECCIÓN -->
         <div class="col-span-2">
           <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">FECHA DE DETECCIÓN</label>
-          <!-- 3. Agregamos position="bottom" al componente -->
           <VueCtkDateTimePicker v-model="form.fecha_deteccion" format="YYYY-MM-DD" formatted="YYYY-MM-DD"
             color="#1d4ed8" button-color="#1d4ed8" :only-date="true" label="Seleccione la fecha" class="text-sm"
             position="bottom">
@@ -54,7 +53,7 @@
         </div>
       </div>
 
-      <!-- Footer Modal (4. Agregamos 'rounded-b-lg' para mantener las esquinas redondas abajo) -->
+      <!-- Footer Modal -->
       <div class="px-6 py-4 border-t border-gray-200 flex justify-end gap-3 bg-gray-50 rounded-b-lg">
         <button @click="$emit('close')"
           class="px-5 py-2 rounded bg-gray-100 text-gray-700 text-sm font-bold hover:bg-gray-200 transition-colors">Salir</button>
@@ -66,6 +65,7 @@
     </div>
   </div>
 </template>
+
 <script>
 import axios from 'axios';
 import Multiselect from 'vue-multiselect';

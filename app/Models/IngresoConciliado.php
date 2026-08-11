@@ -20,7 +20,8 @@ class IngresoConciliado extends Model
         'folio_sc',
         /* 'operacion_id',
         'operation_type', */
-        'tipo_comprobante', 
+        'tipo_comprobante',
+        'enviado_en_reporte', 
         'monto_deposito', 
         'honorarios', 
         'impuestos', 

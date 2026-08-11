@@ -17,12 +17,27 @@
       <!-- Body Modal -->
       <div class="p-6 overflow-y-auto flex-1 grid grid-cols-2 gap-4">
 
-        <!-- SUCURSAL -->
+        <!-- SUCURSAL Y CHECKBOXES DINÁMICOS -->
         <div class="col-span-1">
           <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">SUCURSAL ORIGEN *</label>
           <multiselect v-model="form.sucursal_origen" :options="opcionesSucursal" placeholder="Seleccione..."
             :show-labels="false" class="text-sm">
           </multiselect>
+
+          <!-- 🔥 CHECKBOXES INTELIGENTES -->
+          <div v-if="sucursalSeleccionada" class="mt-2 flex items-center gap-3">
+            
+            <label v-if="esSucursalOtraBase" class="inline-flex items-center cursor-pointer bg-blue-50 px-2 py-1 rounded border border-blue-200 hover:bg-blue-100 transition-colors shadow-sm">
+              <input v-model="checkTransportactics" type="checkbox" class="form-checkbox h-3.5 w-3.5 text-blue-600 rounded cursor-pointer">
+              <span class="ml-1.5 text-[10px] text-blue-800 font-extrabold uppercase">Es Transportactics</span>
+            </label>
+
+            <label v-if="esSucursalManzanilloBase" class="inline-flex items-center cursor-pointer bg-purple-50 px-2 py-1 rounded border border-purple-200 hover:bg-purple-100 transition-colors shadow-sm">
+              <input v-model="checkIntshipperts" type="checkbox" class="form-checkbox h-3.5 w-3.5 text-purple-600 rounded cursor-pointer">
+              <span class="ml-1.5 text-[10px] text-purple-800 font-extrabold uppercase">Es Intshipperts</span>
+            </label>
+
+          </div>
         </div>
 
         <!-- BANCO -->
@@ -50,30 +65,35 @@
           </multiselect>
         </div>
 
-        <!-- REFERENCIA (MULTISELECT INTELIGENTE) -->
-        <div class="col-span-1">
-          <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">PEDIMENTOS / FOLIOS
-            DISPONIBLES</label>
-          <div class="flex">
-            <multiselect v-model="form.referenciasObj" :options="opcionesPedimentos" :multiple="true" :taggable="true"
-              @tag="agregarReferencia" track-by="label" label="label" :loading="cargandoSheet"
-              :disabled="!form.sucursal_origen" placeholder="Seleccione folios o escriba..." class="w-full text-sm">
-              <template slot="noResult">No se encontraron folios para este cliente</template>
-            </multiselect>
+        <!-- REFERENCIA -->
+          <div class="col-span-1">
+            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">
+              PEDIMENTOS / FOLIOS DISPONIBLES *
+            </label>
 
-            <button @click="buscarYRecalcularPedimento" type="button" title="Calcular montos desde XML"
-              :disabled="cargandoSheet"
-              class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-r transition-colors flex items-center justify-center -ml-1 z-10 disabled:opacity-50">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-              </svg>
-            </button>
+            <!-- 🔥 Se agregó w-full y min-w-0 al contenedor flex -->
+            <div class="flex w-full min-w-0">
+              
+              <!-- 🔥 Se agregó min-w-0 y flex-1 al multiselect -->
+              <multiselect v-model="form.referenciasObj" :options="opcionesPedimentos" :multiple="true" :taggable="true"
+                @tag="agregarReferencia" track-by="label" label="label" :loading="cargandoSheet"
+                :disabled="!form.sucursal_origen" placeholder="Seleccione folios o escriba..." 
+                class="w-full min-w-0 flex-1 text-sm">
+                <template slot="noResult">No se encontraron folios para este cliente</template>
+              </multiselect>
+
+              <!-- 🔥 Se agregó shrink-0 al botón para que nunca se aplaste -->
+              <button @click="buscarYRecalcularPedimento" type="button" title="Calcular montos desde XML/Sheet"
+                :disabled="cargandoSheet"
+                class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-r transition-colors flex items-center justify-center -ml-1 z-10 shrink-0 disabled:opacity-50">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+              </button>
+            </div>
+            <span v-if="!form.sucursal_origen" class="text-[9px] text-red-500 font-bold">⚠️ Selecciona una sucursal para cargar la lista.</span>
           </div>
-          <span v-if="!form.sucursal_origen" class="text-[9px] text-red-500 font-bold">⚠️ Selecciona una sucursal para
-            cargar la
-            lista.</span>
-        </div>
 
         <!-- MONTO -->
         <div class="col-span-1">
@@ -102,43 +122,114 @@
         </div>
 
         <!-- DESGLOSE -->
-        <div class="col-span-2 mt-2 border border-[#2A3A4D] rounded-lg p-3 bg-gray-50/50">
-          <h4 class="text-[11px] font-extrabold text-[#2A3A4D] uppercase tracking-wide mb-3">DESGLOSE:</h4>
-          <div class="grid grid-cols-4 gap-3">
-            <div>
-              <label class="block text-[10px] text-gray-500 mb-1">Honorarios:</label>
-              <input v-model="form.honorarios" type="number" step="0.01" placeholder="0.00"
-                class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+          <div class="col-span-2 mt-2 border border-[#2A3A4D] rounded-lg p-3 bg-gray-50/50">
+            <h4 class="text-[11px] font-extrabold text-[#2A3A4D] uppercase tracking-wide mb-3">DESGLOSE:</h4>
+
+            <!-- 1. DESGLOSE EXCLUSIVO TRANSPORTACTICS -->
+            <div class="grid grid-cols-3 gap-3" v-if="esTransportactics">
+              <div>
+                <label class="block text-[10px] text-gray-500 mb-1">Flete (XML):</label>
+                <input v-model="form.flete" type="number" step="0.01" placeholder="0.00"
+                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+              </div>
+              <div>
+                <label class="block text-[10px] text-gray-500 mb-1">Pago Proveedor:</label>
+                <input v-model="form.pago_proveedor" type="number" step="0.01" placeholder="0.00"
+                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+              </div>
+              <div>
+                <label class="block text-[10px] text-emerald-600 mb-1 font-bold">Ganancia:</label>
+                <input :value="(parseFloat(form.flete || 0) - parseFloat(form.pago_proveedor || 0)).toFixed(2)" readonly
+                  type="number"
+                  class="w-full border border-emerald-200 rounded px-2 py-1.5 text-sm bg-emerald-50 text-emerald-700 font-bold focus:outline-none cursor-not-allowed">
+              </div>
             </div>
-            <div>
-              <label class="block text-[10px] text-gray-500 mb-1">Impuestos:</label>
-              <input v-model="form.impuestos" type="number" step="0.01" placeholder="0.00"
-                class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+
+            <!-- 2. DESGLOSE EXCLUSIVO INTSHIPPERTS -->
+            <div class="grid grid-cols-2 gap-3" v-else-if="esIntshipperts">
+              <div>
+                <label class="block text-[10px] text-gray-500 mb-1">Anticipo:</label>
+                <input v-model="form.anticipo" type="number" step="0.01" placeholder="0.00"
+                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+              </div>
+              <div>
+                <label class="block text-[10px] text-gray-500 mb-1">ALMAN / Flete:</label>
+                <input v-model="form.flete" type="number" step="0.01" placeholder="0.00"
+                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+              </div>
             </div>
-            <div>
-              <label class="block text-[10px] text-gray-500 mb-1">ECI:</label>
-              <input v-model="form.eci" type="number" step="0.01" placeholder="0.00"
-                class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+
+            <!-- 3. DESGLOSE EXCLUSIVO MANZANILLO (Normal) -->
+            <div class="grid grid-cols-4 gap-3" v-else-if="esManzanillo">
+              <div>
+                <label class="block text-[10px] text-gray-500 mb-1">Anticipo:</label>
+                <input v-model="form.anticipo" type="number" step="0.01" placeholder="0.00"
+                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+              </div>
+              <div>
+                <label class="block text-[10px] text-gray-500 mb-1">Garantías:</label>
+                <input v-model="form.garantias" type="number" step="0.01" placeholder="0.00"
+                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+              </div>
+              <div>
+                <label class="block text-[10px] text-gray-500 mb-1">Desglose Naviera:</label>
+                <input v-model="form.desglose_naviera" type="number" step="0.01" placeholder="0.00"
+                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+              </div>
+              <div>
+                <label class="block text-[10px] text-gray-500 mb-1">Impuestos:</label>
+                <input v-model="form.impuestos" type="number" step="0.01" placeholder="0.00"
+                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+              </div>
+              <div>
+                <label class="block text-[10px] text-gray-500 mb-1">ALMAN / Flete:</label>
+                <input v-model="form.flete" type="number" step="0.01" placeholder="0.00"
+                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+              </div>
+              <div>
+                <label class="block text-[10px] text-gray-500 mb-1">Honorarios:</label>
+                <input v-model="form.honorarios" type="number" step="0.01" placeholder="0.00"
+                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+              </div>
             </div>
-            <div>
-              <label class="block text-[10px] text-gray-500 mb-1">Maniobras:</label>
-              <input v-model="form.maniobras" type="number" step="0.01" placeholder="0.00"
-                class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
-            </div>
-            <div>
-              <label class="block text-[10px] text-gray-500 mb-1">Flete:</label>
-              <input v-model="form.flete" type="number" step="0.01" placeholder="0.00"
-                class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
-            </div>
-            <div>
-              <label class="block text-[10px] text-gray-500 mb-1">Muestras:</label>
-              <input v-model="form.muestras" type="number" step="0.01" placeholder="0.00"
-                class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
-            </div>
-            <div>
-              <label class="block text-[10px] text-gray-500 mb-1">LLC:</label>
-              <input v-model="form.llc" type="number" step="0.01" placeholder="0.00"
-                class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+
+            <!-- 4. DESGLOSE ESTÁNDAR (NO MANZANILLO, NO INTSHIPPERTS, NO TRANSPORTACTICS) -->
+            <div class="grid grid-cols-4 gap-3" v-else>
+              <div>
+                <label class="block text-[10px] text-gray-500 mb-1">Honorarios:</label>
+                <input v-model="form.honorarios" type="number" step="0.01" placeholder="0.00"
+                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+              </div>
+              <div>
+                <label class="block text-[10px] text-gray-500 mb-1">Impuestos:</label>
+                <input v-model="form.impuestos" type="number" step="0.01" placeholder="0.00"
+                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+              </div>
+              <div>
+                <label class="block text-[10px] text-gray-500 mb-1">ECI:</label>
+                <input v-model="form.eci" type="number" step="0.01" placeholder="0.00"
+                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+              </div>
+              <div>
+                <label class="block text-[10px] text-gray-500 mb-1">Maniobras:</label>
+                <input v-model="form.maniobras" type="number" step="0.01" placeholder="0.00"
+                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+              </div>
+              <div>
+                <label class="block text-[10px] text-gray-500 mb-1">Flete:</label>
+                <input v-model="form.flete" type="number" step="0.01" placeholder="0.00"
+                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+              </div>
+              <div>
+                <label class="block text-[10px] text-gray-500 mb-1">Muestras:</label>
+                <input v-model="form.muestras" type="number" step="0.01" placeholder="0.00"
+                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+              </div>
+              <div>
+                <label class="block text-[10px] text-gray-500 mb-1">LLC:</label>
+                <input v-model="form.llc" type="number" step="0.01" placeholder="0.00"
+                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
+              </div>
             </div>
 
             <!-- RESUMEN DE TOTALES -->
@@ -160,7 +251,6 @@
             </div>
 
           </div>
-        </div>
 
       </div>
 
@@ -202,8 +292,14 @@ export default {
       cargandoSheet: false,
       pedimentosSheet: [],
       tiposComprobanteArray: ['CFDI'],
+      // 🔥 Nuevas variables para los checkboxes manuales
+      checkTransportactics: false,
+      checkIntshipperts: false,
       form: {
         sucursal_origen: null,
+        anticipo: null,
+        garantias: null,
+        desglose_naviera: null,
         banco_receptor: null,
         fecha: null,
         cliente: null,
@@ -214,6 +310,8 @@ export default {
         operacion_id: null,
         operation_type: null,
         monto_deposito: null,
+        pago_proveedor: null,
+        ganancia: null,
         honorarios: null,
         impuestos: null,
         eci: null,
@@ -233,23 +331,78 @@ export default {
     }
   },
   computed: {
+    // 🔥 Computadas para decidir si mostrar o no los checkboxes
+    sucursalSeleccionada() {
+      const s = this.form.sucursal_origen;
+      return typeof s === 'object' && s !== null ? (s.nombre || s.id) : (s || '');
+    },
+    esSucursalManzanilloBase() {
+      return String(this.sucursalSeleccionada).toUpperCase().includes('MANZANILLO');
+    },
+    esSucursalOtraBase() {
+      return this.sucursalSeleccionada && !this.esSucursalManzanilloBase;
+    },
+    esIntshipperts() {
+      const sucursalUpper = String(this.sucursalSeleccionada).toUpperCase();
+      const cliente = typeof this.form.cliente === 'object' && this.form.cliente !== null
+        ? this.form.cliente.nombre
+        : this.form.cliente;
+      const clienteUpper = String(cliente || '').toUpperCase();
+
+      return sucursalUpper.includes('INTSHIPPERT') || clienteUpper.includes('INTSHIPPERT') || this.checkIntshipperts;
+    },
+    esManzanillo() {
+      const sucursal = String(this.sucursalSeleccionada).toUpperCase();
+      return sucursal.includes('MANZANILLO') && !this.esIntshipperts;
+    },
+    esTransportactics() {
+      const sucursalUpper = String(this.sucursalSeleccionada).toUpperCase();
+      const cliente = typeof this.form.cliente === 'object' && this.form.cliente !== null
+        ? this.form.cliente.nombre
+        : this.form.cliente;
+      const clienteUpper = String(cliente || '').toUpperCase();
+
+      return sucursalUpper.includes('TRANSPORTACTIC') || clienteUpper.includes('TRANSPORTACTIC') || this.checkTransportactics;
+    },
+
     opcionesPedimentos() {
       if (!this.form.cliente) {
         return this.pedimentosSheet;
       }
-
       const clienteSeleccionado = this.form.cliente.nombre.toUpperCase().trim();
       return this.pedimentosSheet.filter(p => {
-        if (!p.cliente) {
-          return false;
-        }
+        if (!p.cliente) return false;
         return p.cliente.includes(clienteSeleccionado) || clienteSeleccionado.includes(p.cliente);
       });
     },
     totalGPC() {
+      if (this.esTransportactics) {
+        return parseFloat(this.form.flete) || 0;
+      }
+      if (this.esIntshipperts) {
+        return (parseFloat(this.form.anticipo) || 0) + (parseFloat(this.form.flete) || 0);
+      }
+      if (this.esManzanillo) {
+        return (parseFloat(this.form.impuestos) || 0) +
+          (parseFloat(this.form.flete) || 0) +
+          (parseFloat(this.form.anticipo) || 0) +
+          (parseFloat(this.form.garantias) || 0) +
+          (parseFloat(this.form.desglose_naviera) || 0);
+      }
       return (parseFloat(this.form.impuestos) || 0) + (parseFloat(this.form.eci) || 0) +
         (parseFloat(this.form.maniobras) || 0) + (parseFloat(this.form.flete) || 0) +
         (parseFloat(this.form.muestras) || 0) + (parseFloat(this.form.llc) || 0);
+    },
+    sucursalReal() {
+      let s = String(this.sucursalSeleccionada).toUpperCase();
+      
+      if (this.checkTransportactics && !s.includes('TRANSPORTACTIC')) {
+        s = s.replace(' IMPO', '').replace(' EXPO', '').trim() + ' TRANSPORTACTICS';
+      } else if (this.checkIntshipperts && !s.includes('INTSHIPPERT')) {
+        s = s.replace(' IMPO', '').replace(' EXPO', '').trim() + ' INTSHIPPERTS';
+      }
+      
+      return s;
     },
     sumaTotal() {
       return this.totalGPC + (parseFloat(this.form.honorarios) || 0);
@@ -257,30 +410,25 @@ export default {
   },
   watch: {
     'form.sucursal_origen': function (newVal, oldVal) {
+      this.checkTransportactics = false;
+      this.checkIntshipperts = false;
+      
       if (newVal && newVal !== oldVal) {
         this.cargarListaPedimentos();
       }
     },
     'form.referenciasObj': function (newVal) {
-      // Si el cliente está vacío y acabas de seleccionar al menos un pedimento
       if (!this.form.cliente && newVal && newVal.length > 0) {
-        
-        // Tomamos el primer pedimento que seleccionaste
-        const refSeleccionada = newVal[0]; 
-        
-        // Lo buscamos en la lista completa del Sheet para ver a qué cliente pertenece
+        const refSeleccionada = newVal[0];
         const dataPedimento = this.pedimentosSheet.find(p => p.label === refSeleccionada.label || p.folio === refSeleccionada.folio);
 
         if (dataPedimento && dataPedimento.cliente) {
           const nombreClientePedimento = dataPedimento.cliente.toUpperCase().trim();
-          
-          // Buscamos ese cliente dentro de tus opciones del multiselect
           const clienteEncontrado = this.opcionesCliente.find(c => {
             const nombreOpcion = c.nombre.toUpperCase().trim();
             return nombreOpcion.includes(nombreClientePedimento) || nombreClientePedimento.includes(nombreOpcion);
           });
 
-          // Si hace match, lo autocompleta
           if (clienteEncontrado) {
             this.form.cliente = clienteEncontrado;
           }
@@ -301,7 +449,7 @@ export default {
       this.cargandoSheet = true;
       try {
         const response = await axios.get('/ingresos-conciliados/listar-pedimentos', {
-          params: { sucursal: this.form.sucursal_origen }
+          params: { sucursal: this.sucursalSeleccionada } 
         });
         this.pedimentosSheet = Array.isArray(response.data) ? response.data : [];
       } catch (error) {
@@ -330,18 +478,25 @@ export default {
       try {
         const response = await axios.post('/ingresos-conciliados/buscar-sheet', {
           pedimentos: pedimentosLimpios,
-          sucursal: this.form.sucursal_origen,
+          sucursal: this.sucursalReal, 
           tipo_comprobante: this.tiposComprobanteArray
         });
 
         const datos = response.data;
-        this.form.honorarios = datos.honorarios || 0;
-        this.form.impuestos = datos.impuestos || 0;
-        this.form.eci = datos.eci || 0;
-        this.form.maniobras = datos.maniobras || 0;
-        this.form.flete = datos.flete || 0;
-        this.form.muestras = datos.muestras || 0;
-        this.form.llc = datos.llc || 0;
+
+        // 🔥 CORRECCIÓN 1: ASIGNACIÓN ESTRICTA (Respeta el cero real del backend)
+        this.form.honorarios = datos.honorarios !== undefined ? Number(datos.honorarios) : 0;
+        this.form.impuestos = datos.impuestos !== undefined ? Number(datos.impuestos) : 0;
+        this.form.eci = datos.eci !== undefined ? Number(datos.eci) : 0;
+        this.form.maniobras = datos.maniobras !== undefined ? Number(datos.maniobras) : 0;
+        this.form.flete = datos.flete !== undefined ? Number(datos.flete) : 0;
+        this.form.muestras = datos.muestras !== undefined ? Number(datos.muestras) : 0;
+        this.form.llc = datos.llc !== undefined ? Number(datos.llc) : 0;
+        this.form.anticipo = datos.anticipo !== undefined ? Number(datos.anticipo) : 0;
+        this.form.garantias = datos.garantias !== undefined ? Number(datos.garantias) : 0;
+        this.form.desglose_naviera = datos.desglose_naviera !== undefined ? Number(datos.desglose_naviera) : 0;
+
+        // Asignación de Strings / Textos
         this.form.proveedor_maniobras = datos.proveedor_maniobras || null;
         this.form.factura_maniobras = datos.factura_maniobras || null;
         this.form.proveedor_flete = datos.proveedor_flete || null;
@@ -355,17 +510,12 @@ export default {
         this.form.operation_type = datos.operation_type || null;
         this.form.pedimento_detectado = datos.pedimento_detectado || null;
         this.form.operaciones = datos.operaciones || [];
-        const sumatoriaTotal = this.form.honorarios +
-          this.form.impuestos +
-          this.form.eci +
-          this.form.maniobras +
-          this.form.flete +
-          this.form.muestras +
-          this.form.llc;
 
-        // 3. Asignamos al Monto Depósito (Solo si la suma es mayor a 0)
+        const sumatoriaTotal = this.form.honorarios + this.form.impuestos + this.form.eci +
+          this.form.maniobras + this.form.flete + this.form.muestras + this.form.llc +
+          this.form.anticipo + this.form.garantias + this.form.desglose_naviera;
+
         if (sumatoriaTotal > 0) {
-          // Lo pasamos como Número con 2 decimales para que el input type="number" lo acepte sin quejarse
           this.form.monto_deposito = Number(sumatoriaTotal.toFixed(2));
         }
 
@@ -379,11 +529,14 @@ export default {
 
         Swal.fire({ title: '¡Datos listos!', text: 'Montos cargados en el formulario.', icon: 'success', timer: 2000, showConfirmButton: false });
       } catch (error) {
-        if (error.response && error.response.status === 400) {
-          Swal.fire('Atención', error.response.data.error, 'warning');
-        } else {
-          Swal.fire('Información', 'No se encontraron montos adicionales o falló la red.', 'info');
+        console.error("🔍 ERROR CRUDO:", error);
+        let mensajeReal = 'No se pudo conectar con el servidor.';
+        if (error.response && error.response.data) {
+          mensajeReal = error.response.data.message || error.response.data.error || mensajeReal;
+        } else if (error.message) {
+          mensajeReal = "Error de Vue/JS: " + error.message;
         }
+        Swal.fire({ title: 'Atención', text: mensajeReal, icon: (error.response && error.response.status === 404) ? 'info' : 'warning' });
       }
     },
 
@@ -398,18 +551,22 @@ export default {
       payload.cliente_id = payload.cliente.id;
       delete payload.cliente;
 
-      if (payload.pedimento_detectado) {
-        payload.referencia = payload.pedimento_detectado;
-      } else {  
-        // Si no, lo dejamos como estaba originalmente (ya sea extrayendo el texto de las etiquetas)
-        // payload.referencia = this.form.referenciasObj.map(tag => tag.text).join(', ');
-      }
-
-      // Limpiamos la variable temporal para que no marque error en Laravel
-      delete payload.pedimento_detectado;
-      delete payload.cliente;
-
       payload.referencia = this.form.referenciasObj.map(r => r.folio || r.label).join(', ');
+
+      let sucursalGuardar = typeof payload.sucursal_origen === 'object' && payload.sucursal_origen !== null
+        ? (payload.sucursal_origen.nombre || payload.sucursal_origen.id)
+        : payload.sucursal_origen;
+      
+      if (this.checkTransportactics && !String(sucursalGuardar).toUpperCase().includes('TRANSPORTACTIC')) {
+        sucursalGuardar += ' TRANSPORTACTICS';
+      } else if (this.checkIntshipperts && !String(sucursalGuardar).toUpperCase().includes('INTSHIPPERT')) {
+        sucursalGuardar += ' INTSHIPPERTS';
+      }
+      
+      // Asignamos únicamente la variable bien calculada y borramos la línea que lo sobrescribía
+      payload.sucursal_origen = sucursalGuardar;
+
+      delete payload.pedimento_detectado;
       delete payload.referenciasObj;
 
       if (this.tiposComprobanteArray.includes('CFDI') && this.tiposComprobanteArray.includes('Nota Cargo')) {
@@ -418,10 +575,6 @@ export default {
         payload.tipo_comprobante = this.tiposComprobanteArray[0] || 'N/A';
       }
 
-      if (this.form.pedimento_detectado) {
-        payload.referencia = this.form.pedimento_detectado;
-      }
-      console.log("Se guardará esta referencia:", payload.referencia);
       try {
         const response = await axios.post(`/ingresos-conciliados`, payload);
         if (response.data.success) {
@@ -429,7 +582,20 @@ export default {
           this.$emit('ingreso-guardado');
         }
       } catch (error) {
-        Swal.fire('Error', 'Problema al guardar', 'error');
+        console.error("🔍 ERROR CRUDO:", error);
+        let mensajeReal = 'No se pudo conectar con el servidor.';
+        
+        if (error.response && error.response.data) {
+          mensajeReal = error.response.data.message || error.response.data.error || mensajeReal;
+        } else if (error.message) {
+          mensajeReal = "Error de Vue/JS: " + error.message;
+        }
+
+        Swal.fire({
+          title: 'Atención', 
+          text: mensajeReal, 
+          icon: 'warning'
+        });
       } finally {
         this.isSubmitting = false;
       }
@@ -449,10 +615,20 @@ input[type=number]::-webkit-outer-spin-button {
   border-color: #D1D5DB !important;
   padding-top: 6px !important;
   min-height: 38px !important;
+  overflow: hidden; 
 }
 
 :deep(.multiselect__tag) {
   background-color: #2A3A4D !important;
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+}
+
+:deep(.multiselect__tag > span) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 :deep(.multiselect__option--highlight) {
