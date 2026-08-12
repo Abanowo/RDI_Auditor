@@ -9542,6 +9542,9 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
+//
+//
+//
 
 
 
@@ -9588,27 +9591,6 @@ function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present,
 function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { if (r) i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n;else { var o = function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); }; o("next", 0), o("throw", 1), o("return", 2); } }, _regeneratorDefine2(e, r, n, t); }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
 //
 //
 //
@@ -9856,7 +9838,6 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               payload = {
                 ingreso_id: _this.ingreso.id,
                 cliente_id: _this.ingreso.cliente_id,
-                // Usamos sucursal_origen que es como viene de la DB
                 sucursal: _this.ingreso.sucursal_origen,
                 moneda: _this.form.monedaObj.value,
                 tipo_cambio: _this.form.tipo_cambio,
@@ -9938,135 +9919,6 @@ function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Sym
 function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
 //
 //
 //
@@ -10793,9 +10645,6 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
 //
 //
 //
-//
-//
-//
 
 
 
@@ -11162,48 +11011,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 //
 //
 //
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
 
+// El bloque <script> se mantiene idéntico, ya que solo necesitas el reajuste visual.
 
 
 
@@ -11438,7 +11247,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               });
             case 3:
               response = _context2.v;
-              datos = response.data; // 🔥 CORRECCIÓN 1: ASIGNACIÓN ESTRICTA (Respeta el cero real del backend)
+              datos = response.data;
               _this2.form.honorarios = datos.honorarios !== undefined ? Number(datos.honorarios) : 0;
               _this2.form.impuestos = datos.impuestos !== undefined ? Number(datos.impuestos) : 0;
               _this2.form.eci = datos.eci !== undefined ? Number(datos.eci) : 0;
@@ -11449,8 +11258,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               _this2.form.anticipo = datos.anticipo !== undefined ? Number(datos.anticipo) : 0;
               _this2.form.garantias = datos.garantias !== undefined ? Number(datos.garantias) : 0;
               _this2.form.desglose_naviera = datos.desglose_naviera !== undefined ? Number(datos.desglose_naviera) : 0;
-
-              // Asignación de Strings / Textos
               _this2.form.proveedor_maniobras = datos.proveedor_maniobras || null;
               _this2.form.factura_maniobras = datos.factura_maniobras || null;
               _this2.form.proveedor_flete = datos.proveedor_flete || null;
@@ -11533,8 +11340,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               } else if (_this3.checkIntshipperts && !String(sucursalGuardar).toUpperCase().includes('INTSHIPPERT')) {
                 sucursalGuardar += ' INTSHIPPERTS';
               }
-
-              // Asignamos únicamente la variable bien calculada y borramos la línea que lo sobrescribía
               payload.sucursal_origen = sucursalGuardar;
               delete payload.pedimento_detectado;
               delete payload.referenciasObj;
@@ -11622,15 +11427,6 @@ function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" 
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
-//
-//
-//
-//
-//
-//
-//
-//
-//
 //
 //
 //
@@ -12442,6 +12238,52 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
 //
 //
 //
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 
 
 
@@ -12567,8 +12409,6 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
           if (_this.filtros.tipoServicio === 'Transportactics') {
             return isTransportactics;
           }
-
-          // Si elige InTactics, retornamos los que NO sean Intshipperts ni Transportactics
           if (_this.filtros.tipoServicio === 'InTactics') {
             return !isIntshipperts && !isTransportactics;
           }
@@ -12633,7 +12473,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }, 0);
     }
   },
-  methods: _defineProperty({
+  methods: {
     generarComplemento: function generarComplemento(item) {
       this.ingresoParaComplemento = item;
       this.showModalComplemento = true;
@@ -12675,8 +12515,6 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
             case 1:
               response = _context.v;
               _this4.opcionesSucursal = response.data.sucursales;
-
-              // 2. Llenamos los botones superiores (EXCLUYENDO INTSHIPPERTS Y TRANSPORTACTICS)
               if (response.data.sucursalesBase) {
                 _this4.sucursalesBase = response.data.sucursalesBase.filter(function (sucursal) {
                   var nombre = String(sucursal).toUpperCase();
@@ -12685,8 +12523,6 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               } else {
                 _this4.sucursalesBase = [];
               }
-
-              // 3. Demás catálogos
               _this4.opcionesBanco = response.data.bancos;
               _this4.opcionesClienteObj = response.data.clientes;
               nombresClientes = response.data.clientes.map(function (c) {
@@ -12771,26 +12607,41 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       this.showModalEditarSaldo = true;
     },
     notificarCliente: function notificarCliente(row) {
+      var _this7 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
-        var confirmacion, _t4;
+        var clienteEncontrado, correosSugeridos, _yield$Swal$fire, correosDestino, isConfirmed, _t4;
         return _regenerator().w(function (_context4) {
           while (1) switch (_context4.n) {
             case 0:
+              clienteEncontrado = _this7.opcionesClienteObj.find(function (c) {
+                return c.nombre === row.cliente;
+              });
+              correosSugeridos = clienteEncontrado ? clienteEncontrado.email || clienteEncontrado.correo || '' : '';
               _context4.n = 1;
               return sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
-                title: '¿Notificar al cliente?',
-                html: "Se enviar\xE1 un correo a <b>".concat(row.cliente, "</b> informando sobre su saldo a favor de <b>$").concat(parseFloat(row.monto).toLocaleString('en-US', {
+                title: 'Confirmar Destinatarios',
+                html: "\n          <p class=\"text-lg text-gray-600 mb-4\" style=\"font-family: sans-serif;\">\n            Se enviar\xE1 el aviso de saldo a favor de <b>$".concat(parseFloat(row.monto).toLocaleString('en-US', {
                   minimumFractionDigits: 2
-                }), "</b>."),
-                icon: 'question',
+                }), "</b> para <b>").concat(row.cliente, "</b>.\n          </p>\n          <div class=\"text-left\" style=\"font-family: sans-serif;\">\n            <label class=\"block text-base font-bold text-gray-700 uppercase mb-2\">Correos a notificar (separados por coma):</label>\n            <input id=\"swal-input-correos\" class=\"swal2-input\" style=\"width: 100%; max-width: 100%; margin: 0; font-size: 16px;\" value=\"").concat(correosSugeridos, "\" placeholder=\"ejemplo@correo.com, contabilidad@correo.com\">\n          </div>\n        "),
+                icon: 'info',
                 showCancelButton: true,
-                confirmButtonColor: '#3182CE',
+                confirmButtonColor: '#002060',
+                cancelButtonColor: '#d33',
                 confirmButtonText: 'Sí, enviar correo',
-                cancelButtonText: 'Cancelar'
+                cancelButtonText: 'Cancelar',
+                preConfirm: function preConfirm() {
+                  var input = document.getElementById('swal-input-correos').value;
+                  if (!input || input.trim() === '') {
+                    sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().showValidationMessage('Debes ingresar al menos un correo electrónico');
+                  }
+                  return input;
+                }
               });
             case 1:
-              confirmacion = _context4.v;
-              if (!confirmacion.isConfirmed) {
+              _yield$Swal$fire = _context4.v;
+              correosDestino = _yield$Swal$fire.value;
+              isConfirmed = _yield$Swal$fire.isConfirmed;
+              if (!(isConfirmed && correosDestino)) {
                 _context4.n = 5;
                 break;
               }
@@ -12804,11 +12655,13 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                 }
               });
               _context4.n = 3;
-              return axios__WEBPACK_IMPORTED_MODULE_10__["default"].post("/saldos-favor/".concat(row.id, "/notificar"));
+              return axios__WEBPACK_IMPORTED_MODULE_10__["default"].post("/saldos-favor/".concat(row.id, "/notificar"), {
+                correos: correosDestino
+              });
             case 3:
               sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
                 title: '¡Enviado!',
-                text: 'La notificación fue enviada correctamente al cliente.',
+                text: 'La notificación fue enviada correctamente a los destinatarios.',
                 icon: 'success',
                 timer: 2000,
                 showConfirmButton: false
@@ -12819,7 +12672,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               _context4.p = 4;
               _t4 = _context4.v;
               console.error("Error al enviar el correo:", _t4);
-              sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Error', 'Hubo un problema al intentar enviar el correo. Verifica tu configuración de SMTP.', 'error');
+              sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Error', 'Hubo un problema al intentar enviar el correo. Verifica tu configuración.', 'error');
             case 5:
               return _context4.a(2);
           }
@@ -12827,7 +12680,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }))();
     },
     eliminarSaldo: function eliminarSaldo(id) {
-      var _this7 = this;
+      var _this8 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
         var _t5;
         return _regenerator().w(function (_context5) {
@@ -12841,7 +12694,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               _context5.n = 2;
               return axios__WEBPACK_IMPORTED_MODULE_10__["default"]["delete"]("/saldos-favor/".concat(id));
             case 2:
-              _this7.cargarSaldos();
+              _this8.cargarSaldos();
               _context5.n = 4;
               break;
             case 3:
@@ -12855,7 +12708,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }))();
     },
     aplicarSaldo: function aplicarSaldo(id) {
-      var _this8 = this;
+      var _this9 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
         var _t6;
         return _regenerator().w(function (_context6) {
@@ -12869,7 +12722,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               _context6.n = 2;
               return axios__WEBPACK_IMPORTED_MODULE_10__["default"].put("/saldos-favor/".concat(id, "/aplicar"));
             case 2:
-              _this8.cargarSaldos();
+              _this9.cargarSaldos();
               _context6.n = 4;
               break;
             case 3:
@@ -12883,7 +12736,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }))();
     },
     reactivarSaldo: function reactivarSaldo(id) {
-      var _this9 = this;
+      var _this0 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
         var _t7;
         return _regenerator().w(function (_context7) {
@@ -12897,7 +12750,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               _context7.n = 2;
               return axios__WEBPACK_IMPORTED_MODULE_10__["default"].put("/saldos-favor/".concat(id, "/reactivar"));
             case 2:
-              _this9.cargarSaldos();
+              _this0.cargarSaldos();
               _context7.n = 4;
               break;
             case 3:
@@ -12923,7 +12776,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       this.cargarIngresos();
     },
     eliminarFila: function eliminarFila(id) {
-      var _this0 = this;
+      var _this1 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
         var result, _t8;
         return _regenerator().w(function (_context8) {
@@ -12950,7 +12803,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               _context8.n = 3;
               return axios__WEBPACK_IMPORTED_MODULE_10__["default"]["delete"]("/ingresos-conciliados/".concat(id));
             case 3:
-              _this0.cargarIngresos();
+              _this1.cargarIngresos();
               _context8.n = 5;
               break;
             case 4:
@@ -12993,83 +12846,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     calcularDiferencia: function calcularDiferencia(item) {
       return (Number(item.monto_deposito) || 0) - this.calcularMontoSC(item);
     }
-  }, "notificarCliente", function notificarCliente(row) {
-    var _this1 = this;
-    return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
-      var clienteEncontrado, correosSugeridos, _yield$Swal$fire, correosDestino, isConfirmed, _t9;
-      return _regenerator().w(function (_context9) {
-        while (1) switch (_context9.n) {
-          case 0:
-            // 1. Buscamos el correo del cliente en el catálogo que ya tienes cargado
-            clienteEncontrado = _this1.opcionesClienteObj.find(function (c) {
-              return c.nombre === row.cliente;
-            }); // ⚠️ IMPORTANTE: Cambia '.email' por el nombre real de tu columna (puede ser .correo o .correos)
-            correosSugeridos = clienteEncontrado ? clienteEncontrado.email || clienteEncontrado.correo || '' : ''; // 2. Mostramos el SweetAlert con un input (caja de texto)
-            _context9.n = 1;
-            return sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
-              title: 'Confirmar Destinatarios',
-              html: "\n          <p class=\"text-sm text-gray-600 mb-3\" style=\"font-family: sans-serif;\">\n            Se enviar\xE1 el aviso de saldo a favor de <b>$".concat(parseFloat(row.monto).toLocaleString('en-US', {
-                minimumFractionDigits: 2
-              }), "</b> para <b>").concat(row.cliente, "</b>.\n          </p>\n          <div class=\"text-left\" style=\"font-family: sans-serif;\">\n            <label class=\"block text-xs font-bold text-gray-700 uppercase mb-1\">Correos a notificar (separados por coma):</label>\n            <input id=\"swal-input-correos\" class=\"swal2-input\" style=\"width: 100%; max-width: 100%; margin: 0; font-size: 14px;\" value=\"").concat(correosSugeridos, "\" placeholder=\"ejemplo@correo.com, contabilidad@correo.com\">\n          </div>\n        "),
-              icon: 'info',
-              showCancelButton: true,
-              confirmButtonColor: '#002060',
-              // Azul marino corporativo
-              cancelButtonColor: '#d33',
-              confirmButtonText: 'Sí, enviar correo',
-              cancelButtonText: 'Cancelar',
-              preConfirm: function preConfirm() {
-                var input = document.getElementById('swal-input-correos').value;
-                if (!input || input.trim() === '') {
-                  sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().showValidationMessage('Debes ingresar al menos un correo electrónico');
-                }
-                return input; // Retornamos lo que el usuario escribió o dejó
-              }
-            });
-          case 1:
-            _yield$Swal$fire = _context9.v;
-            correosDestino = _yield$Swal$fire.value;
-            isConfirmed = _yield$Swal$fire.isConfirmed;
-            if (!(isConfirmed && correosDestino)) {
-              _context9.n = 5;
-              break;
-            }
-            _context9.p = 2;
-            sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
-              title: 'Enviando correo...',
-              text: 'Por favor espera un momento.',
-              allowOutsideClick: false,
-              didOpen: function didOpen() {
-                sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().showLoading();
-              }
-            });
-
-            // 4. Enviamos la petición POST incluyendo los correos que el usuario confirmó
-            _context9.n = 3;
-            return axios__WEBPACK_IMPORTED_MODULE_10__["default"].post("/saldos-favor/".concat(row.id, "/notificar"), {
-              correos: correosDestino
-            });
-          case 3:
-            sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
-              title: '¡Enviado!',
-              text: 'La notificación fue enviada correctamente a los destinatarios.',
-              icon: 'success',
-              timer: 2000,
-              showConfirmButton: false
-            });
-            _context9.n = 5;
-            break;
-          case 4:
-            _context9.p = 4;
-            _t9 = _context9.v;
-            console.error("Error al enviar el correo:", _t9);
-            sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Error', 'Hubo un problema al intentar enviar el correo. Verifica tu configuración.', 'error');
-          case 5:
-            return _context9.a(2);
-        }
-      }, _callee9, null, [[2, 4]]);
-    }))();
-  })
+  }
 });
 
 /***/ }),
@@ -13091,6 +12868,29 @@ function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) 
 function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
 function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 //
 //
 //
@@ -13192,6 +12992,11 @@ function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t =
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+//
+//
+//
+//
+//
 //
 //
 //
@@ -13419,6 +13224,11 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
 //
 //
 //
+//
+//
+//
+//
+//
 
 
 
@@ -13449,12 +13259,10 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     return {
       form: {
         usuarios: [],
-        // Ahora son arreglos para soportar multiples tags
         contactos: [],
         adjuntarFacturas: false,
         adjuntarComprobante: false
       },
-      // Datos de ejemplo para las listas desplegables (puedes inyectarlos desde el padre o BD)
       opcionesUsuarios: ['admin@empresa.com', 'finanzas@empresa.com', 'gerencia@empresa.com'],
       opcionesContactos: ['ventas@proveedor.com', 'cobranza@proveedor.com'],
       files: []
@@ -13486,7 +13294,6 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     removeFile: function removeFile(index) {
       this.files.splice(index, 1);
     },
-    // Métodos para agregar etiquetas que no estén en las opciones predefinidas
     addUsuarioTag: function addUsuarioTag(newTag) {
       this.opcionesUsuarios.push(newTag);
       this.form.usuarios.push(newTag);
@@ -13954,14 +13761,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
 //
 //
 //
-//
-//
-//
-//
-//
-//
-//
 
+// El bloque de SCRIPT permanece exactamente igual, ya que solo estamos haciendo el ajuste visual.
 
 
 
@@ -13999,7 +13800,6 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       searchTerm: '',
       opType: 'TODOS',
       activeTab: 'GENERAL',
-      // El valor por defecto al entrar
       activeLocation: 'NOGALES',
       tipoRojo: 'REALES',
       selectedIds: [],
@@ -20916,7 +20716,7 @@ __webpack_require__.r(__webpack_exports__);
 
 var ___CSS_LOADER_EXPORT___ = _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0___default()(function(i){return i[1]});
 // Module
-___CSS_LOADER_EXPORT___.push([module.id, "/* Estilos adicionales para que el Multiselect haga match con los inputs de Tailwind */\n[data-v-16123a42]:deep(.custom-multiselect .multiselect__tags) {\n  border-color: #D1D5DB;\n  border-radius: 0.375rem;\n  padding-top: 0.5rem;\n  padding-bottom: 0.5rem;\n  min-height: 42px;\n}\n[data-v-16123a42]:deep(.custom-multiselect .multiselect__select) {\n  height: 42px;\n}\n[data-v-16123a42]:deep(.custom-multiselect.multiselect--active .multiselect__tags) {\n  border-color: #6366F1; /* Color índigo al hacer focus */\n  box-shadow: 0 0 0 1px #6366F1;\n}\r\n", ""]);
+___CSS_LOADER_EXPORT___.push([module.id, "[data-v-16123a42]:deep(.custom-multiselect .multiselect__tags) {\n  border-color: #D1D5DB;\n  border-radius: 8px;\n  padding-top: 12px !important;\n  padding-left: 16px !important;\n  min-height: 52px !important;\n  font-size: 16px !important;\n}\n[data-v-16123a42]:deep(.custom-multiselect .multiselect__select) {\n  height: 52px !important;\n}\n[data-v-16123a42]:deep(.custom-multiselect.multiselect--active .multiselect__tags) {\n  border-color: #6366F1;\n  box-shadow: 0 0 0 1px #6366F1;\n}\n[data-v-16123a42]:deep(.custom-multiselect .multiselect__single),[data-v-16123a42]:deep(.custom-multiselect .multiselect__input) {\n  font-size: 16px !important;\n  margin-bottom: 0px !important;\n  padding-top: 2px !important;\n}\n[data-v-16123a42]:deep(.custom-multiselect .multiselect__option) {\n  font-size: 16px !important;\n}\ninput[type=number][data-v-16123a42]::-webkit-inner-spin-button,\r\ninput[type=number][data-v-16123a42]::-webkit-outer-spin-button {\n  -webkit-appearance: none;\n  margin: 0;\n}\r\n", ""]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
 
@@ -20940,7 +20740,7 @@ __webpack_require__.r(__webpack_exports__);
 
 var ___CSS_LOADER_EXPORT___ = _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0___default()(function(i){return i[1]});
 // Module
-___CSS_LOADER_EXPORT___.push([module.id, "input[type=number][data-v-745b8376]::-webkit-inner-spin-button,\r\ninput[type=number][data-v-745b8376]::-webkit-outer-spin-button {\n  -webkit-appearance: none;\n  margin: 0;\n}\n[data-v-745b8376]:deep(.multiselect__tags) {\n  border-color: #D1D5DB !important;\n  padding-top: 6px !important;\n  min-height: 38px !important;\n  overflow: hidden; /* 🔥 Previene estiramiento horizontal */\n}\n[data-v-745b8376]:deep(.multiselect__tag) {\n  background-color: #2A3A4D !important;\n  max-width: 100%;\n  display: inline-flex;\n  align-items: center;\n}\n\n/* 🔥 Corta el texto largo con \"...\" respetando el icono de cerrar */\n[data-v-745b8376]:deep(.multiselect__tag > span) {\n  white-space: nowrap;\n  overflow: hidden;\n  text-overflow: ellipsis;\n}\n[data-v-745b8376]:deep(.multiselect__option--highlight) {\n  background-color: #00C09F !important;\n}\n[data-v-745b8376]:deep(.multiselect__tag-icon:after) {\n  color: white !important;\n}\n[data-v-745b8376]:deep(.multiselect__tag-icon:hover) {\n  background-color: #EF4444 !important;\n}\n[data-v-745b8376]:deep(.multiselect__option) {\n  white-space: normal !important;\n  word-break: break-word !important;\n  overflow-wrap: break-word !important;\n  line-height: 1.5 !important;\n  padding: 10px 12px !important;\n}\n[data-v-745b8376]:deep(.multiselect__content-wrapper) {\n  overflow-x: hidden !important;\n}\r\n", ""]);
+___CSS_LOADER_EXPORT___.push([module.id, "input[type=number][data-v-745b8376]::-webkit-inner-spin-button, input[type=number][data-v-745b8376]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0;\n}\n[data-v-745b8376]:deep(.multiselect__tags) { border-color: #D1D5DB !important; padding-top: 10px !important; min-height: 48px !important; font-size: 16px !important; border-radius: 8px; overflow: hidden;\n}\n[data-v-745b8376]:deep(.multiselect__select) { height: 48px !important;\n}\n[data-v-745b8376]:deep(.multiselect__single),[data-v-745b8376]:deep(.multiselect__input) { font-size: 16px !important; margin-bottom: 0px !important; padding-top: 2px !important;\n}\n[data-v-745b8376]:deep(.multiselect__tag) { background-color: #2A3A4D !important; max-width: 100%; display: inline-flex; align-items: center; font-size: 14px !important;\n}\n[data-v-745b8376]:deep(.multiselect__tag > span) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis;\n}\n[data-v-745b8376]:deep(.multiselect__option--highlight) { background-color: #00C09F !important;\n}\n[data-v-745b8376]:deep(.multiselect__option) { font-size: 16px !important; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important; line-height: 1.5 !important; padding: 12px 16px !important;\n}\n[data-v-745b8376]:deep(.field-input) { min-height: 48px !important; font-size: 16px !important; border-radius: 8px !important;\n}\r\n", ""]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
 
@@ -20964,7 +20764,7 @@ __webpack_require__.r(__webpack_exports__);
 
 var ___CSS_LOADER_EXPORT___ = _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0___default()(function(i){return i[1]});
 // Module
-___CSS_LOADER_EXPORT___.push([module.id, "input[type=number][data-v-02d815c0]::-webkit-inner-spin-button,\r\ninput[type=number][data-v-02d815c0]::-webkit-outer-spin-button {\n  -webkit-appearance: none;\n  margin: 0;\n}\n[data-v-02d815c0]:deep(.multiselect__tags) {\n  border-color: #D1D5DB !important;\n  padding-top: 6px !important;\n  min-height: 38px !important;\n}\n[data-v-02d815c0]:deep(.multiselect__tag) {\n  background-color: #2563eb !important;\n}\r\n", ""]);
+___CSS_LOADER_EXPORT___.push([module.id, "input[type=number][data-v-02d815c0]::-webkit-inner-spin-button,\r\ninput[type=number][data-v-02d815c0]::-webkit-outer-spin-button {\n  -webkit-appearance: none;\n  margin: 0;\n}\n[data-v-02d815c0]:deep(.multiselect__tags) {\n  border-color: #D1D5DB !important;\n  padding-top: 10px !important;\n  min-height: 48px !important;\n  font-size: 16px !important;\n  border-radius: 8px;\n}\n[data-v-02d815c0]:deep(.multiselect__select) {\n  height: 48px !important;\n}\n[data-v-02d815c0]:deep(.multiselect__single),[data-v-02d815c0]:deep(.multiselect__input) {\n  font-size: 16px !important;\n  margin-bottom: 0px !important;\n}\n[data-v-02d815c0]:deep(.multiselect__tag) {\n  background-color: #2563eb !important;\n  font-size: 14px !important;\n}\n[data-v-02d815c0]:deep(.field-input) {\n  min-height: 48px !important;\n  font-size: 16px !important;\n  border-radius: 8px !important;\n}\r\n", ""]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
 
@@ -20988,7 +20788,7 @@ __webpack_require__.r(__webpack_exports__);
 
 var ___CSS_LOADER_EXPORT___ = _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0___default()(function(i){return i[1]});
 // Module
-___CSS_LOADER_EXPORT___.push([module.id, "input[type=number][data-v-2b30bb2a]::-webkit-inner-spin-button,\r\ninput[type=number][data-v-2b30bb2a]::-webkit-outer-spin-button {\n  -webkit-appearance: none;\n  margin: 0;\n}\n[data-v-2b30bb2a]:deep(.multiselect__tags) {\n  border-color: #D1D5DB !important;\n  padding-top: 6px !important;\n  min-height: 38px !important;\n  overflow: hidden;\n}\n[data-v-2b30bb2a]:deep(.multiselect__tag) {\n  background-color: #2A3A4D !important;\n  max-width: 100%;\n  display: inline-flex;\n  align-items: center;\n}\n[data-v-2b30bb2a]:deep(.multiselect__tag > span) {\n  white-space: nowrap;\n  overflow: hidden;\n  text-overflow: ellipsis;\n}\n[data-v-2b30bb2a]:deep(.multiselect__option--highlight) {\n  background-color: #00C09F !important;\n}\r\n", ""]);
+___CSS_LOADER_EXPORT___.push([module.id, "input[type=number][data-v-2b30bb2a]::-webkit-inner-spin-button,\r\ninput[type=number][data-v-2b30bb2a]::-webkit-outer-spin-button {\n  -webkit-appearance: none;\n  margin: 0;\n}\n[data-v-2b30bb2a]:deep(.multiselect__tags) {\n  border-color: #D1D5DB !important;\n  padding-top: 10px !important;\n  min-height: 48px !important;\n  font-size: 16px !important;\n  border-radius: 8px;\n  overflow: hidden;\n}\n[data-v-2b30bb2a]:deep(.multiselect__select) {\n  height: 48px !important;\n}\n[data-v-2b30bb2a]:deep(.multiselect__single),[data-v-2b30bb2a]:deep(.multiselect__input) {\n  font-size: 16px !important;\n  margin-bottom: 0px !important;\n  padding-top: 2px !important;\n}\n[data-v-2b30bb2a]:deep(.multiselect__tag) {\n  background-color: #2A3A4D !important;\n  max-width: 100%;\n  display: inline-flex;\n  align-items: center;\n  font-size: 14px !important;\n}\n[data-v-2b30bb2a]:deep(.multiselect__tag > span) {\n  white-space: nowrap;\n  overflow: hidden;\n  text-overflow: ellipsis;\n}\n[data-v-2b30bb2a]:deep(.multiselect__option--highlight) {\n  background-color: #00C09F !important;\n}\n[data-v-2b30bb2a]:deep(.multiselect__option) {\n  font-size: 16px !important;\n  white-space: normal !important;\n  word-break: break-word !important;\n  overflow-wrap: break-word !important;\n  line-height: 1.5 !important;\n  padding: 12px 16px !important;\n}\n[data-v-2b30bb2a]:deep(.field-input) {\n  min-height: 48px !important;\n  font-size: 16px !important;\n  border-radius: 8px !important;\n}\r\n", ""]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
 
@@ -21012,7 +20812,7 @@ __webpack_require__.r(__webpack_exports__);
 
 var ___CSS_LOADER_EXPORT___ = _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0___default()(function(i){return i[1]});
 // Module
-___CSS_LOADER_EXPORT___.push([module.id, "input[type=number][data-v-74f130ec]::-webkit-inner-spin-button,\r\ninput[type=number][data-v-74f130ec]::-webkit-outer-spin-button {\n  -webkit-appearance: none;\n  margin: 0;\n}\n[data-v-74f130ec]:deep(.multiselect__tags) {\n  border-color: #D1D5DB !important;\n  padding-top: 6px !important;\n  min-height: 38px !important;\n}\n[data-v-74f130ec]:deep(.multiselect__tag) {\n  background-color: #1e293b !important;\n}\r\n", ""]);
+___CSS_LOADER_EXPORT___.push([module.id, "input[type=number][data-v-74f130ec]::-webkit-inner-spin-button,\r\ninput[type=number][data-v-74f130ec]::-webkit-outer-spin-button {\n  -webkit-appearance: none;\n  margin: 0;\n}\n[data-v-74f130ec]:deep(.multiselect__tags) {\n  border-color: #D1D5DB !important;\n  padding-top: 10px !important;\n  min-height: 48px !important;\n  font-size: 16px !important;\n  border-radius: 8px;\n}\n[data-v-74f130ec]:deep(.multiselect__select) {\n  height: 48px !important;\n}\n[data-v-74f130ec]:deep(.multiselect__single),[data-v-74f130ec]:deep(.multiselect__input) {\n  font-size: 16px !important;\n  margin-bottom: 0px !important;\n}\n[data-v-74f130ec]:deep(.multiselect__tag) {\n  background-color: #1e293b !important;\n  font-size: 14px !important;\n}\n[data-v-74f130ec]:deep(.field-input) {\n  min-height: 48px !important;\n  font-size: 16px !important;\n  border-radius: 8px !important;\n}\r\n", ""]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
 
@@ -21036,7 +20836,7 @@ __webpack_require__.r(__webpack_exports__);
 
 var ___CSS_LOADER_EXPORT___ = _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0___default()(function(i){return i[1]});
 // Module
-___CSS_LOADER_EXPORT___.push([module.id, "/* ============================================== */\n\n/* ESTILOS DEL SCROLLBAR PERSONALIZADO            */\n\n/* ============================================== */\n.custom-scrollbar[data-v-4d4b5ec6]::-webkit-scrollbar {\n  height: 10px;\n}\n.custom-scrollbar[data-v-4d4b5ec6]::-webkit-scrollbar-track {\n  background: #f1f5f9;\n  border-radius: 4px;\n}\n.custom-scrollbar[data-v-4d4b5ec6]::-webkit-scrollbar-thumb {\n  background: #cbd5e1;\n  border-radius: 4px;\n}\n.custom-scrollbar[data-v-4d4b5ec6]::-webkit-scrollbar-thumb:hover {\n  background: #94a3b8;\n}\n\n/* ============================================== */\n\n/* QUITAR FLECHAS DE LOS INPUTS TIPO NÚMERO       */\n\n/* ============================================== */\ninput[type=number][data-v-4d4b5ec6]::-webkit-inner-spin-button,\r\ninput[type=number][data-v-4d4b5ec6]::-webkit-outer-spin-button {\n  -webkit-appearance: none;\n  margin: 0;\n}\n\n/* ============================================== */\n\n/* ESTILOS INTERNOS DE LA TABLA (INPUTS)          */\n\n/* ============================================== */\n[data-v-4d4b5ec6]:deep(.custom-table-multiselect .multiselect__tags) {\n  border: 1px solid transparent !important;\n  min-height: 28px !important;\n  padding: 4px 25px 0 6px !important;\n  font-size: 11px !important;\n  border-radius: 4px;\n  background-color: transparent;\n  transition: border-color 0.2s;\n}\n[data-v-4d4b5ec6]:deep(.custom-table-multiselect:hover .multiselect__tags) {\n  border-color: #D1D5DB !important;\n  background-color: white;\n}\n[data-v-4d4b5ec6]:deep(.custom-table-multiselect .multiselect__select) {\n  height: 28px !important;\n  padding: 0;\n  top: 0;\n}\n[data-v-4d4b5ec6]:deep(.custom-table-multiselect .multiselect__single) {\n  margin-bottom: 0;\n  font-size: 11px !important;\n  background-color: transparent;\n  text-overflow: ellipsis;\n  overflow: hidden;\n  white-space: nowrap;\n}\n[data-v-4d4b5ec6]:deep(.custom-table-datepicker .field-input) {\n  min-height: 28px !important;\n  height: 28px !important;\n  min-width: 120px !important;\n  font-size: 11px !important;\n  padding: 0 8px !important;\n  border: 1px solid transparent !important;\n  border-radius: 4px;\n  background-color: transparent !important;\n  transition: border-color 0.2s;\n}\n[data-v-4d4b5ec6]:deep(.custom-table-datepicker:hover .field-input) {\n  border-color: #D1D5DB !important;\n  background-color: white !important;\n}\n[data-v-4d4b5ec6]:deep(.custom-table-datepicker .field-clear-button) {\n  display: none !important;\n}\n\n/* ============================================== */\n\n/* ESTILOS DE LA BARRA DE FILTROS SUPERIOR        */\n\n/* ============================================== */\n[data-v-4d4b5ec6]:deep(.custom-filter-multiselect .multiselect__tags) {\n  min-height: 30px !important;\n  padding-top: 5px !important;\n  font-size: 12px !important;\n  border-radius: 4px;\n  border-color: #D1D5DB;\n}\n[data-v-4d4b5ec6]:deep(.custom-filter-multiselect .multiselect__select) {\n  height: 30px !important;\n  top: 0;\n}\n[data-v-4d4b5ec6]:deep(.custom-filter-datepicker .field-input) {\n  min-height: 30px !important;\n  height: 30px !important;\n  font-size: 12px !important;\n  border-radius: 4px;\n  border-color: #D1D5DB !important;\n}\n[data-v-4d4b5ec6]:deep(.custom-filter-datepicker .field-clear-button) {\n  display: none !important;\n}\n\n/* ============================================== */\n\n/* FIX DEFINITIVO: POPUPS Y MENÚS DESPLEGABLES    */\n\n/* ============================================== */\n\n/* Asegurar que las celdas de la tabla permitan desbordamiento */\ntd[data-v-4d4b5ec6],\r\nth[data-v-4d4b5ec6] {\n  overflow: visible !important;\n}\n\n/* 1. CALENDARIO: Forzar ancho real para que los días no se aplasten */\n[data-v-4d4b5ec6]:deep(.datetimepicker) {\n  position: absolute !important;\n  width: 280px !important;\n  min-width: 280px !important;\n  left: 0 !important;\n  right: auto !important;\n  z-index: 99999 !important;\n}\n\n/* 2. MULTISELECT: Forzar a que crezca el ancho según el texto */\n[data-v-4d4b5ec6]:deep(.multiselect__content-wrapper) {\n  position: absolute !important;\n  width: auto !important;\n  min-width: -moz-max-content !important;\n  min-width: max-content !important;\n  left: 0 !important;\n  right: auto !important;\n  z-index: 99999 !important;\n  overflow-x: hidden !important;\n}\n\n/* 3. MULTISELECT TEXTO: Prevenir saltos de línea y puntos suspensivos */\n[data-v-4d4b5ec6]:deep(.multiselect__option) {\n  white-space: nowrap !important;\n  display: block !important;\n  padding-right: 20px !important;\n}\n[data-v-4d4b5ec6]:deep(.multiselect__content) {\n  width: 100% !important;\n  min-width: -moz-max-content !important;\n  min-width: max-content !important;\n  display: block !important;\n}\r\n", ""]);
+___CSS_LOADER_EXPORT___.push([module.id, "/* ============================================== */\n\n/* ESTILOS DEL SCROLLBAR PERSONALIZADO            */\n\n/* ============================================== */\n.custom-scrollbar[data-v-4d4b5ec6]::-webkit-scrollbar {\n  height: 14px;\n}\n.custom-scrollbar[data-v-4d4b5ec6]::-webkit-scrollbar-track {\n  background: #f1f5f9;\n  border-radius: 8px;\n}\n.custom-scrollbar[data-v-4d4b5ec6]::-webkit-scrollbar-thumb {\n  background: #cbd5e1;\n  border-radius: 8px;\n}\n.custom-scrollbar[data-v-4d4b5ec6]::-webkit-scrollbar-thumb:hover {\n  background: #94a3b8;\n}\n\n/* ============================================== */\n\n/* QUITAR FLECHAS DE LOS INPUTS TIPO NÚMERO       */\n\n/* ============================================== */\ninput[type=number][data-v-4d4b5ec6]::-webkit-inner-spin-button,\r\ninput[type=number][data-v-4d4b5ec6]::-webkit-outer-spin-button {\n  -webkit-appearance: none;\n  margin: 0;\n}\n\n/* ============================================== */\n\n/* ESTILOS INTERNOS DE LA TABLA Y FILTROS         */\n\n/* ============================================== */\n[data-v-4d4b5ec6]:deep(.custom-table-multiselect .multiselect__tags) {\n  border: 1px solid transparent !important;\n  min-height: 48px !important;\n  padding: 10px 40px 0 16px !important;\n  font-size: 16px !important;\n  border-radius: 8px;\n  background-color: transparent;\n  transition: border-color 0.2s;\n}\n[data-v-4d4b5ec6]:deep(.custom-table-multiselect:hover .multiselect__tags) {\n  border-color: #D1D5DB !important;\n  background-color: white;\n}\n[data-v-4d4b5ec6]:deep(.custom-table-multiselect .multiselect__select) {\n  height: 48px !important;\n  padding: 0;\n  top: 0;\n}\n[data-v-4d4b5ec6]:deep(.custom-table-multiselect .multiselect__single) {\n  margin-bottom: 0;\n  font-size: 16px !important;\n  background-color: transparent;\n  text-overflow: ellipsis;\n  overflow: hidden;\n  white-space: nowrap;\n}\n[data-v-4d4b5ec6]:deep(.custom-table-datepicker .field-input) {\n  min-height: 48px !important;\n  height: 48px !important;\n  min-width: 180px !important;\n  font-size: 16px !important;\n  padding: 0 16px !important;\n  border: 1px solid transparent !important;\n  border-radius: 8px;\n  background-color: transparent !important;\n  transition: border-color 0.2s;\n}\n[data-v-4d4b5ec6]:deep(.custom-table-datepicker:hover .field-input) {\n  border-color: #D1D5DB !important;\n  background-color: white !important;\n}\n[data-v-4d4b5ec6]:deep(.custom-table-datepicker .field-clear-button) {\n  display: none !important;\n}\n\n/* ============================================== */\n\n/* ESTILOS DE LA BARRA DE FILTROS SUPERIOR        */\n\n/* ============================================== */\n[data-v-4d4b5ec6]:deep(.custom-filter-multiselect .multiselect__tags) {\n  min-height: 48px !important;\n  padding-top: 12px !important;\n  font-size: 16px !important;\n  border-radius: 8px;\n  border-color: #D1D5DB;\n}\n[data-v-4d4b5ec6]:deep(.custom-filter-multiselect .multiselect__select) {\n  height: 48px !important;\n  top: 0;\n}\n[data-v-4d4b5ec6]:deep(.custom-filter-datepicker .field-input) {\n  min-height: 48px !important;\n  height: 48px !important;\n  font-size: 16px !important;\n  border-radius: 8px;\n  border-color: #D1D5DB !important;\n}\n[data-v-4d4b5ec6]:deep(.custom-filter-datepicker .field-clear-button) {\n  display: none !important;\n}\n\n/* ============================================== */\n\n/* FIX DEFINITIVO: POPUPS Y MENÚS DESPLEGABLES    */\n\n/* ============================================== */\ntd[data-v-4d4b5ec6],\r\nth[data-v-4d4b5ec6] {\n  overflow: visible !important;\n}\n[data-v-4d4b5ec6]:deep(.datetimepicker) {\n  position: absolute !important;\n  width: 320px !important;\n  min-width: 320px !important;\n  left: 0 !important;\n  right: auto !important;\n  z-index: 99999 !important;\n}\n[data-v-4d4b5ec6]:deep(.multiselect__content-wrapper) {\n  position: absolute !important;\n  width: auto !important;\n  min-width: -moz-max-content !important;\n  min-width: max-content !important;\n  left: 0 !important;\n  right: auto !important;\n  z-index: 99999 !important;\n  overflow-x: hidden !important;\n}\n[data-v-4d4b5ec6]:deep(.multiselect__option) {\n  white-space: nowrap !important;\n  display: block !important;\n  padding-right: 20px !important;\n  font-size: 16px !important;\n}\n[data-v-4d4b5ec6]:deep(.multiselect__content) {\n  width: 100% !important;\n  min-width: -moz-max-content !important;\n  min-width: max-content !important;\n  display: block !important;\n}\r\n", ""]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
 
@@ -21060,7 +20860,7 @@ __webpack_require__.r(__webpack_exports__);
 
 var ___CSS_LOADER_EXPORT___ = _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0___default()(function(i){return i[1]});
 // Module
-___CSS_LOADER_EXPORT___.push([module.id, ".modal-enter-active[data-v-3a747869], .modal-leave-active[data-v-3a747869] { transition: opacity 0.2s ease-in-out;\n}\n.modal-enter[data-v-3a747869], .modal-leave-to[data-v-3a747869] { opacity: 0;\n}\r\n", ""]);
+___CSS_LOADER_EXPORT___.push([module.id, ".modal-enter-active[data-v-3a747869],\r\n.modal-leave-active[data-v-3a747869] {\n  transition: opacity 0.2s ease-in-out;\n}\n.modal-enter[data-v-3a747869],\r\n.modal-leave-to[data-v-3a747869] {\n  opacity: 0;\n}\r\n", ""]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
 
@@ -21087,7 +20887,7 @@ __webpack_require__.r(__webpack_exports__);
 var ___CSS_LOADER_EXPORT___ = _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0___default()(function(i){return i[1]});
 ___CSS_LOADER_EXPORT___.i(_node_modules_css_loader_dist_cjs_js_clonedRuleSet_9_0_rules_0_use_1_node_modules_vue_ctk_date_time_picker_dist_vue_ctk_date_time_picker_css__WEBPACK_IMPORTED_MODULE_1__["default"]);
 // Module
-___CSS_LOADER_EXPORT___.push([module.id, ".modal-enter-active[data-v-1df3c83a], .modal-leave-active[data-v-1df3c83a] { transition: opacity 0.2s ease-in-out;\n}\n.modal-enter[data-v-1df3c83a], .modal-leave-to[data-v-1df3c83a] { opacity: 0;\n}\n\n/* Ajustes para igualarlo a tus inputs de Tailwind (34px) */\n[data-v-1df3c83a] .custom-datepicker .field-input {\n  min-height: 34px !important;\n  height: 34px !important;\n  font-size: 0.75rem !important; /* text-xs */\n  border-radius: 0.25rem !important; /* rounded */\n  border-color: #D1D5DB !important; /* border-gray-300 */\n}\n[data-v-1df3c83a] .custom-datepicker .field-label {\n  display: none !important; /* Ocultamos el label flotante del componente porque ya tenemos uno arriba */\n}\r\n", ""]);
+___CSS_LOADER_EXPORT___.push([module.id, ".modal-enter-active[data-v-1df3c83a], .modal-leave-active[data-v-1df3c83a] { transition: opacity 0.2s ease-in-out;\n}\n.modal-enter[data-v-1df3c83a], .modal-leave-to[data-v-1df3c83a] { opacity: 0;\n}\n\n/* ============================================== */\n\n/* AJUSTES PARA EL DATE-TIME PICKER               */\n\n/* ============================================== */\n[data-v-1df3c83a] .custom-datepicker .field-input {\n  min-height: 48px !important;\n  height: 48px !important;\n  font-size: 16px !important;\n  border-radius: 8px !important;\n  border-color: #D1D5DB !important;\n  padding-left: 16px !important;\n}\n[data-v-1df3c83a] .custom-datepicker .field-label {\n  display: none !important;\n}\n[data-v-1df3c83a] .custom-datepicker .field-clear-button {\n  display: none !important;\n}\r\n", ""]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
 
@@ -21111,7 +20911,7 @@ __webpack_require__.r(__webpack_exports__);
 
 var ___CSS_LOADER_EXPORT___ = _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0___default()(function(i){return i[1]});
 // Module
-___CSS_LOADER_EXPORT___.push([module.id, ".modal-enter-active[data-v-2cc9cfc6],\r\n.modal-leave-active[data-v-2cc9cfc6] {\n  transition: opacity 0.2s ease-in-out;\n}\n.modal-enter[data-v-2cc9cfc6],\r\n.modal-leave-to[data-v-2cc9cfc6] {\n  opacity: 0;\n}\n\n/* Ajustes para que el multiselect combine con el estilo del Modal */\n[data-v-2cc9cfc6] .custom-multiselect-modal .multiselect__tags {\n  border-color: #D1D5DB !important;\n  border-radius: 0.375rem !important;\n  /* rounded-md */\n  font-size: 0.875rem !important;\n  /* text-sm */\n  min-height: 38px;\n  padding-top: 6px;\n}\n[data-v-2cc9cfc6] .custom-multiselect-modal .multiselect__tag {\n  background-color: #9B8AF2 !important;\n  /* Etiqueta morada para que combine con el botón */\n}\n[data-v-2cc9cfc6] .custom-multiselect-modal .multiselect__tag-icon:focus,[data-v-2cc9cfc6] .custom-multiselect-modal .multiselect__tag-icon:hover {\n  background-color: #7B68EE !important;\n}\n[data-v-2cc9cfc6] .custom-multiselect-modal .multiselect__tag-icon:after {\n  color: white !important;\n}\n[data-v-2cc9cfc6] .custom-multiselect-modal .multiselect__option--highlight {\n  background: #9B8AF2 !important;\n  outline: none;\n  color: white;\n}\n[data-v-2cc9cfc6] .custom-multiselect-modal .multiselect__option--highlight:after {\n  background: #9B8AF2 !important;\n  color: white;\n}\r\n", ""]);
+___CSS_LOADER_EXPORT___.push([module.id, ".modal-enter-active[data-v-2cc9cfc6],\r\n.modal-leave-active[data-v-2cc9cfc6] {\n  transition: opacity 0.2s ease-in-out;\n}\n.modal-enter[data-v-2cc9cfc6],\r\n.modal-leave-to[data-v-2cc9cfc6] {\n  opacity: 0;\n}\n\n/* ============================================== */\n\n/* AJUSTES PARA QUE EL MULTISELECT RESPETE LA ESCALA */\n\n/* ============================================== */\n[data-v-2cc9cfc6] .custom-multiselect-modal .multiselect__tags {\n  border-color: #D1D5DB !important;\n  border-radius: 0.5rem !important;\n  font-size: 16px !important;\n  min-height: 48px !important;\n  padding-top: 10px !important;\n  padding-left: 12px !important;\n}\n[data-v-2cc9cfc6] .custom-multiselect-modal .multiselect__select {\n  height: 48px !important;\n}\n[data-v-2cc9cfc6] .custom-multiselect-modal .multiselect__single,[data-v-2cc9cfc6] .custom-multiselect-modal .multiselect__input {\n  font-size: 16px !important;\n  margin-bottom: 0px !important;\n  padding-top: 2px !important;\n}\n[data-v-2cc9cfc6] .custom-multiselect-modal .multiselect__tag {\n  background-color: #9B8AF2 !important;\n  font-size: 14px !important;\n  margin-top: 2px !important;\n}\n[data-v-2cc9cfc6] .custom-multiselect-modal .multiselect__tag-icon:focus,[data-v-2cc9cfc6] .custom-multiselect-modal .multiselect__tag-icon:hover {\n  background-color: #7B68EE !important;\n}\n[data-v-2cc9cfc6] .custom-multiselect-modal .multiselect__tag-icon:after {\n  color: white !important;\n}\n[data-v-2cc9cfc6] .custom-multiselect-modal .multiselect__option {\n  font-size: 16px !important;\n  padding: 12px 16px !important;\n}\n[data-v-2cc9cfc6] .custom-multiselect-modal .multiselect__option--highlight {\n  background: #9B8AF2 !important;\n  outline: none;\n  color: white;\n}\n[data-v-2cc9cfc6] .custom-multiselect-modal .multiselect__option--highlight:after {\n  background: #9B8AF2 !important;\n  color: white;\n}\r\n", ""]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
 
@@ -21141,7 +20941,7 @@ var ___CSS_LOADER_EXPORT___ = _node_modules_css_loader_dist_runtime_api_js__WEBP
 ___CSS_LOADER_EXPORT___.i(_node_modules_css_loader_dist_cjs_js_clonedRuleSet_9_0_rules_0_use_1_node_modules_vue_ctk_date_time_picker_dist_vue_ctk_date_time_picker_css__WEBPACK_IMPORTED_MODULE_1__["default"]);
 ___CSS_LOADER_EXPORT___.i(_node_modules_css_loader_dist_cjs_js_clonedRuleSet_9_0_rules_0_use_1_node_modules_vue_multiselect_dist_vue_multiselect_min_css__WEBPACK_IMPORTED_MODULE_2__["default"]);
 // Module
-___CSS_LOADER_EXPORT___.push([module.id, "[data-v-5e099616] .custom-datepicker .field-input {\n  min-height: 34px !important;\n  height: 34px !important;\n  font-size: 0.75rem !important;\n  border-radius: 0.25rem !important;\n  border-color: #D1D5DB !important;\n}\n[data-v-5e099616] .custom-datepicker .field-label {\n  display: none !important;\n}\n[data-v-5e099616] .filtro-multiselect .multiselect__tags {\n  min-height: 34px !important;\n  height: 34px !important;\n  padding: 4px 40px 0 8px !important;\n  border-color: #E5E7EB !important;\n  border-radius: 0.25rem !important;\n  font-size: 0.75rem !important;\n  display: flex;\n  align-items: center;\n}\n[data-v-5e099616] .filtro-multiselect .multiselect__select {\n  height: 32px !important;\n  padding: 4px 8px !important;\n  top: 1px;\n}\n[data-v-5e099616] .filtro-multiselect .multiselect__placeholder {\n  color: #9CA3AF !important;\n  margin-bottom: 0 !important;\n  padding-top: 2px !important;\n  font-size: 0.75rem !important;\n}\n[data-v-5e099616] .filtro-multiselect .multiselect__input {\n  font-size: 0.75rem !important;\n  padding: 0 !important;\n  margin-bottom: 0 !important;\n  background: transparent !important;\n}\n[data-v-5e099616] .filtro-multiselect .multiselect__single {\n  font-size: 0.75rem !important;\n  margin-bottom: 0 !important;\n  padding-top: 2px !important;\n  color: #6B7280 !important;\n}\r\n", ""]);
+___CSS_LOADER_EXPORT___.push([module.id, "/* ============================================== */\n\n/* FIX PARA TAMAÑOS CON HTML EN 10PX SIN JIT      */\n\n/* ============================================== */\n[data-v-5e099616] .custom-datepicker .field-input {\n  min-height: 48px !important;\n  height: 48px !important;\n  font-size: 16px !important;\n  border-radius: 8px !important;\n  border-color: #D1D5DB !important;\n}\n[data-v-5e099616] .custom-datepicker .field-label {\n  display: none !important;\n}\n[data-v-5e099616] .filtro-multiselect .multiselect__tags {\n  min-height: 48px !important;\n  height: 48px !important;\n  padding: 10px 40px 0 16px !important;\n  border-color: #E5E7EB !important;\n  border-radius: 8px !important;\n  font-size: 16px !important;\n  display: flex;\n  align-items: center;\n}\n[data-v-5e099616] .filtro-multiselect .multiselect__select {\n  height: 46px !important;\n  padding: 8px !important;\n  top: 1px;\n}\n[data-v-5e099616] .filtro-multiselect .multiselect__placeholder {\n  color: #9CA3AF !important;\n  margin-bottom: 0 !important;\n  padding-top: 4px !important;\n  font-size: 16px !important;\n}\n[data-v-5e099616] .filtro-multiselect .multiselect__input {\n  font-size: 16px !important;\n  padding: 0 !important;\n  margin-bottom: 0 !important;\n  background: transparent !important;\n}\n[data-v-5e099616] .filtro-multiselect .multiselect__single {\n  font-size: 16px !important;\n  margin-bottom: 0 !important;\n  padding-top: 4px !important;\n  color: #6B7280 !important;\n}\r\n", ""]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
 
@@ -87251,13 +87051,17 @@ var render = function () {
       !_vm.mostrarMenuFinanzas
         ? _c(
             "div",
-            { staticClass: "flex-1 flex items-center justify-center p-4" },
+            {
+              staticClass: "flex-1 flex items-center justify-center",
+              staticStyle: { padding: "24px" },
+            },
             [
               _c(
                 "div",
                 {
                   staticClass:
-                    "bg-white p-10 rounded-2xl shadow-xl text-center max-w-md w-full border border-gray-100",
+                    "bg-white rounded-2xl shadow-xl text-center w-full border border-gray-100",
+                  staticStyle: { padding: "40px", "max-width": "480px" },
                 },
                 [
                   _vm._m(0),
@@ -87265,15 +87069,24 @@ var render = function () {
                   _c(
                     "h1",
                     {
-                      staticClass:
-                        "text-3xl font-black text-gray-800 mb-2 tracking-tight",
+                      staticClass: "font-black text-gray-800 tracking-tight",
+                      staticStyle: {
+                        "font-size": "32px",
+                        "margin-bottom": "8px",
+                      },
                     },
                     [_vm._v("ERP InTactics")]
                   ),
                   _vm._v(" "),
                   _c(
                     "p",
-                    { staticClass: "text-gray-500 text-sm mb-10 font-medium" },
+                    {
+                      staticClass: "text-gray-500 font-medium",
+                      staticStyle: {
+                        "font-size": "16px",
+                        "margin-bottom": "40px",
+                      },
+                    },
                     [_vm._v("Portal Operativo y Administrativo")]
                   ),
                   _vm._v(" "),
@@ -87281,14 +87094,19 @@ var render = function () {
                     "button",
                     {
                       staticClass:
-                        "w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 flex items-center justify-center gap-3 shadow-md hover:shadow-lg transform hover:-translate-y-1",
+                        "w-full bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-xl transition-all duration-300 flex items-center justify-center shadow-md hover:shadow-lg transform hover:-translate-y-1",
+                      staticStyle: {
+                        padding: "16px 24px",
+                        "font-size": "18px",
+                        gap: "12px",
+                      },
                       on: { click: _vm.entrarModuloFinanzas },
                     },
                     [
                       _c(
                         "svg",
                         {
-                          staticClass: "w-6 h-6",
+                          staticStyle: { width: "28px", height: "28px" },
                           attrs: {
                             fill: "none",
                             stroke: "currentColor",
@@ -87317,7 +87135,8 @@ var render = function () {
             _c(
               "div",
               {
-                staticClass: "px-6 pt-6 pb-2 flex items-center justify-between",
+                staticClass: "flex items-center justify-between",
+                staticStyle: { padding: "32px 32px 12px 32px" },
               },
               [
                 _c("div", { staticClass: "flex items-center gap-4" }, [
@@ -87325,7 +87144,8 @@ var render = function () {
                     "button",
                     {
                       staticClass:
-                        "text-gray-400 hover:text-blue-500 transition-colors flex items-center gap-1 text-sm font-bold",
+                        "text-gray-400 hover:text-blue-500 transition-colors flex items-center font-bold",
+                      staticStyle: { gap: "6px", "font-size": "16px" },
                       on: {
                         click: function ($event) {
                           _vm.mostrarMenuFinanzas = false
@@ -87336,7 +87156,7 @@ var render = function () {
                       _c(
                         "svg",
                         {
-                          staticClass: "w-5 h-5",
+                          staticStyle: { width: "24px", height: "24px" },
                           attrs: {
                             fill: "none",
                             stroke: "currentColor",
@@ -87360,7 +87180,8 @@ var render = function () {
                 ]),
                 _vm._v(" "),
                 _c("img", {
-                  staticClass: "h-6 w-auto object-contain opacity-70",
+                  staticClass: "object-contain opacity-70",
+                  staticStyle: { height: "32px", width: "auto" },
                   attrs: { src: "/images/logo.png", alt: "InTactics" },
                 }),
               ]
@@ -87369,19 +87190,25 @@ var render = function () {
             _c(
               "div",
               {
-                staticClass:
-                  "px-6 py-4 flex flex-wrap gap-4 border-b border-gray-200",
+                staticClass: "flex flex-wrap border-b border-gray-200",
+                staticStyle: { padding: "24px 32px", gap: "24px" },
               },
               [
                 _c(
                   "button",
                   {
                     staticClass:
-                      "bg-white rounded shadow-sm border p-4 flex items-center gap-4 w-[280px] h-20 transition-all duration-200 text-left hover:shadow-md",
+                      "bg-white rounded-lg shadow-sm border flex items-center text-left hover:shadow-md transition-all duration-200",
                     class:
                       _vm.moduloActivo === "proveedores"
-                        ? "border-blue-400 ring-1 ring-blue-400"
+                        ? "border-blue-400 ring-2 ring-blue-400"
                         : "border-gray-200 hover:border-gray-300",
+                    staticStyle: {
+                      padding: "20px",
+                      gap: "16px",
+                      width: "320px",
+                      height: "100px",
+                    },
                     on: {
                       click: function ($event) {
                         _vm.moduloActivo = "proveedores"
@@ -87393,7 +87220,7 @@ var render = function () {
                       _c(
                         "svg",
                         {
-                          staticClass: "w-8 h-8",
+                          staticStyle: { width: "36px", height: "36px" },
                           attrs: {
                             fill: "none",
                             stroke: "currentColor",
@@ -87429,11 +87256,17 @@ var render = function () {
                   "button",
                   {
                     staticClass:
-                      "bg-white rounded shadow-sm border p-4 flex items-center gap-4 w-[280px] h-20 transition-all duration-200 text-left hover:shadow-md",
+                      "bg-white rounded-lg shadow-sm border flex items-center text-left hover:shadow-md transition-all duration-200",
                     class:
                       _vm.moduloActivo === "ingresos"
-                        ? "border-blue-400 ring-1 ring-blue-400"
+                        ? "border-blue-400 ring-2 ring-blue-400"
                         : "border-gray-200 hover:border-gray-300",
+                    staticStyle: {
+                      padding: "20px",
+                      gap: "16px",
+                      width: "320px",
+                      height: "100px",
+                    },
                     on: {
                       click: function ($event) {
                         _vm.moduloActivo = "ingresos"
@@ -87445,7 +87278,7 @@ var render = function () {
                       _c(
                         "svg",
                         {
-                          staticClass: "w-8 h-8",
+                          staticStyle: { width: "36px", height: "36px" },
                           attrs: {
                             fill: "none",
                             stroke: "currentColor",
@@ -87488,13 +87321,19 @@ var render = function () {
                       "div",
                       {
                         staticClass:
-                          "flex flex-col items-center justify-center h-full pt-20 text-gray-400",
+                          "flex flex-col items-center justify-center h-full text-gray-400",
+                        staticStyle: { "padding-top": "80px" },
                       },
                       [
                         _c(
                           "svg",
                           {
-                            staticClass: "w-16 h-16 mb-4 opacity-50",
+                            staticClass: "opacity-50",
+                            staticStyle: {
+                              width: "80px",
+                              height: "80px",
+                              "margin-bottom": "16px",
+                            },
                             attrs: {
                               fill: "none",
                               stroke: "currentColor",
@@ -87513,11 +87352,18 @@ var render = function () {
                           ]
                         ),
                         _vm._v(" "),
-                        _c("p", { staticClass: "text-sm font-medium" }, [
-                          _vm._v(
-                            "Seleccione un submódulo en las tarjetas superiores para comenzar."
-                          ),
-                        ]),
+                        _c(
+                          "p",
+                          {
+                            staticClass: "font-medium",
+                            staticStyle: { "font-size": "16px" },
+                          },
+                          [
+                            _vm._v(
+                              "Seleccione un submódulo en las tarjetas superiores para comenzar."
+                            ),
+                          ]
+                        ),
                       ]
                     )
                   : _vm._e(),
@@ -87548,10 +87394,14 @@ var staticRenderFns = [
     var _c = _vm._self._c || _h
     return _c(
       "div",
-      { staticClass: "bg-black p-4 rounded-xl inline-block mb-6 shadow-inner" },
+      {
+        staticClass: "bg-black rounded-xl inline-block shadow-inner",
+        staticStyle: { padding: "16px", "margin-bottom": "24px" },
+      },
       [
         _c("img", {
-          staticClass: "h-10 w-auto object-contain",
+          staticClass: "object-contain",
+          staticStyle: { height: "48px", width: "auto" },
           attrs: { src: "/images/logo.png", alt: "InTactics" },
         }),
       ]
@@ -87564,8 +87414,8 @@ var staticRenderFns = [
     return _c(
       "span",
       {
-        staticClass:
-          "text-[13px] font-semibold text-[#6C7A89] leading-tight w-full",
+        staticClass: "font-semibold text-[#6C7A89] leading-tight w-full",
+        staticStyle: { "font-size": "16px" },
       },
       [_vm._v("Control de"), _c("br"), _vm._v("Proveedores")]
     )
@@ -87577,8 +87427,8 @@ var staticRenderFns = [
     return _c(
       "span",
       {
-        staticClass:
-          "text-[13px] font-semibold text-[#6C7A89] leading-tight w-full",
+        staticClass: "font-semibold text-[#6C7A89] leading-tight w-full",
+        staticStyle: { "font-size": "16px" },
       },
       [_vm._v("Finanzas"), _c("br"), _vm._v("e Ingresos")]
     )
@@ -87611,38 +87461,39 @@ var render = function () {
         "div",
         {
           staticClass:
-            "fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50",
+            "fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-6 md:p-10",
         },
         [
           _c(
             "div",
             {
               staticClass:
-                "bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden",
+                "bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[calc(100vh-4rem)]",
             },
             [
               _c(
                 "div",
                 {
                   staticClass:
-                    "bg-indigo-700 px-6 py-4 flex justify-between items-center",
+                    "bg-indigo-700 px-8 py-6 flex justify-between items-center shrink-0",
                 },
                 [
-                  _c("h3", { staticClass: "text-white font-bold text-lg" }, [
+                  _c("h3", { staticClass: "text-white font-bold text-2xl" }, [
                     _vm._v("Generar Complemento de Pago (Contpaqi)"),
                   ]),
                   _vm._v(" "),
                   _c(
                     "button",
                     {
-                      staticClass: "text-white hover:text-gray-200",
+                      staticClass:
+                        "text-white hover:text-gray-200 transition-colors",
                       on: { click: _vm.cerrar },
                     },
                     [
                       _c(
                         "svg",
                         {
-                          staticClass: "w-6 h-6",
+                          staticClass: "w-8 h-8",
                           attrs: {
                             fill: "none",
                             stroke: "currentColor",
@@ -87665,271 +87516,309 @@ var render = function () {
                 ]
               ),
               _vm._v(" "),
-              _c("div", { staticClass: "p-6 grid grid-cols-2 gap-4" }, [
-                _c("div", { staticClass: "col-span-2" }, [
-                  _c(
-                    "label",
-                    { staticClass: "block text-sm font-bold text-gray-700" },
-                    [_vm._v("Cliente")]
-                  ),
-                  _vm._v(" "),
-                  _c("input", {
-                    staticClass:
-                      "w-full mt-1 border-gray-300 bg-gray-100 rounded-md shadow-sm p-2",
-                    attrs: { type: "text", disabled: "" },
-                    domProps: { value: _vm.ingreso.cliente },
-                  }),
-                ]),
-                _vm._v(" "),
-                _c("div", { staticClass: "col-span-1" }, [
-                  _c(
-                    "label",
-                    { staticClass: "block text-sm font-bold text-gray-700" },
-                    [_vm._v("Sucursal")]
-                  ),
-                  _vm._v(" "),
-                  _c("input", {
-                    staticClass:
-                      "w-full mt-1 border-gray-300 bg-gray-100 rounded-md shadow-sm p-2",
-                    attrs: { type: "text", disabled: "" },
-                    domProps: { value: _vm.ingreso.sucursal_origen },
-                  }),
-                ]),
-                _vm._v(" "),
-                _c("div", { staticClass: "col-span-1" }, [
-                  _c(
-                    "label",
-                    { staticClass: "block text-sm font-bold text-gray-700" },
-                    [_vm._v("Total a Pagar")]
-                  ),
-                  _vm._v(" "),
-                  _c("input", {
-                    directives: [
-                      {
-                        name: "model",
-                        rawName: "v-model",
-                        value: _vm.form.total,
-                        expression: "form.total",
-                      },
-                    ],
-                    staticClass:
-                      "w-full mt-1 border-gray-300 rounded-md shadow-sm p-2 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500",
-                    attrs: { type: "number" },
-                    domProps: { value: _vm.form.total },
-                    on: {
-                      input: function ($event) {
-                        if ($event.target.composing) {
-                          return
-                        }
-                        _vm.$set(_vm.form, "total", $event.target.value)
-                      },
-                    },
-                  }),
-                ]),
-                _vm._v(" "),
-                _c(
-                  "div",
-                  { staticClass: "col-span-1" },
-                  [
+              _c(
+                "div",
+                {
+                  staticClass:
+                    "p-8 overflow-y-auto flex-1 grid grid-cols-2 gap-8",
+                },
+                [
+                  _c("div", { staticClass: "col-span-2" }, [
                     _c(
                       "label",
-                      { staticClass: "block text-sm font-bold text-gray-700" },
-                      [_vm._v("Moneda")]
+                      {
+                        staticClass:
+                          "block text-lg font-bold text-gray-700 mb-2",
+                      },
+                      [_vm._v("Cliente")]
                     ),
                     _vm._v(" "),
-                    _c("multiselect", {
-                      staticClass: "mt-1 custom-multiselect",
-                      attrs: {
-                        options: _vm.opcionesMoneda,
-                        label: "label",
-                        "track-by": "value",
-                        searchable: false,
-                        "show-labels": false,
-                        "allow-empty": false,
-                      },
-                      model: {
-                        value: _vm.form.monedaObj,
-                        callback: function ($$v) {
-                          _vm.$set(_vm.form, "monedaObj", $$v)
-                        },
-                        expression: "form.monedaObj",
-                      },
+                    _c("input", {
+                      staticClass:
+                        "w-full border-gray-300 bg-gray-100 rounded-lg shadow-sm px-5 py-4 text-xl text-gray-700",
+                      attrs: { type: "text", disabled: "" },
+                      domProps: { value: _vm.ingreso.cliente },
                     }),
-                  ],
-                  1
-                ),
-                _vm._v(" "),
-                _c("div", { staticClass: "col-span-1" }, [
-                  _c(
-                    "label",
-                    { staticClass: "block text-sm font-bold text-gray-700" },
-                    [_vm._v("Tipo de Cambio")]
-                  ),
+                  ]),
                   _vm._v(" "),
-                  _c("input", {
-                    directives: [
-                      {
-                        name: "model",
-                        rawName: "v-model",
-                        value: _vm.form.tipo_cambio,
-                        expression: "form.tipo_cambio",
-                      },
-                    ],
-                    staticClass:
-                      "w-full mt-1 border-gray-300 rounded-md shadow-sm p-2 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500",
-                    attrs: { type: "number", step: "0.01" },
-                    domProps: { value: _vm.form.tipo_cambio },
-                    on: {
-                      input: function ($event) {
-                        if ($event.target.composing) {
-                          return
-                        }
-                        _vm.$set(_vm.form, "tipo_cambio", $event.target.value)
-                      },
-                    },
-                  }),
-                ]),
-                _vm._v(" "),
-                _c(
-                  "div",
-                  { staticClass: "col-span-1" },
-                  [
+                  _c("div", { staticClass: "col-span-1" }, [
                     _c(
                       "label",
-                      { staticClass: "block text-sm font-bold text-gray-700" },
-                      [_vm._v("Forma de Pago")]
+                      {
+                        staticClass:
+                          "block text-lg font-bold text-gray-700 mb-2",
+                      },
+                      [_vm._v("Sucursal")]
                     ),
                     _vm._v(" "),
-                    _c("multiselect", {
-                      staticClass: "mt-1 custom-multiselect",
-                      attrs: {
-                        options: _vm.formasPago,
-                        label: "label",
-                        "track-by": "value",
-                        searchable: true,
-                        "show-labels": false,
-                        "allow-empty": false,
-                        placeholder: "Seleccione...",
-                      },
-                      model: {
-                        value: _vm.form.formaPagoObj,
-                        callback: function ($$v) {
-                          _vm.$set(_vm.form, "formaPagoObj", $$v)
-                        },
-                        expression: "form.formaPagoObj",
-                      },
+                    _c("input", {
+                      staticClass:
+                        "w-full border-gray-300 bg-gray-100 rounded-lg shadow-sm px-5 py-4 text-xl text-gray-700",
+                      attrs: { type: "text", disabled: "" },
+                      domProps: { value: _vm.ingreso.sucursal_origen },
                     }),
-                  ],
-                  1
-                ),
-                _vm._v(" "),
-                _c(
-                  "div",
-                  { staticClass: "col-span-1" },
-                  [
+                  ]),
+                  _vm._v(" "),
+                  _c("div", { staticClass: "col-span-1" }, [
                     _c(
                       "label",
-                      { staticClass: "block text-sm font-bold text-gray-700" },
-                      [_vm._v("Método de Pago")]
+                      {
+                        staticClass:
+                          "block text-lg font-bold text-gray-700 mb-2",
+                      },
+                      [_vm._v("Total a Pagar")]
                     ),
                     _vm._v(" "),
-                    _c("multiselect", {
-                      staticClass: "mt-1 custom-multiselect",
-                      attrs: {
-                        options: _vm.opcionesMetodoPago,
-                        label: "label",
-                        "track-by": "value",
-                        searchable: false,
-                        "show-labels": false,
-                        "allow-empty": false,
-                      },
-                      model: {
-                        value: _vm.form.metodoPagoObj,
-                        callback: function ($$v) {
-                          _vm.$set(_vm.form, "metodoPagoObj", $$v)
+                    _c("input", {
+                      directives: [
+                        {
+                          name: "model",
+                          rawName: "v-model",
+                          value: _vm.form.total,
+                          expression: "form.total",
                         },
-                        expression: "form.metodoPagoObj",
+                      ],
+                      staticClass:
+                        "w-full border-gray-300 rounded-lg shadow-sm px-5 py-4 text-2xl font-black text-indigo-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500",
+                      attrs: { type: "number" },
+                      domProps: { value: _vm.form.total },
+                      on: {
+                        input: function ($event) {
+                          if ($event.target.composing) {
+                            return
+                          }
+                          _vm.$set(_vm.form, "total", $event.target.value)
+                        },
                       },
                     }),
-                  ],
-                  1
-                ),
-                _vm._v(" "),
-                _c("div", { staticClass: "col-span-2" }, [
+                  ]),
+                  _vm._v(" "),
                   _c(
-                    "label",
-                    { staticClass: "block text-sm font-bold text-gray-700" },
-                    [_vm._v("Referencia")]
+                    "div",
+                    { staticClass: "col-span-1" },
+                    [
+                      _c(
+                        "label",
+                        {
+                          staticClass:
+                            "block text-lg font-bold text-gray-700 mb-2",
+                        },
+                        [_vm._v("Moneda")]
+                      ),
+                      _vm._v(" "),
+                      _c("multiselect", {
+                        staticClass: "custom-multiselect text-xl",
+                        attrs: {
+                          options: _vm.opcionesMoneda,
+                          label: "label",
+                          "track-by": "value",
+                          searchable: false,
+                          "show-labels": false,
+                          "allow-empty": false,
+                        },
+                        model: {
+                          value: _vm.form.monedaObj,
+                          callback: function ($$v) {
+                            _vm.$set(_vm.form, "monedaObj", $$v)
+                          },
+                          expression: "form.monedaObj",
+                        },
+                      }),
+                    ],
+                    1
                   ),
                   _vm._v(" "),
-                  _c("input", {
-                    directives: [
+                  _c("div", { staticClass: "col-span-1" }, [
+                    _c(
+                      "label",
                       {
-                        name: "model",
-                        rawName: "v-model",
-                        value: _vm.form.referencia,
-                        expression: "form.referencia",
+                        staticClass:
+                          "block text-lg font-bold text-gray-700 mb-2",
                       },
-                    ],
-                    staticClass:
-                      "w-full mt-1 border-gray-300 rounded-md shadow-sm p-2 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500",
-                    attrs: { type: "text" },
-                    domProps: { value: _vm.form.referencia },
-                    on: {
-                      input: function ($event) {
-                        if ($event.target.composing) {
-                          return
-                        }
-                        _vm.$set(_vm.form, "referencia", $event.target.value)
+                      [_vm._v("Tipo de Cambio")]
+                    ),
+                    _vm._v(" "),
+                    _c("input", {
+                      directives: [
+                        {
+                          name: "model",
+                          rawName: "v-model",
+                          value: _vm.form.tipo_cambio,
+                          expression: "form.tipo_cambio",
+                        },
+                      ],
+                      staticClass:
+                        "w-full border-gray-300 rounded-lg shadow-sm px-5 py-4 text-xl outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500",
+                      attrs: { type: "number", step: "0.01" },
+                      domProps: { value: _vm.form.tipo_cambio },
+                      on: {
+                        input: function ($event) {
+                          if ($event.target.composing) {
+                            return
+                          }
+                          _vm.$set(_vm.form, "tipo_cambio", $event.target.value)
+                        },
                       },
-                    },
-                  }),
-                ]),
-                _vm._v(" "),
-                _c("div", { staticClass: "col-span-2" }, [
+                    }),
+                  ]),
+                  _vm._v(" "),
                   _c(
-                    "label",
-                    { staticClass: "block text-sm font-bold text-gray-700" },
-                    [_vm._v("Observaciones")]
+                    "div",
+                    { staticClass: "col-span-1" },
+                    [
+                      _c(
+                        "label",
+                        {
+                          staticClass:
+                            "block text-lg font-bold text-gray-700 mb-2",
+                        },
+                        [_vm._v("Forma de Pago")]
+                      ),
+                      _vm._v(" "),
+                      _c("multiselect", {
+                        staticClass: "custom-multiselect text-xl",
+                        attrs: {
+                          options: _vm.formasPago,
+                          label: "label",
+                          "track-by": "value",
+                          searchable: true,
+                          "show-labels": false,
+                          "allow-empty": false,
+                          placeholder: "Seleccione...",
+                        },
+                        model: {
+                          value: _vm.form.formaPagoObj,
+                          callback: function ($$v) {
+                            _vm.$set(_vm.form, "formaPagoObj", $$v)
+                          },
+                          expression: "form.formaPagoObj",
+                        },
+                      }),
+                    ],
+                    1
                   ),
                   _vm._v(" "),
-                  _c("textarea", {
-                    directives: [
-                      {
-                        name: "model",
-                        rawName: "v-model",
-                        value: _vm.form.observaciones,
-                        expression: "form.observaciones",
-                      },
+                  _c(
+                    "div",
+                    { staticClass: "col-span-1" },
+                    [
+                      _c(
+                        "label",
+                        {
+                          staticClass:
+                            "block text-lg font-bold text-gray-700 mb-2",
+                        },
+                        [_vm._v("Método de Pago")]
+                      ),
+                      _vm._v(" "),
+                      _c("multiselect", {
+                        staticClass: "custom-multiselect text-xl",
+                        attrs: {
+                          options: _vm.opcionesMetodoPago,
+                          label: "label",
+                          "track-by": "value",
+                          searchable: false,
+                          "show-labels": false,
+                          "allow-empty": false,
+                        },
+                        model: {
+                          value: _vm.form.metodoPagoObj,
+                          callback: function ($$v) {
+                            _vm.$set(_vm.form, "metodoPagoObj", $$v)
+                          },
+                          expression: "form.metodoPagoObj",
+                        },
+                      }),
                     ],
-                    staticClass:
-                      "w-full mt-1 border-gray-300 rounded-md shadow-sm p-2 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500",
-                    attrs: { rows: "2" },
-                    domProps: { value: _vm.form.observaciones },
-                    on: {
-                      input: function ($event) {
-                        if ($event.target.composing) {
-                          return
-                        }
-                        _vm.$set(_vm.form, "observaciones", $event.target.value)
+                    1
+                  ),
+                  _vm._v(" "),
+                  _c("div", { staticClass: "col-span-2" }, [
+                    _c(
+                      "label",
+                      {
+                        staticClass:
+                          "block text-lg font-bold text-gray-700 mb-2",
                       },
-                    },
-                  }),
-                ]),
-              ]),
+                      [_vm._v("Referencia")]
+                    ),
+                    _vm._v(" "),
+                    _c("input", {
+                      directives: [
+                        {
+                          name: "model",
+                          rawName: "v-model",
+                          value: _vm.form.referencia,
+                          expression: "form.referencia",
+                        },
+                      ],
+                      staticClass:
+                        "w-full border-gray-300 rounded-lg shadow-sm px-5 py-4 text-xl outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500",
+                      attrs: { type: "text" },
+                      domProps: { value: _vm.form.referencia },
+                      on: {
+                        input: function ($event) {
+                          if ($event.target.composing) {
+                            return
+                          }
+                          _vm.$set(_vm.form, "referencia", $event.target.value)
+                        },
+                      },
+                    }),
+                  ]),
+                  _vm._v(" "),
+                  _c("div", { staticClass: "col-span-2" }, [
+                    _c(
+                      "label",
+                      {
+                        staticClass:
+                          "block text-lg font-bold text-gray-700 mb-2",
+                      },
+                      [_vm._v("Observaciones")]
+                    ),
+                    _vm._v(" "),
+                    _c("textarea", {
+                      directives: [
+                        {
+                          name: "model",
+                          rawName: "v-model",
+                          value: _vm.form.observaciones,
+                          expression: "form.observaciones",
+                        },
+                      ],
+                      staticClass:
+                        "w-full border-gray-300 rounded-lg shadow-sm px-5 py-4 text-xl outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500",
+                      attrs: { rows: "2" },
+                      domProps: { value: _vm.form.observaciones },
+                      on: {
+                        input: function ($event) {
+                          if ($event.target.composing) {
+                            return
+                          }
+                          _vm.$set(
+                            _vm.form,
+                            "observaciones",
+                            $event.target.value
+                          )
+                        },
+                      },
+                    }),
+                  ]),
+                ]
+              ),
               _vm._v(" "),
               _c(
                 "div",
                 {
                   staticClass:
-                    "bg-gray-50 px-6 py-4 flex justify-end gap-3 rounded-b-lg border-t",
+                    "bg-gray-50 px-8 py-6 flex justify-end gap-6 rounded-b-xl border-t shrink-0",
                 },
                 [
                   _c(
                     "button",
                     {
                       staticClass:
-                        "px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 font-bold transition",
+                        "px-8 py-4 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 font-bold transition text-xl shadow-sm",
                       on: { click: _vm.cerrar },
                     },
                     [_vm._v("Cancelar")]
@@ -87939,7 +87828,7 @@ var render = function () {
                     "button",
                     {
                       staticClass:
-                        "px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-bold transition flex items-center",
+                        "px-8 py-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold transition flex items-center text-xl shadow-sm",
                       on: { click: _vm.enviarComplemento },
                     },
                     [_vm._v("\n        Generar Complemento\n      ")]
@@ -87979,28 +87868,28 @@ var render = function () {
     "div",
     {
       staticClass:
-        "fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 md:p-8",
+        "fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-6 md:p-10",
     },
     [
       _c(
         "div",
         {
           staticClass:
-            "bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[calc(100vh-4rem)] flex flex-col overflow-hidden",
+            "bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[calc(100vh-4rem)] flex flex-col overflow-hidden",
         },
         [
           _c(
             "div",
             {
               staticClass:
-                "bg-blue-500 px-4 py-3 flex justify-between items-center shrink-0",
+                "bg-blue-600 px-8 py-6 flex justify-between items-center shrink-0",
             },
             [
               _c(
                 "h3",
                 {
                   staticClass:
-                    "text-white text-xs font-bold uppercase tracking-wider",
+                    "text-white text-2xl font-bold uppercase tracking-wider",
                 },
                 [_vm._v("EDITAR INGRESO CONCILIADO")]
               ),
@@ -88009,7 +87898,7 @@ var render = function () {
                 "button",
                 {
                   staticClass:
-                    "text-gray-400 hover:text-white transition-colors",
+                    "text-blue-200 hover:text-white transition-colors",
                   on: {
                     click: function ($event) {
                       return _vm.$emit("close")
@@ -88020,7 +87909,7 @@ var render = function () {
                   _c(
                     "svg",
                     {
-                      staticClass: "w-4 h-4",
+                      staticClass: "w-8 h-8",
                       attrs: {
                         fill: "none",
                         stroke: "currentColor",
@@ -88046,7 +87935,7 @@ var render = function () {
           _c(
             "div",
             {
-              staticClass: "p-6 overflow-y-auto flex-1 grid grid-cols-2 gap-4",
+              staticClass: "p-8 overflow-y-auto flex-1 grid grid-cols-2 gap-8",
             },
             [
               _c(
@@ -88057,13 +87946,13 @@ var render = function () {
                     "label",
                     {
                       staticClass:
-                        "block text-[10px] font-bold text-gray-500 uppercase mb-1",
+                        "block text-base font-bold text-gray-500 uppercase mb-2",
                     },
                     [_vm._v("SUCURSAL ORIGEN *")]
                   ),
                   _vm._v(" "),
                   _c("multiselect", {
-                    staticClass: "text-sm",
+                    staticClass: "text-xl",
                     attrs: {
                       options: _vm.opcionesSucursal,
                       placeholder: "Seleccione...",
@@ -88081,14 +87970,14 @@ var render = function () {
                   _vm.sucursalSeleccionada
                     ? _c(
                         "div",
-                        { staticClass: "mt-2 flex items-center gap-3" },
+                        { staticClass: "mt-4 flex items-center gap-6" },
                         [
                           _vm.esSucursalOtraBase
                             ? _c(
                                 "label",
                                 {
                                   staticClass:
-                                    "inline-flex items-center cursor-pointer bg-blue-50 px-2 py-1 rounded border border-blue-200 hover:bg-blue-100 transition-colors shadow-sm",
+                                    "inline-flex items-center cursor-pointer bg-blue-50 px-4 py-3 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors shadow-sm",
                                 },
                                 [
                                   _c("input", {
@@ -88101,7 +87990,7 @@ var render = function () {
                                       },
                                     ],
                                     staticClass:
-                                      "form-checkbox h-3.5 w-3.5 text-blue-600 rounded cursor-pointer",
+                                      "form-checkbox h-6 w-6 text-blue-600 rounded cursor-pointer",
                                     attrs: { type: "checkbox" },
                                     domProps: {
                                       checked: Array.isArray(
@@ -88142,7 +88031,7 @@ var render = function () {
                                     "span",
                                     {
                                       staticClass:
-                                        "ml-1.5 text-[10px] text-blue-800 font-extrabold uppercase",
+                                        "ml-3 text-base text-blue-800 font-extrabold uppercase",
                                     },
                                     [_vm._v("Es Transportactics")]
                                   ),
@@ -88155,7 +88044,7 @@ var render = function () {
                                 "label",
                                 {
                                   staticClass:
-                                    "inline-flex items-center cursor-pointer bg-purple-50 px-2 py-1 rounded border border-purple-200 hover:bg-purple-100 transition-colors shadow-sm",
+                                    "inline-flex items-center cursor-pointer bg-purple-50 px-4 py-3 rounded-lg border border-purple-200 hover:bg-purple-100 transition-colors shadow-sm",
                                 },
                                 [
                                   _c("input", {
@@ -88168,7 +88057,7 @@ var render = function () {
                                       },
                                     ],
                                     staticClass:
-                                      "form-checkbox h-3.5 w-3.5 text-purple-600 rounded cursor-pointer",
+                                      "form-checkbox h-6 w-6 text-purple-600 rounded cursor-pointer",
                                     attrs: { type: "checkbox" },
                                     domProps: {
                                       checked: Array.isArray(
@@ -88207,7 +88096,7 @@ var render = function () {
                                     "span",
                                     {
                                       staticClass:
-                                        "ml-1.5 text-[10px] text-purple-800 font-extrabold uppercase",
+                                        "ml-3 text-base text-purple-800 font-extrabold uppercase",
                                     },
                                     [_vm._v("Es Intshipperts")]
                                   ),
@@ -88229,13 +88118,13 @@ var render = function () {
                     "label",
                     {
                       staticClass:
-                        "block text-[10px] font-bold text-gray-500 uppercase mb-1",
+                        "block text-base font-bold text-gray-500 uppercase mb-2",
                     },
                     [_vm._v("BANCO RECEPTOR")]
                   ),
                   _vm._v(" "),
                   _c("multiselect", {
-                    staticClass: "text-sm",
+                    staticClass: "text-xl",
                     attrs: {
                       options: _vm.opcionesBanco,
                       placeholder: "Seleccione...",
@@ -88261,13 +88150,13 @@ var render = function () {
                     "label",
                     {
                       staticClass:
-                        "block text-[10px] font-bold text-gray-500 uppercase mb-1",
+                        "block text-base font-bold text-gray-500 uppercase mb-2",
                     },
                     [_vm._v("FECHA DE DEPÓSITO *")]
                   ),
                   _vm._v(" "),
                   _c("VueCtkDateTimePicker", {
-                    staticClass: "text-sm",
+                    staticClass: "text-xl",
                     attrs: {
                       format: "YYYY-MM-DD",
                       formatted: "YYYY-MM-DD",
@@ -88296,17 +88185,13 @@ var render = function () {
                     "label",
                     {
                       staticClass:
-                        "block text-[10px] font-bold text-gray-500 uppercase mb-1",
+                        "block text-base font-bold text-gray-500 uppercase mb-2",
                     },
-                    [
-                      _vm._v(
-                        "RAZÓN SOCIAL CLIENTE (Filtra\n                    los folios) *"
-                      ),
-                    ]
+                    [_vm._v("RAZÓN SOCIAL CLIENTE (Filtra los folios) *")]
                   ),
                   _vm._v(" "),
                   _c("multiselect", {
-                    staticClass: "text-sm",
+                    staticClass: "text-xl",
                     attrs: {
                       options: _vm.opcionesCliente,
                       "track-by": "id",
@@ -88331,13 +88216,9 @@ var render = function () {
                   "label",
                   {
                     staticClass:
-                      "block text-[10px] font-bold text-gray-500 uppercase mb-1",
+                      "block text-base font-bold text-gray-500 uppercase mb-2",
                   },
-                  [
-                    _vm._v(
-                      "\n                    PEDIMENTOS / FOLIOS DISPONIBLES *\n                "
-                    ),
-                  ]
+                  [_vm._v("PEDIMENTOS / FOLIOS DISPONIBLES *")]
                 ),
                 _vm._v(" "),
                 _c(
@@ -88347,7 +88228,7 @@ var render = function () {
                     _c(
                       "multiselect",
                       {
-                        staticClass: "w-full min-w-0 flex-1 text-sm",
+                        staticClass: "w-full min-w-0 flex-1 text-xl",
                         attrs: {
                           options: _vm.opcionesPedimentos,
                           multiple: true,
@@ -88379,10 +88260,10 @@ var render = function () {
                       "button",
                       {
                         staticClass:
-                          "bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-r transition-colors flex items-center justify-center -ml-1 z-10 shrink-0 disabled:opacity-50",
+                          "bg-blue-500 hover:bg-blue-600 text-white px-5 py-4 rounded-r transition-colors flex items-center justify-center -ml-1 z-10 shrink-0 disabled:opacity-50",
                         attrs: {
                           type: "button",
-                          title: "Calcular montos desde XML / Sheet",
+                          title: "Calcular montos desde XML/Sheet",
                           disabled: _vm.cargandoSheet,
                         },
                         on: { click: _vm.buscarYRecalcularPedimento },
@@ -88391,7 +88272,7 @@ var render = function () {
                         _c(
                           "svg",
                           {
-                            staticClass: "w-4 h-4",
+                            staticClass: "w-6 h-6",
                             attrs: {
                               fill: "none",
                               stroke: "currentColor",
@@ -88420,11 +88301,11 @@ var render = function () {
                       "span",
                       {
                         staticClass:
-                          "text-[9px] text-red-500 font-bold mt-1 block",
+                          "text-sm text-red-500 font-bold mt-2 inline-block",
                       },
                       [
                         _vm._v(
-                          "⚠️\n                    Selecciona una sucursal para cargar la lista."
+                          "⚠️ Selecciona una sucursal para cargar la lista."
                         ),
                       ]
                     )
@@ -88436,7 +88317,7 @@ var render = function () {
                   "label",
                   {
                     staticClass:
-                      "block text-[10px] font-bold text-gray-500 uppercase mb-1",
+                      "block text-base font-bold text-gray-500 uppercase mb-2",
                   },
                   [_vm._v("MONTO DEPÓSITO ($) *")]
                 ),
@@ -88451,7 +88332,7 @@ var render = function () {
                     },
                   ],
                   staticClass:
-                    "w-full border border-gray-300 rounded px-3 py-2.5 text-sm font-black text-purple-700 focus:outline-none focus:border-[#2A3A4D]",
+                    "w-full border border-gray-300 rounded-lg px-5 py-4 text-3xl font-black text-purple-700 focus:outline-none focus:border-[#2A3A4D]",
                   attrs: { type: "number", step: "0.01", placeholder: "0.00" },
                   domProps: { value: _vm.form.monto_deposito },
                   on: {
@@ -88469,23 +88350,19 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "col-span-2 flex items-center gap-6 mt-1 p-3 bg-gray-50 border border-gray-200 rounded-lg",
+                    "col-span-2 flex items-center gap-8 mt-2 p-5 bg-gray-50 border border-gray-200 rounded-xl",
                 },
                 [
                   _c(
                     "label",
                     {
                       staticClass:
-                        "text-[11px] font-extrabold text-gray-500 uppercase tracking-wide",
+                        "text-lg font-extrabold text-gray-500 uppercase tracking-wide",
                     },
-                    [
-                      _vm._v(
-                        "\n                    TIPO DE COMPROBANTE:\n                "
-                      ),
-                    ]
+                    [_vm._v("TIPO DE COMPROBANTE:")]
                   ),
                   _vm._v(" "),
-                  _c("div", { staticClass: "flex gap-4" }, [
+                  _c("div", { staticClass: "flex gap-8" }, [
                     _c(
                       "label",
                       {
@@ -88502,7 +88379,7 @@ var render = function () {
                             },
                           ],
                           staticClass:
-                            "form-checkbox h-4 w-4 text-[#00C09F] focus:ring-[#00C09F] cursor-pointer rounded",
+                            "form-checkbox h-6 w-6 text-[#00C09F] focus:ring-[#00C09F] cursor-pointer rounded",
                           attrs: { type: "checkbox", value: "CFDI" },
                           domProps: {
                             checked: Array.isArray(_vm.tiposComprobanteArray)
@@ -88538,7 +88415,7 @@ var render = function () {
                         _c(
                           "span",
                           {
-                            staticClass: "ml-2 text-sm text-gray-700 font-bold",
+                            staticClass: "ml-3 text-xl text-gray-700 font-bold",
                           },
                           [_vm._v("CFDI (Factura)")]
                         ),
@@ -88561,7 +88438,7 @@ var render = function () {
                             },
                           ],
                           staticClass:
-                            "form-checkbox h-4 w-4 text-[#00C09F] focus:ring-[#00C09F] cursor-pointer rounded",
+                            "form-checkbox h-6 w-6 text-[#00C09F] focus:ring-[#00C09F] cursor-pointer rounded",
                           attrs: { type: "checkbox", value: "Nota Cargo" },
                           domProps: {
                             checked: Array.isArray(_vm.tiposComprobanteArray)
@@ -88600,7 +88477,7 @@ var render = function () {
                         _c(
                           "span",
                           {
-                            staticClass: "ml-2 text-sm text-gray-700 font-bold",
+                            staticClass: "ml-3 text-xl text-gray-700 font-bold",
                           },
                           [_vm._v("Nota Cargo")]
                         ),
@@ -88614,30 +88491,28 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "col-span-2 mt-2 border border-[#2A3A4D] rounded-lg p-3 bg-gray-50/50",
+                    "col-span-2 mt-4 border border-[#2A3A4D] rounded-xl p-6 bg-gray-50/50",
                 },
                 [
                   _c(
                     "h4",
                     {
                       staticClass:
-                        "text-[11px] font-extrabold text-[#2A3A4D] uppercase tracking-wide mb-3",
+                        "text-lg font-extrabold text-[#2A3A4D] uppercase tracking-wide mb-6",
                     },
                     [_vm._v("DESGLOSE:")]
                   ),
                   _vm._v(" "),
                   _vm.esTransportactics
-                    ? _c("div", { staticClass: "grid grid-cols-3 gap-3" }, [
+                    ? _c("div", { staticClass: "grid grid-cols-3 gap-6" }, [
                         _c("div", [
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Flete (XML):")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -88648,7 +88523,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -88670,12 +88545,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Pago Proveedor:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -88686,7 +88559,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -88713,14 +88586,13 @@ var render = function () {
                             "label",
                             {
                               staticClass:
-                                "block text-[10px] text-emerald-600 mb-1 font-bold",
+                                "block text-base text-emerald-600 mb-2 font-bold",
                             },
                             [_vm._v("Ganancia:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             staticClass:
-                              "w-full border border-emerald-200 rounded px-2 py-1.5 text-sm bg-emerald-50 text-emerald-700 font-bold focus:outline-none cursor-not-allowed",
+                              "w-full border border-emerald-200 rounded-lg px-4 py-3 text-xl bg-emerald-50 text-emerald-700 font-bold",
                             attrs: { readonly: "", type: "number" },
                             domProps: {
                               value: (
@@ -88732,17 +88604,15 @@ var render = function () {
                         ]),
                       ])
                     : _vm.esIntshipperts
-                    ? _c("div", { staticClass: "grid grid-cols-2 gap-3" }, [
+                    ? _c("div", { staticClass: "grid grid-cols-2 gap-6" }, [
                         _c("div", [
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Anticipo:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -88753,7 +88623,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -88779,12 +88649,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("ALMAN / Flete:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -88795,7 +88663,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -88814,17 +88682,15 @@ var render = function () {
                         ]),
                       ])
                     : _vm.esManzanillo
-                    ? _c("div", { staticClass: "grid grid-cols-4 gap-3" }, [
+                    ? _c("div", { staticClass: "grid grid-cols-4 gap-6" }, [
                         _c("div", [
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Anticipo:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -88835,7 +88701,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -88861,12 +88727,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Garantías:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -88877,7 +88741,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -88903,12 +88767,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Desglose Naviera:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -88919,7 +88781,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -88945,12 +88807,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Impuestos:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -88961,7 +88821,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -88987,12 +88847,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("ALMAN / Flete:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -89003,7 +88861,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89025,12 +88883,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Honorarios:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -89041,7 +88897,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89063,17 +88919,15 @@ var render = function () {
                           }),
                         ]),
                       ])
-                    : _c("div", { staticClass: "grid grid-cols-4 gap-3" }, [
+                    : _c("div", { staticClass: "grid grid-cols-4 gap-6" }, [
                         _c("div", [
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Honorarios:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -89084,7 +88938,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89110,12 +88964,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Impuestos:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -89126,7 +88978,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89152,12 +89004,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("ECI:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -89168,7 +89018,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89190,12 +89040,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Maniobras:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -89206,7 +89054,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89232,12 +89080,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Flete:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -89248,7 +89094,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89270,12 +89116,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Muestras:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -89286,7 +89130,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89312,12 +89156,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("LLC:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -89328,7 +89170,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89351,43 +89193,45 @@ var render = function () {
                     "div",
                     {
                       staticClass:
-                        "col-span-full mt-2 p-2.5 bg-white border border-gray-200 rounded flex flex-wrap items-center justify-between shadow-sm",
+                        "col-span-full mt-6 p-5 bg-white border border-gray-200 rounded-xl flex flex-wrap items-center justify-between shadow-sm",
                     },
                     [
                       _c(
                         "div",
-                        { staticClass: "flex items-center gap-2 px-2" },
+                        { staticClass: "flex items-center gap-4 px-3" },
                         [
                           _c(
                             "span",
                             {
                               staticClass:
-                                "text-[10px] text-gray-500 font-bold uppercase",
+                                "text-base text-gray-500 font-bold uppercase",
                             },
                             [_vm._v("Total GPC:")]
                           ),
                           _vm._v(" "),
                           _c(
                             "span",
-                            { staticClass: "text-sm font-black text-blue-600" },
+                            {
+                              staticClass: "text-2xl font-black text-blue-600",
+                            },
                             [_vm._v(_vm._s(_vm.formatearDinero(_vm.totalGPC)))]
                           ),
                         ]
                       ),
                       _vm._v(" "),
                       _c("div", {
-                        staticClass: "hidden md:block w-px h-6 bg-gray-200",
+                        staticClass: "hidden md:block w-px h-10 bg-gray-200",
                       }),
                       _vm._v(" "),
                       _c(
                         "div",
-                        { staticClass: "flex items-center gap-2 px-2" },
+                        { staticClass: "flex items-center gap-4 px-3" },
                         [
                           _c(
                             "span",
                             {
                               staticClass:
-                                "text-[10px] text-gray-500 font-bold uppercase",
+                                "text-base text-gray-500 font-bold uppercase",
                             },
                             [_vm._v("Total Honorarios:")]
                           ),
@@ -89395,7 +89239,7 @@ var render = function () {
                           _c(
                             "span",
                             {
-                              staticClass: "text-sm font-black text-[#00C09F]",
+                              staticClass: "text-2xl font-black text-[#00C09F]",
                             },
                             [
                               _vm._v(
@@ -89410,14 +89254,14 @@ var render = function () {
                         "div",
                         {
                           staticClass:
-                            "flex items-center gap-2 bg-yellow-50 border border-yellow-200 px-3 py-1.5 rounded ml-auto",
+                            "flex items-center gap-4 bg-yellow-50 border border-yellow-200 px-6 py-3 rounded-lg ml-auto",
                         },
                         [
                           _c(
                             "span",
                             {
                               staticClass:
-                                "text-[10px] text-yellow-700 font-bold uppercase",
+                                "text-base text-yellow-700 font-bold uppercase",
                             },
                             [_vm._v("Suma Total:")]
                           ),
@@ -89426,7 +89270,7 @@ var render = function () {
                             "span",
                             {
                               staticClass:
-                                "text-base font-black text-yellow-600",
+                                "text-3xl font-black text-yellow-600",
                             },
                             [_vm._v(_vm._s(_vm.formatearDinero(_vm.sumaTotal)))]
                           ),
@@ -89443,28 +89287,28 @@ var render = function () {
             "div",
             {
               staticClass:
-                "px-6 py-4 border-t border-gray-200 flex justify-end gap-3 bg-gray-50 shrink-0",
+                "px-8 py-6 border-t border-gray-200 flex justify-end gap-6 bg-gray-50 shrink-0",
             },
             [
               _c(
                 "button",
                 {
                   staticClass:
-                    "px-5 py-2 rounded bg-gray-100 text-gray-700 text-sm font-bold hover:bg-gray-200 transition-colors shadow-sm",
+                    "px-8 py-4 rounded-lg bg-gray-200 text-gray-700 text-xl font-bold hover:bg-gray-300 transition-colors shadow-sm",
                   on: {
                     click: function ($event) {
                       return _vm.$emit("close")
                     },
                   },
                 },
-                [_vm._v("\n                Cancelar\n            ")]
+                [_vm._v("Cancelar")]
               ),
               _vm._v(" "),
               _c(
                 "button",
                 {
                   class: [
-                    "px-5 py-2 rounded text-white text-sm font-bold transition-colors shadow-sm",
+                    "px-8 py-4 rounded-lg text-white text-xl font-bold transition-colors shadow-sm",
                     _vm.isSubmitting
                       ? "bg-gray-400 cursor-not-allowed"
                       : "bg-blue-600 hover:bg-blue-700",
@@ -89474,11 +89318,11 @@ var render = function () {
                 },
                 [
                   _vm._v(
-                    "\n                " +
+                    "\n        " +
                       _vm._s(
                         _vm.isSubmitting ? "Guardando..." : "Guardar Cambios"
                       ) +
-                      "\n            "
+                      "\n      "
                   ),
                 ]
               ),
@@ -89516,28 +89360,28 @@ var render = function () {
     "div",
     {
       staticClass:
-        "fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50",
+        "fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-6",
     },
     [
       _c(
         "div",
         {
           staticClass:
-            "bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden flex flex-col",
+            "bg-white rounded-xl shadow-2xl w-full max-w-4xl flex flex-col mx-4",
         },
         [
           _c(
             "div",
             {
               staticClass:
-                "bg-blue-600 px-4 py-3 flex justify-between items-center",
+                "bg-blue-600 px-8 py-6 flex justify-between items-center rounded-t-xl",
             },
             [
               _c(
                 "h3",
                 {
                   staticClass:
-                    "text-white text-xs font-bold uppercase tracking-wider",
+                    "text-white text-xl font-bold uppercase tracking-wider",
                 },
                 [_vm._v("EDITAR SALDO A FAVOR")]
               ),
@@ -89557,7 +89401,7 @@ var render = function () {
                   _c(
                     "svg",
                     {
-                      staticClass: "w-4 h-4",
+                      staticClass: "w-8 h-8",
                       attrs: {
                         fill: "none",
                         stroke: "currentColor",
@@ -89580,7 +89424,7 @@ var render = function () {
             ]
           ),
           _vm._v(" "),
-          _c("div", { staticClass: "p-6 grid grid-cols-2 gap-4" }, [
+          _c("div", { staticClass: "p-8 grid grid-cols-2 gap-8" }, [
             _c(
               "div",
               { staticClass: "col-span-2" },
@@ -89589,13 +89433,13 @@ var render = function () {
                   "label",
                   {
                     staticClass:
-                      "block text-[10px] font-bold text-gray-500 uppercase mb-1",
+                      "block text-base font-bold text-gray-500 uppercase mb-2",
                   },
                   [_vm._v("RAZÓN SOCIAL CLIENTE")]
                 ),
                 _vm._v(" "),
                 _c("multiselect", {
-                  staticClass: "text-sm",
+                  staticClass: "text-xl",
                   attrs: {
                     options: _vm.opcionesCliente,
                     "track-by": "id",
@@ -89619,7 +89463,7 @@ var render = function () {
                 "label",
                 {
                   staticClass:
-                    "block text-[10px] font-bold text-gray-500 uppercase mb-1",
+                    "block text-base font-bold text-gray-500 uppercase mb-2",
                 },
                 [_vm._v("MONTO DE ABONO ($)")]
               ),
@@ -89634,7 +89478,7 @@ var render = function () {
                   },
                 ],
                 staticClass:
-                  "w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-700 focus:outline-none focus:border-blue-600",
+                  "w-full border border-gray-300 rounded-lg px-5 py-4 text-xl text-gray-700 focus:outline-none focus:border-blue-600",
                 attrs: { type: "number", step: "0.01" },
                 domProps: { value: _vm.form.monto },
                 on: {
@@ -89656,13 +89500,13 @@ var render = function () {
                   "label",
                   {
                     staticClass:
-                      "block text-[10px] font-bold text-gray-500 uppercase mb-1",
+                      "block text-base font-bold text-gray-500 uppercase mb-2",
                   },
                   [_vm._v("SUCURSAL ORIGEN")]
                 ),
                 _vm._v(" "),
                 _c("multiselect", {
-                  staticClass: "text-sm",
+                  staticClass: "text-xl",
                   attrs: {
                     options: _vm.opcionesSucursal,
                     "show-labels": false,
@@ -89687,13 +89531,13 @@ var render = function () {
                   "label",
                   {
                     staticClass:
-                      "block text-[10px] font-bold text-gray-500 uppercase mb-1",
+                      "block text-base font-bold text-gray-500 uppercase mb-2",
                   },
                   [_vm._v("FECHA DE DETECCIÓN")]
                 ),
                 _vm._v(" "),
                 _c("VueCtkDateTimePicker", {
-                  staticClass: "text-sm",
+                  staticClass: "text-xl",
                   attrs: {
                     format: "YYYY-MM-DD",
                     formatted: "YYYY-MM-DD",
@@ -89719,7 +89563,7 @@ var render = function () {
                 "label",
                 {
                   staticClass:
-                    "block text-[10px] font-bold text-gray-500 uppercase mb-1",
+                    "block text-base font-bold text-gray-500 uppercase mb-2",
                 },
                 [_vm._v("CONCEPTO O CAUSA")]
               ),
@@ -89734,7 +89578,7 @@ var render = function () {
                   },
                 ],
                 staticClass:
-                  "w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-700 focus:outline-none focus:border-blue-600 resize-none",
+                  "w-full border border-gray-300 rounded-lg px-5 py-4 text-xl text-gray-700 focus:outline-none focus:border-blue-600 resize-none",
                 attrs: { rows: "3" },
                 domProps: { value: _vm.form.concepto },
                 on: {
@@ -89753,14 +89597,14 @@ var render = function () {
             "div",
             {
               staticClass:
-                "px-6 py-4 border-t border-gray-200 flex justify-end gap-3 bg-gray-50",
+                "px-8 py-6 border-t border-gray-200 flex justify-end gap-6 bg-gray-50 rounded-b-xl",
             },
             [
               _c(
                 "button",
                 {
                   staticClass:
-                    "px-5 py-2 rounded bg-gray-100 text-gray-700 text-sm font-bold hover:bg-gray-200 transition-colors",
+                    "px-8 py-4 rounded-lg bg-gray-200 text-gray-700 text-lg font-bold hover:bg-gray-300 transition-colors",
                   on: {
                     click: function ($event) {
                       return _vm.$emit("close")
@@ -89774,7 +89618,7 @@ var render = function () {
                 "button",
                 {
                   class: [
-                    "px-5 py-2 rounded text-white text-sm font-bold transition-colors",
+                    "px-8 py-4 rounded-lg text-white text-lg font-bold transition-colors",
                     _vm.isSubmitting
                       ? "bg-gray-400 cursor-not-allowed"
                       : "bg-blue-600 hover:bg-blue-700",
@@ -89826,28 +89670,28 @@ var render = function () {
     "div",
     {
       staticClass:
-        "fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 md:p-8",
+        "fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-6 md:p-10",
     },
     [
       _c(
         "div",
         {
           staticClass:
-            "bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[calc(100vh-4rem)] flex flex-col overflow-hidden",
+            "bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[calc(100vh-4rem)] flex flex-col overflow-hidden",
         },
         [
           _c(
             "div",
             {
               staticClass:
-                "bg-blue-500 px-4 py-3 flex justify-between items-center shrink-0",
+                "bg-blue-600 px-8 py-6 flex justify-between items-center shrink-0",
             },
             [
               _c(
                 "h3",
                 {
                   staticClass:
-                    "text-white text-xs font-bold uppercase tracking-wider",
+                    "text-white text-2xl font-bold uppercase tracking-wider",
                 },
                 [_vm._v("NUEVO INGRESO CONCILIADO")]
               ),
@@ -89856,7 +89700,7 @@ var render = function () {
                 "button",
                 {
                   staticClass:
-                    "text-gray-400 hover:text-white transition-colors",
+                    "text-blue-200 hover:text-white transition-colors",
                   on: {
                     click: function ($event) {
                       return _vm.$emit("close")
@@ -89867,7 +89711,7 @@ var render = function () {
                   _c(
                     "svg",
                     {
-                      staticClass: "w-4 h-4",
+                      staticClass: "w-8 h-8",
                       attrs: {
                         fill: "none",
                         stroke: "currentColor",
@@ -89893,7 +89737,7 @@ var render = function () {
           _c(
             "div",
             {
-              staticClass: "p-6 overflow-y-auto flex-1 grid grid-cols-2 gap-4",
+              staticClass: "p-8 overflow-y-auto flex-1 grid grid-cols-2 gap-8",
             },
             [
               _c(
@@ -89904,13 +89748,13 @@ var render = function () {
                     "label",
                     {
                       staticClass:
-                        "block text-[10px] font-bold text-gray-500 uppercase mb-1",
+                        "block text-base font-bold text-gray-500 uppercase mb-2",
                     },
                     [_vm._v("SUCURSAL ORIGEN *")]
                   ),
                   _vm._v(" "),
                   _c("multiselect", {
-                    staticClass: "text-sm",
+                    staticClass: "text-xl",
                     attrs: {
                       options: _vm.opcionesSucursal,
                       placeholder: "Seleccione...",
@@ -89928,14 +89772,14 @@ var render = function () {
                   _vm.sucursalSeleccionada
                     ? _c(
                         "div",
-                        { staticClass: "mt-2 flex items-center gap-3" },
+                        { staticClass: "mt-4 flex items-center gap-6" },
                         [
                           _vm.esSucursalOtraBase
                             ? _c(
                                 "label",
                                 {
                                   staticClass:
-                                    "inline-flex items-center cursor-pointer bg-blue-50 px-2 py-1 rounded border border-blue-200 hover:bg-blue-100 transition-colors shadow-sm",
+                                    "inline-flex items-center cursor-pointer bg-blue-50 px-4 py-3 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors shadow-sm",
                                 },
                                 [
                                   _c("input", {
@@ -89948,7 +89792,7 @@ var render = function () {
                                       },
                                     ],
                                     staticClass:
-                                      "form-checkbox h-3.5 w-3.5 text-blue-600 rounded cursor-pointer",
+                                      "form-checkbox h-6 w-6 text-blue-600 rounded cursor-pointer",
                                     attrs: { type: "checkbox" },
                                     domProps: {
                                       checked: Array.isArray(
@@ -89989,7 +89833,7 @@ var render = function () {
                                     "span",
                                     {
                                       staticClass:
-                                        "ml-1.5 text-[10px] text-blue-800 font-extrabold uppercase",
+                                        "ml-3 text-base text-blue-800 font-extrabold uppercase",
                                     },
                                     [_vm._v("Es Transportactics")]
                                   ),
@@ -90002,7 +89846,7 @@ var render = function () {
                                 "label",
                                 {
                                   staticClass:
-                                    "inline-flex items-center cursor-pointer bg-purple-50 px-2 py-1 rounded border border-purple-200 hover:bg-purple-100 transition-colors shadow-sm",
+                                    "inline-flex items-center cursor-pointer bg-purple-50 px-4 py-3 rounded-lg border border-purple-200 hover:bg-purple-100 transition-colors shadow-sm",
                                 },
                                 [
                                   _c("input", {
@@ -90015,7 +89859,7 @@ var render = function () {
                                       },
                                     ],
                                     staticClass:
-                                      "form-checkbox h-3.5 w-3.5 text-purple-600 rounded cursor-pointer",
+                                      "form-checkbox h-6 w-6 text-purple-600 rounded cursor-pointer",
                                     attrs: { type: "checkbox" },
                                     domProps: {
                                       checked: Array.isArray(
@@ -90054,7 +89898,7 @@ var render = function () {
                                     "span",
                                     {
                                       staticClass:
-                                        "ml-1.5 text-[10px] text-purple-800 font-extrabold uppercase",
+                                        "ml-3 text-base text-purple-800 font-extrabold uppercase",
                                     },
                                     [_vm._v("Es Intshipperts")]
                                   ),
@@ -90076,13 +89920,13 @@ var render = function () {
                     "label",
                     {
                       staticClass:
-                        "block text-[10px] font-bold text-gray-500 uppercase mb-1",
+                        "block text-base font-bold text-gray-500 uppercase mb-2",
                     },
                     [_vm._v("BANCO RECEPTOR")]
                   ),
                   _vm._v(" "),
                   _c("multiselect", {
-                    staticClass: "text-sm",
+                    staticClass: "text-xl",
                     attrs: {
                       options: _vm.opcionesBanco,
                       placeholder: "Seleccione...",
@@ -90108,13 +89952,13 @@ var render = function () {
                     "label",
                     {
                       staticClass:
-                        "block text-[10px] font-bold text-gray-500 uppercase mb-1",
+                        "block text-base font-bold text-gray-500 uppercase mb-2",
                     },
                     [_vm._v("FECHA DE DEPÓSITO *")]
                   ),
                   _vm._v(" "),
                   _c("VueCtkDateTimePicker", {
-                    staticClass: "text-sm",
+                    staticClass: "text-xl",
                     attrs: {
                       format: "YYYY-MM-DD",
                       formatted: "YYYY-MM-DD",
@@ -90143,17 +89987,17 @@ var render = function () {
                     "label",
                     {
                       staticClass:
-                        "block text-[10px] font-bold text-gray-500 uppercase mb-1",
+                        "block text-base font-bold text-gray-500 uppercase mb-2",
                     },
                     [
                       _vm._v(
-                        "RAZÓN SOCIAL CLIENTE (Filtra los\n          folios) *"
+                        "RAZÓN SOCIAL CLIENTE (Filtra los folios)\n          *"
                       ),
                     ]
                   ),
                   _vm._v(" "),
                   _c("multiselect", {
-                    staticClass: "text-sm",
+                    staticClass: "text-xl",
                     attrs: {
                       options: _vm.opcionesCliente,
                       "track-by": "id",
@@ -90178,11 +90022,11 @@ var render = function () {
                   "label",
                   {
                     staticClass:
-                      "block text-[10px] font-bold text-gray-500 uppercase mb-1",
+                      "block text-base font-bold text-gray-500 uppercase mb-2",
                   },
                   [
                     _vm._v(
-                      "\n            PEDIMENTOS / FOLIOS DISPONIBLES *\n          "
+                      "\n          PEDIMENTOS / FOLIOS DISPONIBLES *\n        "
                     ),
                   ]
                 ),
@@ -90194,7 +90038,7 @@ var render = function () {
                     _c(
                       "multiselect",
                       {
-                        staticClass: "w-full min-w-0 flex-1 text-sm",
+                        staticClass: "w-full min-w-0 flex-1 text-xl",
                         attrs: {
                           options: _vm.opcionesPedimentos,
                           multiple: true,
@@ -90226,7 +90070,7 @@ var render = function () {
                       "button",
                       {
                         staticClass:
-                          "bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-r transition-colors flex items-center justify-center -ml-1 z-10 shrink-0 disabled:opacity-50",
+                          "bg-blue-500 hover:bg-blue-600 text-white px-5 py-4 rounded-r transition-colors flex items-center justify-center -ml-1 z-10 shrink-0 disabled:opacity-50",
                         attrs: {
                           type: "button",
                           title: "Calcular montos desde XML/Sheet",
@@ -90238,7 +90082,7 @@ var render = function () {
                         _c(
                           "svg",
                           {
-                            staticClass: "w-4 h-4",
+                            staticClass: "w-6 h-6",
                             attrs: {
                               fill: "none",
                               stroke: "currentColor",
@@ -90265,10 +90109,13 @@ var render = function () {
                 !_vm.form.sucursal_origen
                   ? _c(
                       "span",
-                      { staticClass: "text-[9px] text-red-500 font-bold" },
+                      {
+                        staticClass:
+                          "text-sm text-red-500 font-bold mt-2 inline-block",
+                      },
                       [
                         _vm._v(
-                          "⚠️ Selecciona una sucursal para cargar la lista."
+                          "⚠️ Selecciona una\n          sucursal\n          para cargar la lista."
                         ),
                       ]
                     )
@@ -90280,7 +90127,7 @@ var render = function () {
                   "label",
                   {
                     staticClass:
-                      "block text-[10px] font-bold text-gray-500 uppercase mb-1",
+                      "block text-base font-bold text-gray-500 uppercase mb-2",
                   },
                   [_vm._v("MONTO DEPÓSITO ($) *")]
                 ),
@@ -90295,7 +90142,7 @@ var render = function () {
                     },
                   ],
                   staticClass:
-                    "w-full border border-gray-300 rounded px-3 py-2.5 text-sm font-black text-purple-700 focus:outline-none focus:border-[#2A3A4D]",
+                    "w-full border border-gray-300 rounded-lg px-5 py-4 text-3xl font-black text-purple-700 focus:outline-none focus:border-[#2A3A4D]",
                   attrs: { type: "number", step: "0.01", placeholder: "0.00" },
                   domProps: { value: _vm.form.monto_deposito },
                   on: {
@@ -90313,19 +90160,19 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "col-span-2 flex items-center gap-6 mt-1 p-3 bg-gray-50 border border-gray-200 rounded-lg",
+                    "col-span-2 flex items-center gap-8 mt-2 p-5 bg-gray-50 border border-gray-200 rounded-xl",
                 },
                 [
                   _c(
                     "label",
                     {
                       staticClass:
-                        "text-[11px] font-extrabold text-gray-500 uppercase tracking-wide",
+                        "text-lg font-extrabold text-gray-500 uppercase tracking-wide",
                     },
                     [_vm._v("\n          TIPO DE COMPROBANTE:\n        ")]
                   ),
                   _vm._v(" "),
-                  _c("div", { staticClass: "flex gap-4" }, [
+                  _c("div", { staticClass: "flex gap-8" }, [
                     _c(
                       "label",
                       {
@@ -90342,7 +90189,7 @@ var render = function () {
                             },
                           ],
                           staticClass:
-                            "form-checkbox h-4 w-4 text-[#00C09F] focus:ring-[#00C09F] cursor-pointer rounded",
+                            "form-checkbox h-6 w-6 text-[#00C09F] focus:ring-[#00C09F] cursor-pointer rounded",
                           attrs: { type: "checkbox", value: "CFDI" },
                           domProps: {
                             checked: Array.isArray(_vm.tiposComprobanteArray)
@@ -90378,7 +90225,7 @@ var render = function () {
                         _c(
                           "span",
                           {
-                            staticClass: "ml-2 text-sm text-gray-700 font-bold",
+                            staticClass: "ml-3 text-xl text-gray-700 font-bold",
                           },
                           [_vm._v("CFDI (Factura)")]
                         ),
@@ -90401,7 +90248,7 @@ var render = function () {
                             },
                           ],
                           staticClass:
-                            "form-checkbox h-4 w-4 text-[#00C09F] focus:ring-[#00C09F] cursor-pointer rounded",
+                            "form-checkbox h-6 w-6 text-[#00C09F] focus:ring-[#00C09F] cursor-pointer rounded",
                           attrs: { type: "checkbox", value: "Nota Cargo" },
                           domProps: {
                             checked: Array.isArray(_vm.tiposComprobanteArray)
@@ -90440,7 +90287,7 @@ var render = function () {
                         _c(
                           "span",
                           {
-                            staticClass: "ml-2 text-sm text-gray-700 font-bold",
+                            staticClass: "ml-3 text-xl text-gray-700 font-bold",
                           },
                           [_vm._v("Nota Cargo")]
                         ),
@@ -90454,26 +90301,25 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "col-span-2 mt-2 border border-[#2A3A4D] rounded-lg p-3 bg-gray-50/50",
+                    "col-span-2 mt-4 border border-[#2A3A4D] rounded-xl p-6 bg-gray-50/50",
                 },
                 [
                   _c(
                     "h4",
                     {
                       staticClass:
-                        "text-[11px] font-extrabold text-[#2A3A4D] uppercase tracking-wide mb-3",
+                        "text-lg font-extrabold text-[#2A3A4D] uppercase tracking-wide mb-6",
                     },
                     [_vm._v("DESGLOSE:")]
                   ),
                   _vm._v(" "),
                   _vm.esTransportactics
-                    ? _c("div", { staticClass: "grid grid-cols-3 gap-3" }, [
+                    ? _c("div", { staticClass: "grid grid-cols-3 gap-6" }, [
                         _c("div", [
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Flete (XML):")]
                           ),
@@ -90488,7 +90334,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-[#2A3A4D]",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -90510,8 +90356,7 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Pago Proveedor:")]
                           ),
@@ -90526,7 +90371,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-[#2A3A4D]",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -90553,14 +90398,14 @@ var render = function () {
                             "label",
                             {
                               staticClass:
-                                "block text-[10px] text-emerald-600 mb-1 font-bold",
+                                "block text-base text-emerald-600 mb-2 font-bold",
                             },
                             [_vm._v("Ganancia:")]
                           ),
                           _vm._v(" "),
                           _c("input", {
                             staticClass:
-                              "w-full border border-emerald-200 rounded px-2 py-1.5 text-sm bg-emerald-50 text-emerald-700 font-bold focus:outline-none cursor-not-allowed",
+                              "w-full border border-emerald-200 rounded-lg px-4 py-3 text-xl bg-emerald-50 text-emerald-700 font-bold focus:outline-none cursor-not-allowed",
                             attrs: { readonly: "", type: "number" },
                             domProps: {
                               value: (
@@ -90572,13 +90417,12 @@ var render = function () {
                         ]),
                       ])
                     : _vm.esIntshipperts
-                    ? _c("div", { staticClass: "grid grid-cols-2 gap-3" }, [
+                    ? _c("div", { staticClass: "grid grid-cols-2 gap-6" }, [
                         _c("div", [
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Anticipo:")]
                           ),
@@ -90593,7 +90437,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-[#2A3A4D]",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -90619,8 +90463,7 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("ALMAN / Flete:")]
                           ),
@@ -90635,7 +90478,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-[#2A3A4D]",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -90654,17 +90497,15 @@ var render = function () {
                         ]),
                       ])
                     : _vm.esManzanillo
-                    ? _c("div", { staticClass: "grid grid-cols-4 gap-3" }, [
+                    ? _c("div", { staticClass: "grid grid-cols-4 gap-6" }, [
                         _c("div", [
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Anticipo:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -90675,7 +90516,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -90701,12 +90542,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Garantías:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -90717,7 +90556,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -90743,12 +90582,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Desglose Naviera:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -90759,7 +90596,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -90785,12 +90622,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Impuestos:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -90801,7 +90636,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -90827,12 +90662,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("ALMAN / Flete:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -90843,7 +90676,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -90865,12 +90698,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Honorarios:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -90881,7 +90712,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -90903,17 +90734,15 @@ var render = function () {
                           }),
                         ]),
                       ])
-                    : _c("div", { staticClass: "grid grid-cols-4 gap-3" }, [
+                    : _c("div", { staticClass: "grid grid-cols-4 gap-6" }, [
                         _c("div", [
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Honorarios:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -90924,7 +90753,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -90950,12 +90779,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Impuestos:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -90966,7 +90793,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -90992,12 +90819,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("ECI:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -91008,7 +90833,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -91030,12 +90855,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Maniobras:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -91046,7 +90869,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -91072,12 +90895,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Flete:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -91088,7 +90909,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -91110,12 +90931,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("Muestras:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -91126,7 +90945,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -91152,12 +90971,10 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass:
-                                "block text-[10px] text-gray-500 mb-1",
+                              staticClass: "block text-base text-gray-500 mb-2",
                             },
                             [_vm._v("LLC:")]
                           ),
-                          _vm._v(" "),
                           _c("input", {
                             directives: [
                               {
@@ -91168,7 +90985,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -91191,43 +91008,45 @@ var render = function () {
                     "div",
                     {
                       staticClass:
-                        "col-span-full mt-2 p-2.5 bg-white border border-gray-200 rounded flex flex-wrap items-center justify-between shadow-sm",
+                        "col-span-full mt-6 p-5 bg-white border border-gray-200 rounded-xl flex flex-wrap items-center justify-between shadow-sm",
                     },
                     [
                       _c(
                         "div",
-                        { staticClass: "flex items-center gap-2 px-2" },
+                        { staticClass: "flex items-center gap-4 px-3" },
                         [
                           _c(
                             "span",
                             {
                               staticClass:
-                                "text-[10px] text-gray-500 font-bold uppercase",
+                                "text-base text-gray-500 font-bold uppercase",
                             },
                             [_vm._v("Total GPC:")]
                           ),
                           _vm._v(" "),
                           _c(
                             "span",
-                            { staticClass: "text-sm font-black text-blue-600" },
+                            {
+                              staticClass: "text-2xl font-black text-blue-600",
+                            },
                             [_vm._v(_vm._s(_vm.formatearDinero(_vm.totalGPC)))]
                           ),
                         ]
                       ),
                       _vm._v(" "),
                       _c("div", {
-                        staticClass: "hidden md:block w-px h-6 bg-gray-200",
+                        staticClass: "hidden md:block w-px h-10 bg-gray-200",
                       }),
                       _vm._v(" "),
                       _c(
                         "div",
-                        { staticClass: "flex items-center gap-2 px-2" },
+                        { staticClass: "flex items-center gap-4 px-3" },
                         [
                           _c(
                             "span",
                             {
                               staticClass:
-                                "text-[10px] text-gray-500 font-bold uppercase",
+                                "text-base text-gray-500 font-bold uppercase",
                             },
                             [_vm._v("Total Honorarios:")]
                           ),
@@ -91235,7 +91054,7 @@ var render = function () {
                           _c(
                             "span",
                             {
-                              staticClass: "text-sm font-black text-[#00C09F]",
+                              staticClass: "text-2xl font-black text-[#00C09F]",
                             },
                             [
                               _vm._v(
@@ -91250,14 +91069,14 @@ var render = function () {
                         "div",
                         {
                           staticClass:
-                            "flex items-center gap-2 bg-yellow-50 border border-yellow-200 px-3 py-1.5 rounded ml-auto",
+                            "flex items-center gap-4 bg-yellow-50 border border-yellow-200 px-6 py-3 rounded-lg ml-auto",
                         },
                         [
                           _c(
                             "span",
                             {
                               staticClass:
-                                "text-[10px] text-yellow-700 font-bold uppercase",
+                                "text-base text-yellow-700 font-bold uppercase",
                             },
                             [_vm._v("Suma Total:")]
                           ),
@@ -91266,7 +91085,7 @@ var render = function () {
                             "span",
                             {
                               staticClass:
-                                "text-base font-black text-yellow-600",
+                                "text-3xl font-black text-yellow-600",
                             },
                             [_vm._v(_vm._s(_vm.formatearDinero(_vm.sumaTotal)))]
                           ),
@@ -91283,14 +91102,14 @@ var render = function () {
             "div",
             {
               staticClass:
-                "px-6 py-4 border-t border-gray-200 flex justify-end gap-3 bg-gray-50 shrink-0",
+                "px-8 py-6 border-t border-gray-200 flex justify-end gap-6 bg-gray-50 shrink-0",
             },
             [
               _c(
                 "button",
                 {
                   staticClass:
-                    "px-5 py-2 rounded bg-gray-100 text-gray-700 text-sm font-bold hover:bg-gray-200 transition-colors shadow-sm",
+                    "px-8 py-4 rounded-lg bg-gray-200 text-gray-700 text-xl font-bold hover:bg-gray-300 transition-colors shadow-sm",
                   on: {
                     click: function ($event) {
                       return _vm.$emit("close")
@@ -91304,7 +91123,7 @@ var render = function () {
                 "button",
                 {
                   class: [
-                    "px-5 py-2 rounded text-white text-sm font-bold transition-colors shadow-sm",
+                    "px-8 py-4 rounded-lg text-white text-xl font-bold transition-colors shadow-sm",
                     _vm.isSubmitting
                       ? "bg-gray-400 cursor-not-allowed"
                       : "bg-green-600 hover:bg-green-700",
@@ -91358,28 +91177,28 @@ var render = function () {
     "div",
     {
       staticClass:
-        "fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50",
+        "fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-6",
     },
     [
       _c(
         "div",
         {
           staticClass:
-            "bg-white rounded-lg shadow-xl w-full max-w-2xl flex flex-col mx-4",
+            "bg-white rounded-xl shadow-2xl w-full max-w-4xl flex flex-col mx-4",
         },
         [
           _c(
             "div",
             {
               staticClass:
-                "bg-blue-600 rounded-t-lg px-4 py-3 flex justify-between items-center",
+                "bg-blue-600 rounded-t-xl px-8 py-6 flex justify-between items-center",
             },
             [
               _c(
                 "h3",
                 {
                   staticClass:
-                    "text-white text-xs font-bold uppercase tracking-wider",
+                    "text-white text-xl font-bold uppercase tracking-wider",
                 },
                 [_vm._v("REGISTRAR SALDO A FAVOR")]
               ),
@@ -91388,7 +91207,7 @@ var render = function () {
                 "button",
                 {
                   staticClass:
-                    "text-gray-400 hover:text-white transition-colors",
+                    "text-gray-300 hover:text-white transition-colors",
                   on: {
                     click: function ($event) {
                       return _vm.$emit("close")
@@ -91399,7 +91218,7 @@ var render = function () {
                   _c(
                     "svg",
                     {
-                      staticClass: "w-4 h-4",
+                      staticClass: "w-8 h-8",
                       attrs: {
                         fill: "none",
                         stroke: "currentColor",
@@ -91422,7 +91241,7 @@ var render = function () {
             ]
           ),
           _vm._v(" "),
-          _c("div", { staticClass: "p-6 grid grid-cols-2 gap-5" }, [
+          _c("div", { staticClass: "p-8 grid grid-cols-2 gap-8" }, [
             _c(
               "div",
               { staticClass: "col-span-2" },
@@ -91431,13 +91250,13 @@ var render = function () {
                   "label",
                   {
                     staticClass:
-                      "block text-[10px] font-bold text-gray-500 uppercase mb-1",
+                      "block text-base font-bold text-gray-500 uppercase mb-2",
                   },
                   [_vm._v("RAZÓN SOCIAL CLIENTE")]
                 ),
                 _vm._v(" "),
                 _c("multiselect", {
-                  staticClass: "text-sm",
+                  staticClass: "text-xl",
                   attrs: {
                     options: _vm.opcionesCliente,
                     "track-by": "id",
@@ -91462,7 +91281,7 @@ var render = function () {
                 "label",
                 {
                   staticClass:
-                    "block text-[10px] font-bold text-gray-500 uppercase mb-1",
+                    "block text-base font-bold text-gray-500 uppercase mb-2",
                 },
                 [_vm._v("MONTO DE ABONO ($)")]
               ),
@@ -91477,7 +91296,7 @@ var render = function () {
                   },
                 ],
                 staticClass:
-                  "w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-700 focus:outline-none focus:border-slate-800",
+                  "w-full border border-gray-300 rounded-lg px-5 py-4 text-xl text-gray-700 focus:outline-none focus:border-slate-800",
                 attrs: { type: "number", step: "0.01", placeholder: "0.00" },
                 domProps: { value: _vm.form.monto },
                 on: {
@@ -91499,13 +91318,13 @@ var render = function () {
                   "label",
                   {
                     staticClass:
-                      "block text-[10px] font-bold text-gray-500 uppercase mb-1",
+                      "block text-base font-bold text-gray-500 uppercase mb-2",
                   },
                   [_vm._v("SUCURSAL ORIGEN")]
                 ),
                 _vm._v(" "),
                 _c("multiselect", {
-                  staticClass: "text-sm",
+                  staticClass: "text-xl",
                   attrs: {
                     options: _vm.opcionesSucursal,
                     placeholder: "Seleccione...",
@@ -91531,13 +91350,13 @@ var render = function () {
                   "label",
                   {
                     staticClass:
-                      "block text-[10px] font-bold text-gray-500 uppercase mb-1",
+                      "block text-base font-bold text-gray-500 uppercase mb-2",
                   },
                   [_vm._v("FECHA DE DETECCIÓN")]
                 ),
                 _vm._v(" "),
                 _c("VueCtkDateTimePicker", {
-                  staticClass: "text-sm",
+                  staticClass: "text-xl",
                   attrs: {
                     format: "YYYY-MM-DD",
                     formatted: "YYYY-MM-DD",
@@ -91564,7 +91383,7 @@ var render = function () {
                 "label",
                 {
                   staticClass:
-                    "block text-[10px] font-bold text-gray-500 uppercase mb-1",
+                    "block text-base font-bold text-gray-500 uppercase mb-2",
                 },
                 [_vm._v("CONCEPTO O CAUSA")]
               ),
@@ -91579,7 +91398,7 @@ var render = function () {
                   },
                 ],
                 staticClass:
-                  "w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-700 focus:outline-none focus:border-slate-800 resize-none",
+                  "w-full border border-gray-300 rounded-lg px-5 py-4 text-xl text-gray-700 focus:outline-none focus:border-slate-800 resize-none",
                 attrs: { rows: "3", placeholder: "Ej. Pago duplicado..." },
                 domProps: { value: _vm.form.concepto },
                 on: {
@@ -91598,14 +91417,14 @@ var render = function () {
             "div",
             {
               staticClass:
-                "px-6 py-4 border-t border-gray-200 flex justify-end gap-3 bg-gray-50 rounded-b-lg",
+                "px-8 py-6 border-t border-gray-200 flex justify-end gap-6 bg-gray-50 rounded-b-xl",
             },
             [
               _c(
                 "button",
                 {
                   staticClass:
-                    "px-5 py-2 rounded bg-gray-100 text-gray-700 text-sm font-bold hover:bg-gray-200 transition-colors",
+                    "px-8 py-4 rounded-lg bg-gray-200 text-gray-700 text-lg font-bold hover:bg-gray-300 transition-colors",
                   on: {
                     click: function ($event) {
                       return _vm.$emit("close")
@@ -91619,7 +91438,7 @@ var render = function () {
                 "button",
                 {
                   class: [
-                    "px-5 py-2 rounded text-white text-sm font-bold transition-colors",
+                    "px-8 py-4 rounded-lg text-white text-lg font-bold transition-colors",
                     _vm.isSubmitting
                       ? "bg-gray-400 cursor-not-allowed"
                       : "bg-blue-700 hover:bg-blue-800",
@@ -91669,14 +91488,14 @@ var render = function () {
     "div",
     {
       staticClass:
-        "flex flex-col min-h-screen font-sans text-gray-800 p-4 lg:p-6",
+        "flex flex-col min-h-screen font-sans text-gray-800 p-8 lg:p-12",
       staticStyle: { "background-color": "#F4F6F9" },
     },
     [
       _c(
         "div",
         {
-          staticClass: "flex w-full p-1.5 gap-1 mb-6 rounded shadow-sm",
+          staticClass: "flex w-full p-3 gap-3 mb-10 rounded-lg shadow-sm",
           staticStyle: { "background-color": "#D69E2E" },
         },
         [
@@ -91686,7 +91505,7 @@ var render = function () {
               {
                 key: sucursal,
                 staticClass:
-                  "flex-1 py-2 text-sm font-extrabold transition-colors whitespace-nowrap rounded-sm",
+                  "flex-1 py-4 text-xl font-extrabold transition-colors whitespace-nowrap rounded-md",
                 style:
                   _vm.filtroSucursalActiva === sucursal
                     ? "background-color: #2A3A4D; color: #ffffff;"
@@ -91705,7 +91524,7 @@ var render = function () {
             "button",
             {
               staticClass:
-                "flex-1 py-2 text-sm font-extrabold transition-colors whitespace-nowrap rounded-sm",
+                "flex-1 py-4 text-xl font-extrabold transition-colors whitespace-nowrap rounded-md",
               style:
                 _vm.filtroSucursalActiva === "Todas"
                   ? "background-color: #2A3A4D; color: #ffffff;"
@@ -91728,14 +91547,14 @@ var render = function () {
         "div",
         {
           staticClass:
-            "grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-3 mb-6",
+            "grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-6 mb-10",
         },
         [
           _c(
             "div",
             {
               staticClass:
-                "bg-white rounded-lg shadow-sm border border-gray-100 p-4 border-l-4 flex justify-between items-center",
+                "bg-white rounded-xl shadow-sm border border-gray-100 p-8 border-l-4 flex justify-between items-center",
               staticStyle: { "border-left-color": "#00C09F" },
             },
             [
@@ -91744,14 +91563,14 @@ var render = function () {
                   "p",
                   {
                     staticClass:
-                      "text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1",
+                      "text-base font-bold text-gray-400 uppercase tracking-wider mb-3",
                   },
                   [_vm._v("Ingresos Totales")]
                 ),
                 _vm._v(" "),
                 _c(
                   "p",
-                  { staticClass: "text-2xl font-black text-gray-800 mb-1" },
+                  { staticClass: "text-4xl font-black text-gray-800 mb-2" },
                   [
                     _vm._v(
                       "$" +
@@ -91767,7 +91586,7 @@ var render = function () {
                 _c(
                   "p",
                   {
-                    staticClass: "text-[10px] font-bold",
+                    staticClass: "text-sm font-bold",
                     staticStyle: { color: "#00C09F" },
                   },
                   [_vm._v("Depósitos registrados")]
@@ -91778,13 +91597,13 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "w-10 h-10 rounded bg-teal-50 text-teal-500 flex items-center justify-center shrink-0",
+                    "w-16 h-16 rounded-xl bg-teal-50 text-teal-500 flex items-center justify-center shrink-0",
                 },
                 [
                   _c(
                     "svg",
                     {
-                      staticClass: "w-5 h-5",
+                      staticClass: "w-8 h-8",
                       attrs: {
                         fill: "none",
                         stroke: "currentColor",
@@ -91811,7 +91630,7 @@ var render = function () {
             "div",
             {
               staticClass:
-                "bg-white rounded-lg shadow-sm border border-gray-100 p-4 border-l-4 flex justify-between items-center",
+                "bg-white rounded-xl shadow-sm border border-gray-100 p-8 border-l-4 flex justify-between items-center",
               staticStyle: { "border-left-color": "#8B5CF6" },
             },
             [
@@ -91820,14 +91639,14 @@ var render = function () {
                   "p",
                   {
                     staticClass:
-                      "text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1",
+                      "text-base font-bold text-gray-400 uppercase tracking-wider mb-3",
                   },
                   [_vm._v("Total CFDI (Honorarios)")]
                 ),
                 _vm._v(" "),
                 _c(
                   "p",
-                  { staticClass: "text-2xl font-black text-purple-700 mb-1" },
+                  { staticClass: "text-4xl font-black text-purple-700 mb-2" },
                   [
                     _vm._v(
                       "$" +
@@ -91843,7 +91662,7 @@ var render = function () {
                 _c(
                   "p",
                   {
-                    staticClass: "text-[10px] font-bold",
+                    staticClass: "text-sm font-bold",
                     staticStyle: { color: "#8B5CF6" },
                   },
                   [_vm._v("Utilidad de la agencia")]
@@ -91854,13 +91673,13 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "w-10 h-10 rounded bg-purple-50 text-purple-500 flex items-center justify-center shrink-0",
+                    "w-16 h-16 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center shrink-0",
                 },
                 [
                   _c(
                     "svg",
                     {
-                      staticClass: "w-5 h-5",
+                      staticClass: "w-8 h-8",
                       attrs: {
                         fill: "none",
                         stroke: "currentColor",
@@ -91887,7 +91706,7 @@ var render = function () {
             "div",
             {
               staticClass:
-                "bg-white rounded-lg shadow-sm border border-gray-100 p-4 border-l-4 flex justify-between items-center",
+                "bg-white rounded-xl shadow-sm border border-gray-100 p-8 border-l-4 flex justify-between items-center",
               staticStyle: { "border-left-color": "#EC4899" },
             },
             [
@@ -91896,14 +91715,14 @@ var render = function () {
                   "p",
                   {
                     staticClass:
-                      "text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1",
+                      "text-base font-bold text-gray-400 uppercase tracking-wider mb-3",
                   },
                   [_vm._v("Total Nota Cargo (GPC)")]
                 ),
                 _vm._v(" "),
                 _c(
                   "p",
-                  { staticClass: "text-2xl font-black text-pink-600 mb-1" },
+                  { staticClass: "text-4xl font-black text-pink-600 mb-2" },
                   [
                     _vm._v(
                       "$" +
@@ -91919,7 +91738,7 @@ var render = function () {
                 _c(
                   "p",
                   {
-                    staticClass: "text-[10px] font-bold",
+                    staticClass: "text-sm font-bold",
                     staticStyle: { color: "#EC4899" },
                   },
                   [_vm._v("Gastos por cuenta de cliente")]
@@ -91930,13 +91749,13 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "w-10 h-10 rounded bg-pink-50 text-pink-500 flex items-center justify-center shrink-0",
+                    "w-16 h-16 rounded-xl bg-pink-50 text-pink-500 flex items-center justify-center shrink-0",
                 },
                 [
                   _c(
                     "svg",
                     {
-                      staticClass: "w-5 h-5",
+                      staticClass: "w-8 h-8",
                       attrs: {
                         fill: "none",
                         stroke: "currentColor",
@@ -91963,7 +91782,7 @@ var render = function () {
             "div",
             {
               staticClass:
-                "bg-white rounded-lg shadow-sm border border-gray-100 p-4 border-l-4 flex justify-between items-center",
+                "bg-white rounded-xl shadow-sm border border-gray-100 p-8 border-l-4 flex justify-between items-center",
               staticStyle: { "border-left-color": "#ED8936" },
             },
             [
@@ -91972,14 +91791,14 @@ var render = function () {
                   "p",
                   {
                     staticClass:
-                      "text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1",
+                      "text-base font-bold text-gray-400 uppercase tracking-wider mb-3",
                   },
                   [_vm._v("Saldos aplicados")]
                 ),
                 _vm._v(" "),
                 _c(
                   "p",
-                  { staticClass: "text-2xl font-black text-gray-800 mb-1" },
+                  { staticClass: "text-4xl font-black text-gray-800 mb-2" },
                   [
                     _vm._v(
                       "$" +
@@ -91995,7 +91814,7 @@ var render = function () {
                 _c(
                   "p",
                   {
-                    staticClass: "text-[10px] font-bold",
+                    staticClass: "text-sm font-bold",
                     staticStyle: { color: "#ED8936" },
                   },
                   [_vm._v("Historial de aplicaciones")]
@@ -92006,13 +91825,13 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "w-10 h-10 rounded bg-orange-50 text-orange-400 flex items-center justify-center shrink-0",
+                    "w-16 h-16 rounded-xl bg-orange-50 text-orange-400 flex items-center justify-center shrink-0",
                 },
                 [
                   _c(
                     "svg",
                     {
-                      staticClass: "w-5 h-5",
+                      staticClass: "w-8 h-8",
                       attrs: {
                         fill: "none",
                         stroke: "currentColor",
@@ -92039,7 +91858,7 @@ var render = function () {
             "div",
             {
               staticClass:
-                "bg-white rounded-lg shadow-sm border border-gray-100 p-4 border-l-4 flex justify-between items-center",
+                "bg-white rounded-xl shadow-sm border border-gray-100 p-8 border-l-4 flex justify-between items-center",
               staticStyle: { "border-left-color": "#4299E1" },
             },
             [
@@ -92048,14 +91867,14 @@ var render = function () {
                   "p",
                   {
                     staticClass:
-                      "text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1",
+                      "text-base font-bold text-gray-400 uppercase tracking-wider mb-3",
                   },
                   [_vm._v("Saldos a Favor")]
                 ),
                 _vm._v(" "),
                 _c(
                   "p",
-                  { staticClass: "text-2xl font-black text-gray-800 mb-1" },
+                  { staticClass: "text-4xl font-black text-gray-800 mb-2" },
                   [
                     _vm._v(
                       "$" +
@@ -92071,7 +91890,7 @@ var render = function () {
                 _c(
                   "p",
                   {
-                    staticClass: "text-[10px] font-bold",
+                    staticClass: "text-sm font-bold",
                     staticStyle: { color: "#4299E1" },
                   },
                   [_vm._v("Abonos listos")]
@@ -92082,13 +91901,13 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "w-10 h-10 rounded bg-blue-50 text-blue-400 flex items-center justify-center shrink-0",
+                    "w-16 h-16 rounded-xl bg-blue-50 text-blue-400 flex items-center justify-center shrink-0",
                 },
                 [
                   _c(
                     "svg",
                     {
-                      staticClass: "w-5 h-5",
+                      staticClass: "w-8 h-8",
                       attrs: {
                         fill: "none",
                         stroke: "currentColor",
@@ -92117,18 +91936,18 @@ var render = function () {
         "div",
         {
           staticClass:
-            "flex flex-col lg:flex-row justify-between items-center mb-4 gap-4 border-b border-gray-300 pb-4",
+            "flex flex-col lg:flex-row justify-between items-center mb-8 gap-6 border-b border-gray-300 pb-8",
         },
         [
           _c(
             "div",
-            { staticClass: "flex gap-2 w-full lg:w-auto overflow-x-auto" },
+            { staticClass: "flex gap-4 w-full lg:w-auto overflow-x-auto" },
             [
               _c(
                 "button",
                 {
                   class: [
-                    "px-5 py-2 rounded text-xs font-bold shadow-sm whitespace-nowrap transition-colors",
+                    "px-8 py-4 rounded-lg text-xl font-bold shadow-sm whitespace-nowrap transition-colors",
                     _vm.activeTab === "ingresos"
                       ? "bg-blue-500 text-white"
                       : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50",
@@ -92146,7 +91965,7 @@ var render = function () {
                 "button",
                 {
                   class: [
-                    "px-5 py-2 rounded text-xs font-bold shadow-sm whitespace-nowrap transition-colors",
+                    "px-8 py-4 rounded-lg text-xl font-bold shadow-sm whitespace-nowrap transition-colors",
                     _vm.activeTab === "saldos"
                       ? "bg-blue-500 text-white"
                       : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50",
@@ -92164,7 +91983,7 @@ var render = function () {
                 "button",
                 {
                   class: [
-                    "px-5 py-2 rounded text-xs font-bold shadow-sm whitespace-nowrap transition-colors",
+                    "px-8 py-4 rounded-lg text-xl font-bold shadow-sm whitespace-nowrap transition-colors",
                     _vm.activeTab === "saldos_aplicados"
                       ? "bg-blue-500 text-white"
                       : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50",
@@ -92194,14 +92013,14 @@ var render = function () {
             },
           ],
           staticClass:
-            "bg-white rounded-t-lg shadow-sm border border-gray-200 flex-1 flex flex-col overflow-visible",
+            "bg-white rounded-xl shadow-sm border border-gray-200 flex-1 flex flex-col overflow-visible",
         },
         [
           _c(
             "div",
             {
               staticClass:
-                "p-4 border-b border-gray-200 flex justify-between items-center",
+                "p-8 border-b border-gray-200 flex justify-between items-center",
             },
             [
               _vm._m(1),
@@ -92210,7 +92029,7 @@ var render = function () {
                 "button",
                 {
                   staticClass:
-                    "bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded text-xs font-bold flex items-center gap-1 shadow-sm transition-colors",
+                    "bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-lg text-xl font-bold flex items-center gap-3 shadow-sm transition-colors",
                   on: {
                     click: function ($event) {
                       _vm.showModal = true
@@ -92221,7 +92040,7 @@ var render = function () {
                   _c(
                     "svg",
                     {
-                      staticClass: "w-4 h-4",
+                      staticClass: "w-6 h-6",
                       attrs: {
                         fill: "none",
                         stroke: "currentColor",
@@ -92249,14 +92068,14 @@ var render = function () {
             "div",
             {
               staticClass:
-                "px-4 py-3 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center gap-4",
+                "px-8 py-6 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center gap-8",
             },
             [
-              _c("div", { staticClass: "flex items-center gap-2" }, [
+              _c("div", { staticClass: "flex items-center gap-3" }, [
                 _c(
                   "svg",
                   {
-                    staticClass: "w-4 h-4 text-green-600",
+                    staticClass: "w-6 h-6 text-green-600",
                     attrs: {
                       fill: "none",
                       stroke: "currentColor",
@@ -92275,7 +92094,7 @@ var render = function () {
                   ]
                 ),
                 _vm._v(" "),
-                _c("span", { staticClass: "text-xs font-bold text-gray-700" }, [
+                _c("span", { staticClass: "text-xl font-bold text-gray-700" }, [
                   _vm._v("Filtros:"),
                 ]),
               ]),
@@ -92283,13 +92102,13 @@ var render = function () {
               _c(
                 "div",
                 {
-                  staticClass:
-                    "flex items-center gap-2 z-20 shrink-0 min-w-[280px]",
+                  staticClass: "flex items-center gap-4 z-20 shrink-0",
+                  staticStyle: { "min-width": "320px" },
                 },
                 [
                   _c(
                     "span",
-                    { staticClass: "text-xs text-gray-600 shrink-0" },
+                    { staticClass: "text-xl text-gray-600 shrink-0" },
                     [_vm._v("Cliente:")]
                   ),
                   _vm._v(" "),
@@ -92315,13 +92134,13 @@ var render = function () {
               _c(
                 "div",
                 {
-                  staticClass:
-                    "flex items-center gap-2 z-10 shrink-0 min-w-[200px]",
+                  staticClass: "flex items-center gap-4 z-10 shrink-0",
+                  staticStyle: { "min-width": "240px" },
                 },
                 [
                   _c(
                     "span",
-                    { staticClass: "text-xs text-gray-600 shrink-0" },
+                    { staticClass: "text-xl text-gray-600 shrink-0" },
                     [_vm._v("Servicio:")]
                   ),
                   _vm._v(" "),
@@ -92348,13 +92167,13 @@ var render = function () {
               _c(
                 "div",
                 {
-                  staticClass:
-                    "flex items-center gap-2 z-10 shrink-0 min-w-[220px]",
+                  staticClass: "flex items-center gap-4 z-10 shrink-0",
+                  staticStyle: { "min-width": "240px" },
                 },
                 [
                   _c(
                     "span",
-                    { staticClass: "text-xs text-gray-600 shrink-0" },
+                    { staticClass: "text-xl text-gray-600 shrink-0" },
                     [_vm._v("Tipo operación:")]
                   ),
                   _vm._v(" "),
@@ -92384,18 +92203,18 @@ var render = function () {
               _c(
                 "div",
                 {
-                  staticClass:
-                    "flex items-center gap-2 z-10 shrink-0 min-w-[220px]",
+                  staticClass: "flex items-center gap-4 z-10 shrink-0",
+                  staticStyle: { "min-width": "260px" },
                 },
                 [
                   _c(
                     "span",
-                    { staticClass: "text-xs text-gray-600 shrink-0" },
+                    { staticClass: "text-xl text-gray-600 shrink-0" },
                     [_vm._v("TIPO COMPROBANTE:")]
                   ),
                   _vm._v(" "),
                   _c("multiselect", {
-                    staticClass: "text-sm",
+                    staticClass: "custom-filter-multiselect w-full",
                     attrs: {
                       options: _vm.opcionesComprobante,
                       placeholder: "Seleccione...",
@@ -92418,13 +92237,13 @@ var render = function () {
               _c(
                 "div",
                 {
-                  staticClass:
-                    "flex items-center gap-2 z-10 shrink-0 min-w-[280px]",
+                  staticClass: "flex items-center gap-4 z-10 shrink-0",
+                  staticStyle: { "min-width": "320px" },
                 },
                 [
                   _c(
                     "span",
-                    { staticClass: "text-xs text-gray-600 shrink-0" },
+                    { staticClass: "text-xl text-gray-600 shrink-0" },
                     [_vm._v("Fechas:")]
                   ),
                   _vm._v(" "),
@@ -92458,14 +92277,14 @@ var render = function () {
                   "button",
                   {
                     staticClass:
-                      "flex items-center gap-1 px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-600 hover:text-gray-700 text-xs font-extrabold rounded-md transition-colors shadow-sm",
+                      "flex items-center gap-3 px-8 py-3 bg-gray-200 hover:bg-gray-300 text-gray-600 hover:text-gray-700 text-lg font-extrabold rounded-lg transition-colors shadow-sm",
                     on: { click: _vm.limpiarFiltros },
                   },
                   [
                     _c(
                       "svg",
                       {
-                        staticClass: "w-4 h-4",
+                        staticClass: "w-6 h-6",
                         attrs: {
                           fill: "none",
                           stroke: "currentColor",
@@ -92492,20 +92311,24 @@ var render = function () {
           _vm._v(" "),
           _c(
             "div",
-            { staticClass: "overflow-x-auto flex-1 custom-scrollbar pb-64" },
+            {
+              staticClass: "overflow-x-auto flex-1 custom-scrollbar",
+              staticStyle: { "padding-bottom": "200px" },
+            },
             [
               _c(
                 "table",
                 {
                   staticClass:
-                    "w-full text-left text-[11px] border-collapse min-w-[3500px] whitespace-nowrap",
+                    "w-full text-left text-lg border-collapse whitespace-nowrap",
+                  staticStyle: { "min-width": "4200px" },
                 },
                 [
                   _c(
                     "thead",
                     {
                       staticClass:
-                        "bg-slate-100 text-slate-600 font-extrabold uppercase tracking-wider border-b-2 border-slate-300",
+                        "bg-slate-100 text-slate-600 font-extrabold uppercase tracking-wider border-b-4 border-slate-300",
                     },
                     [
                       _c(
@@ -92515,10 +92338,10 @@ var render = function () {
                             "th",
                             {
                               staticClass:
-                                "px-3 py-3 border-r border-slate-200",
+                                "px-6 py-5 border-r border-slate-200",
                               staticStyle: {
-                                "min-width": "150px",
-                                width: "150px",
+                                "min-width": "180px",
+                                width: "180px",
                               },
                             },
                             [_vm._v("SUCURSAL")]
@@ -92528,10 +92351,10 @@ var render = function () {
                             "th",
                             {
                               staticClass:
-                                "px-3 py-3 border-r border-slate-200",
+                                "px-6 py-5 border-r border-slate-200",
                               staticStyle: {
-                                "min-width": "150px",
-                                width: "150px",
+                                "min-width": "180px",
+                                width: "180px",
                               },
                             },
                             [_vm._v("BANCO")]
@@ -92541,10 +92364,10 @@ var render = function () {
                             "th",
                             {
                               staticClass:
-                                "px-3 py-3 border-r border-slate-200",
+                                "px-6 py-5 border-r border-slate-200",
                               staticStyle: {
-                                "min-width": "150px",
-                                width: "150px",
+                                "min-width": "180px",
+                                width: "180px",
                               },
                             },
                             [_vm._v("FECHA")]
@@ -92554,10 +92377,10 @@ var render = function () {
                             "th",
                             {
                               staticClass:
-                                "px-3 py-3 border-r border-slate-200",
+                                "px-6 py-5 border-r border-slate-200",
                               staticStyle: {
-                                "min-width": "150px",
-                                width: "150px",
+                                "min-width": "220px",
+                                width: "220px",
                               },
                             },
                             [_vm._v("CLIENTE")]
@@ -92567,10 +92390,10 @@ var render = function () {
                             "th",
                             {
                               staticClass:
-                                "px-3 py-3 border-r border-slate-200",
+                                "px-6 py-5 border-r border-slate-200",
                               staticStyle: {
-                                "min-width": "150px",
-                                width: "150px",
+                                "min-width": "180px",
+                                width: "180px",
                               },
                             },
                             [_vm._v("REFERENCIA")]
@@ -92580,10 +92403,10 @@ var render = function () {
                             "th",
                             {
                               staticClass:
-                                "px-3 py-3 border-r border-slate-200 text-purple-700",
+                                "px-6 py-5 border-r border-slate-200 text-purple-700",
                               staticStyle: {
-                                "min-width": "150px",
-                                width: "150px",
+                                "min-width": "180px",
+                                width: "180px",
                               },
                             },
                             [_vm._v("\n              MONTO DEPOSITO")]
@@ -92595,10 +92418,10 @@ var render = function () {
                                   "th",
                                   {
                                     staticClass:
-                                      "px-3 py-3 border-r border-slate-200",
+                                      "px-6 py-5 border-r border-slate-200",
                                     staticStyle: {
-                                      "min-width": "150px",
-                                      width: "150px",
+                                      "min-width": "180px",
+                                      width: "180px",
                                     },
                                   },
                                   [_vm._v("ANTICIPO")]
@@ -92608,13 +92431,13 @@ var render = function () {
                                   "th",
                                   {
                                     staticClass:
-                                      "px-3 py-3 border-r border-slate-200",
+                                      "px-6 py-5 border-r border-slate-200",
                                     staticStyle: {
-                                      "min-width": "150px",
-                                      width: "150px",
+                                      "min-width": "180px",
+                                      width: "180px",
                                     },
                                   },
-                                  [_vm._v("ALMAN / FLETE")]
+                                  [_vm._v("ALMAN / FLETE\n              ")]
                                 ),
                               ]
                             : _vm.esVistaTransportactics
@@ -92623,10 +92446,10 @@ var render = function () {
                                   "th",
                                   {
                                     staticClass:
-                                      "px-3 py-3 border-r border-slate-200",
+                                      "px-6 py-5 border-r border-slate-200",
                                     staticStyle: {
-                                      "min-width": "150px",
-                                      width: "150px",
+                                      "min-width": "180px",
+                                      width: "180px",
                                     },
                                   },
                                   [_vm._v("FLETE (XML)")]
@@ -92636,23 +92459,23 @@ var render = function () {
                                   "th",
                                   {
                                     staticClass:
-                                      "px-3 py-3 border-r border-slate-200",
+                                      "px-6 py-5 border-r border-slate-200",
                                     staticStyle: {
-                                      "min-width": "150px",
-                                      width: "150px",
+                                      "min-width": "180px",
+                                      width: "180px",
                                     },
                                   },
-                                  [_vm._v("PAGO PROVEEDOR")]
+                                  [_vm._v("PAGO PROVEEDOR\n              ")]
                                 ),
                                 _vm._v(" "),
                                 _c(
                                   "th",
                                   {
                                     staticClass:
-                                      "px-3 py-3 border-r border-slate-200 text-emerald-600",
+                                      "px-6 py-5 border-r border-slate-200 text-emerald-600",
                                     staticStyle: {
-                                      "min-width": "150px",
-                                      width: "150px",
+                                      "min-width": "180px",
+                                      width: "180px",
                                     },
                                   },
                                   [_vm._v("GANANCIA")]
@@ -92665,23 +92488,23 @@ var render = function () {
                                         "th",
                                         {
                                           staticClass:
-                                            "px-3 py-3 border-r border-slate-200",
+                                            "px-6 py-5 border-r border-slate-200",
                                           staticStyle: {
-                                            "min-width": "150px",
-                                            width: "150px",
+                                            "min-width": "180px",
+                                            width: "180px",
                                           },
                                         },
-                                        [_vm._v("HONORARIOS")]
+                                        [_vm._v("HONORARIOS\n                ")]
                                       ),
                                       _vm._v(" "),
                                       _c(
                                         "th",
                                         {
                                           staticClass:
-                                            "px-3 py-3 border-r border-slate-200",
+                                            "px-6 py-5 border-r border-slate-200",
                                           staticStyle: {
-                                            "min-width": "150px",
-                                            width: "150px",
+                                            "min-width": "180px",
+                                            width: "180px",
                                           },
                                         },
                                         [_vm._v("IMPUESTOS")]
@@ -92691,10 +92514,10 @@ var render = function () {
                                         "th",
                                         {
                                           staticClass:
-                                            "px-3 py-3 border-r border-slate-200",
+                                            "px-6 py-5 border-r border-slate-200",
                                           staticStyle: {
-                                            "min-width": "150px",
-                                            width: "150px",
+                                            "min-width": "180px",
+                                            width: "180px",
                                           },
                                         },
                                         [_vm._v("ECI")]
@@ -92704,10 +92527,10 @@ var render = function () {
                                         "th",
                                         {
                                           staticClass:
-                                            "px-3 py-3 border-r border-slate-200",
+                                            "px-6 py-5 border-r border-slate-200",
                                           staticStyle: {
-                                            "min-width": "150px",
-                                            width: "150px",
+                                            "min-width": "180px",
+                                            width: "180px",
                                           },
                                         },
                                         [_vm._v("MANIOBRAS")]
@@ -92717,10 +92540,10 @@ var render = function () {
                                         "th",
                                         {
                                           staticClass:
-                                            "px-3 py-3 border-r border-slate-200",
+                                            "px-6 py-5 border-r border-slate-200",
                                           staticStyle: {
-                                            "min-width": "150px",
-                                            width: "150px",
+                                            "min-width": "180px",
+                                            width: "180px",
                                           },
                                         },
                                         [_vm._v("FLETE")]
@@ -92730,10 +92553,10 @@ var render = function () {
                                         "th",
                                         {
                                           staticClass:
-                                            "px-3 py-3 border-r border-slate-200",
+                                            "px-6 py-5 border-r border-slate-200",
                                           staticStyle: {
-                                            "min-width": "150px",
-                                            width: "150px",
+                                            "min-width": "180px",
+                                            width: "180px",
                                           },
                                         },
                                         [_vm._v("MUESTRAS")]
@@ -92743,10 +92566,10 @@ var render = function () {
                                         "th",
                                         {
                                           staticClass:
-                                            "px-3 py-3 border-r border-slate-200",
+                                            "px-6 py-5 border-r border-slate-200",
                                           staticStyle: {
-                                            "min-width": "150px",
-                                            width: "150px",
+                                            "min-width": "180px",
+                                            width: "180px",
                                           },
                                         },
                                         [_vm._v("LLC")]
@@ -92757,10 +92580,10 @@ var render = function () {
                                         "th",
                                         {
                                           staticClass:
-                                            "px-3 py-3 border-r border-slate-200",
+                                            "px-6 py-5 border-r border-slate-200",
                                           staticStyle: {
-                                            "min-width": "150px",
-                                            width: "150px",
+                                            "min-width": "180px",
+                                            width: "180px",
                                           },
                                         },
                                         [_vm._v("ANTICIPO")]
@@ -92770,10 +92593,10 @@ var render = function () {
                                         "th",
                                         {
                                           staticClass:
-                                            "px-3 py-3 border-r border-slate-200",
+                                            "px-6 py-5 border-r border-slate-200",
                                           staticStyle: {
-                                            "min-width": "150px",
-                                            width: "150px",
+                                            "min-width": "180px",
+                                            width: "180px",
                                           },
                                         },
                                         [_vm._v("GARANTÍAS")]
@@ -92783,23 +92606,27 @@ var render = function () {
                                         "th",
                                         {
                                           staticClass:
-                                            "px-3 py-3 border-r border-slate-200",
+                                            "px-6 py-5 border-r border-slate-200",
                                           staticStyle: {
-                                            "min-width": "150px",
-                                            width: "150px",
+                                            "min-width": "180px",
+                                            width: "180px",
                                           },
                                         },
-                                        [_vm._v("DESGLOSE NAVIERA")]
+                                        [
+                                          _vm._v(
+                                            "DESGLOSE\n                  NAVIERA"
+                                          ),
+                                        ]
                                       ),
                                       _vm._v(" "),
                                       _c(
                                         "th",
                                         {
                                           staticClass:
-                                            "px-3 py-3 border-r border-slate-200",
+                                            "px-6 py-5 border-r border-slate-200",
                                           staticStyle: {
-                                            "min-width": "150px",
-                                            width: "150px",
+                                            "min-width": "180px",
+                                            width: "180px",
                                           },
                                         },
                                         [_vm._v("IMPUESTOS")]
@@ -92809,26 +92636,30 @@ var render = function () {
                                         "th",
                                         {
                                           staticClass:
-                                            "px-3 py-3 border-r border-slate-200",
+                                            "px-6 py-5 border-r border-slate-200",
                                           staticStyle: {
-                                            "min-width": "150px",
-                                            width: "150px",
+                                            "min-width": "180px",
+                                            width: "180px",
                                           },
                                         },
-                                        [_vm._v("ALMAN / FLETE")]
+                                        [
+                                          _vm._v(
+                                            "ALMAN / FLETE\n                "
+                                          ),
+                                        ]
                                       ),
                                       _vm._v(" "),
                                       _c(
                                         "th",
                                         {
                                           staticClass:
-                                            "px-3 py-3 border-r border-slate-200",
+                                            "px-6 py-5 border-r border-slate-200",
                                           staticStyle: {
-                                            "min-width": "150px",
-                                            width: "150px",
+                                            "min-width": "180px",
+                                            width: "180px",
                                           },
                                         },
-                                        [_vm._v("HONORARIOS")]
+                                        [_vm._v("HONORARIOS\n                ")]
                                       ),
                                     ],
                               ],
@@ -92837,10 +92668,10 @@ var render = function () {
                             "th",
                             {
                               staticClass:
-                                "px-3 py-3 border-r border-slate-200",
+                                "px-6 py-5 border-r border-slate-200",
                               staticStyle: {
-                                "min-width": "150px",
-                                width: "150px",
+                                "min-width": "180px",
+                                width: "180px",
                               },
                             },
                             [_vm._v("MONTO SC")]
@@ -92850,10 +92681,10 @@ var render = function () {
                             "th",
                             {
                               staticClass:
-                                "px-3 py-3 border-r border-slate-200",
+                                "px-6 py-5 border-r border-slate-200",
                               staticStyle: {
-                                "min-width": "150px",
-                                width: "150px",
+                                "min-width": "180px",
+                                width: "180px",
                               },
                             },
                             [_vm._v("DIFERENCIA")]
@@ -92863,36 +92694,44 @@ var render = function () {
                             "th",
                             {
                               staticClass:
-                                "px-3 py-3 border-r border-slate-200 text-center",
+                                "px-6 py-5 border-r border-slate-200 text-center",
                               staticStyle: {
-                                "min-width": "150px",
-                                width: "150px",
+                                "min-width": "220px",
+                                width: "220px",
                               },
                             },
-                            [_vm._v("TIPO\n              COMPROBANTE")]
+                            [
+                              _vm._v(
+                                "TIPO\n              COMPROBANTE\n            "
+                              ),
+                            ]
                           ),
                           _vm._v(" "),
                           _c(
                             "th",
                             {
                               staticClass:
-                                "px-3 py-3 border-r border-slate-200 text-center",
+                                "px-6 py-5 border-r border-slate-200 text-center",
                               staticStyle: {
-                                "min-width": "150px",
-                                width: "150px",
+                                "min-width": "220px",
+                                width: "220px",
                               },
                             },
-                            [_vm._v("COMPLEMENTO DE PAGO\n            ")]
+                            [
+                              _vm._v(
+                                "\n              COMPLEMENTO DE PAGO\n            "
+                              ),
+                            ]
                           ),
                           _vm._v(" "),
                           _c(
                             "th",
                             {
                               staticClass:
-                                "px-3 py-3 border-r border-slate-200 text-center",
+                                "px-6 py-5 border-r border-slate-200 text-center",
                               staticStyle: {
-                                "min-width": "150px",
-                                width: "150px",
+                                "min-width": "180px",
+                                width: "180px",
                               },
                             },
                             [_vm._v("\n              ESTATUS")]
@@ -92901,10 +92740,10 @@ var render = function () {
                           _c(
                             "th",
                             {
-                              staticClass: "px-3 py-3 text-center",
+                              staticClass: "px-6 py-5 text-center",
                               staticStyle: {
-                                "min-width": "230px",
-                                width: "230px",
+                                "min-width": "320px",
+                                width: "320px",
                               },
                             },
                             [_vm._v("ACCIÓN")]
@@ -92932,7 +92771,7 @@ var render = function () {
                               "td",
                               {
                                 staticClass:
-                                  "px-3 py-2 text-[10px] align-middle border-r border-slate-100 whitespace-nowrap",
+                                  "px-6 py-4 text-xl align-middle border-r border-slate-100 whitespace-nowrap",
                               },
                               [_vm._v(_vm._s(item.sucursal_origen || "N/A"))]
                             ),
@@ -92941,7 +92780,7 @@ var render = function () {
                               "td",
                               {
                                 staticClass:
-                                  "px-3 py-2 text-[10px] align-middle border-r border-slate-100 whitespace-nowrap",
+                                  "px-6 py-4 text-xl align-middle border-r border-slate-100 whitespace-nowrap",
                               },
                               [_vm._v(_vm._s(item.banco_receptor || "N/A"))]
                             ),
@@ -92950,7 +92789,7 @@ var render = function () {
                               "td",
                               {
                                 staticClass:
-                                  "px-3 py-2 text-[10px] align-middle border-r border-slate-100",
+                                  "px-6 py-4 text-xl align-middle border-r border-slate-100",
                               },
                               [_vm._v(_vm._s(item.fecha))]
                             ),
@@ -92959,24 +92798,20 @@ var render = function () {
                               "td",
                               {
                                 staticClass:
-                                  "px-3 py-2 text-[10px] uppercase align-middle border-r border-slate-100 text-slate-800",
+                                  "px-6 py-4 text-xl uppercase align-middle border-r border-slate-100 text-slate-800",
                               },
-                              [_vm._v(_vm._s(item.cliente))]
+                              [_vm._v(_vm._s(item.cliente) + "\n            ")]
                             ),
                             _vm._v(" "),
                             _c(
                               "td",
                               {
                                 staticClass:
-                                  "px-4 py-3 text-center font-bold text-indigo-600",
+                                  "px-6 py-4 text-center font-bold text-indigo-600 text-xl border-r border-slate-100",
                               },
                               [
                                 _vm._v(
-                                  "\n              " +
-                                    _vm._s(
-                                      item.folio_sc ? item.folio_sc : "--"
-                                    ) +
-                                    "\n            "
+                                  _vm._s(item.folio_sc ? item.folio_sc : "--")
                                 ),
                               ]
                             ),
@@ -92985,7 +92820,7 @@ var render = function () {
                               "td",
                               {
                                 staticClass:
-                                  "px-3 py-2 text-right text-purple-700 font-black align-middle border-r border-slate-100 bg-purple-50/30",
+                                  "px-6 py-4 text-right text-purple-700 text-xl font-black align-middle border-r border-slate-100 bg-purple-50/30",
                               },
                               [
                                 _vm._v(
@@ -93008,11 +92843,11 @@ var render = function () {
                                     "td",
                                     {
                                       staticClass:
-                                        "px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600",
+                                        "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
                                     },
                                     [
                                       _vm._v(
-                                        "$" +
+                                        "\n                $" +
                                           _vm._s(
                                             Number(
                                               item.anticipo || 0
@@ -93028,11 +92863,11 @@ var render = function () {
                                     "td",
                                     {
                                       staticClass:
-                                        "px-3 py-2 text-right align-middle border-r border-slate-100 font-black text-gray-700",
+                                        "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-black text-gray-700",
                                     },
                                     [
                                       _vm._v(
-                                        "$" +
+                                        "\n                $" +
                                           _vm._s(
                                             Number(
                                               item.flete || 0
@@ -93050,11 +92885,11 @@ var render = function () {
                                     "td",
                                     {
                                       staticClass:
-                                        "px-3 py-2 text-right align-middle border-r border-slate-100 font-black text-gray-700",
+                                        "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-black text-gray-700",
                                     },
                                     [
                                       _vm._v(
-                                        "$" +
+                                        "\n                $" +
                                           _vm._s(
                                             Number(
                                               item.flete || 0
@@ -93070,11 +92905,11 @@ var render = function () {
                                     "td",
                                     {
                                       staticClass:
-                                        "px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600",
+                                        "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
                                     },
                                     [
                                       _vm._v(
-                                        "$" +
+                                        "\n                $" +
                                           _vm._s(
                                             Number(
                                               item.pago_proveedor || 0
@@ -93090,11 +92925,11 @@ var render = function () {
                                     "td",
                                     {
                                       staticClass:
-                                        "px-3 py-2 text-right align-middle border-r border-slate-100 font-bold text-emerald-600 bg-emerald-50/30",
+                                        "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-bold text-emerald-600 bg-emerald-50/30",
                                     },
                                     [
                                       _vm._v(
-                                        "$" +
+                                        "\n                $" +
                                           _vm._s(
                                             Number(
                                               item.ganancia || 0
@@ -93113,11 +92948,11 @@ var render = function () {
                                           "td",
                                           {
                                             staticClass:
-                                              "px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600",
+                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
                                           },
                                           [
                                             _vm._v(
-                                              "$" +
+                                              "\n                  $" +
                                                 _vm._s(
                                                   Number(
                                                     item.honorarios || 0
@@ -93133,11 +92968,11 @@ var render = function () {
                                           "td",
                                           {
                                             staticClass:
-                                              "px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600",
+                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
                                           },
                                           [
                                             _vm._v(
-                                              "$" +
+                                              "\n                  $" +
                                                 _vm._s(
                                                   Number(
                                                     item.impuestos || 0
@@ -93153,11 +92988,11 @@ var render = function () {
                                           "td",
                                           {
                                             staticClass:
-                                              "px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600",
+                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
                                           },
                                           [
                                             _vm._v(
-                                              "$" +
+                                              "\n                  $" +
                                                 _vm._s(
                                                   Number(
                                                     item.eci || 0
@@ -93173,11 +93008,11 @@ var render = function () {
                                           "td",
                                           {
                                             staticClass:
-                                              "px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600",
+                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
                                           },
                                           [
                                             _vm._v(
-                                              "$" +
+                                              "\n                  $" +
                                                 _vm._s(
                                                   Number(
                                                     item.maniobras || 0
@@ -93193,11 +93028,11 @@ var render = function () {
                                           "td",
                                           {
                                             staticClass:
-                                              "px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600",
+                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
                                           },
                                           [
                                             _vm._v(
-                                              "$" +
+                                              "\n                  $" +
                                                 _vm._s(
                                                   Number(
                                                     item.flete || 0
@@ -93213,11 +93048,11 @@ var render = function () {
                                           "td",
                                           {
                                             staticClass:
-                                              "px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600",
+                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
                                           },
                                           [
                                             _vm._v(
-                                              "$" +
+                                              "\n                  $" +
                                                 _vm._s(
                                                   Number(
                                                     item.muestras || 0
@@ -93233,11 +93068,11 @@ var render = function () {
                                           "td",
                                           {
                                             staticClass:
-                                              "px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600",
+                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
                                           },
                                           [
                                             _vm._v(
-                                              "$" +
+                                              "\n                  $" +
                                                 _vm._s(
                                                   Number(
                                                     item.llc || 0
@@ -93254,11 +93089,11 @@ var render = function () {
                                           "td",
                                           {
                                             staticClass:
-                                              "px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600",
+                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
                                           },
                                           [
                                             _vm._v(
-                                              "$" +
+                                              "\n                  $" +
                                                 _vm._s(
                                                   Number(
                                                     item.anticipo || 0
@@ -93274,11 +93109,11 @@ var render = function () {
                                           "td",
                                           {
                                             staticClass:
-                                              "px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600",
+                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
                                           },
                                           [
                                             _vm._v(
-                                              "$" +
+                                              "\n                  $" +
                                                 _vm._s(
                                                   Number(
                                                     item.garantias || 0
@@ -93294,11 +93129,11 @@ var render = function () {
                                           "td",
                                           {
                                             staticClass:
-                                              "px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600",
+                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
                                           },
                                           [
                                             _vm._v(
-                                              "$" +
+                                              "\n                  $" +
                                                 _vm._s(
                                                   Number(
                                                     item.desglose_naviera || 0
@@ -93314,11 +93149,11 @@ var render = function () {
                                           "td",
                                           {
                                             staticClass:
-                                              "px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600",
+                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
                                           },
                                           [
                                             _vm._v(
-                                              "$" +
+                                              "\n                  $" +
                                                 _vm._s(
                                                   Number(
                                                     item.impuestos || 0
@@ -93334,11 +93169,11 @@ var render = function () {
                                           "td",
                                           {
                                             staticClass:
-                                              "px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600",
+                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
                                           },
                                           [
                                             _vm._v(
-                                              "$" +
+                                              "\n                  $" +
                                                 _vm._s(
                                                   Number(
                                                     item.flete || 0
@@ -93354,11 +93189,11 @@ var render = function () {
                                           "td",
                                           {
                                             staticClass:
-                                              "px-3 py-2 text-right align-middle border-r border-slate-100 font-medium text-gray-600",
+                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
                                           },
                                           [
                                             _vm._v(
-                                              "$" +
+                                              "\n                  $" +
                                                 _vm._s(
                                                   Number(
                                                     item.honorarios || 0
@@ -93376,7 +93211,7 @@ var render = function () {
                               "td",
                               {
                                 staticClass:
-                                  "px-3 py-2 text-right font-black text-slate-800 align-middle border-r border-slate-100 bg-slate-50/50",
+                                  "px-6 py-4 text-xl text-right font-black text-slate-800 align-middle border-r border-slate-100 bg-slate-50/50",
                               },
                               [
                                 _vm._v(
@@ -93397,7 +93232,7 @@ var render = function () {
                               "td",
                               {
                                 class: [
-                                  "px-3 py-2 text-right font-black align-middle border-r border-slate-100",
+                                  "px-6 py-4 text-xl text-right font-black align-middle border-r border-slate-100",
                                   _vm.calcularDiferencia(item) < 0
                                     ? "text-red-500 bg-red-50/30"
                                     : "text-slate-400",
@@ -93422,7 +93257,7 @@ var render = function () {
                               "td",
                               {
                                 staticClass:
-                                  "px-4 py-3 whitespace-nowrap text-center border-r border-slate-100 align-middle",
+                                  "px-8 py-5 whitespace-nowrap text-center border-r border-slate-100 align-middle",
                               },
                               [
                                 item.tipo_comprobante === "CFDI"
@@ -93430,7 +93265,7 @@ var render = function () {
                                       "span",
                                       {
                                         staticClass:
-                                          "px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-extrabold rounded-md border border-blue-200",
+                                          "px-4 py-2 bg-blue-100 text-blue-700 text-lg font-extrabold rounded-lg border border-blue-200",
                                       },
                                       [_vm._v("CFDI")]
                                     )
@@ -93439,7 +93274,7 @@ var render = function () {
                                       "span",
                                       {
                                         staticClass:
-                                          "px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-extrabold rounded-md border border-purple-200",
+                                          "px-4 py-2 bg-purple-100 text-purple-700 text-lg font-extrabold rounded-lg border border-purple-200",
                                       },
                                       [_vm._v("NOTA\n                CARGO")]
                                     )
@@ -93447,7 +93282,7 @@ var render = function () {
                                       "span",
                                       {
                                         staticClass:
-                                          "px-2.5 py-1 bg-gray-100 text-gray-600 text-xs font-extrabold rounded-md border border-gray-200",
+                                          "px-4 py-2 bg-gray-100 text-gray-600 text-lg font-extrabold rounded-lg border border-gray-200",
                                       },
                                       [
                                         _vm._v(
@@ -93462,7 +93297,7 @@ var render = function () {
                               "td",
                               {
                                 staticClass:
-                                  "px-3 py-2 align-middle border-r border-slate-100 text-center font-bold text-slate-600",
+                                  "px-6 py-4 align-middle border-r border-slate-100 text-center font-bold text-slate-600 text-xl",
                               },
                               [
                                 _vm._v(
@@ -93480,7 +93315,7 @@ var render = function () {
                               "td",
                               {
                                 staticClass:
-                                  "px-3 py-2 text-center font-bold align-middle border-r border-slate-100 text-[10px]",
+                                  "px-6 py-4 text-center font-bold align-middle border-r border-slate-100 text-lg",
                               },
                               [
                                 _c(
@@ -93504,21 +93339,21 @@ var render = function () {
                               "td",
                               {
                                 staticClass:
-                                  "p-2 align-middle border-r border-slate-100",
+                                  "p-4 align-middle border-r border-slate-100",
                               },
                               [
                                 _c(
                                   "div",
                                   {
                                     staticClass:
-                                      "flex items-center justify-center gap-1.5",
+                                      "flex items-center justify-center gap-3",
                                   },
                                   [
                                     _c(
                                       "button",
                                       {
                                         staticClass:
-                                          "text-green-600 hover:text-white bg-green-50 hover:bg-green-500 p-1.5 rounded transition-colors shadow-sm border border-green-200",
+                                          "text-green-600 hover:text-white bg-green-50 hover:bg-green-500 p-3 rounded-lg transition-colors shadow-sm border border-green-200",
                                         attrs: {
                                           title: "Generar Complemento de Pago",
                                         },
@@ -93532,7 +93367,7 @@ var render = function () {
                                         _c(
                                           "svg",
                                           {
-                                            staticClass: "w-4 h-4",
+                                            staticClass: "w-6 h-6",
                                             attrs: {
                                               fill: "none",
                                               stroke: "currentColor",
@@ -93557,7 +93392,7 @@ var render = function () {
                                       "button",
                                       {
                                         staticClass:
-                                          "text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-500 p-1.5 rounded transition-colors shadow-sm border border-blue-200",
+                                          "text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-500 p-3 rounded-lg transition-colors shadow-sm border border-blue-200",
                                         attrs: {
                                           title:
                                             "Visualizar Complemento de Pago",
@@ -93574,7 +93409,7 @@ var render = function () {
                                         _c(
                                           "svg",
                                           {
-                                            staticClass: "w-4 h-4",
+                                            staticClass: "w-6 h-6",
                                             attrs: {
                                               fill: "none",
                                               stroke: "currentColor",
@@ -93608,7 +93443,7 @@ var render = function () {
                                       "button",
                                       {
                                         staticClass:
-                                          "text-purple-600 hover:text-white bg-purple-50 hover:bg-purple-500 p-1.5 rounded transition-colors shadow-sm border border-purple-200",
+                                          "text-purple-600 hover:text-white bg-purple-50 hover:bg-purple-500 p-3 rounded-lg transition-colors shadow-sm border border-purple-200",
                                         attrs: {
                                           title: "Enviar Complemento de Pago",
                                         },
@@ -93622,7 +93457,7 @@ var render = function () {
                                         _c(
                                           "svg",
                                           {
-                                            staticClass: "w-4 h-4",
+                                            staticClass: "w-6 h-6",
                                             attrs: {
                                               fill: "none",
                                               stroke: "currentColor",
@@ -93647,7 +93482,7 @@ var render = function () {
                                       "button",
                                       {
                                         staticClass:
-                                          "text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-500 p-1.5 rounded transition-colors shadow-sm border border-indigo-200",
+                                          "text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-500 p-3 rounded-lg transition-colors shadow-sm border border-indigo-200",
                                         attrs: {
                                           title: "Editar Registro Completo",
                                         },
@@ -93663,7 +93498,7 @@ var render = function () {
                                         _c(
                                           "svg",
                                           {
-                                            staticClass: "w-4 h-4",
+                                            staticClass: "w-6 h-6",
                                             attrs: {
                                               fill: "none",
                                               stroke: "currentColor",
@@ -93688,7 +93523,7 @@ var render = function () {
                                       "button",
                                       {
                                         staticClass:
-                                          "text-red-500 hover:text-white bg-red-50 hover:bg-red-500 p-1.5 rounded transition-colors shadow-sm border border-red-100",
+                                          "text-red-500 hover:text-white bg-red-50 hover:bg-red-500 p-3 rounded-lg transition-colors shadow-sm border border-red-100",
                                         attrs: { title: "Eliminar Fila" },
                                         on: {
                                           click: function ($event) {
@@ -93700,7 +93535,7 @@ var render = function () {
                                         _c(
                                           "svg",
                                           {
-                                            staticClass: "w-4 h-4 mx-auto",
+                                            staticClass: "w-6 h-6 mx-auto",
                                             attrs: {
                                               fill: "none",
                                               stroke: "currentColor",
@@ -93735,7 +93570,7 @@ var render = function () {
                               "td",
                               {
                                 staticClass:
-                                  "text-center py-10 text-slate-400 bg-slate-50 font-medium",
+                                  "text-center py-16 text-2xl text-slate-400 bg-slate-50 font-medium",
                                 attrs: { colspan: "19" },
                               },
                               [
@@ -93770,18 +93605,18 @@ var render = function () {
           staticClass: "flex-1 flex flex-col",
         },
         [
-          _c("div", { staticClass: "flex justify-between items-end mb-4" }, [
+          _c("div", { staticClass: "flex justify-between items-end mb-8" }, [
             _vm._m(2),
             _vm._v(" "),
             _c(
               "button",
               {
                 staticClass:
-                  "bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-xs font-bold flex items-center gap-1 shadow-sm transition-colors",
+                  "bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-lg text-xl font-bold flex items-center gap-3 shadow-sm transition-colors",
                 on: { click: _vm.abrirModalNuevoSaldo },
               },
               [
-                _c("span", { staticClass: "text-lg leading-none mt-[-2px]" }, [
+                _c("span", { staticClass: "text-3xl leading-none mt-[-2px]" }, [
                   _vm._v("+"),
                 ]),
                 _vm._v(" Registrar Saldo a Favor\n      "),
@@ -93793,10 +93628,10 @@ var render = function () {
             "div",
             {
               staticClass:
-                "bg-white rounded-lg shadow-sm border border-[#2A3A4D] overflow-hidden",
+                "bg-white rounded-xl shadow-sm border border-[#2A3A4D] overflow-hidden",
             },
             [
-              _c("table", { staticClass: "w-full text-left text-xs" }, [
+              _c("table", { staticClass: "w-full text-left text-xl" }, [
                 _vm._m(3),
                 _vm._v(" "),
                 _c(
@@ -93818,14 +93653,14 @@ var render = function () {
                               "td",
                               {
                                 staticClass:
-                                  "px-5 py-3 font-bold text-slate-800",
+                                  "px-8 py-5 font-bold text-slate-800",
                               },
                               [_vm._v(_vm._s(saldo.cliente))]
                             ),
                             _vm._v(" "),
                             _c(
                               "td",
-                              { staticClass: "px-5 py-3 text-slate-500" },
+                              { staticClass: "px-8 py-5 text-slate-500" },
                               [_vm._v(_vm._s(saldo.sucursal_origen))]
                             ),
                             _vm._v(" "),
@@ -93833,7 +93668,7 @@ var render = function () {
                               "td",
                               {
                                 staticClass:
-                                  "px-5 py-3 text-center font-black text-emerald-600",
+                                  "px-8 py-5 text-center font-black text-emerald-600",
                               },
                               [
                                 _vm._v(
@@ -93852,32 +93687,32 @@ var render = function () {
                               "td",
                               {
                                 staticClass:
-                                  "px-5 py-3 text-center text-slate-500",
+                                  "px-8 py-5 text-center text-slate-500",
                               },
                               [_vm._v(_vm._s(saldo.fecha_deteccion))]
                             ),
                             _vm._v(" "),
                             _c(
                               "td",
-                              { staticClass: "px-5 py-3 text-slate-600" },
+                              { staticClass: "px-8 py-5 text-slate-600" },
                               [_vm._v(_vm._s(saldo.concepto))]
                             ),
                             _vm._v(" "),
                             _vm._m(4, true),
                             _vm._v(" "),
-                            _c("td", { staticClass: "px-5 py-3 text-center" }, [
+                            _c("td", { staticClass: "px-8 py-5 text-center" }, [
                               _c(
                                 "div",
                                 {
                                   staticClass:
-                                    "flex items-center justify-center gap-2",
+                                    "flex items-center justify-center gap-4",
                                 },
                                 [
                                   _c(
                                     "button",
                                     {
                                       staticClass:
-                                        "text-indigo-500 hover:text-white bg-indigo-50 hover:bg-indigo-500 p-1.5 rounded transition-colors shadow-sm border border-indigo-100",
+                                        "text-indigo-500 hover:text-white bg-indigo-50 hover:bg-indigo-500 p-3 rounded-lg transition-colors shadow-sm border border-indigo-100",
                                       attrs: { title: "Editar Registro" },
                                       on: {
                                         click: function ($event) {
@@ -93889,7 +93724,7 @@ var render = function () {
                                       _c(
                                         "svg",
                                         {
-                                          staticClass: "w-4 h-4",
+                                          staticClass: "w-6 h-6",
                                           attrs: {
                                             fill: "none",
                                             stroke: "currentColor",
@@ -93914,7 +93749,7 @@ var render = function () {
                                     "button",
                                     {
                                       staticClass:
-                                        "text-red-500 hover:text-white bg-red-50 hover:bg-red-500 p-1.5 rounded transition-colors shadow-sm border border-red-100",
+                                        "text-red-500 hover:text-white bg-red-50 hover:bg-red-500 p-3 rounded-lg transition-colors shadow-sm border border-red-100",
                                       attrs: { title: "Eliminar" },
                                       on: {
                                         click: function ($event) {
@@ -93926,7 +93761,7 @@ var render = function () {
                                       _c(
                                         "svg",
                                         {
-                                          staticClass: "w-4 h-4",
+                                          staticClass: "w-6 h-6",
                                           attrs: {
                                             fill: "none",
                                             stroke: "currentColor",
@@ -93951,7 +93786,7 @@ var render = function () {
                                     "button",
                                     {
                                       staticClass:
-                                        "w-8 h-8 rounded bg-blue-50 flex items-center justify-center text-blue-600 hover:bg-blue-200 transition-colors shadow-sm",
+                                        "w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 hover:bg-blue-200 transition-colors shadow-sm",
                                       attrs: {
                                         title: "Notificar saldo al cliente",
                                       },
@@ -93965,7 +93800,7 @@ var render = function () {
                                       _c(
                                         "svg",
                                         {
-                                          staticClass: "w-4 h-4",
+                                          staticClass: "w-6 h-6",
                                           attrs: {
                                             fill: "none",
                                             stroke: "currentColor",
@@ -93990,7 +93825,7 @@ var render = function () {
                                     "button",
                                     {
                                       staticClass:
-                                        "bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded font-bold text-[10px] transition-colors shadow-sm ml-1 uppercase tracking-wider",
+                                        "bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold text-lg transition-colors shadow-sm ml-2 uppercase tracking-wider",
                                       on: {
                                         click: function ($event) {
                                           return _vm.aplicarSaldo(saldo.id)
@@ -94017,12 +93852,12 @@ var render = function () {
                             "td",
                             {
                               staticClass:
-                                "text-center py-10 text-slate-400 bg-slate-50 font-medium",
+                                "text-center py-16 text-xl text-slate-400 bg-slate-50 font-medium",
                               attrs: { colspan: "7" },
                             },
                             [
                               _vm._v(
-                                "No se encontraron saldos\n              vigentes para la sucursal seleccionada."
+                                "No se encontraron\n              saldos vigentes para la sucursal seleccionada."
                               ),
                             ]
                           ),
@@ -94057,10 +93892,10 @@ var render = function () {
             "div",
             {
               staticClass:
-                "bg-white rounded-lg shadow-sm border border-gray-300 overflow-hidden",
+                "bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden",
             },
             [
-              _c("table", { staticClass: "w-full text-left text-xs" }, [
+              _c("table", { staticClass: "w-full text-left text-xl" }, [
                 _vm._m(6),
                 _vm._v(" "),
                 _c(
@@ -94082,19 +93917,19 @@ var render = function () {
                               "td",
                               {
                                 staticClass:
-                                  "px-5 py-3 font-bold text-slate-600",
+                                  "px-8 py-5 font-bold text-slate-600",
                               },
                               [_vm._v(_vm._s(saldo.cliente))]
                             ),
                             _vm._v(" "),
-                            _c("td", { staticClass: "px-5 py-3" }, [
+                            _c("td", { staticClass: "px-8 py-5" }, [
                               _vm._v(_vm._s(saldo.sucursal_origen)),
                             ]),
                             _vm._v(" "),
                             _c(
                               "td",
                               {
-                                staticClass: "px-5 py-3 text-center font-black",
+                                staticClass: "px-8 py-5 text-center font-black",
                               },
                               [
                                 _vm._v(
@@ -94111,22 +93946,22 @@ var render = function () {
                               ]
                             ),
                             _vm._v(" "),
-                            _c("td", { staticClass: "px-5 py-3 text-center" }, [
+                            _c("td", { staticClass: "px-8 py-5 text-center" }, [
                               _vm._v(_vm._s(saldo.fecha_deteccion)),
                             ]),
                             _vm._v(" "),
-                            _c("td", { staticClass: "px-5 py-3" }, [
+                            _c("td", { staticClass: "px-8 py-5" }, [
                               _vm._v(_vm._s(saldo.concepto)),
                             ]),
                             _vm._v(" "),
                             _vm._m(7, true),
                             _vm._v(" "),
-                            _c("td", { staticClass: "px-5 py-3 text-center" }, [
+                            _c("td", { staticClass: "px-8 py-5 text-center" }, [
                               _c(
                                 "button",
                                 {
                                   staticClass:
-                                    "bg-white hover:bg-blue-50 text-blue-600 hover:text-blue-700 px-4 py-1.5 rounded font-extrabold text-[10px] transition-colors border border-blue-200 shadow-sm uppercase tracking-wider",
+                                    "bg-white hover:bg-blue-50 text-blue-600 hover:text-blue-700 px-6 py-3 rounded-lg font-extrabold text-lg transition-colors border border-blue-200 shadow-sm uppercase tracking-wider",
                                   on: {
                                     click: function ($event) {
                                       return _vm.reactivarSaldo(saldo.id)
@@ -94151,12 +93986,12 @@ var render = function () {
                             "td",
                             {
                               staticClass:
-                                "text-center py-10 text-slate-400 bg-slate-50 font-medium",
+                                "text-center py-16 text-xl text-slate-400 bg-slate-50 font-medium",
                               attrs: { colspan: "7" },
                             },
                             [
                               _vm._v(
-                                "No se encontraron saldos\n              aplicados para la sucursal seleccionada."
+                                "No se encontraron\n              saldos aplicados para la sucursal seleccionada."
                               ),
                             ]
                           ),
@@ -94261,14 +94096,18 @@ var staticRenderFns = [
       "div",
       {
         staticClass:
-          "flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4",
+          "flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6",
       },
       [
         _c("div", [
-          _c("div", { staticClass: "flex items-center gap-2" }, [
-            _c("h1", { staticClass: "text-3xl font-bold text-gray-800" }, [
-              _vm._v("Registro de Ingresos"),
-            ]),
+          _c("div", { staticClass: "flex items-center gap-4" }, [
+            _c(
+              "h1",
+              {
+                staticClass: "text-5xl font-bold text-gray-800 tracking-tight",
+              },
+              [_vm._v("Registro de Ingresos")]
+            ),
           ]),
         ]),
       ]
@@ -94283,17 +94122,17 @@ var staticRenderFns = [
         "h2",
         {
           staticClass:
-            "text-[13px] font-extrabold text-gray-700 tracking-wide flex items-center gap-2",
+            "text-2xl font-extrabold text-gray-700 tracking-wide flex items-center gap-4",
         },
         [
-          _c("span", { staticClass: "w-2 h-2 rounded-full bg-gray-200" }),
+          _c("span", { staticClass: "w-4 h-4 rounded-full bg-gray-300" }),
           _vm._v(
             "\n          PLANILLA DE INGRESOS CONCILIADOS (SGC EXCEL FORMAT)\n        "
           ),
         ]
       ),
       _vm._v(" "),
-      _c("p", { staticClass: "text-[11px] text-gray-500 mt-0.5" }, [
+      _c("p", { staticClass: "text-lg text-gray-500 mt-3" }, [
         _vm._v(
           "Control de desglose financiero directo. Los montos se actualizan y\n          calculan automáticamente."
         ),
@@ -94309,12 +94148,12 @@ var staticRenderFns = [
         "h2",
         {
           staticClass:
-            "text-sm font-black text-[#2A3A4D] uppercase tracking-wide",
+            "text-2xl font-black text-[#2A3A4D] uppercase tracking-wide",
         },
         [_vm._v("CARTERA DE SALDOS A FAVOR DE CLIENTES\n          (VIGENTES)")]
       ),
       _vm._v(" "),
-      _c("p", { staticClass: "text-xs text-gray-500 mt-1" }, [
+      _c("p", { staticClass: "text-lg text-gray-500 mt-3" }, [
         _vm._v(
           "Registros de saldo a favor detectados o notas de crédito que pueden\n          aplicarse en despachos futuros"
         ),
@@ -94329,35 +94168,61 @@ var staticRenderFns = [
       "thead",
       {
         staticClass:
-          "bg-slate-100 text-slate-600 font-extrabold uppercase tracking-wider border-b-2 border-slate-300",
+          "bg-slate-100 text-slate-600 font-extrabold uppercase tracking-wider border-b-4 border-slate-300",
       },
       [
         _c("tr", [
-          _c("th", { staticClass: "px-5 py-3 w-48" }, [_vm._v("CLIENTE")]),
+          _c(
+            "th",
+            { staticClass: "px-8 py-5", staticStyle: { width: "250px" } },
+            [_vm._v("CLIENTE")]
+          ),
           _vm._v(" "),
-          _c("th", { staticClass: "px-5 py-3 w-32" }, [
-            _vm._v("SUCURSAL ORIGEN"),
-          ]),
+          _c(
+            "th",
+            { staticClass: "px-8 py-5", staticStyle: { width: "200px" } },
+            [_vm._v("SUCURSAL ORIGEN")]
+          ),
           _vm._v(" "),
-          _c("th", { staticClass: "px-5 py-3 w-32 text-center" }, [
-            _vm._v("MONTO DE CRÉDITO"),
-          ]),
+          _c(
+            "th",
+            {
+              staticClass: "px-8 py-5 text-center",
+              staticStyle: { width: "200px" },
+            },
+            [_vm._v("MONTO DE CRÉDITO")]
+          ),
           _vm._v(" "),
-          _c("th", { staticClass: "px-5 py-3 w-36 text-center" }, [
-            _vm._v("FECHA DE DETECCIÓN"),
-          ]),
+          _c(
+            "th",
+            {
+              staticClass: "px-8 py-5 text-center",
+              staticStyle: { width: "220px" },
+            },
+            [_vm._v("FECHA DE DETECCIÓN")]
+          ),
           _vm._v(" "),
-          _c("th", { staticClass: "px-5 py-3" }, [
+          _c("th", { staticClass: "px-8 py-5" }, [
             _vm._v("CONCEPTO O JUSTIFICACIÓN"),
           ]),
           _vm._v(" "),
-          _c("th", { staticClass: "px-5 py-3 w-40 text-center" }, [
-            _vm._v("ESTATUS"),
-          ]),
+          _c(
+            "th",
+            {
+              staticClass: "px-8 py-5 text-center",
+              staticStyle: { width: "200px" },
+            },
+            [_vm._v("ESTATUS")]
+          ),
           _vm._v(" "),
-          _c("th", { staticClass: "px-5 py-3 w-32 text-center" }, [
-            _vm._v("ACCIÓN"),
-          ]),
+          _c(
+            "th",
+            {
+              staticClass: "px-8 py-5 text-center",
+              staticStyle: { width: "200px" },
+            },
+            [_vm._v("ACCIÓN")]
+          ),
         ]),
       ]
     )
@@ -94366,12 +94231,12 @@ var staticRenderFns = [
     var _vm = this
     var _h = _vm.$createElement
     var _c = _vm._self._c || _h
-    return _c("td", { staticClass: "px-5 py-3 text-center" }, [
+    return _c("td", { staticClass: "px-8 py-5 text-center" }, [
       _c(
         "span",
         {
           staticClass:
-            "px-3 py-1 bg-emerald-100 text-emerald-700 font-extrabold rounded-full uppercase text-[10px] tracking-widest shadow-sm",
+            "px-6 py-3 bg-emerald-100 text-emerald-700 font-extrabold rounded-full uppercase text-base tracking-widest shadow-sm",
         },
         [_vm._v("VIGENTE")]
       ),
@@ -94381,18 +94246,18 @@ var staticRenderFns = [
     var _vm = this
     var _h = _vm.$createElement
     var _c = _vm._self._c || _h
-    return _c("div", { staticClass: "flex justify-between items-end mb-4" }, [
+    return _c("div", { staticClass: "flex justify-between items-end mb-8" }, [
       _c("div", [
         _c(
           "h2",
           {
             staticClass:
-              "text-sm font-black text-gray-700 uppercase tracking-wide",
+              "text-2xl font-black text-gray-700 uppercase tracking-wide",
           },
           [_vm._v("HISTORIAL DE SALDOS APLICADOS")]
         ),
         _vm._v(" "),
-        _c("p", { staticClass: "text-xs text-gray-500 mt-1" }, [
+        _c("p", { staticClass: "text-lg text-gray-500 mt-3" }, [
           _vm._v(
             "Registros de saldos que ya fueron utilizados o aplicados en despachos\n          anteriores"
           ),
@@ -94408,35 +94273,61 @@ var staticRenderFns = [
       "thead",
       {
         staticClass:
-          "bg-slate-50 text-slate-500 font-extrabold uppercase tracking-wider border-b-2 border-slate-200",
+          "bg-slate-50 text-slate-500 font-extrabold uppercase tracking-wider border-b-4 border-slate-200",
       },
       [
         _c("tr", [
-          _c("th", { staticClass: "px-5 py-3 w-48" }, [_vm._v("CLIENTE")]),
+          _c(
+            "th",
+            { staticClass: "px-8 py-5", staticStyle: { width: "250px" } },
+            [_vm._v("CLIENTE")]
+          ),
           _vm._v(" "),
-          _c("th", { staticClass: "px-5 py-3 w-32" }, [
-            _vm._v("SUCURSAL ORIGEN"),
-          ]),
+          _c(
+            "th",
+            { staticClass: "px-8 py-5", staticStyle: { width: "200px" } },
+            [_vm._v("SUCURSAL ORIGEN")]
+          ),
           _vm._v(" "),
-          _c("th", { staticClass: "px-5 py-3 w-32 text-center" }, [
-            _vm._v("MONTO DE CRÉDITO"),
-          ]),
+          _c(
+            "th",
+            {
+              staticClass: "px-8 py-5 text-center",
+              staticStyle: { width: "200px" },
+            },
+            [_vm._v("MONTO DE CRÉDITO")]
+          ),
           _vm._v(" "),
-          _c("th", { staticClass: "px-5 py-3 w-36 text-center" }, [
-            _vm._v("FECHA DE DETECCIÓN"),
-          ]),
+          _c(
+            "th",
+            {
+              staticClass: "px-8 py-5 text-center",
+              staticStyle: { width: "220px" },
+            },
+            [_vm._v("FECHA DE DETECCIÓN")]
+          ),
           _vm._v(" "),
-          _c("th", { staticClass: "px-5 py-3" }, [
+          _c("th", { staticClass: "px-8 py-5" }, [
             _vm._v("CONCEPTO O JUSTIFICACIÓN"),
           ]),
           _vm._v(" "),
-          _c("th", { staticClass: "px-5 py-3 w-40 text-center" }, [
-            _vm._v("ESTATUS"),
-          ]),
+          _c(
+            "th",
+            {
+              staticClass: "px-8 py-5 text-center",
+              staticStyle: { width: "200px" },
+            },
+            [_vm._v("ESTATUS")]
+          ),
           _vm._v(" "),
-          _c("th", { staticClass: "px-5 py-3 w-32 text-center" }, [
-            _vm._v("ACCIÓN"),
-          ]),
+          _c(
+            "th",
+            {
+              staticClass: "px-8 py-5 text-center",
+              staticStyle: { width: "200px" },
+            },
+            [_vm._v("ACCIÓN")]
+          ),
         ]),
       ]
     )
@@ -94445,12 +94336,12 @@ var staticRenderFns = [
     var _vm = this
     var _h = _vm.$createElement
     var _c = _vm._self._c || _h
-    return _c("td", { staticClass: "px-5 py-3 text-center" }, [
+    return _c("td", { staticClass: "px-8 py-5 text-center" }, [
       _c(
         "span",
         {
           staticClass:
-            "px-3 py-1 bg-slate-200 text-slate-500 font-extrabold rounded-full uppercase text-[10px] tracking-widest shadow-inner",
+            "px-6 py-3 bg-slate-200 text-slate-500 font-extrabold rounded-full uppercase text-base tracking-widest shadow-inner",
         },
         [_vm._v("APLICADO")]
       ),
@@ -94485,26 +94376,29 @@ var render = function () {
           "div",
           {
             staticClass:
-              "fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm z-[100] flex items-center justify-center p-4",
+              "fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm z-[100] flex items-center justify-center p-6 md:p-10",
           },
           [
             _c(
               "div",
               {
                 staticClass:
-                  "bg-white rounded shadow-2xl w-full max-w-lg overflow-hidden flex flex-col",
+                  "bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col mx-4",
               },
               [
                 _c(
                   "div",
                   {
                     staticClass:
-                      "flex items-center justify-between p-5 border-b border-gray-200",
+                      "flex items-center justify-between px-8 py-6 border-b border-gray-200",
                   },
                   [
                     _c(
                       "h2",
-                      { staticClass: "text-lg font-semibold text-gray-800" },
+                      {
+                        staticClass:
+                          "text-2xl font-bold text-gray-800 tracking-wider",
+                      },
                       [_vm._v("Documentos de la Operación")]
                     ),
                     _vm._v(" "),
@@ -94512,14 +94406,14 @@ var render = function () {
                       "button",
                       {
                         staticClass:
-                          "text-gray-600 hover:text-gray-900 transition-colors focus:outline-none",
+                          "text-gray-400 hover:text-gray-900 transition-colors focus:outline-none",
                         on: { click: _vm.close },
                       },
                       [
                         _c(
                           "svg",
                           {
-                            staticClass: "w-5 h-5",
+                            staticClass: "w-8 h-8",
                             attrs: {
                               fill: "none",
                               stroke: "currentColor",
@@ -94544,20 +94438,20 @@ var render = function () {
                 _vm._v(" "),
                 _c(
                   "div",
-                  { staticClass: "p-6 overflow-y-auto text-left space-y-5" },
+                  { staticClass: "p-8 overflow-y-auto text-left space-y-8" },
                   [
                     _c("div", [
                       _c(
                         "div",
                         {
                           staticClass:
-                            "border-2 border-dashed border-gray-300 rounded p-8 flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors cursor-pointer",
+                            "border-2 border-dashed border-gray-300 rounded-xl p-10 flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors cursor-pointer",
                         },
                         [
                           _c(
                             "svg",
                             {
-                              staticClass: "w-8 h-8 mb-2",
+                              staticClass: "w-12 h-12 mb-3 text-gray-400",
                               attrs: {
                                 fill: "currentColor",
                                 viewBox: "0 0 20 20",
@@ -94569,6 +94463,7 @@ var render = function () {
                                   d: "M5.5 13a3.5 3.5 0 01-.369-6.98 4 4 0 117.759-2.159 4.5 4.5 0 11-1.89 8.923H5.5z",
                                 },
                               }),
+                              _vm._v(" "),
                               _c("path", {
                                 attrs: {
                                   "fill-rule": "evenodd",
@@ -94579,24 +94474,30 @@ var render = function () {
                             ]
                           ),
                           _vm._v(" "),
-                          _c("span", { staticClass: "text-sm" }, [
-                            _vm._v(
-                              "Arrastra tus archivos aquí o haz clic para subir"
-                            ),
-                          ]),
+                          _c(
+                            "span",
+                            {
+                              staticClass: "text-lg font-medium text-gray-500",
+                            },
+                            [
+                              _vm._v(
+                                "Arrastra tus archivos aquí o haz clic para subir"
+                              ),
+                            ]
+                          ),
                         ]
                       ),
                     ]),
                     _vm._v(" "),
                     _c(
                       "div",
-                      { staticClass: "space-y-1" },
+                      { staticClass: "space-y-3" },
                       [
                         _c(
                           "h3",
                           {
                             staticClass:
-                              "text-xs font-bold text-gray-500 uppercase mb-2",
+                              "text-base font-bold text-gray-500 uppercase mb-3",
                           },
                           [_vm._v("Archivos subidos")]
                         ),
@@ -94607,13 +94508,13 @@ var render = function () {
                             {
                               key: index,
                               staticClass:
-                                "flex items-center gap-2 text-xs text-gray-800 p-2 bg-gray-50 rounded border",
+                                "flex items-center gap-4 text-base font-medium text-gray-800 p-4 bg-gray-50 rounded-lg border",
                             },
                             [
                               _c(
                                 "svg",
                                 {
-                                  staticClass: "w-4 h-4 text-blue-500",
+                                  staticClass: "w-6 h-6 text-blue-500",
                                   attrs: {
                                     fill: "none",
                                     stroke: "currentColor",
@@ -94651,7 +94552,7 @@ var render = function () {
                                   _c(
                                     "svg",
                                     {
-                                      staticClass: "w-4 h-4",
+                                      staticClass: "w-6 h-6",
                                       attrs: {
                                         fill: "currentColor",
                                         viewBox: "0 0 24 24",
@@ -94676,7 +94577,7 @@ var render = function () {
                         _vm.files.length === 0
                           ? _c(
                               "div",
-                              { staticClass: "text-xs text-gray-400 italic" },
+                              { staticClass: "text-base text-gray-400 italic" },
                               [_vm._v("No hay archivos.")]
                             )
                           : _vm._e(),
@@ -94690,14 +94591,14 @@ var render = function () {
                   "div",
                   {
                     staticClass:
-                      "p-5 border-t border-gray-100 flex justify-end",
+                      "px-8 py-6 border-t border-gray-100 flex justify-end bg-gray-50 rounded-b-xl",
                   },
                   [
                     _c(
                       "button",
                       {
                         staticClass:
-                          "bg-blue-500 hover:bg-blue-600 text-white px-5 py-2 rounded text-sm font-semibold transition-colors",
+                          "bg-blue-500 hover:bg-blue-600 text-white px-8 py-4 rounded-lg text-lg font-bold transition-colors shadow-sm tracking-wide",
                         on: { click: _vm.close },
                       },
                       [_vm._v("\n          Guardar y Cerrar\n        ")]
@@ -94740,26 +94641,29 @@ var render = function () {
           "div",
           {
             staticClass:
-              "fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-[100] flex items-center justify-center p-4",
+              "fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-[100] flex items-center justify-center p-6 md:p-10",
           },
           [
             _c(
               "div",
               {
                 staticClass:
-                  "bg-white rounded-lg shadow-2xl w-full max-w-2xl overflow-hidden",
+                  "bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden",
               },
               [
                 _c(
                   "div",
                   {
                     staticClass:
-                      "flex items-center justify-between p-6 border-b border-gray-200",
+                      "flex items-center justify-between px-8 py-6 border-b border-gray-200",
                   },
                   [
                     _c(
                       "h2",
-                      { staticClass: "text-xl font-bold text-gray-800" },
+                      {
+                        staticClass:
+                          "text-2xl font-bold text-gray-800 tracking-wider",
+                      },
                       [_vm._v("Editar Operación")]
                     ),
                     _vm._v(" "),
@@ -94774,7 +94678,7 @@ var render = function () {
                         _c(
                           "svg",
                           {
-                            staticClass: "w-6 h-6",
+                            staticClass: "w-8 h-8",
                             attrs: {
                               fill: "none",
                               stroke: "currentColor",
@@ -94801,19 +94705,19 @@ var render = function () {
                   "div",
                   {
                     staticClass:
-                      "p-6 max-h-[80vh] overflow-y-auto text-left space-y-5 custom-datepicker",
+                      "p-8 max-h-[80vh] overflow-y-auto text-left space-y-8 custom-datepicker",
                   },
                   [
                     _c(
                       "div",
-                      { staticClass: "grid grid-cols-1 md:grid-cols-3 gap-4" },
+                      { staticClass: "grid grid-cols-1 md:grid-cols-3 gap-6" },
                       [
                         _c("div", [
                           _c(
                             "label",
                             {
                               staticClass:
-                                "block text-[10px] font-bold text-gray-500 mb-1 uppercase",
+                                "block text-sm font-bold text-gray-500 mb-2 uppercase tracking-wide",
                             },
                             [_vm._v("Factura Interna")]
                           ),
@@ -94828,7 +94732,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full h-[34px] border border-gray-300 rounded px-3 text-xs focus:outline-none focus:border-blue-400 transition-colors",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-lg focus:outline-none focus:border-blue-500 transition-colors",
                             attrs: { type: "text" },
                             domProps: { value: _vm.localForm.facturaInterna },
                             on: {
@@ -94851,7 +94755,7 @@ var render = function () {
                             "label",
                             {
                               staticClass:
-                                "block text-[10px] font-bold text-gray-500 mb-1 uppercase",
+                                "block text-sm font-bold text-gray-500 mb-2 uppercase tracking-wide",
                             },
                             [_vm._v("Factura Proveedor")]
                           ),
@@ -94866,7 +94770,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full h-[34px] border border-gray-300 rounded px-3 text-xs focus:outline-none focus:border-blue-400 transition-colors",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-lg focus:outline-none focus:border-blue-500 transition-colors",
                             attrs: { type: "text" },
                             domProps: { value: _vm.localForm.fProveedor },
                             on: {
@@ -94889,7 +94793,7 @@ var render = function () {
                             "label",
                             {
                               staticClass:
-                                "block text-[10px] font-bold text-gray-500 mb-1 uppercase",
+                                "block text-sm font-bold text-gray-500 mb-2 uppercase tracking-wide",
                             },
                             [_vm._v("Transportista")]
                           ),
@@ -94904,7 +94808,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full h-[34px] border border-gray-300 rounded px-3 text-xs focus:outline-none focus:border-blue-400 transition-colors",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-lg focus:outline-none focus:border-blue-500 transition-colors",
                             attrs: { type: "text" },
                             domProps: { value: _vm.localForm.transportista },
                             on: {
@@ -94928,7 +94832,7 @@ var render = function () {
                       "div",
                       {
                         staticClass:
-                          "grid grid-cols-1 md:grid-cols-2 gap-4 items-end",
+                          "grid grid-cols-1 md:grid-cols-2 gap-6 items-end",
                       },
                       [
                         _c(
@@ -94938,7 +94842,7 @@ var render = function () {
                               "label",
                               {
                                 staticClass:
-                                  "block text-[10px] font-bold text-gray-500 mb-1 uppercase",
+                                  "block text-sm font-bold text-gray-500 mb-2 uppercase tracking-wide",
                               },
                               [_vm._v("Fecha")]
                             ),
@@ -94951,7 +94855,6 @@ var render = function () {
                                 label: "Seleccionar fecha",
                                 color: "#3182CE",
                                 "button-color": "#3182CE",
-                                "input-size": "sm",
                               },
                               model: {
                                 value: _vm.localForm.fecha,
@@ -94965,12 +94868,12 @@ var render = function () {
                           1
                         ),
                         _vm._v(" "),
-                        _c("div", { staticClass: "pb-2" }, [
+                        _c("div", { staticClass: "pb-3" }, [
                           _c(
                             "label",
                             {
                               staticClass:
-                                "flex items-center gap-2 cursor-pointer w-max group",
+                                "flex items-center gap-3 cursor-pointer w-max group",
                             },
                             [
                               _c("input", {
@@ -94983,7 +94886,7 @@ var render = function () {
                                   },
                                 ],
                                 staticClass:
-                                  "w-4 h-4 text-blue-500 border-gray-300 rounded focus:ring-blue-400 cursor-pointer",
+                                  "w-6 h-6 text-blue-500 border-gray-300 rounded focus:ring-blue-400 cursor-pointer",
                                 attrs: { type: "checkbox" },
                                 domProps: {
                                   checked: Array.isArray(
@@ -95035,7 +94938,7 @@ var render = function () {
                                 "span",
                                 {
                                   staticClass:
-                                    "text-xs font-bold text-gray-700 group-hover:text-blue-600 transition-colors uppercase",
+                                    "text-base font-bold text-gray-700 group-hover:text-blue-600 transition-colors uppercase tracking-wide",
                                 },
                                 [_vm._v("Pagada por el cliente")]
                               ),
@@ -95050,7 +94953,7 @@ var render = function () {
                         "label",
                         {
                           staticClass:
-                            "block text-[10px] font-bold text-gray-500 mb-1 uppercase",
+                            "block text-sm font-bold text-gray-500 mb-2 uppercase tracking-wide",
                         },
                         [_vm._v("Comentarios")]
                       ),
@@ -95065,9 +94968,9 @@ var render = function () {
                           },
                         ],
                         staticClass:
-                          "w-full border border-gray-300 rounded p-3 text-xs text-gray-700 focus:outline-none focus:border-blue-400 resize-none transition-colors placeholder-gray-400",
+                          "w-full border border-gray-300 rounded-lg p-4 text-lg text-gray-700 focus:outline-none focus:border-blue-500 resize-none transition-colors placeholder-gray-400",
                         attrs: {
-                          rows: "3",
+                          rows: "4",
                           placeholder:
                             "Escriba aquí los comentarios u observaciones...",
                         },
@@ -95091,14 +94994,14 @@ var render = function () {
                       "div",
                       {
                         staticClass:
-                          "flex justify-end gap-3 pt-4 mt-2 border-t border-gray-100",
+                          "flex justify-end gap-4 pt-6 mt-4 border-t border-gray-100",
                       },
                       [
                         _c(
                           "button",
                           {
                             staticClass:
-                              "px-6 py-2 rounded text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors",
+                              "px-8 py-3 rounded-lg text-lg font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors shadow-sm",
                             on: { click: _vm.close },
                           },
                           [_vm._v("CANCELAR")]
@@ -95108,7 +95011,7 @@ var render = function () {
                           "button",
                           {
                             staticClass:
-                              "px-8 py-2 rounded text-xs font-bold text-white bg-green-500 hover:bg-green-600 shadow-sm transition-colors",
+                              "px-10 py-3 rounded-lg text-lg font-bold text-white bg-green-500 hover:bg-green-600 shadow-sm transition-colors",
                             on: { click: _vm.save },
                           },
                           [_vm._v("GUARDAR")]
@@ -95153,41 +95056,44 @@ var render = function () {
           "div",
           {
             staticClass:
-              "fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm z-[100] flex items-center justify-center p-4",
+              "fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm z-[100] flex items-center justify-center p-6 md:p-10",
           },
           [
             _c(
               "div",
               {
                 staticClass:
-                  "bg-white rounded shadow-2xl w-full max-w-lg overflow-hidden flex flex-col",
+                  "bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col mx-4",
               },
               [
                 _c(
                   "div",
                   {
                     staticClass:
-                      "flex items-center justify-between p-5 border-b border-gray-200",
+                      "flex items-center justify-between px-8 py-6 border-b border-gray-200",
                   },
                   [
                     _c(
                       "h2",
-                      { staticClass: "text-lg font-semibold text-gray-800" },
-                      [_vm._v("Notification")]
+                      {
+                        staticClass:
+                          "text-2xl font-bold text-gray-800 tracking-wider",
+                      },
+                      [_vm._v("Notificación")]
                     ),
                     _vm._v(" "),
                     _c(
                       "button",
                       {
                         staticClass:
-                          "text-gray-600 hover:text-gray-900 transition-colors focus:outline-none",
+                          "text-gray-400 hover:text-gray-900 transition-colors focus:outline-none",
                         on: { click: _vm.close },
                       },
                       [
                         _c(
                           "svg",
                           {
-                            staticClass: "w-5 h-5",
+                            staticClass: "w-8 h-8",
                             attrs: {
                               fill: "none",
                               stroke: "currentColor",
@@ -95214,7 +95120,7 @@ var render = function () {
                   "div",
                   {
                     staticClass:
-                      "p-6 overflow-y-auto text-left space-y-5 custom-multiselect-modal",
+                      "p-8 overflow-y-auto text-left space-y-8 custom-multiselect-modal",
                   },
                   [
                     _c(
@@ -95222,12 +95128,15 @@ var render = function () {
                       [
                         _c(
                           "label",
-                          { staticClass: "block text-sm text-gray-700 mb-1" },
+                          {
+                            staticClass:
+                              "block text-lg font-bold text-gray-700 mb-2",
+                          },
                           [_vm._v("Usuarios:")]
                         ),
                         _vm._v(" "),
                         _c("Multiselect", {
-                          staticClass: "w-full",
+                          staticClass: "w-full text-lg",
                           attrs: {
                             options: _vm.opcionesUsuarios,
                             multiple: true,
@@ -95256,12 +95165,15 @@ var render = function () {
                       [
                         _c(
                           "label",
-                          { staticClass: "block text-sm text-gray-700 mb-1" },
+                          {
+                            staticClass:
+                              "block text-lg font-bold text-gray-700 mb-2",
+                          },
                           [_vm._v("Contactos Proveedor:")]
                         ),
                         _vm._v(" "),
                         _c("Multiselect", {
-                          staticClass: "w-full",
+                          staticClass: "w-full text-lg",
                           attrs: {
                             options: _vm.opcionesContactos,
                             multiple: true,
@@ -95288,7 +95200,10 @@ var render = function () {
                     _c("div", [
                       _c(
                         "label",
-                        { staticClass: "block text-sm text-gray-700 mb-1" },
+                        {
+                          staticClass:
+                            "block text-lg font-bold text-gray-700 mb-2",
+                        },
                         [_vm._v("Subir comprobante de pago")]
                       ),
                       _vm._v(" "),
@@ -95296,13 +95211,13 @@ var render = function () {
                         "div",
                         {
                           staticClass:
-                            "border-2 border-dashed border-gray-300 rounded p-8 flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors cursor-pointer",
+                            "border-2 border-dashed border-gray-300 rounded-xl p-10 flex flex-col items-center justify-center text-gray-400 hover:bg-gray-50 transition-colors cursor-pointer",
                         },
                         [
                           _c(
                             "svg",
                             {
-                              staticClass: "w-8 h-8 mb-2",
+                              staticClass: "w-12 h-12 mb-3 text-gray-400",
                               attrs: {
                                 fill: "currentColor",
                                 viewBox: "0 0 20 20",
@@ -95325,29 +95240,33 @@ var render = function () {
                             ]
                           ),
                           _vm._v(" "),
-                          _c("span", { staticClass: "text-sm" }, [
-                            _vm._v("Subir archivo"),
-                          ]),
+                          _c(
+                            "span",
+                            {
+                              staticClass: "text-lg font-medium text-gray-500",
+                            },
+                            [_vm._v("Subir archivo")]
+                          ),
                         ]
                       ),
                     ]),
                     _vm._v(" "),
                     _c(
                       "div",
-                      { staticClass: "space-y-1" },
+                      { staticClass: "space-y-3" },
                       _vm._l(_vm.files, function (file, index) {
                         return _c(
                           "div",
                           {
                             key: index,
                             staticClass:
-                              "flex items-center gap-2 text-xs text-gray-800",
+                              "flex items-center gap-3 text-base font-medium text-gray-800",
                           },
                           [
                             _c(
                               "svg",
                               {
-                                staticClass: "w-3.5 h-3.5",
+                                staticClass: "w-6 h-6 text-gray-500",
                                 attrs: {
                                   fill: "none",
                                   stroke: "currentColor",
@@ -95372,7 +95291,7 @@ var render = function () {
                               "button",
                               {
                                 staticClass:
-                                  "text-[#E74C3C] hover:text-red-700 transition-colors",
+                                  "text-[#E74C3C] hover:text-red-700 transition-colors ml-2",
                                 on: {
                                   click: function ($event) {
                                     return _vm.removeFile(index)
@@ -95383,7 +95302,7 @@ var render = function () {
                                 _c(
                                   "svg",
                                   {
-                                    staticClass: "w-4 h-4",
+                                    staticClass: "w-6 h-6",
                                     attrs: {
                                       fill: "currentColor",
                                       viewBox: "0 0 24 24",
@@ -95407,11 +95326,11 @@ var render = function () {
                       0
                     ),
                     _vm._v(" "),
-                    _c("div", { staticClass: "space-y-2 pt-2" }, [
+                    _c("div", { staticClass: "space-y-4 pt-4" }, [
                       _c(
                         "label",
                         {
-                          staticClass: "flex items-center gap-2 cursor-pointer",
+                          staticClass: "flex items-center gap-4 cursor-pointer",
                         },
                         [
                           _c("input", {
@@ -95424,7 +95343,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-4 h-4 text-purple-500 border-gray-300 rounded focus:ring-purple-400 cursor-pointer",
+                              "w-6 h-6 text-purple-500 border-gray-300 rounded focus:ring-purple-400 cursor-pointer",
                             attrs: { type: "checkbox" },
                             domProps: {
                               checked: Array.isArray(_vm.form.adjuntarFacturas)
@@ -95463,16 +95382,20 @@ var render = function () {
                             },
                           }),
                           _vm._v(" "),
-                          _c("span", { staticClass: "text-sm text-gray-700" }, [
-                            _vm._v("Adjuntar facturas del proveedor"),
-                          ]),
+                          _c(
+                            "span",
+                            {
+                              staticClass: "text-lg font-medium text-gray-700",
+                            },
+                            [_vm._v("Adjuntar facturas del proveedor")]
+                          ),
                         ]
                       ),
                       _vm._v(" "),
                       _c(
                         "label",
                         {
-                          staticClass: "flex items-center gap-2 cursor-pointer",
+                          staticClass: "flex items-center gap-4 cursor-pointer",
                         },
                         [
                           _c("input", {
@@ -95485,7 +95408,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-4 h-4 text-purple-500 border-gray-300 rounded focus:ring-purple-400 cursor-pointer",
+                              "w-6 h-6 text-purple-500 border-gray-300 rounded focus:ring-purple-400 cursor-pointer",
                             attrs: { type: "checkbox" },
                             domProps: {
                               checked: Array.isArray(
@@ -95527,9 +95450,13 @@ var render = function () {
                             },
                           }),
                           _vm._v(" "),
-                          _c("span", { staticClass: "text-sm text-gray-700" }, [
-                            _vm._v("Adjuntar comprobante de pago"),
-                          ]),
+                          _c(
+                            "span",
+                            {
+                              staticClass: "text-lg font-medium text-gray-700",
+                            },
+                            [_vm._v("Adjuntar comprobante de pago")]
+                          ),
                         ]
                       ),
                     ]),
@@ -95540,17 +95467,17 @@ var render = function () {
                   "div",
                   {
                     staticClass:
-                      "p-5 border-t border-gray-100 flex justify-end",
+                      "px-8 py-6 border-t border-gray-100 flex justify-end bg-gray-50 rounded-b-xl",
                   },
                   [
                     _c(
                       "button",
                       {
                         staticClass:
-                          "bg-[#9B8AF2] hover:bg-purple-500 text-white px-5 py-2 rounded text-sm font-semibold transition-colors shadow-sm",
+                          "bg-[#9B8AF2] hover:bg-purple-500 text-white px-8 py-4 rounded-lg text-lg font-bold transition-colors shadow-sm tracking-wide",
                         on: { click: _vm.submit },
                       },
-                      [_vm._v("\n          Enviar Notificacion\n        ")]
+                      [_vm._v("\n          Enviar Notificación\n        ")]
                     ),
                   ]
                 ),
@@ -95588,23 +95515,23 @@ var render = function () {
     "div",
     {
       staticClass:
-        "flex flex-col min-h-screen font-sans text-gray-800 p-4 lg:p-6 custom-datepicker",
+        "flex flex-col min-h-screen font-sans text-gray-800 p-8 lg:p-12 custom-datepicker",
       staticStyle: { "background-color": "#F4F6F9" },
     },
     [
-      _c("div", { staticClass: "flex flex-wrap items-center gap-4 mb-4" }, [
+      _c("div", { staticClass: "flex flex-wrap items-center gap-6 mb-6" }, [
         _c(
           "div",
           {
             staticClass:
-              "flex bg-white border border-gray-200 rounded p-1 shadow-sm items-center gap-1",
+              "flex bg-white border border-gray-200 rounded-lg p-2 shadow-sm items-center gap-2",
           },
           [
             _c(
               "button",
               {
                 class: [
-                  "px-4 py-1.5 text-[11px] font-bold uppercase rounded transition-colors",
+                  "px-6 py-3 text-lg font-bold uppercase rounded-md transition-colors",
                   _vm.opType === "TODOS"
                     ? "bg-gray-600 text-white shadow"
                     : "text-gray-500 hover:bg-gray-100",
@@ -95623,7 +95550,7 @@ var render = function () {
               "button",
               {
                 class: [
-                  "px-4 py-1.5 text-[11px] font-bold uppercase rounded transition-colors",
+                  "px-6 py-3 text-lg font-bold uppercase rounded-md transition-colors",
                   _vm.opType === "IMPO"
                     ? "bg-blue-600 text-white shadow"
                     : "text-gray-500 hover:bg-gray-100",
@@ -95642,7 +95569,7 @@ var render = function () {
               "button",
               {
                 class: [
-                  "px-4 py-1.5 text-[11px] font-bold uppercase rounded transition-colors",
+                  "px-6 py-3 text-lg font-bold uppercase rounded-md transition-colors",
                   _vm.opType === "EXPO"
                     ? "bg-purple-600 text-white shadow"
                     : "text-gray-500 hover:bg-gray-100",
@@ -95663,14 +95590,14 @@ var render = function () {
           "div",
           {
             staticClass:
-              "flex bg-white border border-gray-200 rounded p-1 shadow-sm items-center px-2 gap-4",
+              "flex bg-white border border-gray-200 rounded-lg p-2 shadow-sm items-center px-4 gap-6",
           },
           [
             _c(
               "button",
               {
                 class: [
-                  "px-4 py-1.5 text-[11px] font-bold uppercase transition-colors",
+                  "px-6 py-3 text-lg font-bold uppercase transition-colors",
                   _vm.subView === "OPERACIONES"
                     ? "text-blue-600"
                     : "text-blue-400 hover:text-blue-600",
@@ -95688,7 +95615,7 @@ var render = function () {
               "button",
               {
                 class: [
-                  "px-4 py-1.5 text-[11px] font-bold uppercase transition-colors",
+                  "px-6 py-3 text-lg font-bold uppercase transition-colors",
                   _vm.subView === "OPERACIONES SIN FACTURAR"
                     ? "text-green-600"
                     : "text-green-400 hover:text-green-600",
@@ -95707,7 +95634,7 @@ var render = function () {
       _vm._v(" "),
       _c(
         "div",
-        { staticClass: "flex gap-2 mb-4 overflow-x-auto pb-1" },
+        { staticClass: "flex gap-4 mb-6 overflow-x-auto pb-2" },
         _vm._l(
           ["GENERAL", "MANIOBRAS", "MUESTRAS", "FLETE", "LLC", "ROJOS"],
           function (tab) {
@@ -95716,7 +95643,7 @@ var render = function () {
               {
                 key: tab,
                 class: [
-                  "px-6 py-2 rounded text-[11px] font-bold flex items-center gap-2 transition-all border whitespace-nowrap",
+                  "px-8 py-4 rounded-lg text-lg font-bold flex items-center gap-3 transition-all border whitespace-nowrap",
                   _vm.activeTab === tab
                     ? "bg-white text-blue-800 border-gray-200 shadow-sm"
                     : "bg-transparent text-blue-800 border-transparent hover:bg-white/50",
@@ -95731,7 +95658,7 @@ var render = function () {
                 _c(
                   "svg",
                   {
-                    staticClass: "w-4 h-4 text-blue-600 shrink-0",
+                    staticClass: "w-6 h-6 text-blue-600 shrink-0",
                     attrs: {
                       fill: "none",
                       stroke: "currentColor",
@@ -95762,14 +95689,14 @@ var render = function () {
             "div",
             {
               staticClass:
-                "flex bg-white border border-red-200 rounded p-1 shadow-sm mb-4",
+                "flex bg-white border border-red-200 rounded-lg p-2 shadow-sm mb-6",
             },
             [
               _c(
                 "button",
                 {
                   class: [
-                    "flex-1 py-1.5 text-[11px] font-bold uppercase rounded transition-colors",
+                    "flex-1 py-3 text-lg font-bold uppercase rounded-md transition-colors",
                     _vm.tipoRojo === "REALES"
                       ? "bg-red-500 text-white shadow"
                       : "text-red-500 hover:bg-red-50",
@@ -95787,7 +95714,7 @@ var render = function () {
                 "button",
                 {
                   class: [
-                    "flex-1 py-1.5 text-[11px] font-bold uppercase rounded transition-colors",
+                    "flex-1 py-3 text-lg font-bold uppercase rounded-md transition-colors",
                     _vm.tipoRojo === "ESTRATEGICOS"
                       ? "bg-red-500 text-white shadow"
                       : "text-red-500 hover:bg-red-50",
@@ -95808,7 +95735,7 @@ var render = function () {
         "div",
         {
           staticClass:
-            "p-1.5 flex gap-1.5 mb-6 rounded shadow-sm overflow-x-auto",
+            "p-3 flex gap-3 mb-10 rounded-lg shadow-sm overflow-x-auto",
           staticStyle: { "background-color": "#D69E2E" },
         },
         _vm._l(_vm.locations, function (loc) {
@@ -95817,7 +95744,7 @@ var render = function () {
             {
               key: loc,
               class: [
-                "flex-1 py-1.5 px-2 text-[12px] font-bold capitalize transition-all rounded whitespace-nowrap",
+                "flex-1 py-3 px-4 text-xl font-bold capitalize transition-all rounded-md whitespace-nowrap",
                 _vm.activeLocation === loc
                   ? "shadow-inner"
                   : "shadow-sm hover:opacity-90",
@@ -95851,7 +95778,7 @@ var render = function () {
         "div",
         {
           staticClass:
-            "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6",
+            "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-10",
         },
         _vm._l(_vm.metrics, function (m) {
           return _c(
@@ -95859,9 +95786,9 @@ var render = function () {
             {
               key: m.view,
               class: [
-                "bg-white border p-4 rounded shadow-sm flex items-center gap-4 cursor-pointer transition-all",
+                "bg-white border p-6 rounded-xl shadow-sm flex items-center gap-6 cursor-pointer transition-all",
                 _vm.subView === m.view
-                  ? "border-blue-400 ring-1 ring-blue-400 shadow-md"
+                  ? "border-blue-400 ring-2 ring-blue-400 shadow-md"
                   : "border-gray-200 hover:border-blue-300",
               ],
               on: {
@@ -95875,12 +95802,12 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "w-12 h-12 rounded flex items-center justify-center text-white shadow-sm shrink-0",
+                    "w-20 h-20 rounded-xl flex items-center justify-center text-white shadow-sm shrink-0",
                   style: { backgroundColor: m.color },
                 },
                 [
                   _c("svg", {
-                    staticClass: "w-6 h-6",
+                    staticClass: "w-10 h-10",
                     attrs: {
                       fill: "none",
                       stroke: "currentColor",
@@ -95896,11 +95823,11 @@ var render = function () {
                   "span",
                   {
                     staticClass:
-                      "text-2xl font-black text-gray-800 leading-none",
+                      "text-4xl font-black text-gray-800 leading-none",
                   },
                   [
                     _vm.isLoading
-                      ? _c("span", { staticClass: "text-sm text-gray-400" }, [
+                      ? _c("span", { staticClass: "text-lg text-gray-400" }, [
                           _vm._v("Cargando..."),
                         ])
                       : _c("span", [_vm._v(_vm._s(m.count))]),
@@ -95911,7 +95838,7 @@ var render = function () {
                   "span",
                   {
                     staticClass:
-                      "text-[9px] font-bold text-gray-500 uppercase mt-1",
+                      "text-sm font-bold text-gray-500 uppercase mt-2",
                   },
                   [_vm._v(_vm._s(m.label))]
                 ),
@@ -95926,13 +95853,13 @@ var render = function () {
         "div",
         {
           staticClass:
-            "bg-white border border-gray-200 rounded shadow-sm mb-6 relative",
+            "bg-white border border-gray-200 rounded-xl shadow-sm mb-10 relative",
         },
         [
           _vm.isLoading
             ? _c("div", {
                 staticClass:
-                  "absolute inset-0 bg-white bg-opacity-60 z-10 flex items-center justify-center rounded",
+                  "absolute inset-0 bg-white bg-opacity-60 z-10 flex items-center justify-center rounded-xl",
               })
             : _vm._e(),
           _vm._v(" "),
@@ -95940,7 +95867,7 @@ var render = function () {
             "div",
             {
               staticClass:
-                "p-4 grid grid-cols-1 md:grid-cols-12 gap-x-8 gap-y-4",
+                "p-8 grid grid-cols-1 md:grid-cols-12 gap-x-10 gap-y-6",
             },
             [
               _c(
@@ -95951,14 +95878,14 @@ var render = function () {
                     "div",
                     {
                       staticClass:
-                        "text-[11px] font-extrabold text-gray-800 mb-3 border-b border-gray-200 pb-1.5",
+                        "text-lg font-extrabold text-gray-800 mb-4 border-b border-gray-200 pb-2",
                     },
                     [_vm._v("Identificadores\n        ")]
                   ),
                   _vm._v(" "),
                   _c(
                     "div",
-                    { staticClass: "flex flex-wrap lg:flex-nowrap gap-3" },
+                    { staticClass: "flex flex-wrap lg:flex-nowrap gap-4" },
                     [
                       _c("input", {
                         directives: [
@@ -95970,7 +95897,7 @@ var render = function () {
                           },
                         ],
                         staticClass:
-                          "w-full lg:w-1/4 h-[34px] bg-white border border-gray-200 rounded px-3 text-xs text-gray-700 placeholder-gray-400 focus:outline-none focus:border-blue-400 transition-colors",
+                          "w-full lg:w-1/4 h-14 bg-white border border-gray-300 rounded-lg px-4 text-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:border-blue-400 transition-colors",
                         attrs: { type: "text", placeholder: "Pedimento" },
                         domProps: { value: _vm.filters.pedimento },
                         on: {
@@ -96012,7 +95939,7 @@ var render = function () {
                           },
                         ],
                         staticClass:
-                          "w-full lg:w-1/4 h-[34px] bg-white border border-gray-200 rounded px-3 text-xs text-gray-700 placeholder-gray-400 focus:outline-none focus:border-blue-400 transition-colors",
+                          "w-full lg:w-1/4 h-14 bg-white border border-gray-300 rounded-lg px-4 text-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:border-blue-400 transition-colors",
                         attrs: { type: "text", placeholder: "F. Inte/prov" },
                         domProps: { value: _vm.filters.fInte },
                         on: {
@@ -96079,7 +96006,7 @@ var render = function () {
                     "div",
                     {
                       staticClass:
-                        "text-[11px] font-extrabold text-gray-800 mb-3 border-b border-gray-200 pb-1.5",
+                        "text-lg font-extrabold text-gray-800 mb-4 border-b border-gray-200 pb-2",
                     },
                     [_vm._v("Filtros de Estado\n        ")]
                   ),
@@ -96120,7 +96047,7 @@ var render = function () {
                     "div",
                     {
                       staticClass:
-                        "text-[11px] font-extrabold text-gray-800 mb-3 border-b border-gray-200 pb-1.5",
+                        "text-lg font-extrabold text-gray-800 mb-4 border-b border-gray-200 pb-2",
                     },
                     [_vm._v("Estado y Fecha\n        ")]
                   ),
@@ -96133,7 +96060,7 @@ var render = function () {
                       label: "Seleccionar rango o fecha",
                       color: "#3182CE",
                       "button-color": "#3182CE",
-                      "input-size": "sm",
+                      "input-size": "lg",
                     },
                     model: {
                       value: _vm.filters.fecha,
@@ -96153,16 +96080,16 @@ var render = function () {
             "div",
             {
               staticClass:
-                "border-t border-gray-100 p-3 px-4 flex flex-col md:flex-row justify-end items-center bg-white rounded-b gap-4 md:gap-0",
+                "border-t border-gray-100 p-6 flex flex-col md:flex-row justify-end items-center bg-gray-50 rounded-b-xl gap-4 md:gap-0",
             },
             [
-              _c("div", { staticClass: "flex items-center gap-2" }, [
+              _c("div", { staticClass: "flex items-center gap-4" }, [
                 _vm.subView === "CUENTAS POR PAGAR" || true
                   ? _c(
                       "button",
                       {
                         staticClass:
-                          "bg-white border hover:bg-blue-50 rounded px-4 py-1.5 text-[11px] font-bold transition-colors mr-2",
+                          "bg-white border hover:bg-blue-50 rounded-lg px-6 py-3 text-lg font-bold transition-colors mr-4",
                         staticStyle: {
                           "border-color": "#2E5A88",
                           color: "#2E5A88",
@@ -96176,7 +96103,7 @@ var render = function () {
                   "button",
                   {
                     staticClass:
-                      "bg-blue-600 hover:bg-blue-700 text-white rounded px-8 py-1.5 text-[12px] font-bold transition-colors shadow-sm flex items-center gap-2",
+                      "bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-10 py-3 text-lg font-bold transition-colors shadow-sm flex items-center gap-3",
                     on: { click: _vm.buscarDatos },
                   },
                   [
@@ -96184,7 +96111,7 @@ var render = function () {
                       ? _c(
                           "svg",
                           {
-                            staticClass: "animate-spin h-4 w-4 text-white",
+                            staticClass: "animate-spin h-6 w-6 text-white",
                             attrs: {
                               xmlns: "http://www.w3.org/2000/svg",
                               fill: "none",
@@ -96221,7 +96148,7 @@ var render = function () {
                   "button",
                   {
                     staticClass:
-                      "bg-gray-500 hover:bg-gray-600 text-white rounded px-5 py-1.5 text-[12px] font-bold transition-colors shadow-sm",
+                      "bg-gray-500 hover:bg-gray-600 text-white rounded-lg px-8 py-3 text-lg font-bold transition-colors shadow-sm",
                     on: { click: _vm.limpiarFiltros },
                   },
                   [_vm._v("\n          Limpiar Filtros\n        ")]
@@ -96236,7 +96163,7 @@ var render = function () {
         "div",
         {
           staticClass:
-            "border rounded py-2 px-4 mb-4 flex justify-center items-center gap-8 text-xs font-bold",
+            "border-2 rounded-xl py-4 px-6 mb-8 flex justify-center items-center gap-10 text-lg font-bold shadow-sm",
           staticStyle: {
             "background-color": "#EBF5FB",
             "border-color": "#BDE0FE",
@@ -96291,7 +96218,7 @@ var render = function () {
         "div",
         {
           staticClass:
-            "flex-1 flex flex-col bg-white rounded shadow-sm border border-gray-200 overflow-hidden mb-4 relative",
+            "flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6 relative",
         },
         [
           _vm.isLoading
@@ -96305,7 +96232,7 @@ var render = function () {
                   _c(
                     "svg",
                     {
-                      staticClass: "animate-spin h-10 w-10 text-blue-600 mb-2",
+                      staticClass: "animate-spin h-16 w-16 text-blue-600 mb-4",
                       attrs: {
                         xmlns: "http://www.w3.org/2000/svg",
                         fill: "none",
@@ -96336,7 +96263,7 @@ var render = function () {
                   _vm._v(" "),
                   _c(
                     "span",
-                    { staticClass: "text-blue-800 font-bold text-sm" },
+                    { staticClass: "text-blue-800 font-bold text-xl" },
                     [_vm._v("Consultando operaciones, por favor espera...")]
                   ),
                 ]
@@ -96348,13 +96275,13 @@ var render = function () {
             ? _c("div", { staticClass: "overflow-x-auto flex-1" }, [
                 _c(
                   "div",
-                  { staticClass: "p-4 border-b border-gray-100 bg-gray-50/50" },
+                  { staticClass: "p-6 border-b border-gray-100 bg-gray-50/50" },
                   [
                     _c(
                       "div",
                       {
                         staticClass:
-                          "border rounded py-3 text-center font-bold text-sm shadow-sm",
+                          "border-2 rounded-lg py-4 text-center font-bold text-xl shadow-sm",
                         staticStyle: {
                           "background-color": "white",
                           "border-color": "#009ED9",
@@ -96363,7 +96290,7 @@ var render = function () {
                       },
                       [
                         _vm._v(
-                          "\n          Monto Costo: " +
+                          "\n          Monto Costo: $" +
                             _vm._s(
                               _vm.totalCosto.toLocaleString("en-US", {
                                 minimumFractionDigits: 2,
@@ -96378,9 +96305,7 @@ var render = function () {
                 _vm._v(" "),
                 _c(
                   "table",
-                  {
-                    staticClass: "w-full text-left text-[11px] border-collapse",
-                  },
+                  { staticClass: "w-full text-left text-lg border-collapse" },
                   [
                     _vm._m(1),
                     _vm._v(" "),
@@ -96402,8 +96327,8 @@ var render = function () {
                               _c(
                                 "td",
                                 {
-                                  staticClass:
-                                    "px-4 py-3 truncate max-w-[150px]",
+                                  staticClass: "px-6 py-5 truncate",
+                                  staticStyle: { "max-width": "250px" },
                                 },
                                 [_vm._v(_vm._s(row.cliente))]
                               ),
@@ -96412,12 +96337,12 @@ var render = function () {
                                 "td",
                                 {
                                   staticClass:
-                                    "px-4 py-3 text-blue-600 italic font-bold",
+                                    "px-6 py-5 text-blue-600 italic font-bold",
                                 },
                                 [_vm._v(_vm._s(row.pedimento))]
                               ),
                               _vm._v(" "),
-                              _c("td", { staticClass: "px-4 py-3 uppercase" }, [
+                              _c("td", { staticClass: "px-6 py-5 uppercase" }, [
                                 _vm._v(_vm._s(row.transportista)),
                               ]),
                               _vm._v(" "),
@@ -96425,7 +96350,7 @@ var render = function () {
                                 "td",
                                 {
                                   staticClass:
-                                    "px-4 py-3 font-bold text-orange-600",
+                                    "px-6 py-5 font-bold text-orange-600",
                                 },
                                 [_vm._v(_vm._s(row.fProveedor))]
                               ),
@@ -96434,7 +96359,7 @@ var render = function () {
                                 "td",
                                 {
                                   staticClass:
-                                    "px-4 py-3 font-bold text-gray-800",
+                                    "px-6 py-5 font-bold text-gray-800",
                                 },
                                 [
                                   _vm._v(
@@ -96451,7 +96376,7 @@ var render = function () {
                               _vm._v(" "),
                               _c(
                                 "td",
-                                { staticClass: "px-4 py-3 text-center" },
+                                { staticClass: "px-6 py-5 text-center" },
                                 [_vm._v(_vm._s(row.moneda || "MXN"))]
                               ),
                               _vm._v(" "),
@@ -96459,21 +96384,21 @@ var render = function () {
                                 "td",
                                 {
                                   staticClass:
-                                    "px-4 py-3 font-bold text-indigo-600",
+                                    "px-6 py-5 font-bold text-indigo-600",
                                 },
                                 [_vm._v(_vm._s(row.fInTactics))]
                               ),
                               _vm._v(" "),
                               _c(
                                 "td",
-                                { staticClass: "px-4 py-3 text-center" },
+                                { staticClass: "px-6 py-5 text-center" },
                                 [
                                   row.hasAnticipo
                                     ? _c(
                                         "button",
                                         {
                                           staticClass:
-                                            "w-5 h-5 rounded-full bg-green-500 flex items-center justify-center mx-auto text-white shadow-sm hover:bg-green-600 transition-colors",
+                                            "w-10 h-10 rounded-full bg-green-500 flex items-center justify-center mx-auto text-white shadow-sm hover:bg-green-600 transition-colors",
                                           on: {
                                             click: function ($event) {
                                               return _vm.toggleAnticipo(
@@ -96487,7 +96412,7 @@ var render = function () {
                                           _c(
                                             "svg",
                                             {
-                                              staticClass: "w-3 h-3",
+                                              staticClass: "w-6 h-6",
                                               attrs: {
                                                 fill: "none",
                                                 stroke: "currentColor",
@@ -96517,26 +96442,26 @@ var render = function () {
                               _vm._v(" "),
                               _c(
                                 "td",
-                                { staticClass: "px-4 py-3 text-center" },
+                                { staticClass: "px-6 py-5 text-center" },
                                 [
                                   _c(
                                     "div",
                                     {
                                       staticClass:
-                                        "flex items-center justify-center gap-2",
+                                        "flex items-center justify-center gap-4",
                                     },
                                     [
                                       _c(
                                         "button",
                                         {
                                           staticClass:
-                                            "p-1 text-blue-400 hover:text-blue-600",
+                                            "p-2 text-blue-400 hover:text-blue-600",
                                         },
                                         [
                                           _c(
                                             "svg",
                                             {
-                                              staticClass: "w-4 h-4",
+                                              staticClass: "w-8 h-8",
                                               attrs: {
                                                 fill: "none",
                                                 stroke: "currentColor",
@@ -96561,7 +96486,7 @@ var render = function () {
                                         "button",
                                         {
                                           staticClass:
-                                            "p-1 text-blue-400 hover:text-blue-600",
+                                            "p-2 text-blue-400 hover:text-blue-600",
                                           on: {
                                             click: function ($event) {
                                               return _vm.openEditModal(row)
@@ -96572,7 +96497,7 @@ var render = function () {
                                           _c(
                                             "svg",
                                             {
-                                              staticClass: "w-4 h-4",
+                                              staticClass: "w-8 h-8",
                                               attrs: {
                                                 fill: "none",
                                                 stroke: "currentColor",
@@ -96597,7 +96522,7 @@ var render = function () {
                                         "button",
                                         {
                                           staticClass:
-                                            "p-1 text-green-500 hover:text-green-700",
+                                            "p-2 text-green-500 hover:text-green-700",
                                           attrs: { title: "Facturar" },
                                           on: {
                                             click: function ($event) {
@@ -96610,7 +96535,7 @@ var render = function () {
                                             "div",
                                             {
                                               staticClass:
-                                                "w-5 h-5 rounded-full border-2 border-current flex items-center justify-center font-bold text-[10px]",
+                                                "w-8 h-8 rounded-full border-2 border-current flex items-center justify-center font-bold text-sm",
                                             },
                                             [_vm._v("\n                    $")]
                                           ),
@@ -96630,12 +96555,12 @@ var render = function () {
                                 "td",
                                 {
                                   staticClass:
-                                    "px-4 py-8 text-center text-gray-400 font-normal",
+                                    "px-6 py-12 text-center text-gray-400 text-xl font-normal",
                                   attrs: { colspan: "9" },
                                 },
                                 [
                                   _vm._v(
-                                    "No hay registros para mostrar con\n              los filtros actuales."
+                                    "No hay registros para mostrar con los filtros actuales."
                                   ),
                                 ]
                               ),
@@ -96652,9 +96577,7 @@ var render = function () {
             ? _c("div", { staticClass: "overflow-x-auto flex-1" }, [
                 _c(
                   "table",
-                  {
-                    staticClass: "w-full text-left text-[11px] border-collapse",
-                  },
+                  { staticClass: "w-full text-left text-lg border-collapse" },
                   [
                     _c(
                       "thead",
@@ -96668,35 +96591,35 @@ var render = function () {
                       },
                       [
                         _c("tr", [
-                          _c("th", { staticClass: "px-4 py-4" }, [
+                          _c("th", { staticClass: "px-6 py-5" }, [
                             _vm._v("OPERACION"),
                           ]),
                           _vm._v(" "),
-                          _c("th", { staticClass: "px-4 py-4" }, [
+                          _c("th", { staticClass: "px-6 py-5" }, [
                             _vm._v("PROVEEDOR"),
                           ]),
                           _vm._v(" "),
-                          _c("th", { staticClass: "px-4 py-4" }, [
+                          _c("th", { staticClass: "px-6 py-5" }, [
                             _vm._v("FACTURAS"),
                           ]),
                           _vm._v(" "),
-                          _c("th", { staticClass: "px-4 py-4" }, [
+                          _c("th", { staticClass: "px-6 py-5" }, [
                             _vm._v("SUB-TOTAL"),
                           ]),
                           _vm._v(" "),
-                          _c("th", { staticClass: "px-4 py-4" }, [
+                          _c("th", { staticClass: "px-6 py-5" }, [
                             _vm._v("IVA"),
                           ]),
                           _vm._v(" "),
-                          _c("th", { staticClass: "px-4 py-4" }, [
+                          _c("th", { staticClass: "px-6 py-5" }, [
                             _vm._v("RETENCION"),
                           ]),
                           _vm._v(" "),
-                          _c("th", { staticClass: "px-4 py-4" }, [
+                          _c("th", { staticClass: "px-6 py-5" }, [
                             _vm._v("TOTAL"),
                           ]),
                           _vm._v(" "),
-                          _c("th", { staticClass: "px-4 py-4" }, [
+                          _c("th", { staticClass: "px-6 py-5" }, [
                             _vm._v(
                               _vm._s(
                                 _vm.subView === "ORDENES DE PAGO"
@@ -96706,7 +96629,7 @@ var render = function () {
                             ),
                           ]),
                           _vm._v(" "),
-                          _c("th", { staticClass: "px-4 py-4 text-right" }, [
+                          _c("th", { staticClass: "px-6 py-5 text-right" }, [
                             _vm._v("ACCIONES"),
                           ]),
                         ]),
@@ -96734,13 +96657,13 @@ var render = function () {
                                   "hover:bg-gray-50 transition-colors",
                               },
                               [
-                                _c("td", { staticClass: "px-4 py-4" }, [
+                                _c("td", { staticClass: "px-6 py-5" }, [
                                   _vm._v(_vm._s(row.op || "OPN260414002")),
                                 ]),
                                 _vm._v(" "),
                                 _c(
                                   "td",
-                                  { staticClass: "px-4 py-4 uppercase" },
+                                  { staticClass: "px-6 py-5 uppercase" },
                                   [
                                     _vm._v(
                                       _vm._s(
@@ -96750,11 +96673,11 @@ var render = function () {
                                   ]
                                 ),
                                 _vm._v(" "),
-                                _c("td", { staticClass: "px-4 py-4" }, [
+                                _c("td", { staticClass: "px-6 py-5" }, [
                                   _vm._v(_vm._s(row.facturas || "0")),
                                 ]),
                                 _vm._v(" "),
-                                _c("td", { staticClass: "px-4 py-4" }, [
+                                _c("td", { staticClass: "px-6 py-5" }, [
                                   _vm._v(
                                     "$ " +
                                       _vm._s(
@@ -96767,7 +96690,7 @@ var render = function () {
                                   ),
                                 ]),
                                 _vm._v(" "),
-                                _c("td", { staticClass: "px-4 py-4" }, [
+                                _c("td", { staticClass: "px-6 py-5" }, [
                                   _vm._v(
                                     "$ " +
                                       _vm._s(
@@ -96780,7 +96703,7 @@ var render = function () {
                                   ),
                                 ]),
                                 _vm._v(" "),
-                                _c("td", { staticClass: "px-4 py-4" }, [
+                                _c("td", { staticClass: "px-6 py-5" }, [
                                   _vm._v(
                                     "$ " +
                                       _vm._s(
@@ -96793,19 +96716,27 @@ var render = function () {
                                   ),
                                 ]),
                                 _vm._v(" "),
-                                _c("td", { staticClass: "px-4 py-4" }, [
-                                  _vm._v(
-                                    "$ " +
-                                      _vm._s(
-                                        (Number(row.total) || 0).toLocaleString(
-                                          "en-US",
-                                          { minimumFractionDigits: 2 }
+                                _c(
+                                  "td",
+                                  {
+                                    staticClass:
+                                      "px-6 py-5 font-black text-gray-800",
+                                  },
+                                  [
+                                    _vm._v(
+                                      "$ " +
+                                        _vm._s(
+                                          (
+                                            Number(row.total) || 0
+                                          ).toLocaleString("en-US", {
+                                            minimumFractionDigits: 2,
+                                          })
                                         )
-                                      )
-                                  ),
-                                ]),
+                                    ),
+                                  ]
+                                ),
                                 _vm._v(" "),
-                                _c("td", { staticClass: "px-4 py-4" }, [
+                                _c("td", { staticClass: "px-6 py-5" }, [
                                   _vm._v(
                                     _vm._s(
                                       row.fecha ||
@@ -96816,12 +96747,12 @@ var render = function () {
                                   ),
                                 ]),
                                 _vm._v(" "),
-                                _c("td", { staticClass: "px-4 py-4" }, [
+                                _c("td", { staticClass: "px-6 py-5" }, [
                                   _c(
                                     "div",
                                     {
                                       staticClass:
-                                        "flex items-center justify-end gap-2",
+                                        "flex items-center justify-end gap-4",
                                     },
                                     [
                                       _vm.subView === "ORDENES DE PAGO"
@@ -96829,14 +96760,13 @@ var render = function () {
                                             "button",
                                             {
                                               staticClass:
-                                                "bg-green-500 hover:bg-green-600 text-white rounded px-3 py-1.5 text-[10px] font-bold uppercase flex items-center shadow-sm transition-colors mr-2",
+                                                "bg-green-500 hover:bg-green-600 text-white rounded-lg px-4 py-2 text-sm font-bold uppercase flex items-center shadow-sm transition-colors mr-2",
                                             },
                                             [
                                               _c(
                                                 "svg",
                                                 {
-                                                  staticClass:
-                                                    "w-3.5 h-3.5 mr-1",
+                                                  staticClass: "w-5 h-5 mr-2",
                                                   attrs: {
                                                     fill: "none",
                                                     stroke: "currentColor",
@@ -96866,14 +96796,14 @@ var render = function () {
                                         "button",
                                         {
                                           staticClass:
-                                            "w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100",
+                                            "w-12 h-12 rounded-full border-2 border-gray-300 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100",
                                           attrs: { title: "Buscar" },
                                         },
                                         [
                                           _c(
                                             "svg",
                                             {
-                                              staticClass: "w-3.5 h-3.5",
+                                              staticClass: "w-6 h-6",
                                               attrs: {
                                                 fill: "none",
                                                 stroke: "currentColor",
@@ -96898,7 +96828,7 @@ var render = function () {
                                         "button",
                                         {
                                           staticClass:
-                                            "w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100",
+                                            "w-12 h-12 rounded-full border-2 border-gray-300 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100",
                                           attrs: { title: "Correo" },
                                           on: {
                                             click: function ($event) {
@@ -96910,7 +96840,7 @@ var render = function () {
                                           _c(
                                             "svg",
                                             {
-                                              staticClass: "w-3.5 h-3.5",
+                                              staticClass: "w-6 h-6",
                                               attrs: {
                                                 fill: "none",
                                                 stroke: "currentColor",
@@ -96935,7 +96865,7 @@ var render = function () {
                                         "button",
                                         {
                                           staticClass:
-                                            "w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100",
+                                            "w-12 h-12 rounded-full border-2 border-gray-300 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100",
                                           attrs: { title: "Documento" },
                                           on: {
                                             click: function ($event) {
@@ -96947,7 +96877,7 @@ var render = function () {
                                           _c(
                                             "svg",
                                             {
-                                              staticClass: "w-3.5 h-3.5",
+                                              staticClass: "w-6 h-6",
                                               attrs: {
                                                 fill: "none",
                                                 stroke: "currentColor",
@@ -96972,14 +96902,14 @@ var render = function () {
                                         "button",
                                         {
                                           staticClass:
-                                            "w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100",
+                                            "w-12 h-12 rounded-full border-2 border-gray-300 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100",
                                           attrs: { title: "Imprimir" },
                                         },
                                         [
                                           _c(
                                             "svg",
                                             {
-                                              staticClass: "w-3.5 h-3.5",
+                                              staticClass: "w-6 h-6",
                                               attrs: {
                                                 fill: "none",
                                                 stroke: "currentColor",
@@ -97004,7 +96934,7 @@ var render = function () {
                                         "button",
                                         {
                                           staticClass:
-                                            "w-7 h-7 rounded-full bg-blue-400 flex items-center justify-center text-white hover:bg-blue-500 shadow-sm",
+                                            "w-12 h-12 rounded-full bg-blue-500 flex items-center justify-center text-white hover:bg-blue-600 shadow-sm",
                                           attrs: { title: "Editar" },
                                           on: {
                                             click: function ($event) {
@@ -97016,7 +96946,7 @@ var render = function () {
                                           _c(
                                             "svg",
                                             {
-                                              staticClass: "w-3.5 h-3.5",
+                                              staticClass: "w-6 h-6",
                                               attrs: {
                                                 fill: "none",
                                                 stroke: "currentColor",
@@ -97054,14 +96984,10 @@ var render = function () {
                                 "td",
                                 {
                                   staticClass:
-                                    "px-4 py-8 text-center text-gray-400 font-normal",
+                                    "px-6 py-12 text-center text-gray-400 text-xl font-normal",
                                   attrs: { colspan: "9" },
                                 },
-                                [
-                                  _vm._v(
-                                    "No hay registros para mostrar.\n            "
-                                  ),
-                                ]
+                                [_vm._v("No hay registros para mostrar.")]
                               ),
                             ])
                           : _vm._e(),
@@ -97074,9 +97000,7 @@ var render = function () {
             : _c("div", { staticClass: "overflow-x-auto flex-1" }, [
                 _c(
                   "table",
-                  {
-                    staticClass: "w-full text-left text-[11px] border-collapse",
-                  },
+                  { staticClass: "w-full text-left text-lg border-collapse" },
                   [
                     _vm._m(2),
                     _vm._v(" "),
@@ -97096,23 +97020,23 @@ var render = function () {
                               staticClass: "hover:bg-gray-50 transition-colors",
                             },
                             [
-                              _c("td", { staticClass: "px-4 py-3" }, [
+                              _c("td", { staticClass: "px-6 py-5" }, [
                                 _vm._v(_vm._s(row.cliente)),
                               ]),
                               _vm._v(" "),
                               _c(
                                 "td",
                                 {
-                                  staticClass: "px-4 py-3 text-blue-500 italic",
+                                  staticClass: "px-6 py-5 text-blue-500 italic",
                                 },
                                 [_vm._v(_vm._s(row.op))]
                               ),
                               _vm._v(" "),
-                              _c("td", { staticClass: "px-4 py-3" }, [
+                              _c("td", { staticClass: "px-6 py-5" }, [
                                 _vm._v(_vm._s(row.pedimento || "--")),
                               ]),
                               _vm._v(" "),
-                              _c("td", { staticClass: "px-4 py-3 uppercase" }, [
+                              _c("td", { staticClass: "px-6 py-5 uppercase" }, [
                                 _vm._v(
                                   _vm._s(row.transportista || row.proveedor)
                                 ),
@@ -97122,7 +97046,7 @@ var render = function () {
                                 "td",
                                 {
                                   staticClass:
-                                    "px-4 py-3 font-bold text-gray-700",
+                                    "px-6 py-5 font-bold text-gray-700",
                                 },
                                 [
                                   _vm._v(
@@ -97141,7 +97065,7 @@ var render = function () {
                                 "td",
                                 {
                                   staticClass:
-                                    "px-4 py-3 font-bold text-gray-700",
+                                    "px-6 py-5 font-bold text-gray-700",
                                 },
                                 [
                                   _vm._v(
@@ -97159,7 +97083,7 @@ var render = function () {
                               _c(
                                 "td",
                                 {
-                                  staticClass: "px-4 py-3 font-bold",
+                                  staticClass: "px-6 py-5 font-bold text-2xl",
                                   staticStyle: { color: "#00C09F" },
                                 },
                                 [
@@ -97178,27 +97102,27 @@ var render = function () {
                               _vm._v(" "),
                               _c(
                                 "td",
-                                { staticClass: "px-4 py-3 text-center" },
+                                { staticClass: "px-6 py-5 text-center" },
                                 [
                                   _c(
                                     "div",
                                     {
                                       staticClass:
-                                        "flex items-center justify-center gap-2",
+                                        "flex items-center justify-center gap-4",
                                     },
                                     [
                                       _c(
                                         "button",
                                         {
                                           staticClass:
-                                            "text-blue-400 hover:text-blue-600 transition-colors",
+                                            "p-2 text-blue-400 hover:text-blue-600 transition-colors",
                                           attrs: { title: "Buscar" },
                                         },
                                         [
                                           _c(
                                             "svg",
                                             {
-                                              staticClass: "w-4 h-4",
+                                              staticClass: "w-8 h-8",
                                               attrs: {
                                                 fill: "none",
                                                 stroke: "currentColor",
@@ -97223,7 +97147,7 @@ var render = function () {
                                         "button",
                                         {
                                           staticClass:
-                                            "text-blue-400 hover:text-blue-600 transition-colors",
+                                            "p-2 text-blue-400 hover:text-blue-600 transition-colors",
                                           attrs: { title: "Editar" },
                                           on: {
                                             click: function ($event) {
@@ -97235,7 +97159,7 @@ var render = function () {
                                           _c(
                                             "svg",
                                             {
-                                              staticClass: "w-4 h-4",
+                                              staticClass: "w-8 h-8",
                                               attrs: {
                                                 fill: "none",
                                                 stroke: "currentColor",
@@ -97260,7 +97184,7 @@ var render = function () {
                                         "button",
                                         {
                                           class: [
-                                            "w-6 h-6 rounded-full flex items-center justify-center text-white transition-colors",
+                                            "w-12 h-12 rounded-full flex items-center justify-center text-white transition-colors",
                                             _vm.canAuthorize(row)
                                               ? "hover:bg-teal-500 shadow-sm"
                                               : "bg-gray-300 cursor-not-allowed opacity-50",
@@ -97285,7 +97209,7 @@ var render = function () {
                                           _c(
                                             "svg",
                                             {
-                                              staticClass: "w-3.5 h-3.5",
+                                              staticClass: "w-6 h-6",
                                               attrs: {
                                                 fill: "none",
                                                 stroke: "currentColor",
@@ -97337,14 +97261,10 @@ var render = function () {
                                 "td",
                                 {
                                   staticClass:
-                                    "px-4 py-8 text-center text-gray-400 font-normal",
+                                    "px-6 py-12 text-center text-gray-400 text-xl font-normal",
                                   attrs: { colspan: "8" },
                                 },
-                                [
-                                  _vm._v(
-                                    "No hay cuentas por pagar\n              pendientes."
-                                  ),
-                                ]
+                                [_vm._v("No hay cuentas por pagar pendientes.")]
                               ),
                             ])
                           : _vm._e(),
@@ -97396,11 +97316,11 @@ var staticRenderFns = [
       "div",
       {
         staticClass:
-          "flex justify-between items-center mb-6 pb-4 border-b border-teal-200",
+          "flex justify-between items-center mb-8 pb-6 border-b-2 border-teal-200",
       },
       [
         _c("div", [
-          _c("h1", { staticClass: "text-3xl font-bold text-teal-800" }, [
+          _c("h1", { staticClass: "text-5xl font-bold text-teal-800" }, [
             _vm._v("Control de Proveedores"),
           ]),
         ]),
@@ -97420,25 +97340,25 @@ var staticRenderFns = [
       },
       [
         _c("tr", [
-          _c("th", { staticClass: "px-4 py-3" }, [_vm._v("CLIENTE")]),
+          _c("th", { staticClass: "px-6 py-5" }, [_vm._v("CLIENTE")]),
           _vm._v(" "),
-          _c("th", { staticClass: "px-4 py-3" }, [_vm._v("PEDIMENTO")]),
+          _c("th", { staticClass: "px-6 py-5" }, [_vm._v("PEDIMENTO")]),
           _vm._v(" "),
-          _c("th", { staticClass: "px-4 py-3" }, [_vm._v("PROVEEDOR")]),
+          _c("th", { staticClass: "px-6 py-5" }, [_vm._v("PROVEEDOR")]),
           _vm._v(" "),
-          _c("th", { staticClass: "px-4 py-3" }, [_vm._v("F. PROVEEDOR")]),
+          _c("th", { staticClass: "px-6 py-5" }, [_vm._v("F. PROVEEDOR")]),
           _vm._v(" "),
-          _c("th", { staticClass: "px-4 py-3" }, [_vm._v("MONTO")]),
+          _c("th", { staticClass: "px-6 py-5" }, [_vm._v("MONTO")]),
           _vm._v(" "),
-          _c("th", { staticClass: "px-4 py-3 text-center" }, [
+          _c("th", { staticClass: "px-6 py-5 text-center" }, [
             _vm._v("MONEDA"),
           ]),
           _vm._v(" "),
-          _c("th", { staticClass: "px-4 py-3" }, [_vm._v("F. INTACTICS")]),
+          _c("th", { staticClass: "px-6 py-5" }, [_vm._v("F. INTACTICS")]),
           _vm._v(" "),
-          _c("th", { staticClass: "px-4 py-3 text-center" }, [_vm._v("ANT")]),
+          _c("th", { staticClass: "px-6 py-5 text-center" }, [_vm._v("ANT")]),
           _vm._v(" "),
-          _c("th", { staticClass: "px-4 py-3 text-center" }, [
+          _c("th", { staticClass: "px-6 py-5 text-center" }, [
             _vm._v("ACCIONES"),
           ]),
         ]),
@@ -97458,21 +97378,21 @@ var staticRenderFns = [
       },
       [
         _c("tr", [
-          _c("th", { staticClass: "px-4 py-3" }, [_vm._v("CLIENTE")]),
+          _c("th", { staticClass: "px-6 py-5" }, [_vm._v("CLIENTE")]),
           _vm._v(" "),
-          _c("th", { staticClass: "px-4 py-3" }, [_vm._v("OP")]),
+          _c("th", { staticClass: "px-6 py-5" }, [_vm._v("OP")]),
           _vm._v(" "),
-          _c("th", { staticClass: "px-4 py-3" }, [_vm._v("PEDIMENTO")]),
+          _c("th", { staticClass: "px-6 py-5" }, [_vm._v("PEDIMENTO")]),
           _vm._v(" "),
-          _c("th", { staticClass: "px-4 py-3" }, [_vm._v("PROVEEDOR")]),
+          _c("th", { staticClass: "px-6 py-5" }, [_vm._v("PROVEEDOR")]),
           _vm._v(" "),
-          _c("th", { staticClass: "px-4 py-3" }, [_vm._v("COSTO")]),
+          _c("th", { staticClass: "px-6 py-5" }, [_vm._v("COSTO")]),
           _vm._v(" "),
-          _c("th", { staticClass: "px-4 py-3" }, [_vm._v("VENTA")]),
+          _c("th", { staticClass: "px-6 py-5" }, [_vm._v("VENTA")]),
           _vm._v(" "),
-          _c("th", { staticClass: "px-4 py-3" }, [_vm._v("GANANCIA")]),
+          _c("th", { staticClass: "px-6 py-5" }, [_vm._v("GANANCIA")]),
           _vm._v(" "),
-          _c("th", { staticClass: "px-4 py-3 text-center" }, [
+          _c("th", { staticClass: "px-6 py-5 text-center" }, [
             _vm._v("ACCIONES"),
           ]),
         ]),

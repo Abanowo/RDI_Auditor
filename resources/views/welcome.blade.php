@@ -10,7 +10,11 @@
     <div id="app">
         <lista-auditorias/>
     </div>
-
+    <style>
+        html, body {
+            font-size: 10px;
+        }
+    </style>
     <script src="{{ mix('js/app.js') }}" defer></script>
 </body>
 </html>

@@ -1,54 +1,51 @@
 <template>
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-        <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden flex flex-col">
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-6">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl flex flex-col mx-4">
 
-            <!-- Header Modal -->
-            <div class="bg-blue-600 px-4 py-3 flex justify-between items-center">
-                <h3 class="text-white text-xs font-bold uppercase tracking-wider">EDITAR SALDO A FAVOR</h3>
+            <div class="bg-blue-600 px-8 py-6 flex justify-between items-center rounded-t-xl">
+                <h3 class="text-white text-xl font-bold uppercase tracking-wider">EDITAR SALDO A FAVOR</h3>
                 <button @click="$emit('close')" class="text-blue-200 hover:text-white transition-colors">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
                         </path>
                     </svg>
                 </button>
             </div>
 
-            <!-- Body Modal -->
-            <div class="p-6 grid grid-cols-2 gap-4">
+            <div class="p-8 grid grid-cols-2 gap-8">
                 <div class="col-span-2">
-                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">RAZÓN SOCIAL CLIENTE</label>
+                    <label class="block text-base font-bold text-gray-500 uppercase mb-2">RAZÓN SOCIAL CLIENTE</label>
                     <multiselect v-model="form.cliente" :options="opcionesCliente" track-by="id" label="nombre"
-                        :show-labels="false" class="text-sm"></multiselect>
+                        :show-labels="false" class="text-xl"></multiselect>
                 </div>
                 <div class="col-span-1">
-                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">MONTO DE ABONO ($)</label>
+                    <label class="block text-base font-bold text-gray-500 uppercase mb-2">MONTO DE ABONO ($)</label>
                     <input v-model="form.monto" type="number" step="0.01"
-                        class="w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-700 focus:outline-none focus:border-blue-600">
+                        class="w-full border border-gray-300 rounded-lg px-5 py-4 text-xl text-gray-700 focus:outline-none focus:border-blue-600">
                 </div>
                 <div class="col-span-1">
-                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">SUCURSAL ORIGEN</label>
+                    <label class="block text-base font-bold text-gray-500 uppercase mb-2">SUCURSAL ORIGEN</label>
                     <multiselect v-model="form.sucursal" :options="opcionesSucursal" :show-labels="false"
-                        class="text-sm"></multiselect>
+                        class="text-xl"></multiselect>
                 </div>
                 <div class="col-span-2">
-                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">FECHA DE DETECCIÓN</label>
+                    <label class="block text-base font-bold text-gray-500 uppercase mb-2">FECHA DE DETECCIÓN</label>
                     <VueCtkDateTimePicker v-model="form.fecha_deteccion" format="YYYY-MM-DD" formatted="YYYY-MM-DD"
-                        color="#1d4ed8" button-color="#1d4ed8" :only-date="true" :no-label="true" class="text-sm">
+                        color="#1d4ed8" button-color="#1d4ed8" :only-date="true" :no-label="true" class="text-xl">
                     </VueCtkDateTimePicker>
                 </div>
                 <div class="col-span-2">
-                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">CONCEPTO O CAUSA</label>
+                    <label class="block text-base font-bold text-gray-500 uppercase mb-2">CONCEPTO O CAUSA</label>
                     <textarea v-model="form.concepto" rows="3"
-                        class="w-full border border-gray-300 rounded px-3 py-2 text-sm text-gray-700 focus:outline-none focus:border-blue-600 resize-none"></textarea>
+                        class="w-full border border-gray-300 rounded-lg px-5 py-4 text-xl text-gray-700 focus:outline-none focus:border-blue-600 resize-none"></textarea>
                 </div>
             </div>
 
-            <!-- Footer Modal -->
-            <div class="px-6 py-4 border-t border-gray-200 flex justify-end gap-3 bg-gray-50">
+            <div class="px-8 py-6 border-t border-gray-200 flex justify-end gap-6 bg-gray-50 rounded-b-xl">
                 <button @click="$emit('close')"
-                    class="px-5 py-2 rounded bg-gray-100 text-gray-700 text-sm font-bold hover:bg-gray-200 transition-colors">Salir</button>
+                    class="px-8 py-4 rounded-lg bg-gray-200 text-gray-700 text-lg font-bold hover:bg-gray-300 transition-colors">Salir</button>
                 <button @click="actualizarSaldo" :disabled="isSubmitting"
-                    :class="['px-5 py-2 rounded text-white text-sm font-bold transition-colors', isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700']">
+                    :class="['px-8 py-4 rounded-lg text-white text-lg font-bold transition-colors', isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700']">
                     {{ isSubmitting ? 'Actualizando...' : 'Guardar Cambios' }}
                 </button>
             </div>
@@ -118,7 +115,6 @@ export default {
     }
 }
 </script>
-
 <style scoped>
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button {
@@ -128,11 +124,30 @@ input[type=number]::-webkit-outer-spin-button {
 
 :deep(.multiselect__tags) {
     border-color: #D1D5DB !important;
-    padding-top: 6px !important;
-    min-height: 38px !important;
+    padding-top: 10px !important;
+    min-height: 48px !important;
+    font-size: 16px !important;
+    border-radius: 8px;
+}
+
+:deep(.multiselect__select) {
+    height: 48px !important;
+}
+
+:deep(.multiselect__single),
+:deep(.multiselect__input) {
+    font-size: 16px !important;
+    margin-bottom: 0px !important;
 }
 
 :deep(.multiselect__tag) {
     background-color: #2563eb !important;
+    font-size: 14px !important;
+}
+
+:deep(.field-input) {
+    min-height: 48px !important;
+    font-size: 16px !important;
+    border-radius: 8px !important;
 }
 </style>

@@ -1,103 +1,82 @@
 <template>
-  <div v-if="mostrar" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden">
-      
-      <!-- HEADER -->
-      <div class="bg-indigo-700 px-6 py-4 flex justify-between items-center">
-        <h3 class="text-white font-bold text-lg">Generar Complemento de Pago (Contpaqi)</h3>
-        <button @click="cerrar" class="text-white hover:text-gray-200">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+  <div v-if="mostrar" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-6 md:p-10">
+
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[calc(100vh-4rem)]">
+
+      <div class="bg-indigo-700 px-8 py-6 flex justify-between items-center shrink-0">
+        <h3 class="text-white font-bold text-2xl">Generar Complemento de Pago (Contpaqi)</h3>
+        <button @click="cerrar" class="text-white hover:text-gray-200 transition-colors">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
         </button>
       </div>
 
-      <!-- BODY -->
-      <div class="p-6 grid grid-cols-2 gap-4">
-        
-        <!-- Cliente (Autollenado) -->
+      <div class="p-8 overflow-y-auto flex-1 grid grid-cols-2 gap-8">
+
         <div class="col-span-2">
-          <label class="block text-sm font-bold text-gray-700">Cliente</label>
-          <input type="text" :value="ingreso.cliente" disabled class="w-full mt-1 border-gray-300 bg-gray-100 rounded-md shadow-sm p-2">
-        </div>
-
-        <!-- Sucursal (Autollenado) -->
-        <div class="col-span-1">
-          <label class="block text-sm font-bold text-gray-700">Sucursal</label>
-          <!-- 🔥 CORRECCIÓN: Se cambió a sucursal_origen -->
-          <input type="text" :value="ingreso.sucursal_origen" disabled class="w-full mt-1 border-gray-300 bg-gray-100 rounded-md shadow-sm p-2">
+          <label class="block text-lg font-bold text-gray-700 mb-2">Cliente</label>
+          <input type="text" :value="ingreso.cliente" disabled
+            class="w-full border-gray-300 bg-gray-100 rounded-lg shadow-sm px-5 py-4 text-xl text-gray-700">
         </div>
 
         <div class="col-span-1">
-          <label class="block text-sm font-bold text-gray-700">Total a Pagar</label>
-          <input type="number" v-model="form.total" class="w-full mt-1 border-gray-300 rounded-md shadow-sm p-2 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+          <label class="block text-lg font-bold text-gray-700 mb-2">Sucursal</label>
+          <input type="text" :value="ingreso.sucursal_origen" disabled
+            class="w-full border-gray-300 bg-gray-100 rounded-lg shadow-sm px-5 py-4 text-xl text-gray-700">
         </div>
 
-        <!-- 🔥 NUEVO: Moneda con Vue Multiselect -->
         <div class="col-span-1">
-          <label class="block text-sm font-bold text-gray-700">Moneda</label>
-          <multiselect 
-            v-model="form.monedaObj" 
-            :options="opcionesMoneda" 
-            label="label" 
-            track-by="value"
-            :searchable="false" 
-            :show-labels="false" 
-            :allow-empty="false"
-            class="mt-1 custom-multiselect">
+          <label class="block text-lg font-bold text-gray-700 mb-2">Total a Pagar</label>
+          <input type="number" v-model="form.total"
+            class="w-full border-gray-300 rounded-lg shadow-sm px-5 py-4 text-2xl font-black text-indigo-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+        </div>
+
+        <div class="col-span-1">
+          <label class="block text-lg font-bold text-gray-700 mb-2">Moneda</label>
+          <multiselect v-model="form.monedaObj" :options="opcionesMoneda" label="label" track-by="value"
+            :searchable="false" :show-labels="false" :allow-empty="false" class="custom-multiselect text-xl">
           </multiselect>
         </div>
 
         <div class="col-span-1">
-          <label class="block text-sm font-bold text-gray-700">Tipo de Cambio</label>
-          <input type="number" step="0.01" v-model="form.tipo_cambio" class="w-full mt-1 border-gray-300 rounded-md shadow-sm p-2 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+          <label class="block text-lg font-bold text-gray-700 mb-2">Tipo de Cambio</label>
+          <input type="number" step="0.01" v-model="form.tipo_cambio"
+            class="w-full border-gray-300 rounded-lg shadow-sm px-5 py-4 text-xl outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
         </div>
 
-        <!-- 🔥 NUEVO: Forma de Pago con Vue Multiselect -->
         <div class="col-span-1">
-          <label class="block text-sm font-bold text-gray-700">Forma de Pago</label>
-          <multiselect 
-            v-model="form.formaPagoObj" 
-            :options="formasPago" 
-            label="label" 
-            track-by="value"
-            :searchable="true" 
-            :show-labels="false" 
-            :allow-empty="false"
-            placeholder="Seleccione..."
-            class="mt-1 custom-multiselect">
-          </multiselect>
+          <label class="block text-lg font-bold text-gray-700 mb-2">Forma de Pago</label>
+          <multiselect v-model="form.formaPagoObj" :options="formasPago" label="label" track-by="value"
+            :searchable="true" :show-labels="false" :allow-empty="false" placeholder="Seleccione..."
+            class="custom-multiselect text-xl"></multiselect>
         </div>
 
-        <!-- 🔥 NUEVO: Método de Pago con Vue Multiselect -->
         <div class="col-span-1">
-          <label class="block text-sm font-bold text-gray-700">Método de Pago</label>
-          <multiselect 
-            v-model="form.metodoPagoObj" 
-            :options="opcionesMetodoPago" 
-            label="label" 
-            track-by="value"
-            :searchable="false" 
-            :show-labels="false" 
-            :allow-empty="false"
-            class="mt-1 custom-multiselect">
+          <label class="block text-lg font-bold text-gray-700 mb-2">Método de Pago</label>
+          <multiselect v-model="form.metodoPagoObj" :options="opcionesMetodoPago" label="label" track-by="value"
+            :searchable="false" :show-labels="false" :allow-empty="false" class="custom-multiselect text-xl">
           </multiselect>
         </div>
 
         <div class="col-span-2">
-          <label class="block text-sm font-bold text-gray-700">Referencia</label>
-          <input type="text" v-model="form.referencia" class="w-full mt-1 border-gray-300 rounded-md shadow-sm p-2 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+          <label class="block text-lg font-bold text-gray-700 mb-2">Referencia</label>
+          <input type="text" v-model="form.referencia"
+            class="w-full border-gray-300 rounded-lg shadow-sm px-5 py-4 text-xl outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
         </div>
 
         <div class="col-span-2">
-          <label class="block text-sm font-bold text-gray-700">Observaciones</label>
-          <textarea v-model="form.observaciones" rows="2" class="w-full mt-1 border-gray-300 rounded-md shadow-sm p-2 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"></textarea>
+          <label class="block text-lg font-bold text-gray-700 mb-2">Observaciones</label>
+          <textarea v-model="form.observaciones" rows="2"
+            class="w-full border-gray-300 rounded-lg shadow-sm px-5 py-4 text-xl outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"></textarea>
         </div>
-
       </div>
 
-      <!-- FOOTER -->
-      <div class="bg-gray-50 px-6 py-4 flex justify-end gap-3 rounded-b-lg border-t">
-        <button @click="cerrar" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 font-bold transition">Cancelar</button>
-        <button @click="enviarComplemento" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-bold transition flex items-center">
+      <div class="bg-gray-50 px-8 py-6 flex justify-end gap-6 rounded-b-xl border-t shrink-0">
+        <button @click="cerrar"
+          class="px-8 py-4 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 font-bold transition text-xl shadow-sm">Cancelar</button>
+        <button @click="enviarComplemento"
+          class="px-8 py-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold transition flex items-center text-xl shadow-sm">
           Generar Complemento
         </button>
       </div>
@@ -172,7 +151,7 @@ export default {
         this.form.total = this.ingreso.monto_deposito || 0;
         this.form.referencia = this.ingreso.referencia || "";
         this.form.observaciones = `Complemento generado el ${new Date().toLocaleDateString()}`;
-        
+
         // Reiniciar selects a sus valores por defecto al abrir
         this.form.monedaObj = { value: 1, label: "Peso Mexicano (MXN)" };
         this.form.formaPagoObj = { value: "03", label: "03 - Transferencia Electrónica" };
@@ -194,8 +173,7 @@ export default {
       const payload = {
         ingreso_id: this.ingreso.id,
         cliente_id: this.ingreso.cliente_id,
-        // Usamos sucursal_origen que es como viene de la DB
-        sucursal: this.ingreso.sucursal_origen, 
+        sucursal: this.ingreso.sucursal_origen,
         moneda: this.form.monedaObj.value,
         tipo_cambio: this.form.tipo_cambio,
         referencia: this.form.referencia,
@@ -207,12 +185,12 @@ export default {
 
       try {
         Swal.fire({ title: 'Procesando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-        
+
         // Petición a nuestro propio backend (Laravel)
         const response = await axios.post('/complementos-pago/generar', payload);
 
         console.log("Respuesta de Contpaqi:", response.data);
-        
+
         Swal.fire('¡Éxito!', 'El complemento de pago fue enviado a Contpaqi correctamente.', 'success');
         this.cerrar();
 
@@ -225,21 +203,39 @@ export default {
   }
 }
 </script>
-
 <style scoped>
-/* Estilos adicionales para que el Multiselect haga match con los inputs de Tailwind */
 :deep(.custom-multiselect .multiselect__tags) {
   border-color: #D1D5DB;
-  border-radius: 0.375rem;
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
-  min-height: 42px;
+  border-radius: 8px;
+  padding-top: 12px !important;
+  padding-left: 16px !important;
+  min-height: 52px !important;
+  font-size: 16px !important;
 }
+
 :deep(.custom-multiselect .multiselect__select) {
-  height: 42px;
+  height: 52px !important;
 }
+
 :deep(.custom-multiselect.multiselect--active .multiselect__tags) {
-  border-color: #6366F1; /* Color índigo al hacer focus */
+  border-color: #6366F1;
   box-shadow: 0 0 0 1px #6366F1;
+}
+
+:deep(.custom-multiselect .multiselect__single),
+:deep(.custom-multiselect .multiselect__input) {
+  font-size: 16px !important;
+  margin-bottom: 0px !important;
+  padding-top: 2px !important;
+}
+
+:deep(.custom-multiselect .multiselect__option) {
+  font-size: 16px !important;
+}
+
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 </style>

@@ -1,267 +1,225 @@
 <template>
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 md:p-8">
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-6 md:p-10">
 
-    <!-- CONTENEDOR PRINCIPAL DEL MODAL -->
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
 
-      <!-- Header Modal -->
-      <div class="bg-blue-500 px-4 py-3 flex justify-between items-center shrink-0">
-        <h3 class="text-white text-xs font-bold uppercase tracking-wider">NUEVO INGRESO CONCILIADO</h3>
-        <button @click="$emit('close')" class="text-gray-400 hover:text-white transition-colors">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="bg-blue-600 px-8 py-6 flex justify-between items-center shrink-0">
+        <h3 class="text-white text-2xl font-bold uppercase tracking-wider">NUEVO INGRESO CONCILIADO</h3>
+        <button @click="$emit('close')" class="text-blue-200 hover:text-white transition-colors">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
           </svg>
         </button>
       </div>
 
-      <!-- Body Modal -->
-      <div class="p-6 overflow-y-auto flex-1 grid grid-cols-2 gap-4">
+      <div class="p-8 overflow-y-auto flex-1 grid grid-cols-2 gap-8">
 
-        <!-- SUCURSAL Y CHECKBOXES DINÁMICOS -->
         <div class="col-span-1">
-          <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">SUCURSAL ORIGEN *</label>
+          <label class="block text-base font-bold text-gray-500 uppercase mb-2">SUCURSAL ORIGEN *</label>
           <multiselect v-model="form.sucursal_origen" :options="opcionesSucursal" placeholder="Seleccione..."
-            :show-labels="false" class="text-sm">
+            :show-labels="false" class="text-xl">
           </multiselect>
 
-          <!-- 🔥 CHECKBOXES INTELIGENTES -->
-          <div v-if="sucursalSeleccionada" class="mt-2 flex items-center gap-3">
-            
-            <label v-if="esSucursalOtraBase" class="inline-flex items-center cursor-pointer bg-blue-50 px-2 py-1 rounded border border-blue-200 hover:bg-blue-100 transition-colors shadow-sm">
-              <input v-model="checkTransportactics" type="checkbox" class="form-checkbox h-3.5 w-3.5 text-blue-600 rounded cursor-pointer">
-              <span class="ml-1.5 text-[10px] text-blue-800 font-extrabold uppercase">Es Transportactics</span>
+          <div v-if="sucursalSeleccionada" class="mt-4 flex items-center gap-6">
+            <label v-if="esSucursalOtraBase"
+              class="inline-flex items-center cursor-pointer bg-blue-50 px-4 py-3 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors shadow-sm">
+              <input v-model="checkTransportactics" type="checkbox"
+                class="form-checkbox h-6 w-6 text-blue-600 rounded cursor-pointer">
+              <span class="ml-3 text-base text-blue-800 font-extrabold uppercase">Es Transportactics</span>
             </label>
 
-            <label v-if="esSucursalManzanilloBase" class="inline-flex items-center cursor-pointer bg-purple-50 px-2 py-1 rounded border border-purple-200 hover:bg-purple-100 transition-colors shadow-sm">
-              <input v-model="checkIntshipperts" type="checkbox" class="form-checkbox h-3.5 w-3.5 text-purple-600 rounded cursor-pointer">
-              <span class="ml-1.5 text-[10px] text-purple-800 font-extrabold uppercase">Es Intshipperts</span>
+            <label v-if="esSucursalManzanilloBase"
+              class="inline-flex items-center cursor-pointer bg-purple-50 px-4 py-3 rounded-lg border border-purple-200 hover:bg-purple-100 transition-colors shadow-sm">
+              <input v-model="checkIntshipperts" type="checkbox"
+                class="form-checkbox h-6 w-6 text-purple-600 rounded cursor-pointer">
+              <span class="ml-3 text-base text-purple-800 font-extrabold uppercase">Es Intshipperts</span>
             </label>
-
           </div>
         </div>
 
-        <!-- BANCO -->
         <div class="col-span-1">
-          <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">BANCO RECEPTOR</label>
+          <label class="block text-base font-bold text-gray-500 uppercase mb-2">BANCO RECEPTOR</label>
           <multiselect v-model="form.banco_receptor" :options="opcionesBanco" placeholder="Seleccione..."
-            :show-labels="false" class="text-sm">
+            :show-labels="false" class="text-xl">
           </multiselect>
         </div>
 
-        <!-- FECHA -->
         <div class="col-span-2">
-          <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">FECHA DE DEPÓSITO *</label>
+          <label class="block text-base font-bold text-gray-500 uppercase mb-2">FECHA DE DEPÓSITO *</label>
           <VueCtkDateTimePicker v-model="form.fecha" format="YYYY-MM-DD" formatted="YYYY-MM-DD" color="#1d4ed8"
-            button-color="#1d4ed8" :only-date="true" label="Seleccione la fecha" class="text-sm">
+            button-color="#1d4ed8" :only-date="true" label="Seleccione la fecha" class="text-xl">
           </VueCtkDateTimePicker>
         </div>
 
-        <!-- CLIENTE -->
         <div class="col-span-2">
-          <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">RAZÓN SOCIAL CLIENTE (Filtra los
-            folios) *</label>
+          <label class="block text-base font-bold text-gray-500 uppercase mb-2">RAZÓN SOCIAL CLIENTE (Filtra los folios)
+            *</label>
           <multiselect v-model="form.cliente" :options="opcionesCliente" track-by="id" label="nombre"
-            placeholder="Seleccione un cliente..." :show-labels="false" class="text-sm">
+            placeholder="Seleccione un cliente..." :show-labels="false" class="text-xl">
           </multiselect>
         </div>
 
-        <!-- REFERENCIA -->
-          <div class="col-span-1">
-            <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">
-              PEDIMENTOS / FOLIOS DISPONIBLES *
-            </label>
-
-            <!-- 🔥 Se agregó w-full y min-w-0 al contenedor flex -->
-            <div class="flex w-full min-w-0">
-              
-              <!-- 🔥 Se agregó min-w-0 y flex-1 al multiselect -->
-              <multiselect v-model="form.referenciasObj" :options="opcionesPedimentos" :multiple="true" :taggable="true"
-                @tag="agregarReferencia" track-by="label" label="label" :loading="cargandoSheet"
-                :disabled="!form.sucursal_origen" placeholder="Seleccione folios o escriba..." 
-                class="w-full min-w-0 flex-1 text-sm">
-                <template slot="noResult">No se encontraron folios para este cliente</template>
-              </multiselect>
-
-              <!-- 🔥 Se agregó shrink-0 al botón para que nunca se aplaste -->
-              <button @click="buscarYRecalcularPedimento" type="button" title="Calcular montos desde XML/Sheet"
-                :disabled="cargandoSheet"
-                class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-r transition-colors flex items-center justify-center -ml-1 z-10 shrink-0 disabled:opacity-50">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                </svg>
-              </button>
-            </div>
-            <span v-if="!form.sucursal_origen" class="text-[9px] text-red-500 font-bold">⚠️ Selecciona una sucursal para cargar la lista.</span>
-          </div>
-
-        <!-- MONTO -->
         <div class="col-span-1">
-          <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1">MONTO DEPÓSITO ($) *</label>
-          <input v-model="form.monto_deposito" type="number" step="0.01" placeholder="0.00"
-            class="w-full border border-gray-300 rounded px-3 py-2.5 text-sm font-black text-purple-700 focus:outline-none focus:border-[#2A3A4D]">
+          <label class="block text-base font-bold text-gray-500 uppercase mb-2">
+            PEDIMENTOS / FOLIOS DISPONIBLES *
+          </label>
+          <div class="flex w-full min-w-0">
+            <multiselect v-model="form.referenciasObj" :options="opcionesPedimentos" :multiple="true" :taggable="true"
+              @tag="agregarReferencia" track-by="label" label="label" :loading="cargandoSheet"
+              :disabled="!form.sucursal_origen" placeholder="Seleccione folios o escriba..."
+              class="w-full min-w-0 flex-1 text-xl">
+              <template slot="noResult">No se encontraron folios para este cliente</template>
+            </multiselect>
+            <button @click="buscarYRecalcularPedimento" type="button" title="Calcular montos desde XML/Sheet"
+              :disabled="cargandoSheet"
+              class="bg-blue-500 hover:bg-blue-600 text-white px-5 py-4 rounded-r transition-colors flex items-center justify-center -ml-1 z-10 shrink-0 disabled:opacity-50">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+            </button>
+          </div>
+          <span v-if="!form.sucursal_origen" class="text-sm text-red-500 font-bold mt-2 inline-block">⚠️ Selecciona una
+            sucursal
+            para cargar la lista.</span>
         </div>
 
-        <!-- TIPO COMPROBANTE -->
-        <div class="col-span-2 flex items-center gap-6 mt-1 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-          <label class="text-[11px] font-extrabold text-gray-500 uppercase tracking-wide">
+        <div class="col-span-1">
+          <label class="block text-base font-bold text-gray-500 uppercase mb-2">MONTO DEPÓSITO ($) *</label>
+          <input v-model="form.monto_deposito" type="number" step="0.01" placeholder="0.00"
+            class="w-full border border-gray-300 rounded-lg px-5 py-4 text-3xl font-black text-purple-700 focus:outline-none focus:border-[#2A3A4D]">
+        </div>
+
+        <div class="col-span-2 flex items-center gap-8 mt-2 p-5 bg-gray-50 border border-gray-200 rounded-xl">
+          <label class="text-lg font-extrabold text-gray-500 uppercase tracking-wide">
             TIPO DE COMPROBANTE:
           </label>
-          <div class="flex gap-4">
+          <div class="flex gap-8">
             <label class="inline-flex items-center cursor-pointer">
               <input v-model="tiposComprobanteArray" type="checkbox" value="CFDI"
-                class="form-checkbox h-4 w-4 text-[#00C09F] focus:ring-[#00C09F] cursor-pointer rounded">
-              <span class="ml-2 text-sm text-gray-700 font-bold">CFDI (Factura)</span>
+                class="form-checkbox h-6 w-6 text-[#00C09F] focus:ring-[#00C09F] cursor-pointer rounded">
+              <span class="ml-3 text-xl text-gray-700 font-bold">CFDI (Factura)</span>
             </label>
             <label class="inline-flex items-center cursor-pointer">
               <input v-model="tiposComprobanteArray" type="checkbox" value="Nota Cargo"
-                class="form-checkbox h-4 w-4 text-[#00C09F] focus:ring-[#00C09F] cursor-pointer rounded">
-              <span class="ml-2 text-sm text-gray-700 font-bold">Nota Cargo</span>
+                class="form-checkbox h-6 w-6 text-[#00C09F] focus:ring-[#00C09F] cursor-pointer rounded">
+              <span class="ml-3 text-xl text-gray-700 font-bold">Nota Cargo</span>
             </label>
           </div>
         </div>
 
-        <!-- DESGLOSE -->
-          <div class="col-span-2 mt-2 border border-[#2A3A4D] rounded-lg p-3 bg-gray-50/50">
-            <h4 class="text-[11px] font-extrabold text-[#2A3A4D] uppercase tracking-wide mb-3">DESGLOSE:</h4>
+        <div class="col-span-2 mt-4 border border-[#2A3A4D] rounded-xl p-6 bg-gray-50/50">
+          <h4 class="text-lg font-extrabold text-[#2A3A4D] uppercase tracking-wide mb-6">DESGLOSE:</h4>
 
-            <!-- 1. DESGLOSE EXCLUSIVO TRANSPORTACTICS -->
-            <div class="grid grid-cols-3 gap-3" v-if="esTransportactics">
-              <div>
-                <label class="block text-[10px] text-gray-500 mb-1">Flete (XML):</label>
-                <input v-model="form.flete" type="number" step="0.01" placeholder="0.00"
-                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
-              </div>
-              <div>
-                <label class="block text-[10px] text-gray-500 mb-1">Pago Proveedor:</label>
-                <input v-model="form.pago_proveedor" type="number" step="0.01" placeholder="0.00"
-                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
-              </div>
-              <div>
-                <label class="block text-[10px] text-emerald-600 mb-1 font-bold">Ganancia:</label>
-                <input :value="(parseFloat(form.flete || 0) - parseFloat(form.pago_proveedor || 0)).toFixed(2)" readonly
-                  type="number"
-                  class="w-full border border-emerald-200 rounded px-2 py-1.5 text-sm bg-emerald-50 text-emerald-700 font-bold focus:outline-none cursor-not-allowed">
-              </div>
+          <div class="grid grid-cols-3 gap-6" v-if="esTransportactics">
+            <div>
+              <label class="block text-base text-gray-500 mb-2">Flete (XML):</label>
+              <input v-model="form.flete" type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-[#2A3A4D]">
             </div>
-
-            <!-- 2. DESGLOSE EXCLUSIVO INTSHIPPERTS -->
-            <div class="grid grid-cols-2 gap-3" v-else-if="esIntshipperts">
-              <div>
-                <label class="block text-[10px] text-gray-500 mb-1">Anticipo:</label>
-                <input v-model="form.anticipo" type="number" step="0.01" placeholder="0.00"
-                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
-              </div>
-              <div>
-                <label class="block text-[10px] text-gray-500 mb-1">ALMAN / Flete:</label>
-                <input v-model="form.flete" type="number" step="0.01" placeholder="0.00"
-                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
-              </div>
+            <div>
+              <label class="block text-base text-gray-500 mb-2">Pago Proveedor:</label>
+              <input v-model="form.pago_proveedor" type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-[#2A3A4D]">
             </div>
-
-            <!-- 3. DESGLOSE EXCLUSIVO MANZANILLO (Normal) -->
-            <div class="grid grid-cols-4 gap-3" v-else-if="esManzanillo">
-              <div>
-                <label class="block text-[10px] text-gray-500 mb-1">Anticipo:</label>
-                <input v-model="form.anticipo" type="number" step="0.01" placeholder="0.00"
-                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
-              </div>
-              <div>
-                <label class="block text-[10px] text-gray-500 mb-1">Garantías:</label>
-                <input v-model="form.garantias" type="number" step="0.01" placeholder="0.00"
-                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
-              </div>
-              <div>
-                <label class="block text-[10px] text-gray-500 mb-1">Desglose Naviera:</label>
-                <input v-model="form.desglose_naviera" type="number" step="0.01" placeholder="0.00"
-                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
-              </div>
-              <div>
-                <label class="block text-[10px] text-gray-500 mb-1">Impuestos:</label>
-                <input v-model="form.impuestos" type="number" step="0.01" placeholder="0.00"
-                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
-              </div>
-              <div>
-                <label class="block text-[10px] text-gray-500 mb-1">ALMAN / Flete:</label>
-                <input v-model="form.flete" type="number" step="0.01" placeholder="0.00"
-                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
-              </div>
-              <div>
-                <label class="block text-[10px] text-gray-500 mb-1">Honorarios:</label>
-                <input v-model="form.honorarios" type="number" step="0.01" placeholder="0.00"
-                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
-              </div>
+            <div>
+              <label class="block text-base text-emerald-600 mb-2 font-bold">Ganancia:</label>
+              <input :value="(parseFloat(form.flete || 0) - parseFloat(form.pago_proveedor || 0)).toFixed(2)" readonly
+                type="number"
+                class="w-full border border-emerald-200 rounded-lg px-4 py-3 text-xl bg-emerald-50 text-emerald-700 font-bold focus:outline-none cursor-not-allowed">
             </div>
-
-            <!-- 4. DESGLOSE ESTÁNDAR (NO MANZANILLO, NO INTSHIPPERTS, NO TRANSPORTACTICS) -->
-            <div class="grid grid-cols-4 gap-3" v-else>
-              <div>
-                <label class="block text-[10px] text-gray-500 mb-1">Honorarios:</label>
-                <input v-model="form.honorarios" type="number" step="0.01" placeholder="0.00"
-                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
-              </div>
-              <div>
-                <label class="block text-[10px] text-gray-500 mb-1">Impuestos:</label>
-                <input v-model="form.impuestos" type="number" step="0.01" placeholder="0.00"
-                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
-              </div>
-              <div>
-                <label class="block text-[10px] text-gray-500 mb-1">ECI:</label>
-                <input v-model="form.eci" type="number" step="0.01" placeholder="0.00"
-                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
-              </div>
-              <div>
-                <label class="block text-[10px] text-gray-500 mb-1">Maniobras:</label>
-                <input v-model="form.maniobras" type="number" step="0.01" placeholder="0.00"
-                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
-              </div>
-              <div>
-                <label class="block text-[10px] text-gray-500 mb-1">Flete:</label>
-                <input v-model="form.flete" type="number" step="0.01" placeholder="0.00"
-                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
-              </div>
-              <div>
-                <label class="block text-[10px] text-gray-500 mb-1">Muestras:</label>
-                <input v-model="form.muestras" type="number" step="0.01" placeholder="0.00"
-                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
-              </div>
-              <div>
-                <label class="block text-[10px] text-gray-500 mb-1">LLC:</label>
-                <input v-model="form.llc" type="number" step="0.01" placeholder="0.00"
-                  class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-[#2A3A4D]">
-              </div>
-            </div>
-
-            <!-- RESUMEN DE TOTALES -->
-            <div
-              class="col-span-full mt-2 p-2.5 bg-white border border-gray-200 rounded flex flex-wrap items-center justify-between shadow-sm">
-              <div class="flex items-center gap-2 px-2">
-                <span class="text-[10px] text-gray-500 font-bold uppercase">Total GPC:</span>
-                <span class="text-sm font-black text-blue-600">{{ formatearDinero(totalGPC) }}</span>
-              </div>
-              <div class="hidden md:block w-px h-6 bg-gray-200"></div>
-              <div class="flex items-center gap-2 px-2">
-                <span class="text-[10px] text-gray-500 font-bold uppercase">Total Honorarios:</span>
-                <span class="text-sm font-black text-[#00C09F]">{{ formatearDinero(form.honorarios) }}</span>
-              </div>
-              <div class="flex items-center gap-2 bg-yellow-50 border border-yellow-200 px-3 py-1.5 rounded ml-auto">
-                <span class="text-[10px] text-yellow-700 font-bold uppercase">Suma Total:</span>
-                <span class="text-base font-black text-yellow-600">{{ formatearDinero(sumaTotal) }}</span>
-              </div>
-            </div>
-
           </div>
 
+          <div class="grid grid-cols-2 gap-6" v-else-if="esIntshipperts">
+            <div>
+              <label class="block text-base text-gray-500 mb-2">Anticipo:</label>
+              <input v-model="form.anticipo" type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-[#2A3A4D]">
+            </div>
+            <div>
+              <label class="block text-base text-gray-500 mb-2">ALMAN / Flete:</label>
+              <input v-model="form.flete" type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-[#2A3A4D]">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-4 gap-6" v-else-if="esManzanillo">
+            <div><label class="block text-base text-gray-500 mb-2">Anticipo:</label><input v-model="form.anticipo"
+                type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Garantías:</label><input v-model="form.garantias"
+                type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl">
+            </div>
+            <div><label class="block text-base text-gray-500 mb-2">Desglose Naviera:</label><input
+                v-model="form.desglose_naviera" type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Impuestos:</label><input v-model="form.impuestos"
+                type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl">
+            </div>
+            <div><label class="block text-base text-gray-500 mb-2">ALMAN / Flete:</label><input v-model="form.flete"
+                type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl">
+            </div>
+            <div><label class="block text-base text-gray-500 mb-2">Honorarios:</label><input v-model="form.honorarios"
+                type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-4 gap-6" v-else>
+            <div><label class="block text-base text-gray-500 mb-2">Honorarios:</label><input v-model="form.honorarios"
+                type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl">
+            </div>
+            <div><label class="block text-base text-gray-500 mb-2">Impuestos:</label><input v-model="form.impuestos"
+                type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl">
+            </div>
+            <div><label class="block text-base text-gray-500 mb-2">ECI:</label><input v-model="form.eci" type="number"
+                step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Maniobras:</label><input v-model="form.maniobras"
+                type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl">
+            </div>
+            <div><label class="block text-base text-gray-500 mb-2">Flete:</label><input v-model="form.flete"
+                type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Muestras:</label><input v-model="form.muestras"
+                type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl"></div>
+            <div><label class="block text-base text-gray-500 mb-2">LLC:</label><input v-model="form.llc" type="number"
+                step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl"></div>
+          </div>
+
+          <div
+            class="col-span-full mt-6 p-5 bg-white border border-gray-200 rounded-xl flex flex-wrap items-center justify-between shadow-sm">
+            <div class="flex items-center gap-4 px-3">
+              <span class="text-base text-gray-500 font-bold uppercase">Total GPC:</span>
+              <span class="text-2xl font-black text-blue-600">{{ formatearDinero(totalGPC) }}</span>
+            </div>
+            <div class="hidden md:block w-px h-10 bg-gray-200"></div>
+            <div class="flex items-center gap-4 px-3">
+              <span class="text-base text-gray-500 font-bold uppercase">Total Honorarios:</span>
+              <span class="text-2xl font-black text-[#00C09F]">{{ formatearDinero(form.honorarios) }}</span>
+            </div>
+            <div class="flex items-center gap-4 bg-yellow-50 border border-yellow-200 px-6 py-3 rounded-lg ml-auto">
+              <span class="text-base text-yellow-700 font-bold uppercase">Suma Total:</span>
+              <span class="text-3xl font-black text-yellow-600">{{ formatearDinero(sumaTotal) }}</span>
+            </div>
+          </div>
+
+        </div>
       </div>
 
-      <!-- Footer Modal -->
-      <div class="px-6 py-4 border-t border-gray-200 flex justify-end gap-3 bg-gray-50 shrink-0">
+      <div class="px-8 py-6 border-t border-gray-200 flex justify-end gap-6 bg-gray-50 shrink-0">
         <button @click="$emit('close')"
-          class="px-5 py-2 rounded bg-gray-100 text-gray-700 text-sm font-bold hover:bg-gray-200 transition-colors shadow-sm">
+          class="px-8 py-4 rounded-lg bg-gray-200 text-gray-700 text-xl font-bold hover:bg-gray-300 transition-colors shadow-sm">
           Cancelar
         </button>
         <button @click="guardarIngreso" :disabled="isSubmitting"
-          :class="['px-5 py-2 rounded text-white text-sm font-bold transition-colors shadow-sm', isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700']">
+          :class="['px-8 py-4 rounded-lg text-white text-xl font-bold transition-colors shadow-sm', isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700']">
           {{ isSubmitting ? 'Guardando...' : 'Guardar Nuevo Ingreso' }}
         </button>
       </div>
@@ -270,7 +228,9 @@
   </div>
 </template>
 
+<!-- (Mantener script y style provistos anteriormente, el comportamiento no cambia, asegúrate de tener el style que formatea los selects a 48px que te dejé en el componente principal) -->
 <script>
+// El bloque <script> se mantiene idéntico, ya que solo necesitas el reajuste visual.
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import Multiselect from 'vue-multiselect';
@@ -395,13 +355,13 @@ export default {
     },
     sucursalReal() {
       let s = String(this.sucursalSeleccionada).toUpperCase();
-      
+
       if (this.checkTransportactics && !s.includes('TRANSPORTACTIC')) {
         s = s.replace(' IMPO', '').replace(' EXPO', '').trim() + ' TRANSPORTACTICS';
       } else if (this.checkIntshipperts && !s.includes('INTSHIPPERT')) {
         s = s.replace(' IMPO', '').replace(' EXPO', '').trim() + ' INTSHIPPERTS';
       }
-      
+
       return s;
     },
     sumaTotal() {
@@ -412,7 +372,7 @@ export default {
     'form.sucursal_origen': function (newVal, oldVal) {
       this.checkTransportactics = false;
       this.checkIntshipperts = false;
-      
+
       if (newVal && newVal !== oldVal) {
         this.cargarListaPedimentos();
       }
@@ -449,7 +409,7 @@ export default {
       this.cargandoSheet = true;
       try {
         const response = await axios.get('/ingresos-conciliados/listar-pedimentos', {
-          params: { sucursal: this.sucursalSeleccionada } 
+          params: { sucursal: this.sucursalSeleccionada }
         });
         this.pedimentosSheet = Array.isArray(response.data) ? response.data : [];
       } catch (error) {
@@ -478,13 +438,12 @@ export default {
       try {
         const response = await axios.post('/ingresos-conciliados/buscar-sheet', {
           pedimentos: pedimentosLimpios,
-          sucursal: this.sucursalReal, 
+          sucursal: this.sucursalReal,
           tipo_comprobante: this.tiposComprobanteArray
         });
 
         const datos = response.data;
 
-        // 🔥 CORRECCIÓN 1: ASIGNACIÓN ESTRICTA (Respeta el cero real del backend)
         this.form.honorarios = datos.honorarios !== undefined ? Number(datos.honorarios) : 0;
         this.form.impuestos = datos.impuestos !== undefined ? Number(datos.impuestos) : 0;
         this.form.eci = datos.eci !== undefined ? Number(datos.eci) : 0;
@@ -496,7 +455,6 @@ export default {
         this.form.garantias = datos.garantias !== undefined ? Number(datos.garantias) : 0;
         this.form.desglose_naviera = datos.desglose_naviera !== undefined ? Number(datos.desglose_naviera) : 0;
 
-        // Asignación de Strings / Textos
         this.form.proveedor_maniobras = datos.proveedor_maniobras || null;
         this.form.factura_maniobras = datos.factura_maniobras || null;
         this.form.proveedor_flete = datos.proveedor_flete || null;
@@ -556,14 +514,13 @@ export default {
       let sucursalGuardar = typeof payload.sucursal_origen === 'object' && payload.sucursal_origen !== null
         ? (payload.sucursal_origen.nombre || payload.sucursal_origen.id)
         : payload.sucursal_origen;
-      
+
       if (this.checkTransportactics && !String(sucursalGuardar).toUpperCase().includes('TRANSPORTACTIC')) {
         sucursalGuardar += ' TRANSPORTACTICS';
       } else if (this.checkIntshipperts && !String(sucursalGuardar).toUpperCase().includes('INTSHIPPERT')) {
         sucursalGuardar += ' INTSHIPPERTS';
       }
-      
-      // Asignamos únicamente la variable bien calculada y borramos la línea que lo sobrescribía
+
       payload.sucursal_origen = sucursalGuardar;
 
       delete payload.pedimento_detectado;
@@ -584,7 +541,7 @@ export default {
       } catch (error) {
         console.error("🔍 ERROR CRUDO:", error);
         let mensajeReal = 'No se pudo conectar con el servidor.';
-        
+
         if (error.response && error.response.data) {
           mensajeReal = error.response.data.message || error.response.data.error || mensajeReal;
         } else if (error.message) {
@@ -592,8 +549,8 @@ export default {
         }
 
         Swal.fire({
-          title: 'Atención', 
-          text: mensajeReal, 
+          title: 'Atención',
+          text: mensajeReal,
           icon: 'warning'
         });
       } finally {
@@ -603,7 +560,6 @@ export default {
   }
 }
 </script>
-
 <style scoped>
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button {
@@ -613,9 +569,22 @@ input[type=number]::-webkit-outer-spin-button {
 
 :deep(.multiselect__tags) {
   border-color: #D1D5DB !important;
-  padding-top: 6px !important;
-  min-height: 38px !important;
-  overflow: hidden; 
+  padding-top: 10px !important;
+  min-height: 48px !important;
+  font-size: 16px !important;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+:deep(.multiselect__select) {
+  height: 48px !important;
+}
+
+:deep(.multiselect__single),
+:deep(.multiselect__input) {
+  font-size: 16px !important;
+  margin-bottom: 0px !important;
+  padding-top: 2px !important;
 }
 
 :deep(.multiselect__tag) {
@@ -623,6 +592,7 @@ input[type=number]::-webkit-outer-spin-button {
   max-width: 100%;
   display: inline-flex;
   align-items: center;
+  font-size: 14px !important;
 }
 
 :deep(.multiselect__tag > span) {
@@ -633,5 +603,20 @@ input[type=number]::-webkit-outer-spin-button {
 
 :deep(.multiselect__option--highlight) {
   background-color: #00C09F !important;
+}
+
+:deep(.multiselect__option) {
+  font-size: 16px !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  line-height: 1.5 !important;
+  padding: 12px 16px !important;
+}
+
+:deep(.field-input) {
+  min-height: 48px !important;
+  font-size: 16px !important;
+  border-radius: 8px !important;
 }
 </style>
