@@ -729,27 +729,101 @@ class AuditoriaImpuestosController extends Controller
                 $yearEstadoCuenta = date('Y');
 
                 if ($banco === 'BBVA') {
-                    $tipoSplit = '/(\d{2}-\d{2}\n.*PEDMT\s*O:\s*([\w\s\-\/]+)\n.*\n.*\n)/';
-                    foreach (preg_split($tipoSplit, $textoPdf, -1, PREG_SPLIT_DELIM_CAPTURE) as $linea) {
-                        if (preg_match('/(\d{2}\/\d{2}\/(\d{4}))/', $linea, $matchYear)) {
-                            $yearEstadoCuenta = $matchYear[2];
-                        }
-                        if (strpos($linea, 'PEDMT') !== false && preg_match_all('/\b([4-7]\d{6})\b/', $linea, $matchPedimentos)) {
-                            preg_match('/\d{2}-\d{2}/', $linea, $matchFecha);
-                            preg_match('/\$\s*([0-9.,]+)/', $linea, $matchCargo);
+                    // 1. Encontramos Año y Mes base del documento (Fecha de Consulta / Periodo)
+                    $monthEstadoCuenta = date('m');
+                    if (preg_match('/(\d{2})\/(\d{2})\/(\d{4})/', $textoPdf, $mFecha)) {
+                        $monthEstadoCuenta = $mFecha[2];
+                        $yearEstadoCuenta = $mFecha[3];
+                    }
 
-                            if (isset($matchFecha[0]) && isset($matchCargo[1])) {
-                                $fechaPed = $matchFecha[0] . "-{$yearEstadoCuenta}";
-                                foreach ($matchPedimentos[1] as $pedIndividual) {
-                                    $operacionesLimpiasArray[] = [
-                                        'pedimento' => $pedIndividual,
-                                        'fecha_str' => \Carbon\Carbon::createFromFormat('d-m-Y', $fechaPed)->format('Y-m-d'),
-                                        'cargo_str' => $matchCargo[1],
-                                    ];
+                    // 2. ESTRATEGIA DE BLOQUES: Cortamos el texto por cada pago de impuestos
+                    // Esto evita que una mala lectura junte dos operaciones.
+                    $bloques = preg_split('/PAGO\s+IMPUESTOS\s+ADUANALES/i', $textoPdf);
+                    
+                    foreach ($bloques as $index => $bloque) {
+                        if ($index === 0) {
+                            continue; // El índice 0 es el encabezado del estado de cuenta
+                        }
+                        // Buscamos el pedimento dentro de este bloque
+                        if (preg_match('/(?:PEDMTO|PEDMT\s*O|PEDIMENTO)[\s:]*([4-7]\d{6})/i', $bloque, $mPed)) {
+                            $pedimento = $mPed[1];
+                            
+                            // Buscamos la fecha mirando los últimos 50 caracteres del bloque ANTERIOR
+                            $fechaCruda = '01'; 
+                            $textoAnterior = substr($bloques[$index - 1], -50); 
+                            if (preg_match('/(\d{2}[-\/]\d{2}|\d{2})\s*$/', $textoAnterior, $mFechaOp)) {
+                                $fechaCruda = $mFechaOp[1];
+                            }
+                            
+                            // Buscamos el Monto (Acepta formato "$ 383.00", "-20,616.00" e incluso diferentes tipos de guiones de PDF)
+                            $montoStr = '0';
+                            if (preg_match('/(?:\$\s*([\d,]+\.\d{2})|([-\x{2012}\x{2013}\x{2014}\x{2212}]\s*[\d,]+\.\d{2}))/u', $bloque, $mMonto)) {
+                                $montoStr = !empty($mMonto[1]) ? $mMonto[1] : $mMonto[2];
+                            } elseif (preg_match('/([\d,]+\.\d{2})/', $bloque, $mMontoFallback)) {
+                                $montoStr = $mMontoFallback[1]; // Fallback al primer decimal que encuentre
+                            }
+                            
+                            // Limpiamos y forzamos a positivo (por si era un cargo en negativo como en Net Cash)
+                            $montoLimpio = abs((float) filter_var(str_replace(',', '', $montoStr), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION));
+
+                            // Formateo de Fecha
+                            $dia = '01';
+                            $mes = $monthEstadoCuenta;
+
+                            if (str_contains($fechaCruda, '-') || str_contains($fechaCruda, '/')) {
+                                $partes = preg_split('/[\-\/]/', $fechaCruda);
+                                $dia = str_pad($partes[0], 2, '0', STR_PAD_LEFT);
+                                $mes = str_pad($partes[1], 2, '0', STR_PAD_LEFT);
+                            } else {
+                                $dia = str_pad($fechaCruda, 2, '0', STR_PAD_LEFT);
+                            }
+                            
+                            $fechaPed = "{$yearEstadoCuenta}-{$mes}-{$dia}";
+                            try {
+                                $fechaParseada = \Carbon\Carbon::parse($fechaPed)->format('Y-m-d');
+                            } catch (\Exception $e) {
+                                $fechaParseada = now()->format('Y-m-d');
+                            }
+
+                            if ($montoLimpio > 0) {
+                                $operacionesLimpiasArray[] = [
+                                    'pedimento' => $pedimento,
+                                    'fecha_str' => $fechaParseada,
+                                    'cargo_str' => (string)$montoLimpio,
+                                ];
+                            }
+                        }
+                    }
+
+                    // 3. PLAN B DE RESCATE MÁXIMO (Por si el PDF viene corrupto o con otro texto)
+                    if (empty($operacionesLimpiasArray)) {
+                        $tipoSplit = '/(\d{2}-\d{2}\n.*PEDMT\s*O:\s*([\w\s\-\/]+)\n.*\n.*\n)/';
+                        foreach (preg_split($tipoSplit, $textoPdf, -1, PREG_SPLIT_DELIM_CAPTURE) as $linea) {
+                            if (preg_match('/(\d{2}\/\d{2}\/(\d{4}))/', $linea, $matchYear)) {
+                                $yearEstadoCuenta = $matchYear[2];
+                            }
+                            if (strpos($linea, 'PEDMT') !== false && preg_match_all('/\b([4-7]\d{6})\b/', $linea, $matchPedimentos)) {
+                                preg_match('/\d{2}-\d{2}/', $linea, $matchFecha);
+                                preg_match('/\$\s*([0-9.,]+)/', $linea, $matchCargo);
+
+                                if (isset($matchFecha[0]) && isset($matchCargo[1])) {
+                                    $fechaPed = $matchFecha[0] . "-{$yearEstadoCuenta}";
+                                    foreach ($matchPedimentos[1] as $pedIndividual) {
+                                        try {
+                                            $f = \Carbon\Carbon::createFromFormat('d-m-Y', $fechaPed)->format('Y-m-d');
+                                        } catch (\Exception $e) { $f = now()->format('Y-m-d'); }
+
+                                        $operacionesLimpiasArray[] = [
+                                            'pedimento' => $pedIndividual,
+                                            'fecha_str' => $f,
+                                            'cargo_str' => $matchCargo[1],
+                                        ];
+                                    }
                                 }
                             }
                         }
                     }
+
                 } else if ($banco === 'SANTANDER') {
                     $fechaEstadoCuenta = now()->format('Y-m-d');
                     if (preg_match('/Periodo:\s*\d{2}\/\d{2}\/\d{4}\s*al\s*(\d{2})\/(\d{2})\/(\d{4})/', $textoPdf, $mFecha)) {
@@ -869,7 +943,9 @@ class AuditoriaImpuestosController extends Controller
                 $pedLimpio = $op['pedimento'];
                 $dbInfo = $mapaPedimentoAId[$pedLimpio] ?? null;
 
-                if (!$dbInfo) return null;
+                if (!$dbInfo) {
+                    return null;
+                }
 
                 $id_db = $dbInfo['id_pedimiento'];
                 
