@@ -717,6 +717,8 @@ class AuditoriaImpuestosController extends Controller
             $banco = 'EXTERNO'; 
         }
 
+        $esExcelSimple = false;
+
         try {
             $operacionesLimpiasArray = [];
             
@@ -876,8 +878,18 @@ class AuditoriaImpuestosController extends Controller
                 $import = new LecturaEstadoCuentaExcel($tarea);
                 Excel::import($import, $rutaPdf);
                 $datosExcel = $import->getProcessedData();
+
+                $esExcelSimple = true;
+                foreach ($datosExcel as $row) {
+                    $montoStr = $row['cargo_str'] ?? ($row['cargo'] ?? ($row['monto'] ?? '0'));
+                    $montoLimpio = (float) filter_var(str_replace(',', '', $montoStr), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+                    if ($montoLimpio > 0) {
+                        $esExcelSimple = false;
+                        break;
+                    }
+                }
                 
-                $operacionesLimpias = $datosExcel->groupBy('pedimento')->flatMap(function ($grupo) {
+                $operacionesLimpias = $datosExcel->groupBy('pedimento')->flatMap(function ($grupo) use ($tarea, $esExcelSimple) {
                     $impuestos = $grupo->filter(function ($item) {
                         $fullText = strtolower(($item['descripcion_larga'] ?? '') . ' ' . ($item['concepto'] ?? '') . ' ' . ($item['descripcion'] ?? ''));
                         return str_contains($fullText, 'impuesto') || str_contains($fullText, 'impto') || str_contains($fullText, 'cgo');
@@ -886,7 +898,15 @@ class AuditoriaImpuestosController extends Controller
                     if ($impuestos->isNotEmpty()) {
                         return $impuestos; 
                     }
-                    return [$grupo->sortByDesc('fecha_str')->first()];
+                    
+                    $primerItem = $grupo->sortByDesc('fecha_str')->first();
+
+                    if ($esExcelSimple) {
+                        $primerItem['cargo_str'] = '0.00';
+                        $primerItem['fecha_str'] = $primerItem['fecha_str'] ?? ($tarea->fecha_documento ?? now()->format('Y-m-d'));
+                    }
+
+                    return [$primerItem];
                 })->unique(function ($item) {
                     $montoStr = $item['cargo_str'] ?? ($item['cargo'] ?? ($item['monto'] ?? '0'));
                     $montoLimpio = (float) filter_var(str_replace(',', '', $montoStr), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
@@ -939,7 +959,7 @@ class AuditoriaImpuestosController extends Controller
 
             $conteoConceptos = [];
 
-            $datosParaUpsert = $operacionesLimpias->map(function ($op) use ($mapaPedimentoAId, $auditoriasSC, $tarea, &$conteoConceptos) {
+            $datosParaUpsert = $operacionesLimpias->map(function ($op) use ($mapaPedimentoAId, $auditoriasSC, $tarea, &$conteoConceptos, $esExcelSimple) {
                 $pedLimpio = $op['pedimento'];
                 $dbInfo = $mapaPedimentoAId[$pedLimpio] ?? null;
 
@@ -968,21 +988,27 @@ class AuditoriaImpuestosController extends Controller
                 
                 $conceptoLlave = $conteoConceptos[$llaveConteo] === 1 ? 'principal' : 'rectificacion_' . $conteoConceptos[$llaveConteo];
 
-                // --- INTEGRACIÓN DE LA LÓGICA DE SANTANDER ---
-                $banco = strtoupper($tarea->banco ?? '');
-                $sc = $auditoriasSC->get($id_db);
                 $montoImpuestoMXN = (float) filter_var(str_replace(',', '', $op['cargo_str'] ?? ($op['monto'] ?? 0)), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
 
-                if (!$sc && ($banco === 'SANTANDER' || str_contains(strtoupper($pedLimpio), 'ZLO'))) {
-                    $montoSCMXN = $montoImpuestoMXN;
+                if ($esExcelSimple) {
+                    $estado = "Coinciden!";
+                    $diferenciaSc = 0.0;
+                    $montoImpuestoMXN = 0.0;
                 } else {
-                    $montoSCMXN = ($sc && isset($sc->desglose_conceptos['montos']['impuestos_mxn'])) 
-                        ? (float)$sc->desglose_conceptos['montos']['impuestos_mxn'] 
-                        : -1.1;
-                }
+                    $banco = strtoupper($tarea->banco ?? '');
+                    $sc = $auditoriasSC->get($id_db);
 
-                $estado = $this->compararMontos($montoSCMXN, $montoImpuestoMXN, $tipoOp);
-                $diferenciaSc = ($estado !== "Sin SC!" && $estado !== "Sin operacion!") ? round($montoSCMXN - $montoImpuestoMXN, 2) : $montoImpuestoMXN;
+                    if (!$sc && ($banco === 'SANTANDER' || str_contains(strtoupper($pedLimpio), 'ZLO'))) {
+                        $montoSCMXN = $montoImpuestoMXN;
+                    } else {
+                        $montoSCMXN = ($sc && isset($sc->desglose_conceptos['montos']['impuestos_mxn'])) 
+                            ? (float)$sc->desglose_conceptos['montos']['impuestos_mxn'] 
+                            : -1.1;
+                    }
+
+                    $estado = $this->compararMontos($montoSCMXN, $montoImpuestoMXN, $tipoOp);
+                    $diferenciaSc = ($estado !== "Sin SC!" && $estado !== "Sin operacion!") ? round($montoSCMXN - $montoImpuestoMXN, 2) : $montoImpuestoMXN;
+                }
 
                 $fechaCruda = $op['fecha_str'] ?? now()->format('Y-m-d');
                 $fechaFormateada = $fechaCruda;
@@ -2431,21 +2457,18 @@ class AuditoriaImpuestosController extends Controller
             }
 
             //$mapasPedimento - Contienen todos los pedimentos del estado de cuenta, encontrados en Importacion/Exportacion
-            $mapaPedimentoAImportacionId = $mapeadoFacturas['pedimentos_importacion'];
-            $mapaPedimentoAExportacionId = $mapeadoFacturas['pedimentos_exportacion'];
+            $mapaPedimentoAImportacionId = $mapeadoFacturas['pedimentos_importacion'] ?? [];
+            $mapaPedimentoAExportacionId = $mapeadoFacturas['pedimentos_exportacion'] ?? [];
 
             //$mapaPedimentoAId - Este arreglo contiene los pedimentos limpios, sucios, y su Id correspondiente
-            $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'];
+            $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'] ?? [];
+            $indicesOperaciones = ($mapeadoFacturas['indices_importacion'] ?? []) + ($mapeadoFacturas['indices_exportacion'] ?? []);
 
-            //$indicesOperaciones - Combina el mapeado de archivos/urls de importacion y exportacion
-            $indicesOperaciones = $mapeadoFacturas['indices_importacion'] + $mapeadoFacturas['indices_exportacion'];
 
             //--- YA UNA VEZ TENIENDO TODO A LA MANO
             // 3. Construimos el índice de LLC desde los archivos de importacion y exportacion
             $indiceLLC = $this->construirIndiceOperacionesLLCs($indicesOperaciones);
-
-            //Obtenemos el resultado del query de todos los SC de los pedimentos del estado de cuenta.
-            $auditoriasSC = $mapeadoFacturas['auditorias_sc'];
+            $auditoriasSC = $mapeadoFacturas['auditorias_sc'] ?? [];
 
             // Aquí es donde extraemos el tipo de cambio del JSON.
             $indiceSC = [];
@@ -2458,8 +2481,7 @@ class AuditoriaImpuestosController extends Controller
 
                 if(!empty($arrPedimento)){
                     $indiceSC[key($arrPedimento)] = [
-                        'monto_llc_sc' => (float) ($desglose['montos']['llc'] ?? -1),
-                        'monto_llc_sc_mxn' => (float) ($desglose['montos']['llc_mxn'] ?? -1),
+                        'desglose' => $desglose,
                         'moneda' => $desglose['moneda'] ?? 'USD',
                         'tipo_cambio' => (float) ($desglose['tipo_cambio'] ?? 1.0),
                     ];
@@ -2487,7 +2509,8 @@ class AuditoriaImpuestosController extends Controller
             $llcsParaGuardar = [];
 
             foreach ($mapaPedimentoAId as $pedimentoLimpio => $pedimentoSucioYId) {
-                $numPedRef = $pedimentoSucioYId['num_pedimiento'];
+                $numPedRef = $pedimentoSucioYId['num_pedimiento'] ?? '';
+
                 $operacionId = $mapaPedimentoAImportacionId[$numPedRef] ?? $mapaPedimentoAExportacionId[$numPedRef] ?? null;
                 $tipoOperacion = isset($mapaPedimentoAImportacionId[$numPedRef]) ? Importacion::class : (isset($mapaPedimentoAExportacionId[$numPedRef]) ? Exportacion::class : Pedimento::class);
 
@@ -2519,43 +2542,131 @@ class AuditoriaImpuestosController extends Controller
                 $datosSC = $indiceSC[$pedimentoLimpio] ?? null;
                 $datosLlc = $indiceLLC[$pedimentoLimpio] ?? null;
 
-                if (!$datosLlc) {
-                    continue;
+                $montoRealExtraido = -1.0; 
+
+                if ($datosLlc !== null) {
+                    // LECTURA DINÁMICA DE PDF SIN RESTRICCIONES (Aplica para todo)
+                    if (empty($datosLlc['txt_exitoso']) || $datosLlc['monto_total'] <= 0) {
+                        if (!empty($datosLlc['ruta_pdf'])) {
+                            // Enviamos el pedimentoLimpio para que el log lo intercepte
+                            $pdfData = $this->extraerTotalDesdePdfProveedor($datosLlc['ruta_pdf'], $pedimentoLimpio);
+                            
+                            if ($pdfData !== null && $pdfData['monto'] !== null) {
+                                $datosLlc['monto_total'] = (float) $pdfData['monto'];
+                                if (!empty($pdfData['fecha'])) $datosLlc['fecha'] = $pdfData['fecha'];
+                                
+                                $nombreArchivo = basename($datosLlc['ruta_pdf']);
+                                if (preg_match('/(?:NOG|TIJ|NL|MXL|ZLO|REY|VRZ|ITK|FSSA)-?0*(\d+)/i', $nombreArchivo, $matchFolioArchivo)) {
+                                    $datosLlc['folio'] = $matchFolioArchivo[1]; 
+                                } elseif (!empty($pdfData['folio'])) {
+                                    $datosLlc['folio'] = $pdfData['folio']; 
+                                }
+                            }
+                        }
+                    }
+                    $montoRealExtraido = (float) ($datosLlc['monto_total'] ?? 0);
                 }
 
-                // LECTURA DINÁMICA DE PDF SIN RESTRICCIONES (Aplica para todo)
-                if (empty($datosLlc['txt_exitoso']) || $datosLlc['monto_total'] <= 0) {
-                    if (!empty($datosLlc['ruta_pdf'])) {
-                        // Enviamos el pedimentoLimpio para que el log lo intercepte
-                        $pdfData = $this->extraerTotalDesdePdfProveedor($datosLlc['ruta_pdf'], $pedimentoLimpio);
-                        
-                        if ($pdfData !== null && $pdfData['monto'] !== null) {
-                            $datosLlc['monto_total'] = (float) $pdfData['monto'];
-                            
-                            if (!empty($pdfData['fecha'])) {
-                                $datosLlc['fecha'] = $pdfData['fecha'];
+                // Cálculos y Comparativa
+                $tipoCambioUsar = (isset($datosSC['tipo_cambio']) && $datosSC['tipo_cambio'] > 1) ? $datosSC['tipo_cambio'] : $tipoCambioGlobal;
+                $montoSCMXN = -1.0;
+
+                if ($datosSC) {
+                    $desgloseCompleto = $datosSC['desglose'] ?? [];
+                    
+                    $valoresEncontrados = [];
+                    if (is_array($desgloseCompleto) || is_object($desgloseCompleto)) {
+                        array_walk_recursive($desgloseCompleto, function($value, $key) use (&$valoresEncontrados) {
+                            $valoresEncontrados[] = [
+                                'key' => strtolower((string)$key), 
+                                'value' => $value
+                            ];
+                        });
+                    }
+
+                    $llavesPosibles = ['llc', 'tactics', 'logistica', 'usa', 'extranjer', 'comercializadora', 'intactics'];
+
+                    foreach ($valoresEncontrados as $item) {
+                        $kLower = $item['key'];
+                        $vLower = is_string($item['value']) ? strtolower($item['value']) : '';
+                        $vFloat = is_numeric($item['value']) ? round((float)$item['value'], 2) : 0;
+
+                        if ($vFloat > 0) {
+                            $esLLC = false;
+                            foreach ($llavesPosibles as $palabra) {
+                                if (str_contains($kLower, $palabra) || str_contains($vLower, $palabra)) {
+                                    $esLLC = true; 
+                                    break;
+                                }
                             }
 
-                            $nombreArchivo = basename($datosLlc['ruta_pdf']);
-                            if (preg_match('/(?:NOG|TIJ|NL|MXL|ZLO|REY|VRZ|ITK|FSSA)-?0*(\d+)/i', $nombreArchivo, $matchFolioArchivo)) {
-                                $datosLlc['folio'] = $matchFolioArchivo[1]; 
-                            } elseif (!empty($pdfData['folio'])) {
-                                $datosLlc['folio'] = $pdfData['folio']; 
+                            if ($esLLC) {
+                                if ($montoRealExtraido > 0 && $vFloat >= ($montoRealExtraido * 15) && $vFloat <= ($montoRealExtraido * 25)) {
+                                    $tipoCambioUsar = round($vFloat / $montoRealExtraido, 4);
+                                }
+
+                                if (str_ends_with($kLower, '_mxn') || str_contains($kLower, 'mxn') || ($montoRealExtraido > 0 && $vFloat >= ($montoRealExtraido * 10))) {
+                                    $montoSCMXN = $vFloat; 
+                                } else {
+                                    $montoSCMXN = ($tipoCambioUsar > 1) ? round($vFloat * $tipoCambioUsar, 2) : $vFloat; 
+                                }
+                                break; 
+                            }
+                        }
+                    }
+
+                    // RADAR MATEMÁTICO
+                    if ($montoSCMXN === -1.0 && $montoRealExtraido > 0) {
+                        $montoBuscadoUSD = round($montoRealExtraido, 2);
+                        $tcTemp = ($tipoCambioUsar <= 1.0) ? 18.0 : $tipoCambioUsar;
+                        $montoBuscadoMXN = round($montoBuscadoUSD * $tcTemp, 2);
+
+                        foreach ($valoresEncontrados as $item) {
+                            if (!is_numeric($item['value'])) continue;
+                            $vFloat = round((float)$item['value'], 2);
+                            if ($vFloat <= 0) continue;
+
+                            $posibleTC = round($vFloat / $montoRealExtraido, 4);
+                            if ($posibleTC >= 15.0 && $posibleTC <= 25.0) {
+                                $tipoCambioUsar = $posibleTC;
+                                $montoSCMXN = $vFloat;
+                                break;
+                            }
+
+                            if (abs($vFloat - $montoBuscadoMXN) <= 5.0) {
+                                $montoSCMXN = $vFloat;
+                                break;
+                            }
+                            if (abs($vFloat - $montoRealExtraido) <= 2.0) {
+                                if ($tipoCambioUsar <= 1.0) $tipoCambioUsar = 18.0; 
+                                $montoSCMXN = round($vFloat * $tipoCambioUsar, 2);
+                                break;
                             }
                         }
                     }
                 }
 
-                $montoRealExtraido = (float) ($datosLlc['monto_total'] ?? 0);
-
-                // Cálculos y Comparativa
-                $tipoCambioUsar = (isset($datosSC['tipo_cambio']) && $datosSC['tipo_cambio'] > 1) ? $datosSC['tipo_cambio'] : $tipoCambioGlobal;
-                $montoLLCMXN = ($tipoCambioUsar > 1) ? round($montoRealExtraido * $tipoCambioUsar, 2, PHP_ROUND_HALF_UP) : $montoRealExtraido;
-                $montoSCMXN = $datosSC['monto_llc_sc_mxn'] ?? -1;
-                
+                if ($montoRealExtraido === -1.0) {
+                    $montoLLCMXN = -1.0;
+                } else {
+                    if ($tipoCambioUsar <= 1.0) $tipoCambioUsar = 18.0; 
+                    $montoLLCMXN = round($montoRealExtraido * $tipoCambioUsar, 2);
+                }
                 $estado = $this->compararMontos_LLC($montoSCMXN, $montoLLCMXN);
-                $diferenciaSc = ($estado !== "Sin SC!" && $estado !== "Sin operacion!") ? round($montoSCMXN - $montoLLCMXN, 2) : $montoLLCMXN;
-                
+                // Respetamos estrictamente los estados 'Sin SC!' y 'Sin LLC!' para que tu Front-End / DB los reconozca
+                if ($estado === 'Sin SC!' || $estado === 'Sin LLC!') {
+                    $diferenciaSc = 0.0; // Se mantiene en 0 para evitar ilusiones ópticas en la tabla
+                } else if ($estado === 'Coinciden!') {
+                    $diferenciaSc = 0.0;
+                } else {
+                    $diffMxn = round($montoSCMXN - $montoLLCMXN, 2);
+                    $diferenciaSc = ($tipoCambioUsar > 1) ? round($diffMxn / $tipoCambioUsar, 2) : $diffMxn;
+                }
+
+                if ($diferenciaSc > 10000000 || $diferenciaSc < -10000000) {
+                    $diferenciaSc = 0.0;
+                }
+
                 $llcsParaGuardar[] = [
                     'operacion_id' => $idOp,
                     'pedimento_id' => $pedimentoSucioYId['id_pedimiento'],
@@ -2564,13 +2675,13 @@ class AuditoriaImpuestosController extends Controller
                     'concepto_llave' => 'principal',
                     'folio' => $datosLlc['folio'] ?? 'S/F',
                     'fecha_documento' => $datosLlc['fecha'] ?? now()->format('Y-m-d'),
-                    'monto_total' => $montoRealExtraido,
-                    'monto_total_mxn' => $montoLLCMXN,
+                    'monto_total' => $montoRealExtraido === -1.0 ? 0 : $montoRealExtraido,
+                    'monto_total_mxn' => $montoLLCMXN === -1.0 ? 0 : $montoLLCMXN,
                     'monto_diferencia_sc' => $diferenciaSc,
                     'moneda_documento' => 'USD',
                     'estado' => $estado,
-                    'ruta_txt' => $datosLlc['ruta_txt'],
-                    'ruta_pdf' => $datosLlc['ruta_pdf'],
+                    'ruta_txt' => $datosLlc['ruta_txt'] ?? null,
+                    'ruta_pdf' => $datosLlc['ruta_pdf'] ?? null,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ];
