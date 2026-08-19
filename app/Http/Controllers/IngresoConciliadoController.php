@@ -110,7 +110,7 @@ class IngresoConciliadoController extends Controller
             $sheetId = app()->environment('production') ? '18-5okzV-vw35V0Ugjn5KjNcWgHyZ9Qfc6pf5w4VU-2I' : '1zHUYpViLZyu_KPkNCUEx37WjoK0lVt7F0bC1B9Jo8s0';
             $nombrePestanaCodificado = 'ZLO';
         } else {
-            $sheetId = app()->environment('production') ? '1FvhWp2AeOyoiv1KIrmQNOKf9ZoDRy5L7HVd5FcRQBio' : '17hBoRx5u5jxi2hqHiC98zX-3lqF0w5tTkHBzElCHwDM';
+            $sheetId = app()->environment('production') ? '1f_I9miUfQb5Xl379DNP1fciHUEYAU6MrM832Z6QqSi0' : '17hBoRx5u5jxi2hqHiC98zX-3lqF0w5tTkHBzElCHwDM';
             $nombrePestanaCodificado = rawurlencode($sucursal);
         }
 
