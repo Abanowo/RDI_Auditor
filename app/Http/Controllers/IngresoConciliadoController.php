@@ -1232,13 +1232,14 @@ class IngresoConciliadoController extends Controller
             $expo = DB::table('operaciones_exportacion')->where('id_pedimiento', $pedimentoDB->id_pedimiento)->first();
 
             $idOp = null; $tipoApi = null; $idPadre = null;
+            $opType = null;
 
             if ($impo) {
                 $idOp = $impo->id_importacion; $tipoApi = 'importaciones'; $idPadre = $impo->parent ?? null;
-                $resultados['operaciones'][] = ['id' => $idOp, 'type' => 'App\Models\OperacionImportacion'];
+                $opType = 'App\Models\OperacionImportacion';
             } elseif ($expo) {
                 $idOp = $expo->id_exportacion; $tipoApi = 'exportaciones'; $idPadre = $expo->parent ?? null;
-                $resultados['operaciones'][] = ['id' => $idOp, 'type' => 'App\Models\OperacionExportacion'];
+                $opType = 'App\Models\OperacionExportacion';
             }
 
             if (!$idOp) {
@@ -1264,6 +1265,8 @@ class IngresoConciliadoController extends Controller
             }
 
             $xmlCount = 0;
+            $montoCfdiOp = 0; // Guardará el total del flete de ESTA operación
+
             foreach ($archivos as $archivo) {
                 $ext = strtolower(pathinfo($archivo['name'] ?? '', PATHINFO_EXTENSION));
                 if ($ext === 'xml') {
@@ -1278,6 +1281,8 @@ class IngresoConciliadoController extends Controller
 
                         if ($montoXML > 0 && str_contains($nombreEmisor, 'TRANSPORTACTICS')) {
                             $totalFacturasXML += $montoXML;
+                            $montoCfdiOp += $montoXML; // Sumamos a la operación individual
+
                             if (!empty($datosFactura['folio'])) {
                                 $resultados['folio_sc'][] = $datosFactura['folio'];
                             }
@@ -1285,6 +1290,14 @@ class IngresoConciliadoController extends Controller
                     }
                 }
             }
+
+            // Guardamos la operación con su monto para la tabla pivote
+            $resultados['operaciones'][] = [
+                'id' => $idOp, 
+                'type' => $opType,
+                'monto_cfdi' => round($montoCfdiOp, 2),
+                'monto_gpc' => 0
+            ];
 
             if ($xmlCount === 0) {
                 $logDebug[] = "Se descargaron " . count($archivos) . " archivos, pero NINGUNO era .xml";
@@ -1935,18 +1948,25 @@ class IngresoConciliadoController extends Controller
             $isTransportactics = str_contains($clienteNombre, 'TRANSPORTACTICS') || str_contains($sucursal, 'TRANSPORTACTIC');
             $esManzanillo = str_contains($sucursal, 'MANZANILLO') || str_contains($sucursal, 'INTSHIPPERT');
 
+            // BLINDAJE: Limpiamos y forzamos a que sean números reales
+            $fleteReal = (float) str_replace(['$', ','], '', $request->flete ?? 0);
+            $pagoProvReal = (float) str_replace(['$', ','], '', $request->pago_proveedor ?? 0);
+            $honorariosReal = (float) str_replace(['$', ','], '', $request->honorarios ?? 0);
+            
+            $gananciaFrontend = $request->ganancia ?? $request->ganancias ?? 0;
+            $gananciaReal = (float) str_replace(['$', ','], '', $gananciaFrontend);
+
             $monto_gpc = 0;
 
             if ($isTransportactics) {
                 $monto_gpc = 0; // En transportactics todo es CFDI
             } elseif ($esManzanillo) {
-                $monto_gpc = ($request->anticipo ?? 0) + ($request->garantias ?? 0) +
-                    ($request->desglose_naviera ?? 0) + ($request->impuestos ?? 0) +
-                    ($request->flete ?? 0);
+                $monto_gpc = (float)($request->anticipo ?? 0) + (float)($request->garantias ?? 0) +
+                    (float)($request->desglose_naviera ?? 0) + (float)($request->impuestos ?? 0) + $fleteReal;
             } else {
-                $monto_gpc = ($request->impuestos ?? 0) + ($request->eci ?? 0) +
-                    ($request->maniobras ?? 0) + ($request->flete ?? 0) +
-                    ($request->muestras ?? 0) + ($request->llc ?? 0);
+                $monto_gpc = (float)($request->impuestos ?? 0) + (float)($request->eci ?? 0) +
+                    (float)($request->maniobras ?? 0) + $fleteReal +
+                    (float)($request->muestras ?? 0) + (float)($request->llc ?? 0);
             }
 
             $ingreso = new IngresoConciliado();
@@ -1954,44 +1974,66 @@ class IngresoConciliadoController extends Controller
             $ingreso->banco_receptor = $request->banco_receptor;
             $ingreso->fecha = $request->fecha;
             $ingreso->cliente_id = $clienteId;
-            $ingreso->monto_deposito = $request->monto_deposito;
-
+            $ingreso->monto_deposito = (float) str_replace(['$', ','], '', $request->monto_deposito ?? 0);
             $ingreso->total_gpc = $monto_gpc;
-            $ingreso->honorarios = $request->honorarios ?? 0;
 
+            // Resto de campos
             $ingreso->impuestos = $request->impuestos ?? 0;
             $ingreso->eci = $request->eci ?? 0;
             $ingreso->maniobras = $request->maniobras ?? 0;
-            $ingreso->flete = $request->flete ?? 0;
+            $ingreso->flete = $fleteReal;
             $ingreso->muestras = $request->muestras ?? 0;
             $ingreso->llc = $request->llc ?? 0;
             $ingreso->anticipo = $request->anticipo ?? 0;
             $ingreso->garantias = $request->garantias ?? 0;
             $ingreso->desglose_naviera = $request->desglose_naviera ?? 0;
-            $ingreso->pago_proveedor = $request->pago_proveedor ?? 0;
+            $ingreso->pago_proveedor = $pagoProvReal;
+
+            $ingreso->honorarios = $honorariosReal;
+
+            if ($isTransportactics) {
+                $ingreso->ganancia = $fleteReal - $pagoProvReal;
+            } else {
+                $ingreso->ganancia = $gananciaReal;
+            }
 
             // Textos
             $textoLibre = $request->folio_sc ?? $request->referencia;
-
             $ingreso->folio_sc = $textoLibre;
             $ingreso->referencia = $textoLibre;
             $ingreso->tipo_comprobante = $request->tipo_comprobante;
 
             $ingreso->save();
 
-            // Leemos el arreglo 'operaciones' que nos mostró la radiografía
+            // Leemos el arreglo 'operaciones' para el pivote
             if ($request->has('operaciones') && is_array($request->operaciones)) {
-
                 $pivotData = [];
+                
+                // Sumamos el flete exacto que vino de los XML (para evitar fallos matemáticos)
+                $sumaFleteXml = 0;
+                foreach ($request->operaciones as $op) {
+                    $sumaFleteXml += (float) ($op['monto_cfdi'] ?? 0);
+                }
+                $totalFlete = $sumaFleteXml > 0 ? $sumaFleteXml : 1; // Evitar división entre cero
 
                 foreach ($request->operaciones as $op) {
                     if (isset($op['id']) && isset($op['type'])) {
+                        
+                        $fleteOperacion = (float) ($op['monto_cfdi'] ?? 0);
+                        $montoCfdiFinal = $fleteOperacion;
+
+                        // Distribuimos la ganancia proporcionalmente
+                        if ($isTransportactics) {
+                            $proporcion = $fleteOperacion / $totalFlete;
+                            $montoCfdiFinal = $fleteOperacion - ($pagoProvReal * $proporcion);
+                        }
+
                         $pivotData[] = [
                             'ingreso_id'     => $ingreso->id,
                             'operacion_id'   => $op['id'],
                             'operacion_type' => $op['type'],
-                            'monto_cfdi'     => $op['monto_cfdi'] ?? 0,
-                            'monto_gpc'      => $op['monto_gpc'] ?? 0,
+                            'monto_cfdi'     => round($montoCfdiFinal, 2),
+                            'monto_gpc'      => (float) ($op['monto_gpc'] ?? 0),
                             'created_at'     => now(),
                             'updated_at'     => now()
                         ];
@@ -2028,44 +2070,81 @@ class IngresoConciliadoController extends Controller
                 $ingreso->cliente_id = $request->cliente_id;
             }
 
-            $ingreso->monto_deposito = $request->monto_deposito ?? $ingreso->monto_deposito;
-            $ingreso->total_gpc = $request->total_gpc ?? $ingreso->total_gpc;
-            $ingreso->honorarios = $request->honorarios ?? $ingreso->honorarios;
+            // Identificar si es Transportactics
+            $empresa = Empresas::find($ingreso->cliente_id);
+            $clienteNombre = $empresa ? strtoupper($empresa->nombre) : '';
+            $isTransportactics = str_contains($clienteNombre, 'TRANSPORTACTICS') || str_contains(strtoupper($ingreso->sucursal_origen), 'TRANSPORTACTIC');
 
-            // Resto de campos
+            // BLINDAJE: Limpiamos y forzamos a que sean números reales
+            $fleteReal = (float) str_replace(['$', ','], '', $request->flete ?? $ingreso->flete);
+            $pagoProvReal = (float) str_replace(['$', ','], '', $request->pago_proveedor ?? $ingreso->pago_proveedor);
+            $honorariosReal = (float) str_replace(['$', ','], '', $request->honorarios ?? $ingreso->honorarios);
+            
+            $gananciaFrontend = $request->ganancia ?? $request->ganancias ?? $ingreso->ganancia;
+            $gananciaReal = (float) str_replace(['$', ','], '', $gananciaFrontend);
+
+            $ingreso->monto_deposito = (float) str_replace(['$', ','], '', $request->monto_deposito ?? $ingreso->monto_deposito);
+            $ingreso->total_gpc = $request->total_gpc ?? $ingreso->total_gpc;
+
+            // Resto de campos numéricos
             $ingreso->impuestos = $request->impuestos ?? $ingreso->impuestos;
             $ingreso->eci = $request->eci ?? $ingreso->eci;
             $ingreso->maniobras = $request->maniobras ?? $ingreso->maniobras;
-            $ingreso->flete = $request->flete ?? $ingreso->flete;
+            $ingreso->flete = $fleteReal;
             $ingreso->muestras = $request->muestras ?? $ingreso->muestras;
             $ingreso->llc = $request->llc ?? $ingreso->llc;
             $ingreso->anticipo = $request->anticipo ?? $ingreso->anticipo;
             $ingreso->garantias = $request->garantias ?? $ingreso->garantias;
             $ingreso->desglose_naviera = $request->desglose_naviera ?? $ingreso->desglose_naviera;
-            $ingreso->pago_proveedor = $request->pago_proveedor ?? $ingreso->pago_proveedor;
+            $ingreso->pago_proveedor = $pagoProvReal;
 
-            $ingreso->referencia = $request->referencia ?? $ingreso->referencia;
-            $ingreso->folio_sc = $request->folio_sc ?? $ingreso->folio_sc;
+            $ingreso->honorarios = $honorariosReal;
+
+            if ($isTransportactics) {
+                $ingreso->ganancia = $fleteReal - $pagoProvReal;
+            } else {
+                $ingreso->ganancia = $gananciaReal;
+            }
+
+            // Textos
+            $textoLibre = $request->folio_sc ?? $request->referencia;
+            $ingreso->referencia = $textoLibre ?? $ingreso->referencia;
+            $ingreso->folio_sc = $textoLibre ?? $ingreso->folio_sc;
             $ingreso->tipo_comprobante = $request->tipo_comprobante ?? $ingreso->tipo_comprobante;
 
             $ingreso->save();
 
+            // Insertamos las operaciones actualizadas en el pivote
             if ($request->has('operaciones') && is_array($request->operaciones)) {
 
                 DB::table('ingreso_operacion')->where('ingreso_id', $ingreso->id)->delete();
 
                 $pivotData = [];
+                
+                $sumaFleteXml = 0;
+                foreach ($request->operaciones as $op) {
+                    $sumaFleteXml += (float) ($op['monto_cfdi'] ?? 0);
+                }
+                $totalFlete = $sumaFleteXml > 0 ? $sumaFleteXml : 1;
 
-                // Insertamos las operaciones actualizadas
                 foreach ($request->operaciones as $op) {
                     if (isset($op['id']) && isset($op['type'])) {
+                        
+                        $fleteOperacion = (float) ($op['monto_cfdi'] ?? 0);
+                        $montoCfdiFinal = $fleteOperacion;
+
+                        // Distribuimos la ganancia proporcionalmente
+                        if ($isTransportactics) {
+                            $proporcion = $fleteOperacion / $totalFlete;
+                            $montoCfdiFinal = $fleteOperacion - ($pagoProvReal * $proporcion);
+                        }
+
                         $pivotData[] = [
                             'ingreso_id'     => $ingreso->id,
                             'operacion_id'   => $op['id'],
                             'operacion_type' => $op['type'],
-                            'folio'          => $op['folio'] ?? null,
-                            'monto_cfdi'     => $op['monto_cfdi'] ?? 0,
-                            'monto_gpc'      => $op['monto_gpc'] ?? 0,
+                            'monto_cfdi'     => round($montoCfdiFinal, 2),
+                            'monto_gpc'      => (float) ($op['monto_gpc'] ?? 0),
                             'created_at'     => now(),
                             'updated_at'     => now()
                         ];
