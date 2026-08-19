@@ -11,7 +11,7 @@
         <lista-auditorias/>
     </div>
     <style>
-        html, body {
+        html {
             font-size: 10px;
         }
     </style>

@@ -401,8 +401,18 @@ export default {
       return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(parseFloat(monto) || 0);
     },
 
-    agregarReferencia(newTag) {
-      this.form.referenciasObj.push({ label: newTag, folio: newTag });
+    agregarReferencia(nuevaReferencia) {
+      // 1. Creamos el objeto con la estructura que usa tu multiselect
+      const nuevaEtiqueta = {
+        label: nuevaReferencia,
+        id: nuevaReferencia // O 'value', dependiendo de qué uses como identificador
+      };
+
+      // 2. Lo agregamos a las opciones disponibles para que no marque error
+      this.opcionesPedimentos.push(nuevaEtiqueta);
+
+      // 3. Lo seleccionamos automáticamente agregándolo al v-model
+      this.form.referenciasObj.push(nuevaEtiqueta);
     },
 
     async cargarListaPedimentos() {
@@ -509,7 +519,17 @@ export default {
       payload.cliente_id = payload.cliente.id;
       delete payload.cliente;
 
-      payload.referencia = this.form.referenciasObj.map(r => r.folio || r.label).join(', ');
+      payload.total_gpc = this.totalGPC;
+
+      if (this.form.referenciasObj && Array.isArray(this.form.referenciasObj)) {
+        payload.referencia = this.form.referenciasObj.map(r => r.folio || r.label || r).join(', ');
+      } else {
+        payload.referencia = '';
+      }
+
+      if (payload.pedimento_detectado) {
+        payload.referencia = payload.pedimento_detectado;
+      }
 
       let sucursalGuardar = typeof payload.sucursal_origen === 'object' && payload.sucursal_origen !== null
         ? (payload.sucursal_origen.nombre || payload.sucursal_origen.id)
@@ -523,21 +543,34 @@ export default {
 
       payload.sucursal_origen = sucursalGuardar;
 
+      // Borramos lo que no va a la BD
       delete payload.pedimento_detectado;
       delete payload.referenciasObj;
 
-      if (this.tiposComprobanteArray.includes('CFDI') && this.tiposComprobanteArray.includes('Nota Cargo')) {
+      if (this.tiposComprobanteArray && this.tiposComprobanteArray.includes('CFDI') && this.tiposComprobanteArray.includes('Nota Cargo')) {
         payload.tipo_comprobante = 'Ambos';
-      } else {
+      } else if (this.tiposComprobanteArray) {
         payload.tipo_comprobante = this.tiposComprobanteArray[0] || 'N/A';
+      } else {
+        payload.tipo_comprobante = 'N/A';
       }
 
       try {
         const response = await axios.post(`/ingresos-conciliados`, payload);
-        if (response.data.success) {
-          Swal.fire({ title: '¡Guardado!', text: 'Ingreso registrado.', icon: 'success', toast: true, position: 'top-end', timer: 3000, showConfirmButton: false });
-          this.$emit('ingreso-guardado');
-        }
+
+        // Mensaje de éxito leyendo la respuesta del backend
+        Swal.fire({
+          title: '¡Guardado!',
+          text: response.data.message || 'Ingreso registrado correctamente.',
+          icon: 'success',
+          toast: true,
+          position: 'top-end',
+          timer: 3000,
+          showConfirmButton: false
+        });
+
+        this.$emit('ingreso-guardado');
+
       } catch (error) {
         console.error("🔍 ERROR CRUDO:", error);
         let mensajeReal = 'No se pudo conectar con el servidor.';

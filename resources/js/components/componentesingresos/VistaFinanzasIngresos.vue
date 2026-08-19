@@ -131,7 +131,7 @@
       <div class="flex gap-4 w-full lg:w-auto overflow-x-auto">
         <button @click="activeTab = 'ingresos'"
           :class="['px-8 py-4 rounded-lg text-xl font-bold shadow-sm whitespace-nowrap transition-colors', activeTab === 'ingresos' ? 'bg-blue-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50']">
-          Ingresos (Excel 1)
+          Ingresos
         </button>
         <button @click="activeTab = 'saldos'"
           :class="['px-8 py-4 rounded-lg text-xl font-bold shadow-sm whitespace-nowrap transition-colors', activeTab === 'saldos' ? 'bg-blue-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50']">
@@ -153,7 +153,7 @@
         <div>
           <h2 class="text-2xl font-extrabold text-gray-700 tracking-wide flex items-center gap-4">
             <span class="w-4 h-4 rounded-full bg-gray-300"></span>
-            PLANILLA DE INGRESOS CONCILIADOS (SGC EXCEL FORMAT)
+            PLANILLA DE INGRESOS CONCILIADOS
           </h2>
           <p class="text-lg text-gray-500 mt-3">Control de desglose financiero directo. Los montos se actualizan y
             calculan automáticamente.</p>
@@ -263,6 +263,8 @@
                 <template v-if="!esVistaManzanillo">
                   <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">HONORARIOS
                   </th>
+                  <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">Total GPC
+                  </th>
                   <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">IMPUESTOS</th>
                   <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">ECI</th>
                   <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">MANIOBRAS</th>
@@ -316,7 +318,7 @@
               <!-- 🔥 CORRECCIÓN DEL BORDE DERECHO APLICADA AQUÍ -->
               <td class="px-6 py-4 text-center font-bold text-indigo-600 text-xl border-r border-slate-100">{{
                 item.folio_sc ?
-                item.folio_sc : '--' }}</td>
+                  item.folio_sc : '--' }}</td>
 
               <!-- MONTO TOTAL -->
               <td
@@ -354,6 +356,9 @@
                     class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
                     ${{ Number(item.honorarios || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
                   <td
+                    class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-black text-blue-600 bg-blue-50/30">
+                    ${{ Number(item.total_gpc || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                  <td
                     class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
                     ${{ Number(item.impuestos || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
                   <td
@@ -370,7 +375,8 @@
                     ${{ Number(item.muestras || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
                   <td
                     class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    ${{ Number(item.llc || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                    ${{ Number(item.llc || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
+                  </td>
                 </template>
 
                 <template v-else>
@@ -456,7 +462,7 @@
                   </button>
 
                   <!-- 3. Enviar Complemento -->
-                  <button @click="enviarComplemento(item)"
+                  <button @click="enviarCorreoComplemento(item)"
                     class="text-purple-600 hover:text-white bg-purple-50 hover:bg-purple-500 p-3 rounded-lg transition-colors shadow-sm border border-purple-200"
                     title="Enviar Complemento de Pago">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -623,7 +629,8 @@
               <td class="px-8 py-5 font-bold text-slate-600">{{ saldo.cliente }}</td>
               <td class="px-8 py-5">{{ saldo.sucursal_origen }}</td>
               <td class="px-8 py-5 text-center font-black">${{ Number(saldo.monto).toLocaleString('en-US', {
-                minimumFractionDigits: 2 }) }}</td>
+                minimumFractionDigits: 2
+              }) }}</td>
               <td class="px-8 py-5 text-center">{{ saldo.fecha_deteccion }}</td>
               <td class="px-8 py-5">{{ saldo.concepto }}</td>
               <td class="px-8 py-5 text-center">
@@ -663,8 +670,11 @@
       :opciones-sucursal="opcionesSucursal" :opciones-banco="opcionesBanco" :opciones-cliente="opcionesClienteObj"
       @close="showModalEditarIngreso = false" @ingreso-actualizado="onIngresoActualizadoDesdeModal" />
 
-    <ModalComplementoPago v-if="showModalComplemento" :mostrar="showModalComplemento" :ingreso="ingresoParaComplemento"
-      @cerrar="showModalComplemento = false" />
+    <ModalComplementoPago :mostrar="showModalComplemento" :ingreso="ingresoParaComplemento"
+      @cerrar="showModalComplemento = false" @generar="procesarComplementoBackend" />
+
+    <ModalVerDocumento :mostrar="showModalVerDocumento" :url-pdf="urlDocumentoActivo" :titulo="tituloDocumentoActivo"
+      @cerrar="showModalVerDocumento = false" />
 
   </div>
 </template>
@@ -682,6 +692,7 @@ import ModalNuevoSaldoFavor from './ModalNuevoSaldoFavor.vue';
 import ModalEditarSaldoFavor from './ModalEditarSaldoFavor.vue';
 import ModalEditarIngreso from './ModalEditarIngreso.vue';
 import ModalComplementoPago from './ModalComplementoPago.vue';
+import ModalVerDocumento from './ModalVerDocumento.vue';
 
 export default {
   name: 'VistaFinanzasIngresos',
@@ -691,6 +702,7 @@ export default {
     ModalEditarSaldoFavor,
     ModalEditarIngreso,
     ModalComplementoPago,
+    ModalVerDocumento,
     Multiselect,
     VueCtkDateTimePicker
   },
@@ -706,6 +718,10 @@ export default {
       ingresoAEditar: null,
       saldoAEditar: null,
       ingresoParaComplemento: null,
+
+      showModalVerDocumento: false,
+      urlDocumentoActivo: '',
+      tituloDocumentoActivo: '',
 
       ingresosData: [],
       saldosData: [],
@@ -864,12 +880,12 @@ export default {
       this.showModalComplemento = true;
     },
     visualizarComplemento(item) {
-      Swal.fire({
-        title: 'Visualizar Complemento',
-        text: `Aquí podrás ver el PDF/XML del cliente: ${item.cliente}`,
-        icon: 'info',
-        confirmButtonColor: '#00C09F'
-      });
+      this.tituloDocumentoActivo = `Complemento - ${item.cliente} (${item.sucursal_origen})`;
+
+      // Armamos la URL apuntando a un nuevo endpoint en Laravel (ej. /ingresos-conciliados/25/complemento/pdf)
+      this.urlDocumentoActivo = `/ingresos-conciliados/${item.id}/complemento/pdf`;
+
+      this.showModalVerDocumento = true;
     },
     enviarComplemento(item) {
       Swal.fire({
@@ -908,6 +924,13 @@ export default {
       } catch (error) {
         console.error("Error cargando catálogos", error);
       }
+    },
+    formatearDinero(monto) {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2
+      }).format(parseFloat(monto) || 0);
     },
     async cargarIngresos() {
       try {
@@ -1099,7 +1122,82 @@ export default {
     },
     calcularDiferencia(item) {
       return (Number(item.monto_deposito) || 0) - this.calcularMontoSC(item);
-    }
+    },
+    async procesarComplementoBackend(payloadLimpio) {
+      try {
+        Swal.fire({
+          title: 'Generando Complemento...',
+          text: 'Conectando con Contpaqi y saldando factura. Por favor, espera.',
+          allowOutsideClick: false,
+          didOpen: () => { Swal.showLoading(); }
+        });
+
+        // Asegúrate de que esta URL coincida exactamente con la que configuraste en tu routes/api.php o web.php
+        const response = await axios.post('/ingresos-conciliados/generar-complemento', payloadLimpio);
+
+        if (response.data.success) {
+          // El backend responderá con success y saldado (booleano)
+          Swal.fire({
+            title: '¡Proceso Terminado!',
+            text: response.data.message,
+            icon: response.data.saldado ? 'success' : 'warning'
+          });
+
+          this.cargarIngresos(); // Actualizamos la tabla
+        }
+      } catch (error) {
+        console.error("Error al generar complemento:", error);
+        let mensajeError = 'Hubo un problema al comunicarse con el servidor.';
+
+        if (error.response && error.response.data && error.response.data.error) {
+          mensajeError = error.response.data.error;
+        }
+
+        Swal.fire('Atención', mensajeError, 'error');
+      }
+    },
+    enviarCorreoComplemento(item) {
+      Swal.fire({
+        title: 'Enviar Complemento',
+        text: `¿A qué correo deseas enviar el documento ${item.cliente}?`,
+        input: 'email',
+        inputPlaceholder: 'correo@ejemplo.com',
+        // Opcional: Si en 'item' tienes el correo del cliente, ponlo por defecto
+        inputValue: item.correo_cliente || '', 
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Enviar Correo',
+        cancelButtonText: 'Cancelar',
+        showLoaderOnConfirm: true,
+        preConfirm: (correoIngresado) => {
+          return axios.post(`/ingresos-conciliados/${item.id}/complemento/enviar-correo`, { 
+              correo: correoIngresado,
+              sucursal: item.sucursal_origen
+          })
+            .then(response => {
+              return response.data;
+            })
+            .catch(error => {
+              // Si falla, mostramos el error que mandó Laravel
+              Swal.showValidationMessage(
+                `Fallo el envío: ${error.response?.data?.error || error.message}`
+              );
+            });
+        },
+        allowOutsideClick: () => !Swal.isLoading()
+      }).then((result) => {
+        if (result.isConfirmed && result.value?.success) {
+          Swal.fire({
+            icon: 'success',
+            title: '¡Enviado!',
+            text: result.value.message,
+            timer: 3000,
+            showConfirmButton: false
+          });
+        }
+      });
+    },
   }
 }
 </script>

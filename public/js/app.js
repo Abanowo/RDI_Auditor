@@ -9581,16 +9581,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
-/* harmony import */ var axios__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! axios */ "./node_modules/axios/lib/axios.js");
-/* harmony import */ var sweetalert2__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! sweetalert2 */ "./node_modules/sweetalert2/dist/sweetalert2.all.js");
-/* harmony import */ var sweetalert2__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(sweetalert2__WEBPACK_IMPORTED_MODULE_0__);
-/* harmony import */ var vue_multiselect__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! vue-multiselect */ "./node_modules/vue-multiselect/dist/vue-multiselect.min.js");
-/* harmony import */ var vue_multiselect__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(vue_multiselect__WEBPACK_IMPORTED_MODULE_1__);
-/* harmony import */ var vue_multiselect_dist_vue_multiselect_min_css__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! vue-multiselect/dist/vue-multiselect.min.css */ "./node_modules/vue-multiselect/dist/vue-multiselect.min.css");
-function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i["return"]) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
-function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { if (r) i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n;else { var o = function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); }; o("next", 0), o("throw", 1), o("return", 2); } }, _regeneratorDefine2(e, r, n, t); }
-function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
-function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
+/* harmony import */ var vue_multiselect__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! vue-multiselect */ "./node_modules/vue-multiselect/dist/vue-multiselect.min.js");
+/* harmony import */ var vue_multiselect__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(vue_multiselect__WEBPACK_IMPORTED_MODULE_0__);
+/* harmony import */ var vue_multiselect_dist_vue_multiselect_min_css__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! vue-multiselect/dist/vue-multiselect.min.css */ "./node_modules/vue-multiselect/dist/vue-multiselect.min.css");
 //
 //
 //
@@ -9677,54 +9670,99 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
 //
 //
 //
-
-
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 
 
 
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
   name: 'ModalComplementoPago',
   components: {
-    Multiselect: (vue_multiselect__WEBPACK_IMPORTED_MODULE_1___default())
+    Multiselect: (vue_multiselect__WEBPACK_IMPORTED_MODULE_0___default())
   },
   props: {
-    mostrar: Boolean,
-    ingreso: Object // Recibe el registro de la tabla principal
+    mostrar: {
+      type: Boolean,
+      "default": false
+    },
+    ingreso: {
+      type: Object,
+      "default": function _default() {
+        return {};
+      }
+    }
   },
   data: function data() {
     return {
       form: {
-        tipo_cambio: 1.00,
-        referencia: "",
-        observaciones: "",
-        total: 0,
-        // Variables para los Vue Multiselect (guardan el objeto completo de la opción)
-        monedaObj: {
-          value: 1,
-          label: "Peso Mexicano (MXN)"
-        },
-        formaPagoObj: {
-          value: "03",
-          label: "03 - Transferencia Electrónica"
-        },
+        monto_cfdi: 0,
+        monto_gpc: 0,
         metodoPagoObj: {
-          value: "PPD",
-          label: "Pago en parcialidades o diferido (PPD)"
-        }
+          value: 'PPD',
+          label: 'PPD - Pago en parcialidades o diferido'
+        },
+        monedaObj: {
+          value: 'MXN',
+          label: 'MXN - Peso Mexicano'
+        },
+        tipo_cambio: 1,
+        formaPagoObj: {
+          value: '03',
+          label: '03 - Transferencia electrónica de fondos'
+        },
+        referencia: '',
+        observaciones: ''
       },
-      opcionesMoneda: [{
-        value: 1,
-        label: "Peso Mexicano (MXN)"
-      }, {
-        value: 2,
-        label: "Dólar (USD)"
-      }],
       opcionesMetodoPago: [{
-        value: "PUE",
-        label: "Pago en una sola exhibición (PUE)"
+        value: 'PPD',
+        label: 'PPD - Pago en parcialidades o diferido'
       }, {
-        value: "PPD",
-        label: "Pago en parcialidades o diferido (PPD)"
+        value: 'PUE',
+        label: 'PUE - Pago en una sola exhibición'
+      }],
+      opcionesMoneda: [{
+        value: 'MXN',
+        label: 'MXN - Peso Mexicano'
+      }, {
+        value: 'USD',
+        label: 'USD - Dólar Estadounidense'
       }],
       formasPago: [{
         value: "01",
@@ -9792,91 +9830,67 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }]
     };
   },
+  computed: {
+    sumaTotal: function sumaTotal() {
+      return (Number(this.form.monto_cfdi) + Number(this.form.monto_gpc)).toFixed(2);
+    }
+  },
   watch: {
-    // Cuando el modal se abre, precargamos los datos del ingreso seleccionado
-    mostrar: function mostrar(newVal) {
-      if (newVal && this.ingreso) {
-        this.form.total = this.ingreso.monto_deposito || 0;
-        this.form.referencia = this.ingreso.referencia || "";
-        this.form.observaciones = "Complemento generado el ".concat(new Date().toLocaleDateString());
-
-        // Reiniciar selects a sus valores por defecto al abrir
-        this.form.monedaObj = {
-          value: 1,
-          label: "Peso Mexicano (MXN)"
-        };
-        this.form.formaPagoObj = {
-          value: "03",
-          label: "03 - Transferencia Electrónica"
-        };
-        this.form.metodoPagoObj = {
-          value: "PPD",
-          label: "Pago en parcialidades o diferido (PPD)"
-        };
+    ingreso: {
+      immediate: true,
+      handler: function handler(val) {
+        if (val && Object.keys(val).length > 0) {
+          this.calcularDivision(val);
+        }
       }
     }
   },
   methods: {
+    calcularDivision: function calcularDivision(item) {
+      var sucursal = String(item.sucursal_origen || '').toUpperCase();
+      var nombreCliente = String(item.cliente || '').toUpperCase();
+      var isTransportactics = nombreCliente.includes('TRANSPORTACTICS') || sucursal.includes('TRANSPORTACTIC');
+      var esManzanilloRow = sucursal.includes('MANZANILLO') || sucursal.includes('INTSHIPPERT');
+      var cfdi = 0;
+      var gpc = 0;
+      if (isTransportactics) {
+        cfdi = Number(item.flete) || 0;
+        gpc = 0;
+      } else if (esManzanilloRow) {
+        cfdi = Number(item.honorarios) || 0;
+        gpc = (Number(item.anticipo) || 0) + (Number(item.garantias) || 0) + (Number(item.desglose_naviera) || 0) + (Number(item.impuestos) || 0) + (Number(item.flete) || 0);
+      } else {
+        cfdi = Number(item.honorarios) || 0;
+        gpc = (Number(item.impuestos) || 0) + (Number(item.eci) || 0) + (Number(item.maniobras) || 0) + (Number(item.flete) || 0) + (Number(item.muestras) || 0) + (Number(item.llc) || 0);
+      }
+      this.form.monto_cfdi = cfdi.toFixed(2);
+      this.form.monto_gpc = gpc.toFixed(2);
+      this.form.referencia = item.folio_sc || item.folio_complemento || '';
+    },
     cerrar: function cerrar() {
       this.$emit('cerrar');
     },
     enviarComplemento: function enviarComplemento() {
-      var _this = this;
-      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
-        var payload, response, _error$response, msj, _t;
-        return _regenerator().w(function (_context) {
-          while (1) switch (_context.n) {
-            case 0:
-              if (!(!_this.form.referencia || !_this.form.total)) {
-                _context.n = 1;
-                break;
-              }
-              sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Atención', 'El total y la referencia son obligatorios.', 'warning');
-              return _context.a(2);
-            case 1:
-              // Preparamos el payload extrayendo los ".value" de los objetos del Multiselect
-              payload = {
-                ingreso_id: _this.ingreso.id,
-                cliente_id: _this.ingreso.cliente_id,
-                sucursal: _this.ingreso.sucursal_origen,
-                moneda: _this.form.monedaObj.value,
-                tipo_cambio: _this.form.tipo_cambio,
-                referencia: _this.form.referencia,
-                observaciones: _this.form.observaciones,
-                total: _this.form.total,
-                forma_pago: _this.form.formaPagoObj.value,
-                metodo_pago: _this.form.metodoPagoObj.value
-              };
-              _context.p = 2;
-              sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
-                title: 'Procesando...',
-                allowOutsideClick: false,
-                didOpen: function didOpen() {
-                  return sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().showLoading();
-                }
-              });
+      var payloadLimpio = {
+        ingreso_id: this.ingreso.id,
+        cliente_id: this.ingreso.cliente_id,
+        // Asumiendo que el objeto ingreso trae el ID del cliente
+        sucursal: this.ingreso.sucursal_origen,
+        // Laravel pide 'integer' para la moneda (Contpaqi usa 1 para MXN y 2 para USD)
+        moneda: this.form.monedaObj && this.form.monedaObj.value === 'USD' ? 2 : 1,
+        tipo_cambio: this.form.tipo_cambio,
+        referencia: this.form.referencia,
+        observaciones: this.form.observaciones,
+        // Laravel lo espera como 'total', no como 'suma_total'
+        total: this.sumaTotal,
+        // Extraemos solo los valores de los multiselects
+        forma_pago: this.form.formaPagoObj ? this.form.formaPagoObj.value : '',
+        metodo_pago: this.form.metodoPagoObj ? this.form.metodoPagoObj.value : 'PPD'
+      };
 
-              // Petición a nuestro propio backend (Laravel)
-              _context.n = 3;
-              return axios__WEBPACK_IMPORTED_MODULE_3__["default"].post('/complementos-pago/generar', payload);
-            case 3:
-              response = _context.v;
-              console.log("Respuesta de Contpaqi:", response.data);
-              sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('¡Éxito!', 'El complemento de pago fue enviado a Contpaqi correctamente.', 'success');
-              _this.cerrar();
-              _context.n = 5;
-              break;
-            case 4:
-              _context.p = 4;
-              _t = _context.v;
-              console.error(_t);
-              msj = ((_error$response = _t.response) === null || _error$response === void 0 || (_error$response = _error$response.data) === null || _error$response === void 0 ? void 0 : _error$response.error) || 'Error al conectar con el servidor.';
-              sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Error', msj, 'error');
-            case 5:
-              return _context.a(2);
-          }
-        }, _callee, null, [[2, 4]]);
-      }))();
+      // Emitimos el paquete ya limpio hacia el componente Padre
+      this.$emit('generar', payloadLimpio);
+      this.cerrar();
     }
   }
 });
@@ -10409,38 +10423,37 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               return axios__WEBPACK_IMPORTED_MODULE_5__["default"].post('/ingresos-conciliados/buscar-sheet', {
                 pedimentos: pedimentosLimpios,
                 sucursal: _this2.sucursalReal,
-                // 🔥 Usa la sucursal inteligente
                 tipo_comprobante: _this2.tiposComprobanteArray
               });
             case 3:
               response = _context2.v;
               datos = response.data;
-              _this2.form.honorarios = Number(datos.honorarios) || 0;
-              _this2.form.impuestos = Number(datos.impuestos) || 0;
-              _this2.form.eci = Number(datos.eci) || 0;
-              _this2.form.maniobras = Number(datos.maniobras) || 0;
-              _this2.form.flete = Number(datos.flete) || 0;
-              _this2.form.muestras = Number(datos.muestras) || 0;
-              _this2.form.llc = Number(datos.llc) || 0;
-              _this2.form.anticipo = Number(datos.anticipo) || 0;
-              _this2.form.garantias = Number(datos.garantias) || 0;
-              _this2.form.desglose_naviera = Number(datos.desglose_naviera) || 0;
-              _this2.form.proveedor_maniobras = datos.proveedor_maniobras || null;
-              _this2.form.factura_maniobras = datos.factura_maniobras || null;
-              _this2.form.proveedor_flete = datos.proveedor_flete || null;
-              _this2.form.factura_flete = datos.factura_flete || null;
-              _this2.form.proveedor_muestras = datos.proveedor_muestras || null;
-              _this2.form.factura_muestras = datos.factura_muestras || null;
-              _this2.form.proveedor_llc = datos.proveedor_llc || null;
-              _this2.form.factura_llc = datos.factura_llc || null;
-              _this2.form.folio_sc = datos.folio_sc || null;
-              _this2.form.operacion_id = datos.operacion_id || null;
-              _this2.form.operation_type = datos.operation_type || null;
-              _this2.form.pedimento_detectado = datos.pedimento_detectado || null;
-              _this2.form.operaciones = datos.operaciones || [];
+              _this2.$set(_this2.form, 'honorarios', Number(datos.honorarios) || 0);
+              _this2.$set(_this2.form, 'impuestos', Number(datos.impuestos) || 0);
+              _this2.$set(_this2.form, 'eci', Number(datos.eci) || 0);
+              _this2.$set(_this2.form, 'maniobras', Number(datos.maniobras) || 0);
+              _this2.$set(_this2.form, 'flete', Number(datos.flete) || 0);
+              _this2.$set(_this2.form, 'muestras', Number(datos.muestras) || 0);
+              _this2.$set(_this2.form, 'llc', Number(datos.llc) || 0);
+              _this2.$set(_this2.form, 'anticipo', Number(datos.anticipo) || 0);
+              _this2.$set(_this2.form, 'garantias', Number(datos.garantias) || 0);
+              _this2.$set(_this2.form, 'desglose_naviera', Number(datos.desglose_naviera) || 0);
+              _this2.$set(_this2.form, 'proveedor_maniobras', datos.proveedor_maniobras || null);
+              _this2.$set(_this2.form, 'factura_maniobras', datos.factura_maniobras || null);
+              _this2.$set(_this2.form, 'proveedor_flete', datos.proveedor_flete || null);
+              _this2.$set(_this2.form, 'factura_flete', datos.factura_flete || null);
+              _this2.$set(_this2.form, 'proveedor_muestras', datos.proveedor_muestras || null);
+              _this2.$set(_this2.form, 'factura_muestras', datos.factura_muestras || null);
+              _this2.$set(_this2.form, 'proveedor_llc', datos.proveedor_llc || null);
+              _this2.$set(_this2.form, 'factura_llc', datos.factura_llc || null);
+              _this2.$set(_this2.form, 'folio_sc', datos.folio_sc || null);
+              _this2.$set(_this2.form, 'operacion_id', datos.operacion_id || null);
+              _this2.$set(_this2.form, 'operation_type', datos.operation_type || null);
+              _this2.$set(_this2.form, 'pedimento_detectado', datos.pedimento_detectado || null);
+              _this2.$set(_this2.form, 'operaciones', datos.operaciones || []);
               sumatoriaTotal = _this2.form.honorarios + _this2.form.impuestos + _this2.form.eci + _this2.form.maniobras + _this2.form.flete + _this2.form.muestras + _this2.form.llc + _this2.form.anticipo + _this2.form.garantias + _this2.form.desglose_naviera;
               if (sumatoriaTotal > 0) {
-                _this2.form.monto_deposito = Number(sumatoriaTotal.toFixed(2));
+                _this2.$set(_this2.form, 'monto_deposito', Number(sumatoriaTotal.toFixed(2)));
               }
               if (datos.cliente_detectado) {
                 nombreExcel = datos.cliente_detectado.trim().toUpperCase();
@@ -10448,12 +10461,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
                   return c.nombre.trim().toUpperCase() === nombreExcel;
                 });
                 if (clienteEncontrado) {
-                  _this2.form.cliente = clienteEncontrado;
+                  _this2.$set(_this2.form, 'cliente', clienteEncontrado);
                 }
               }
               sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
                 title: '¡Datos listos!',
-                text: 'Montos cargados en el formulario.',
+                text: 'Montos y operaciones actualizados.',
                 icon: 'success',
                 timer: 2000,
                 showConfirmButton: false
@@ -10484,7 +10497,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     guardarIngreso: function guardarIngreso() {
       var _this3 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
-        var payload, response, _t3;
+        var payload, response, mensajeReal, _t3;
         return _regenerator().w(function (_context3) {
           while (1) switch (_context3.n) {
             case 0:
@@ -10500,11 +10513,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               }
               return _context3.a(2, sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Atención', 'Selecciona o escribe al menos una referencia/pedimento.', 'warning'));
             case 2:
+              if (!(_this3.form.referenciasObj.length > 0 && (!_this3.form.operaciones || _this3.form.operaciones.length === 0))) {
+                _context3.n = 3;
+                break;
+              }
+              return _context3.a(2, sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Faltan Datos', 'Por favor presiona el botón azul de "Recalcular" para extraer los montos exactos antes de guardar.', 'warning'));
+            case 3:
               _this3.isSubmitting = true;
               payload = _objectSpread({}, _this3.form);
               payload.cliente_id = payload.cliente.id || null;
-
-              // 🔥 Sobrescribir la sucursal real antes de guardar en BD
               payload.sucursal_origen = _this3.sucursalReal;
               delete payload.cliente;
               delete payload._original;
@@ -10522,15 +10539,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
                 payload.referencia = payload.pedimento_detectado;
               }
               delete payload.pedimento_detectado;
-              _context3.p = 3;
-              _context3.n = 4;
+              _context3.p = 4;
+              _context3.n = 5;
               return axios__WEBPACK_IMPORTED_MODULE_5__["default"].put("/ingresos-conciliados/".concat(_this3.form.id), payload);
-            case 4:
+            case 5:
               response = _context3.v;
-              if (response.data.success) {
+              // 🔥 SOLUCIÓN AL MENSAJE: Quitamos el ".success" porque si llega aquí, ya es un éxito 100% seguro.
+              if (response.status === 200 || response.data) {
                 sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
                   title: '¡Actualizado!',
-                  text: 'Ingreso modificado correctamente.',
+                  text: response.data.message || 'Ingreso modificado correctamente.',
                   icon: 'success',
                   toast: true,
                   position: 'top-end',
@@ -10539,20 +10557,25 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
                 });
                 _this3.$emit('ingreso-actualizado');
               }
-              _context3.n = 6;
+              _context3.n = 7;
               break;
-            case 5:
-              _context3.p = 5;
-              _t3 = _context3.v;
-              sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Error', 'Problema al guardar los cambios', 'error');
             case 6:
               _context3.p = 6;
-              _this3.isSubmitting = false;
-              return _context3.f(6);
+              _t3 = _context3.v;
+              console.error("🔍 ERROR CRUDO:", _t3);
+              mensajeReal = 'Problema al guardar los cambios';
+              if (_t3.response && _t3.response.data && _t3.response.data.error) {
+                mensajeReal = _t3.response.data.error;
+              }
+              sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Error', mensajeReal, 'error');
             case 7:
+              _context3.p = 7;
+              _this3.isSubmitting = false;
+              return _context3.f(7);
+            case 8:
               return _context3.a(2);
           }
-        }, _callee3, null, [[3, 5, 6, 7]]);
+        }, _callee3, null, [[4, 6, 7, 8]]);
       }))();
     }
   }
@@ -11172,11 +11195,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         minimumFractionDigits: 2
       }).format(parseFloat(monto) || 0);
     },
-    agregarReferencia: function agregarReferencia(newTag) {
-      this.form.referenciasObj.push({
-        label: newTag,
-        folio: newTag
-      });
+    agregarReferencia: function agregarReferencia(nuevaReferencia) {
+      // 1. Creamos el objeto con la estructura que usa tu multiselect
+      var nuevaEtiqueta = {
+        label: nuevaReferencia,
+        id: nuevaReferencia // O 'value', dependiendo de qué uses como identificador
+      };
+
+      // 2. Lo agregamos a las opciones disponibles para que no marque error
+      this.opcionesPedimentos.push(nuevaEtiqueta);
+
+      // 3. Lo seleccionamos automáticamente agregándolo al v-model
+      this.form.referenciasObj.push(nuevaEtiqueta);
     },
     cargarListaPedimentos: function cargarListaPedimentos() {
       var _this = this;
@@ -11331,9 +11361,17 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               payload = _objectSpread({}, _this3.form);
               payload.cliente_id = payload.cliente.id;
               delete payload.cliente;
-              payload.referencia = _this3.form.referenciasObj.map(function (r) {
-                return r.folio || r.label;
-              }).join(', ');
+              payload.total_gpc = _this3.totalGPC;
+              if (_this3.form.referenciasObj && Array.isArray(_this3.form.referenciasObj)) {
+                payload.referencia = _this3.form.referenciasObj.map(function (r) {
+                  return r.folio || r.label || r;
+                }).join(', ');
+              } else {
+                payload.referencia = '';
+              }
+              if (payload.pedimento_detectado) {
+                payload.referencia = payload.pedimento_detectado;
+              }
               sucursalGuardar = _typeof(payload.sucursal_origen) === 'object' && payload.sucursal_origen !== null ? payload.sucursal_origen.nombre || payload.sucursal_origen.id : payload.sucursal_origen;
               if (_this3.checkTransportactics && !String(sucursalGuardar).toUpperCase().includes('TRANSPORTACTIC')) {
                 sucursalGuardar += ' TRANSPORTACTICS';
@@ -11341,30 +11379,33 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
                 sucursalGuardar += ' INTSHIPPERTS';
               }
               payload.sucursal_origen = sucursalGuardar;
+
+              // Borramos lo que no va a la BD
               delete payload.pedimento_detectado;
               delete payload.referenciasObj;
-              if (_this3.tiposComprobanteArray.includes('CFDI') && _this3.tiposComprobanteArray.includes('Nota Cargo')) {
+              if (_this3.tiposComprobanteArray && _this3.tiposComprobanteArray.includes('CFDI') && _this3.tiposComprobanteArray.includes('Nota Cargo')) {
                 payload.tipo_comprobante = 'Ambos';
-              } else {
+              } else if (_this3.tiposComprobanteArray) {
                 payload.tipo_comprobante = _this3.tiposComprobanteArray[0] || 'N/A';
+              } else {
+                payload.tipo_comprobante = 'N/A';
               }
               _context3.p = 2;
               _context3.n = 3;
               return axios__WEBPACK_IMPORTED_MODULE_5__["default"].post("/ingresos-conciliados", payload);
             case 3:
               response = _context3.v;
-              if (response.data.success) {
-                sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
-                  title: '¡Guardado!',
-                  text: 'Ingreso registrado.',
-                  icon: 'success',
-                  toast: true,
-                  position: 'top-end',
-                  timer: 3000,
-                  showConfirmButton: false
-                });
-                _this3.$emit('ingreso-guardado');
-              }
+              // Mensaje de éxito leyendo la respuesta del backend
+              sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
+                title: '¡Guardado!',
+                text: response.data.message || 'Ingreso registrado correctamente.',
+                icon: 'success',
+                toast: true,
+                position: 'top-end',
+                timer: 3000,
+                showConfirmButton: false
+              });
+              _this3.$emit('ingreso-guardado');
               _context3.n = 5;
               break;
             case 4:
@@ -11572,6 +11613,101 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
 
 /***/ }),
 
+/***/ "./node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalVerDocumento.vue?vue&type=script&lang=js&":
+/*!********************************************************************************************************************************************************************************************************************************************!*\
+  !*** ./node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalVerDocumento.vue?vue&type=script&lang=js& ***!
+  \********************************************************************************************************************************************************************************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
+  name: 'ModalVerDocumento',
+  props: {
+    mostrar: {
+      type: Boolean,
+      "default": false
+    },
+    urlPdf: {
+      type: String,
+      required: true
+    },
+    titulo: {
+      type: String,
+      "default": 'Documento'
+    }
+  },
+  data: function data() {
+    return {
+      cargando: true
+    };
+  },
+  watch: {
+    // Si la URL cambia, volvemos a poner la pantalla de carga
+    urlPdf: function urlPdf() {
+      this.cargando = true;
+    },
+    mostrar: function mostrar(nuevoValor) {
+      if (nuevoValor) {
+        this.cargando = true;
+      }
+    }
+  },
+  methods: {
+    cerrar: function cerrar() {
+      this.$emit('cerrar');
+    }
+  }
+});
+
+/***/ }),
+
 /***/ "./node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/VistaFinanzasIngresos.vue?vue&type=script&lang=js&":
 /*!************************************************************************************************************************************************************************************************************************************************!*\
   !*** ./node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/VistaFinanzasIngresos.vue?vue&type=script&lang=js& ***!
@@ -11583,7 +11719,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
-/* harmony import */ var axios__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! axios */ "./node_modules/axios/lib/axios.js");
+/* harmony import */ var axios__WEBPACK_IMPORTED_MODULE_11__ = __webpack_require__(/*! axios */ "./node_modules/axios/lib/axios.js");
 /* harmony import */ var sweetalert2__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! sweetalert2 */ "./node_modules/sweetalert2/dist/sweetalert2.all.js");
 /* harmony import */ var sweetalert2__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(sweetalert2__WEBPACK_IMPORTED_MODULE_0__);
 /* harmony import */ var vue_multiselect__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! vue-multiselect */ "./node_modules/vue-multiselect/dist/vue-multiselect.min.js");
@@ -11597,6 +11733,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _ModalEditarSaldoFavor_vue__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./ModalEditarSaldoFavor.vue */ "./resources/js/components/componentesingresos/ModalEditarSaldoFavor.vue");
 /* harmony import */ var _ModalEditarIngreso_vue__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./ModalEditarIngreso.vue */ "./resources/js/components/componentesingresos/ModalEditarIngreso.vue");
 /* harmony import */ var _ModalComplementoPago_vue__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ./ModalComplementoPago.vue */ "./resources/js/components/componentesingresos/ModalComplementoPago.vue");
+/* harmony import */ var _ModalVerDocumento_vue__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! ./ModalVerDocumento.vue */ "./resources/js/components/componentesingresos/ModalVerDocumento.vue");
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
@@ -12284,6 +12421,17 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
 //
 //
 //
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+
 
 
 
@@ -12304,6 +12452,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     ModalEditarSaldoFavor: _ModalEditarSaldoFavor_vue__WEBPACK_IMPORTED_MODULE_7__["default"],
     ModalEditarIngreso: _ModalEditarIngreso_vue__WEBPACK_IMPORTED_MODULE_8__["default"],
     ModalComplementoPago: _ModalComplementoPago_vue__WEBPACK_IMPORTED_MODULE_9__["default"],
+    ModalVerDocumento: _ModalVerDocumento_vue__WEBPACK_IMPORTED_MODULE_10__["default"],
     Multiselect: (vue_multiselect__WEBPACK_IMPORTED_MODULE_1___default()),
     VueCtkDateTimePicker: (vue_ctk_date_time_picker__WEBPACK_IMPORTED_MODULE_3___default())
   },
@@ -12318,6 +12467,9 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       ingresoAEditar: null,
       saldoAEditar: null,
       ingresoParaComplemento: null,
+      showModalVerDocumento: false,
+      urlDocumentoActivo: '',
+      tituloDocumentoActivo: '',
       ingresosData: [],
       saldosData: [],
       sucursalesBase: [],
@@ -12479,12 +12631,11 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       this.showModalComplemento = true;
     },
     visualizarComplemento: function visualizarComplemento(item) {
-      sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
-        title: 'Visualizar Complemento',
-        text: "Aqu\xED podr\xE1s ver el PDF/XML del cliente: ".concat(item.cliente),
-        icon: 'info',
-        confirmButtonColor: '#00C09F'
-      });
+      this.tituloDocumentoActivo = "Complemento - ".concat(item.cliente, " (").concat(item.sucursal_origen, ")");
+
+      // Armamos la URL apuntando a un nuevo endpoint en Laravel (ej. /ingresos-conciliados/25/complemento/pdf)
+      this.urlDocumentoActivo = "/ingresos-conciliados/".concat(item.id, "/complemento/pdf");
+      this.showModalVerDocumento = true;
     },
     enviarComplemento: function enviarComplemento(item) {
       sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
@@ -12511,7 +12662,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
             case 0:
               _context.p = 0;
               _context.n = 1;
-              return axios__WEBPACK_IMPORTED_MODULE_10__["default"].get('/ingresos-conciliados/opciones');
+              return axios__WEBPACK_IMPORTED_MODULE_11__["default"].get('/ingresos-conciliados/opciones');
             case 1:
               response = _context.v;
               _this4.opcionesSucursal = response.data.sucursales;
@@ -12541,6 +12692,13 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         }, _callee, null, [[0, 2]]);
       }))();
     },
+    formatearDinero: function formatearDinero(monto) {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2
+      }).format(parseFloat(monto) || 0);
+    },
     cargarIngresos: function cargarIngresos() {
       var _this5 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
@@ -12550,7 +12708,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
             case 0:
               _context2.p = 0;
               _context2.n = 1;
-              return axios__WEBPACK_IMPORTED_MODULE_10__["default"].get('/ingresos-conciliados', {
+              return axios__WEBPACK_IMPORTED_MODULE_11__["default"].get('/ingresos-conciliados', {
                 params: {
                   tipo_comprobante: _this5.filtros.tipo_comprobante
                 }
@@ -12583,7 +12741,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
             case 0:
               _context3.p = 0;
               _context3.n = 1;
-              return axios__WEBPACK_IMPORTED_MODULE_10__["default"].get('/saldos-favor');
+              return axios__WEBPACK_IMPORTED_MODULE_11__["default"].get('/saldos-favor');
             case 1:
               response = _context3.v;
               _this6.saldosData = response.data;
@@ -12655,7 +12813,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                 }
               });
               _context4.n = 3;
-              return axios__WEBPACK_IMPORTED_MODULE_10__["default"].post("/saldos-favor/".concat(row.id, "/notificar"), {
+              return axios__WEBPACK_IMPORTED_MODULE_11__["default"].post("/saldos-favor/".concat(row.id, "/notificar"), {
                 correos: correosDestino
               });
             case 3:
@@ -12692,7 +12850,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               }
               _context5.p = 1;
               _context5.n = 2;
-              return axios__WEBPACK_IMPORTED_MODULE_10__["default"]["delete"]("/saldos-favor/".concat(id));
+              return axios__WEBPACK_IMPORTED_MODULE_11__["default"]["delete"]("/saldos-favor/".concat(id));
             case 2:
               _this8.cargarSaldos();
               _context5.n = 4;
@@ -12720,7 +12878,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               }
               _context6.p = 1;
               _context6.n = 2;
-              return axios__WEBPACK_IMPORTED_MODULE_10__["default"].put("/saldos-favor/".concat(id, "/aplicar"));
+              return axios__WEBPACK_IMPORTED_MODULE_11__["default"].put("/saldos-favor/".concat(id, "/aplicar"));
             case 2:
               _this9.cargarSaldos();
               _context6.n = 4;
@@ -12748,7 +12906,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               }
               _context7.p = 1;
               _context7.n = 2;
-              return axios__WEBPACK_IMPORTED_MODULE_10__["default"].put("/saldos-favor/".concat(id, "/reactivar"));
+              return axios__WEBPACK_IMPORTED_MODULE_11__["default"].put("/saldos-favor/".concat(id, "/reactivar"));
             case 2:
               _this0.cargarSaldos();
               _context7.n = 4;
@@ -12801,7 +12959,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               }
               _context8.p = 2;
               _context8.n = 3;
-              return axios__WEBPACK_IMPORTED_MODULE_10__["default"]["delete"]("/ingresos-conciliados/".concat(id));
+              return axios__WEBPACK_IMPORTED_MODULE_11__["default"]["delete"]("/ingresos-conciliados/".concat(id));
             case 3:
               _this1.cargarIngresos();
               _context8.n = 5;
@@ -12845,6 +13003,96 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     },
     calcularDiferencia: function calcularDiferencia(item) {
       return (Number(item.monto_deposito) || 0) - this.calcularMontoSC(item);
+    },
+    procesarComplementoBackend: function procesarComplementoBackend(payloadLimpio) {
+      var _this10 = this;
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
+        var response, mensajeError, _t9;
+        return _regenerator().w(function (_context9) {
+          while (1) switch (_context9.n) {
+            case 0:
+              _context9.p = 0;
+              sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
+                title: 'Generando Complemento...',
+                text: 'Conectando con Contpaqi y saldando factura. Por favor, espera.',
+                allowOutsideClick: false,
+                didOpen: function didOpen() {
+                  sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().showLoading();
+                }
+              });
+
+              // Asegúrate de que esta URL coincida exactamente con la que configuraste en tu routes/api.php o web.php
+              _context9.n = 1;
+              return axios__WEBPACK_IMPORTED_MODULE_11__["default"].post('/ingresos-conciliados/generar-complemento', payloadLimpio);
+            case 1:
+              response = _context9.v;
+              if (response.data.success) {
+                // El backend responderá con success y saldado (booleano)
+                sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
+                  title: '¡Proceso Terminado!',
+                  text: response.data.message,
+                  icon: response.data.saldado ? 'success' : 'warning'
+                });
+                _this10.cargarIngresos(); // Actualizamos la tabla
+              }
+              _context9.n = 3;
+              break;
+            case 2:
+              _context9.p = 2;
+              _t9 = _context9.v;
+              console.error("Error al generar complemento:", _t9);
+              mensajeError = 'Hubo un problema al comunicarse con el servidor.';
+              if (_t9.response && _t9.response.data && _t9.response.data.error) {
+                mensajeError = _t9.response.data.error;
+              }
+              sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Atención', mensajeError, 'error');
+            case 3:
+              return _context9.a(2);
+          }
+        }, _callee9, null, [[0, 2]]);
+      }))();
+    },
+    enviarCorreoComplemento: function enviarCorreoComplemento(item) {
+      sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
+        title: 'Enviar Complemento',
+        text: "\xBFA qu\xE9 correo deseas enviar el documento ".concat(item.cliente, "?"),
+        input: 'email',
+        inputPlaceholder: 'correo@ejemplo.com',
+        // Opcional: Si en 'item' tienes el correo del cliente, ponlo por defecto
+        inputValue: item.correo_cliente || '',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#d33',
+        confirmButtonText: 'Enviar Correo',
+        cancelButtonText: 'Cancelar',
+        showLoaderOnConfirm: true,
+        preConfirm: function preConfirm(correoIngresado) {
+          return axios__WEBPACK_IMPORTED_MODULE_11__["default"].post("/ingresos-conciliados/".concat(item.id, "/complemento/enviar-correo"), {
+            correo: correoIngresado,
+            sucursal: item.sucursal_origen
+          }).then(function (response) {
+            return response.data;
+          })["catch"](function (error) {
+            var _error$response;
+            // Si falla, mostramos el error que mandó Laravel
+            sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().showValidationMessage("Fallo el env\xEDo: ".concat(((_error$response = error.response) === null || _error$response === void 0 || (_error$response = _error$response.data) === null || _error$response === void 0 ? void 0 : _error$response.error) || error.message));
+          });
+        },
+        allowOutsideClick: function allowOutsideClick() {
+          return !sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().isLoading();
+        }
+      }).then(function (result) {
+        var _result$value;
+        if (result.isConfirmed && (_result$value = result.value) !== null && _result$value !== void 0 && _result$value.success) {
+          sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
+            icon: 'success',
+            title: '¡Enviado!',
+            text: result.value.message,
+            timer: 3000,
+            showConfirmButton: false
+          });
+        }
+      });
     }
   }
 });
@@ -13781,10 +14029,6 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     Multiselect: (vue_multiselect__WEBPACK_IMPORTED_MODULE_5___default())
   },
   props: {
-    subView: {
-      type: String,
-      "default": 'OPERACIONES'
-    },
     isPXCC: {
       type: Boolean,
       "default": false
@@ -13792,6 +14036,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
   },
   data: function data() {
     return {
+      subView: 'OPERACIONES',
       isLoading: false,
       controlFleteData: [],
       tableData: [],
@@ -14070,6 +14315,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }());
     },
     changeSubView: function changeSubView(view) {
+      this.subView = view;
       this.$emit('sub-view-change', view);
     },
     toggleAnticipo: function toggleAnticipo(id, isControlFlete) {
@@ -20716,7 +20962,7 @@ __webpack_require__.r(__webpack_exports__);
 
 var ___CSS_LOADER_EXPORT___ = _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0___default()(function(i){return i[1]});
 // Module
-___CSS_LOADER_EXPORT___.push([module.id, "[data-v-16123a42]:deep(.custom-multiselect .multiselect__tags) {\n  border-color: #D1D5DB;\n  border-radius: 8px;\n  padding-top: 12px !important;\n  padding-left: 16px !important;\n  min-height: 52px !important;\n  font-size: 16px !important;\n}\n[data-v-16123a42]:deep(.custom-multiselect .multiselect__select) {\n  height: 52px !important;\n}\n[data-v-16123a42]:deep(.custom-multiselect.multiselect--active .multiselect__tags) {\n  border-color: #6366F1;\n  box-shadow: 0 0 0 1px #6366F1;\n}\n[data-v-16123a42]:deep(.custom-multiselect .multiselect__single),[data-v-16123a42]:deep(.custom-multiselect .multiselect__input) {\n  font-size: 16px !important;\n  margin-bottom: 0px !important;\n  padding-top: 2px !important;\n}\n[data-v-16123a42]:deep(.custom-multiselect .multiselect__option) {\n  font-size: 16px !important;\n}\ninput[type=number][data-v-16123a42]::-webkit-inner-spin-button,\r\ninput[type=number][data-v-16123a42]::-webkit-outer-spin-button {\n  -webkit-appearance: none;\n  margin: 0;\n}\r\n", ""]);
+___CSS_LOADER_EXPORT___.push([module.id, "[data-v-16123a42]:deep(.custom-multiselect .multiselect__tags) {\n  border-color: #D1D5DB;\n  border-radius: 8px;\n  padding-top: 12px !important;\n  padding-left: 16px !important;\n  min-height: 56px !important;\n  font-size: 16px !important;\n}\n[data-v-16123a42]:deep(.custom-multiselect .multiselect__select) {\n  height: 56px !important;\n}\n[data-v-16123a42]:deep(.custom-multiselect.multiselect--active .multiselect__tags) {\n  border-color: #4F46E5;\n  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);\n}\n[data-v-16123a42]:deep(.custom-multiselect .multiselect__single),[data-v-16123a42]:deep(.custom-multiselect .multiselect__input) {\n  font-size: 16px !important;\n  margin-bottom: 0px !important;\n  padding-top: 4px !important;\n}\n[data-v-16123a42]:deep(.custom-multiselect .multiselect__option) {\n  font-size: 16px !important;\n  padding: 12px 16px !important;\n}\ninput[type=number][data-v-16123a42]::-webkit-inner-spin-button,\r\ninput[type=number][data-v-16123a42]::-webkit-outer-spin-button {\n  -webkit-appearance: none;\n  margin: 0;\n}\r\n", ""]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
 
@@ -20740,7 +20986,7 @@ __webpack_require__.r(__webpack_exports__);
 
 var ___CSS_LOADER_EXPORT___ = _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0___default()(function(i){return i[1]});
 // Module
-___CSS_LOADER_EXPORT___.push([module.id, "input[type=number][data-v-745b8376]::-webkit-inner-spin-button, input[type=number][data-v-745b8376]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0;\n}\n[data-v-745b8376]:deep(.multiselect__tags) { border-color: #D1D5DB !important; padding-top: 10px !important; min-height: 48px !important; font-size: 16px !important; border-radius: 8px; overflow: hidden;\n}\n[data-v-745b8376]:deep(.multiselect__select) { height: 48px !important;\n}\n[data-v-745b8376]:deep(.multiselect__single),[data-v-745b8376]:deep(.multiselect__input) { font-size: 16px !important; margin-bottom: 0px !important; padding-top: 2px !important;\n}\n[data-v-745b8376]:deep(.multiselect__tag) { background-color: #2A3A4D !important; max-width: 100%; display: inline-flex; align-items: center; font-size: 14px !important;\n}\n[data-v-745b8376]:deep(.multiselect__tag > span) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis;\n}\n[data-v-745b8376]:deep(.multiselect__option--highlight) { background-color: #00C09F !important;\n}\n[data-v-745b8376]:deep(.multiselect__option) { font-size: 16px !important; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important; line-height: 1.5 !important; padding: 12px 16px !important;\n}\n[data-v-745b8376]:deep(.field-input) { min-height: 48px !important; font-size: 16px !important; border-radius: 8px !important;\n}\r\n", ""]);
+___CSS_LOADER_EXPORT___.push([module.id, "input[type=number][data-v-745b8376]::-webkit-inner-spin-button,\r\ninput[type=number][data-v-745b8376]::-webkit-outer-spin-button {\n  -webkit-appearance: none;\n  margin: 0;\n}\n[data-v-745b8376]:deep(.multiselect__tags) {\n  border-color: #D1D5DB !important;\n  padding-top: 10px !important;\n  min-height: 48px !important;\n  font-size: 16px !important;\n  border-radius: 8px;\n  overflow: hidden;\n}\n[data-v-745b8376]:deep(.multiselect__select) {\n  height: 48px !important;\n}\n[data-v-745b8376]:deep(.multiselect__single),[data-v-745b8376]:deep(.multiselect__input) {\n  font-size: 16px !important;\n  margin-bottom: 0px !important;\n  padding-top: 2px !important;\n}\n[data-v-745b8376]:deep(.multiselect__tag) {\n  background-color: #2A3A4D !important;\n  max-width: 100%;\n  display: inline-flex;\n  align-items: center;\n  font-size: 14px !important;\n}\n[data-v-745b8376]:deep(.multiselect__tag > span) {\n  white-space: nowrap;\n  overflow: hidden;\n  text-overflow: ellipsis;\n}\n[data-v-745b8376]:deep(.multiselect__option--highlight) {\n  background-color: #00C09F !important;\n}\n[data-v-745b8376]:deep(.multiselect__option) {\n  font-size: 16px !important;\n  white-space: normal !important;\n  word-break: break-word !important;\n  overflow-wrap: break-word !important;\n  line-height: 1.5 !important;\n  padding: 12px 16px !important;\n}\n[data-v-745b8376]:deep(.field-input) {\n  min-height: 48px !important;\n  font-size: 16px !important;\n  border-radius: 8px !important;\n}\r\n", ""]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
 
@@ -87468,7 +87714,7 @@ var render = function () {
             "div",
             {
               staticClass:
-                "bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[calc(100vh-4rem)]",
+                "bg-white rounded-xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[calc(100vh-4rem)] mx-4",
             },
             [
               _c(
@@ -87478,9 +87724,14 @@ var render = function () {
                     "bg-indigo-700 px-8 py-6 flex justify-between items-center shrink-0",
                 },
                 [
-                  _c("h3", { staticClass: "text-white font-bold text-2xl" }, [
-                    _vm._v("Generar Complemento de Pago (Contpaqi)"),
-                  ]),
+                  _c(
+                    "h3",
+                    {
+                      staticClass:
+                        "text-white font-bold text-2xl tracking-wide",
+                    },
+                    [_vm._v("Generar Complemento de Pago (Contpaqi)")]
+                  ),
                   _vm._v(" "),
                   _c(
                     "button",
@@ -87520,22 +87771,22 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "p-8 overflow-y-auto flex-1 grid grid-cols-2 gap-8",
+                    "p-8 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-3 gap-8",
                 },
                 [
-                  _c("div", { staticClass: "col-span-2" }, [
+                  _c("div", { staticClass: "col-span-1 md:col-span-2" }, [
                     _c(
                       "label",
                       {
                         staticClass:
-                          "block text-lg font-bold text-gray-700 mb-2",
+                          "block text-lg font-bold text-gray-700 mb-2 uppercase",
                       },
                       [_vm._v("Cliente")]
                     ),
                     _vm._v(" "),
                     _c("input", {
                       staticClass:
-                        "w-full border-gray-300 bg-gray-100 rounded-lg shadow-sm px-5 py-4 text-xl text-gray-700",
+                        "w-full border-gray-300 bg-gray-100 rounded-lg shadow-sm px-5 py-4 text-xl text-gray-700 font-semibold cursor-not-allowed",
                       attrs: { type: "text", disabled: "" },
                       domProps: { value: _vm.ingreso.cliente },
                     }),
@@ -87546,52 +87797,190 @@ var render = function () {
                       "label",
                       {
                         staticClass:
-                          "block text-lg font-bold text-gray-700 mb-2",
+                          "block text-lg font-bold text-gray-700 mb-2 uppercase",
                       },
-                      [_vm._v("Sucursal")]
+                      [_vm._v("Sucursal Origen")]
                     ),
                     _vm._v(" "),
                     _c("input", {
                       staticClass:
-                        "w-full border-gray-300 bg-gray-100 rounded-lg shadow-sm px-5 py-4 text-xl text-gray-700",
+                        "w-full border-gray-300 bg-gray-100 rounded-lg shadow-sm px-5 py-4 text-xl text-gray-700 font-semibold cursor-not-allowed",
                       attrs: { type: "text", disabled: "" },
                       domProps: { value: _vm.ingreso.sucursal_origen },
                     }),
                   ]),
                   _vm._v(" "),
-                  _c("div", { staticClass: "col-span-1" }, [
-                    _c(
-                      "label",
-                      {
-                        staticClass:
-                          "block text-lg font-bold text-gray-700 mb-2",
-                      },
-                      [_vm._v("Total a Pagar")]
-                    ),
-                    _vm._v(" "),
-                    _c("input", {
-                      directives: [
-                        {
-                          name: "model",
-                          rawName: "v-model",
-                          value: _vm.form.total,
-                          expression: "form.total",
-                        },
-                      ],
+                  _c(
+                    "div",
+                    {
                       staticClass:
-                        "w-full border-gray-300 rounded-lg shadow-sm px-5 py-4 text-2xl font-black text-indigo-700 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500",
-                      attrs: { type: "number" },
-                      domProps: { value: _vm.form.total },
-                      on: {
-                        input: function ($event) {
-                          if ($event.target.composing) {
-                            return
-                          }
-                          _vm.$set(_vm.form, "total", $event.target.value)
+                        "col-span-1 md:col-span-3 border-2 border-indigo-100 bg-indigo-50/30 rounded-xl p-6 grid grid-cols-1 md:grid-cols-3 gap-6",
+                    },
+                    [
+                      _c("div", [
+                        _c(
+                          "label",
+                          {
+                            staticClass:
+                              "block text-sm font-bold text-indigo-800 mb-2 uppercase tracking-wide",
+                          },
+                          [_vm._v("Monto CFDI\n            (Honorarios)")]
+                        ),
+                        _vm._v(" "),
+                        _c("div", { staticClass: "relative" }, [
+                          _c(
+                            "span",
+                            {
+                              staticClass:
+                                "absolute left-4 top-1/2 transform -translate-y-1/2 text-xl font-bold text-gray-500",
+                            },
+                            [_vm._v("$")]
+                          ),
+                          _vm._v(" "),
+                          _c("input", {
+                            directives: [
+                              {
+                                name: "model",
+                                rawName: "v-model",
+                                value: _vm.form.monto_cfdi,
+                                expression: "form.monto_cfdi",
+                              },
+                            ],
+                            staticClass:
+                              "w-full border-indigo-200 rounded-lg shadow-sm pl-10 pr-5 py-4 text-2xl font-black text-indigo-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 bg-white",
+                            attrs: { type: "number", step: "0.01" },
+                            domProps: { value: _vm.form.monto_cfdi },
+                            on: {
+                              input: function ($event) {
+                                if ($event.target.composing) {
+                                  return
+                                }
+                                _vm.$set(
+                                  _vm.form,
+                                  "monto_cfdi",
+                                  $event.target.value
+                                )
+                              },
+                            },
+                          }),
+                        ]),
+                      ]),
+                      _vm._v(" "),
+                      _c("div", [
+                        _c(
+                          "label",
+                          {
+                            staticClass:
+                              "block text-sm font-bold text-pink-700 mb-2 uppercase tracking-wide",
+                          },
+                          [_vm._v("Monto GPC (Nota\n            Cargo)")]
+                        ),
+                        _vm._v(" "),
+                        _c("div", { staticClass: "relative" }, [
+                          _c(
+                            "span",
+                            {
+                              staticClass:
+                                "absolute left-4 top-1/2 transform -translate-y-1/2 text-xl font-bold text-gray-500",
+                            },
+                            [_vm._v("$")]
+                          ),
+                          _vm._v(" "),
+                          _c("input", {
+                            directives: [
+                              {
+                                name: "model",
+                                rawName: "v-model",
+                                value: _vm.form.monto_gpc,
+                                expression: "form.monto_gpc",
+                              },
+                            ],
+                            staticClass:
+                              "w-full border-pink-200 rounded-lg shadow-sm pl-10 pr-5 py-4 text-2xl font-black text-pink-700 outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-500 bg-white",
+                            attrs: { type: "number", step: "0.01" },
+                            domProps: { value: _vm.form.monto_gpc },
+                            on: {
+                              input: function ($event) {
+                                if ($event.target.composing) {
+                                  return
+                                }
+                                _vm.$set(
+                                  _vm.form,
+                                  "monto_gpc",
+                                  $event.target.value
+                                )
+                              },
+                            },
+                          }),
+                        ]),
+                      ]),
+                      _vm._v(" "),
+                      _c("div", [
+                        _c(
+                          "label",
+                          {
+                            staticClass:
+                              "block text-sm font-bold text-gray-600 mb-2 uppercase tracking-wide",
+                          },
+                          [_vm._v("Total Depositado")]
+                        ),
+                        _vm._v(" "),
+                        _c("div", { staticClass: "relative" }, [
+                          _c(
+                            "span",
+                            {
+                              staticClass:
+                                "absolute left-4 top-1/2 transform -translate-y-1/2 text-xl font-bold text-gray-500",
+                            },
+                            [_vm._v("$")]
+                          ),
+                          _vm._v(" "),
+                          _c("input", {
+                            staticClass:
+                              "w-full border-gray-300 rounded-lg shadow-sm pl-10 pr-5 py-4 text-2xl font-black text-gray-800 bg-gray-200 cursor-not-allowed",
+                            attrs: { type: "number", disabled: "" },
+                            domProps: { value: _vm.sumaTotal },
+                          }),
+                        ]),
+                      ]),
+                    ]
+                  ),
+                  _vm._v(" "),
+                  _c(
+                    "div",
+                    { staticClass: "col-span-1" },
+                    [
+                      _c(
+                        "label",
+                        {
+                          staticClass:
+                            "block text-lg font-bold text-gray-700 mb-2",
                         },
-                      },
-                    }),
-                  ]),
+                        [_vm._v("Método de Pago")]
+                      ),
+                      _vm._v(" "),
+                      _c("multiselect", {
+                        staticClass: "custom-multiselect text-xl",
+                        attrs: {
+                          options: _vm.opcionesMetodoPago,
+                          label: "label",
+                          "track-by": "value",
+                          searchable: false,
+                          "show-labels": false,
+                          "allow-empty": false,
+                          placeholder: "Seleccione...",
+                        },
+                        model: {
+                          value: _vm.form.metodoPagoObj,
+                          callback: function ($$v) {
+                            _vm.$set(_vm.form, "metodoPagoObj", $$v)
+                          },
+                          expression: "form.metodoPagoObj",
+                        },
+                      }),
+                    ],
+                    1
+                  ),
                   _vm._v(" "),
                   _c(
                     "div",
@@ -87664,7 +88053,7 @@ var render = function () {
                   _vm._v(" "),
                   _c(
                     "div",
-                    { staticClass: "col-span-1" },
+                    { staticClass: "col-span-1 md:col-span-3" },
                     [
                       _c(
                         "label",
@@ -87698,49 +88087,14 @@ var render = function () {
                     1
                   ),
                   _vm._v(" "),
-                  _c(
-                    "div",
-                    { staticClass: "col-span-1" },
-                    [
-                      _c(
-                        "label",
-                        {
-                          staticClass:
-                            "block text-lg font-bold text-gray-700 mb-2",
-                        },
-                        [_vm._v("Método de Pago")]
-                      ),
-                      _vm._v(" "),
-                      _c("multiselect", {
-                        staticClass: "custom-multiselect text-xl",
-                        attrs: {
-                          options: _vm.opcionesMetodoPago,
-                          label: "label",
-                          "track-by": "value",
-                          searchable: false,
-                          "show-labels": false,
-                          "allow-empty": false,
-                        },
-                        model: {
-                          value: _vm.form.metodoPagoObj,
-                          callback: function ($$v) {
-                            _vm.$set(_vm.form, "metodoPagoObj", $$v)
-                          },
-                          expression: "form.metodoPagoObj",
-                        },
-                      }),
-                    ],
-                    1
-                  ),
-                  _vm._v(" "),
-                  _c("div", { staticClass: "col-span-2" }, [
+                  _c("div", { staticClass: "col-span-1 md:col-span-3" }, [
                     _c(
                       "label",
                       {
                         staticClass:
                           "block text-lg font-bold text-gray-700 mb-2",
                       },
-                      [_vm._v("Referencia")]
+                      [_vm._v("Referencia / Folio SC")]
                     ),
                     _vm._v(" "),
                     _c("input", {
@@ -87767,7 +88121,7 @@ var render = function () {
                     }),
                   ]),
                   _vm._v(" "),
-                  _c("div", { staticClass: "col-span-2" }, [
+                  _c("div", { staticClass: "col-span-1 md:col-span-3" }, [
                     _c(
                       "label",
                       {
@@ -87787,8 +88141,8 @@ var render = function () {
                         },
                       ],
                       staticClass:
-                        "w-full border-gray-300 rounded-lg shadow-sm px-5 py-4 text-xl outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500",
-                      attrs: { rows: "2" },
+                        "w-full border-gray-300 rounded-lg shadow-sm px-5 py-4 text-xl outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-none",
+                      attrs: { rows: "3" },
                       domProps: { value: _vm.form.observaciones },
                       on: {
                         input: function ($event) {
@@ -87818,7 +88172,7 @@ var render = function () {
                     "button",
                     {
                       staticClass:
-                        "px-8 py-4 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 font-bold transition text-xl shadow-sm",
+                        "px-8 py-4 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 font-bold transition-colors text-xl shadow-sm",
                       on: { click: _vm.cerrar },
                     },
                     [_vm._v("Cancelar")]
@@ -87828,10 +88182,10 @@ var render = function () {
                     "button",
                     {
                       staticClass:
-                        "px-8 py-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold transition flex items-center text-xl shadow-sm",
+                        "px-8 py-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold transition-colors flex items-center text-xl shadow-sm",
                       on: { click: _vm.enviarComplemento },
                     },
-                    [_vm._v("\n        Generar Complemento\n      ")]
+                    [_vm._v("\n        Generar Documento\n      ")]
                   ),
                 ]
               ),
@@ -91468,6 +91822,180 @@ render._withStripped = true
 
 /***/ }),
 
+/***/ "./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalVerDocumento.vue?vue&type=template&id=5ae97e01&":
+/*!*************************************************************************************************************************************************************************************************************************************************!*\
+  !*** ./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalVerDocumento.vue?vue&type=template&id=5ae97e01& ***!
+  \*************************************************************************************************************************************************************************************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   render: () => (/* binding */ render),
+/* harmony export */   staticRenderFns: () => (/* binding */ staticRenderFns)
+/* harmony export */ });
+var render = function () {
+  var _vm = this
+  var _h = _vm.$createElement
+  var _c = _vm._self._c || _h
+  return _vm.mostrar
+    ? _c(
+        "div",
+        {
+          staticClass:
+            "fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-4 md:p-8",
+        },
+        [
+          _c(
+            "div",
+            {
+              staticClass:
+                "bg-white rounded-xl shadow-2xl w-full max-w-6xl flex flex-col h-[90vh] overflow-hidden",
+            },
+            [
+              _c(
+                "div",
+                {
+                  staticClass:
+                    "bg-[#2A3A4D] px-6 py-4 flex justify-between items-center shrink-0 shadow-md z-10",
+                },
+                [
+                  _c(
+                    "h3",
+                    {
+                      staticClass: "text-white font-bold text-xl tracking-wide",
+                    },
+                    [
+                      _c("span", { staticClass: "text-gray-400 mr-2" }, [
+                        _vm._v("📄 Visualizando:"),
+                      ]),
+                      _vm._v(" " + _vm._s(_vm.titulo) + "\n      "),
+                    ]
+                  ),
+                  _vm._v(" "),
+                  _c(
+                    "button",
+                    {
+                      staticClass:
+                        "text-gray-400 hover:text-white transition-colors bg-gray-700 hover:bg-gray-600 rounded-full p-2",
+                      on: { click: _vm.cerrar },
+                    },
+                    [
+                      _c(
+                        "svg",
+                        {
+                          staticClass: "w-6 h-6",
+                          attrs: {
+                            fill: "none",
+                            stroke: "currentColor",
+                            viewBox: "0 0 24 24",
+                          },
+                        },
+                        [
+                          _c("path", {
+                            attrs: {
+                              "stroke-linecap": "round",
+                              "stroke-linejoin": "round",
+                              "stroke-width": "2",
+                              d: "M6 18L18 6M6 6l12 12",
+                            },
+                          }),
+                        ]
+                      ),
+                    ]
+                  ),
+                ]
+              ),
+              _vm._v(" "),
+              _c(
+                "div",
+                { staticClass: "flex-1 bg-gray-200 relative w-full h-full" },
+                [
+                  _vm.cargando
+                    ? _c(
+                        "div",
+                        {
+                          staticClass:
+                            "absolute inset-0 flex flex-col items-center justify-center bg-gray-100 z-10",
+                        },
+                        [
+                          _c(
+                            "svg",
+                            {
+                              staticClass:
+                                "animate-spin -ml-1 mr-3 h-12 w-12 text-indigo-600 mb-4",
+                              attrs: {
+                                xmlns: "http://www.w3.org/2000/svg",
+                                fill: "none",
+                                viewBox: "0 0 24 24",
+                              },
+                            },
+                            [
+                              _c("circle", {
+                                staticClass: "opacity-25",
+                                attrs: {
+                                  cx: "12",
+                                  cy: "12",
+                                  r: "10",
+                                  stroke: "currentColor",
+                                  "stroke-width": "4",
+                                },
+                              }),
+                              _vm._v(" "),
+                              _c("path", {
+                                staticClass: "opacity-75",
+                                attrs: {
+                                  fill: "currentColor",
+                                  d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z",
+                                },
+                              }),
+                            ]
+                          ),
+                          _vm._v(" "),
+                          _c(
+                            "span",
+                            {
+                              staticClass:
+                                "text-gray-500 font-bold text-lg animate-pulse",
+                            },
+                            [_vm._v("Obteniendo documento...")]
+                          ),
+                        ]
+                      )
+                    : _vm._e(),
+                  _vm._v(" "),
+                  _c("iframe", {
+                    directives: [
+                      {
+                        name: "show",
+                        rawName: "v-show",
+                        value: !_vm.cargando,
+                        expression: "!cargando",
+                      },
+                    ],
+                    staticClass: "w-full h-full border-0",
+                    attrs: { src: _vm.urlPdf },
+                    on: {
+                      load: function ($event) {
+                        _vm.cargando = false
+                      },
+                    },
+                  }),
+                ]
+              ),
+            ]
+          ),
+        ]
+      )
+    : _vm._e()
+}
+var staticRenderFns = []
+render._withStripped = true
+
+
+
+/***/ }),
+
 /***/ "./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/VistaFinanzasIngresos.vue?vue&type=template&id=4d4b5ec6&scoped=true&":
 /*!*****************************************************************************************************************************************************************************************************************************************************************!*\
   !*** ./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/VistaFinanzasIngresos.vue?vue&type=template&id=4d4b5ec6&scoped=true& ***!
@@ -91958,7 +92486,7 @@ var render = function () {
                     },
                   },
                 },
-                [_vm._v("\n        Ingresos (Excel 1)\n      ")]
+                [_vm._v("\n        Ingresos\n      ")]
               ),
               _vm._v(" "),
               _c(
@@ -92507,6 +93035,19 @@ var render = function () {
                                             width: "180px",
                                           },
                                         },
+                                        [_vm._v("Total GPC\n                ")]
+                                      ),
+                                      _vm._v(" "),
+                                      _c(
+                                        "th",
+                                        {
+                                          staticClass:
+                                            "px-6 py-5 border-r border-slate-200",
+                                          staticStyle: {
+                                            "min-width": "180px",
+                                            width: "180px",
+                                          },
+                                        },
                                         [_vm._v("IMPUESTOS")]
                                       ),
                                       _vm._v(" "),
@@ -92968,6 +93509,26 @@ var render = function () {
                                           "td",
                                           {
                                             staticClass:
+                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-black text-blue-600 bg-blue-50/30",
+                                          },
+                                          [
+                                            _vm._v(
+                                              "\n                  $" +
+                                                _vm._s(
+                                                  Number(
+                                                    item.total_gpc || 0
+                                                  ).toLocaleString("en-US", {
+                                                    minimumFractionDigits: 2,
+                                                  })
+                                                )
+                                            ),
+                                          ]
+                                        ),
+                                        _vm._v(" "),
+                                        _c(
+                                          "td",
+                                          {
+                                            staticClass:
                                               "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
                                           },
                                           [
@@ -93079,7 +93640,8 @@ var render = function () {
                                                   ).toLocaleString("en-US", {
                                                     minimumFractionDigits: 2,
                                                   })
-                                                )
+                                                ) +
+                                                "\n                "
                                             ),
                                           ]
                                         ),
@@ -93449,7 +94011,9 @@ var render = function () {
                                         },
                                         on: {
                                           click: function ($event) {
-                                            return _vm.enviarComplemento(item)
+                                            return _vm.enviarCorreoComplemento(
+                                              item
+                                            )
                                           },
                                         },
                                       },
@@ -94070,19 +94634,31 @@ var render = function () {
           })
         : _vm._e(),
       _vm._v(" "),
-      _vm.showModalComplemento
-        ? _c("ModalComplementoPago", {
-            attrs: {
-              mostrar: _vm.showModalComplemento,
-              ingreso: _vm.ingresoParaComplemento,
-            },
-            on: {
-              cerrar: function ($event) {
-                _vm.showModalComplemento = false
-              },
-            },
-          })
-        : _vm._e(),
+      _c("ModalComplementoPago", {
+        attrs: {
+          mostrar: _vm.showModalComplemento,
+          ingreso: _vm.ingresoParaComplemento,
+        },
+        on: {
+          cerrar: function ($event) {
+            _vm.showModalComplemento = false
+          },
+          generar: _vm.procesarComplementoBackend,
+        },
+      }),
+      _vm._v(" "),
+      _c("ModalVerDocumento", {
+        attrs: {
+          mostrar: _vm.showModalVerDocumento,
+          "url-pdf": _vm.urlDocumentoActivo,
+          titulo: _vm.tituloDocumentoActivo,
+        },
+        on: {
+          cerrar: function ($event) {
+            _vm.showModalVerDocumento = false
+          },
+        },
+      }),
     ],
     1
   )
@@ -94126,9 +94702,7 @@ var staticRenderFns = [
         },
         [
           _c("span", { staticClass: "w-4 h-4 rounded-full bg-gray-300" }),
-          _vm._v(
-            "\n          PLANILLA DE INGRESOS CONCILIADOS (SGC EXCEL FORMAT)\n        "
-          ),
+          _vm._v("\n          PLANILLA DE INGRESOS CONCILIADOS\n        "),
         ]
       ),
       _vm._v(" "),
@@ -110458,6 +111032,79 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   staticRenderFns: () => (/* reexport safe */ _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_ModalNuevoSaldoFavor_vue_vue_type_template_id_74f130ec_scoped_true___WEBPACK_IMPORTED_MODULE_0__.staticRenderFns)
 /* harmony export */ });
 /* harmony import */ var _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_ModalNuevoSaldoFavor_vue_vue_type_template_id_74f130ec_scoped_true___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! -!../../../../node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!../../../../node_modules/vue-loader/lib/index.js??vue-loader-options!./ModalNuevoSaldoFavor.vue?vue&type=template&id=74f130ec&scoped=true& */ "./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalNuevoSaldoFavor.vue?vue&type=template&id=74f130ec&scoped=true&");
+
+
+/***/ }),
+
+/***/ "./resources/js/components/componentesingresos/ModalVerDocumento.vue":
+/*!***************************************************************************!*\
+  !*** ./resources/js/components/componentesingresos/ModalVerDocumento.vue ***!
+  \***************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+/* harmony import */ var _ModalVerDocumento_vue_vue_type_template_id_5ae97e01___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./ModalVerDocumento.vue?vue&type=template&id=5ae97e01& */ "./resources/js/components/componentesingresos/ModalVerDocumento.vue?vue&type=template&id=5ae97e01&");
+/* harmony import */ var _ModalVerDocumento_vue_vue_type_script_lang_js___WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./ModalVerDocumento.vue?vue&type=script&lang=js& */ "./resources/js/components/componentesingresos/ModalVerDocumento.vue?vue&type=script&lang=js&");
+/* harmony import */ var _node_modules_vue_loader_lib_runtime_componentNormalizer_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! !../../../../node_modules/vue-loader/lib/runtime/componentNormalizer.js */ "./node_modules/vue-loader/lib/runtime/componentNormalizer.js");
+
+
+
+
+
+/* normalize component */
+;
+var component = (0,_node_modules_vue_loader_lib_runtime_componentNormalizer_js__WEBPACK_IMPORTED_MODULE_2__["default"])(
+  _ModalVerDocumento_vue_vue_type_script_lang_js___WEBPACK_IMPORTED_MODULE_1__["default"],
+  _ModalVerDocumento_vue_vue_type_template_id_5ae97e01___WEBPACK_IMPORTED_MODULE_0__.render,
+  _ModalVerDocumento_vue_vue_type_template_id_5ae97e01___WEBPACK_IMPORTED_MODULE_0__.staticRenderFns,
+  false,
+  null,
+  null,
+  null
+  
+)
+
+/* hot reload */
+if (false) // removed by dead control flow
+{ var api; }
+component.options.__file = "resources/js/components/componentesingresos/ModalVerDocumento.vue"
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (component.exports);
+
+/***/ }),
+
+/***/ "./resources/js/components/componentesingresos/ModalVerDocumento.vue?vue&type=script&lang=js&":
+/*!****************************************************************************************************!*\
+  !*** ./resources/js/components/componentesingresos/ModalVerDocumento.vue?vue&type=script&lang=js& ***!
+  \****************************************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+/* harmony import */ var _node_modules_babel_loader_lib_index_js_clonedRuleSet_5_0_rules_0_use_0_node_modules_vue_loader_lib_index_js_vue_loader_options_ModalVerDocumento_vue_vue_type_script_lang_js___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! -!../../../../node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!../../../../node_modules/vue-loader/lib/index.js??vue-loader-options!./ModalVerDocumento.vue?vue&type=script&lang=js& */ "./node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalVerDocumento.vue?vue&type=script&lang=js&");
+ /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (_node_modules_babel_loader_lib_index_js_clonedRuleSet_5_0_rules_0_use_0_node_modules_vue_loader_lib_index_js_vue_loader_options_ModalVerDocumento_vue_vue_type_script_lang_js___WEBPACK_IMPORTED_MODULE_0__["default"]); 
+
+/***/ }),
+
+/***/ "./resources/js/components/componentesingresos/ModalVerDocumento.vue?vue&type=template&id=5ae97e01&":
+/*!**********************************************************************************************************!*\
+  !*** ./resources/js/components/componentesingresos/ModalVerDocumento.vue?vue&type=template&id=5ae97e01& ***!
+  \**********************************************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   render: () => (/* reexport safe */ _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_ModalVerDocumento_vue_vue_type_template_id_5ae97e01___WEBPACK_IMPORTED_MODULE_0__.render),
+/* harmony export */   staticRenderFns: () => (/* reexport safe */ _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_ModalVerDocumento_vue_vue_type_template_id_5ae97e01___WEBPACK_IMPORTED_MODULE_0__.staticRenderFns)
+/* harmony export */ });
+/* harmony import */ var _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_ModalVerDocumento_vue_vue_type_template_id_5ae97e01___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! -!../../../../node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!../../../../node_modules/vue-loader/lib/index.js??vue-loader-options!./ModalVerDocumento.vue?vue&type=template&id=5ae97e01& */ "./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalVerDocumento.vue?vue&type=template&id=5ae97e01&");
 
 
 /***/ }),

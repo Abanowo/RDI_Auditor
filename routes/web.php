@@ -43,6 +43,9 @@ Route::prefix('control-proveedores')->group(function () {
 // =====================================================================
 
 // 🔥 1. RUTAS ESPECÍFICAS (SIN {id}) - SIEMPRE VAN ARRIBA
+Route::post('/ingresos-conciliados/generar-complemento', [IngresoConciliadoController::class, 'generarComplemento']);
+Route::get('/ingresos-conciliados/{id}/complemento/pdf', [IngresoConciliadoController::class, 'verComplementoPdf']);
+Route::post('/ingresos-conciliados/{id}/complemento/enviar-correo', [IngresoConciliadoController::class, 'enviarCorreoComplemento']);
 Route::get('/ingresos-conciliados/opciones', [IngresoConciliadoController::class, 'opciones']);
 Route::get('/ingresos-conciliados/listar-pedimentos', [IngresoConciliadoController::class, 'listarPedimentosSheet']); // ¡Agregada!
 Route::post('/ingresos-conciliados/buscar-sheet', [IngresoConciliadoController::class, 'buscarEnSheet']); // ¡Movida hacia arriba!
@@ -63,7 +66,6 @@ Route::put('/saldos-favor/{id}/reactivar', [IngresoConciliadoController::class, 
 Route::put('/saldos-favor/{id}', [IngresoConciliadoController::class, 'updateSaldo']);
 Route::delete('/saldos-favor/{id}', [IngresoConciliadoController::class, 'destroySaldo']);
 
-Route::post('/complementos-pago/generar', [IngresoConciliadoController::class, 'generarComplemento']);
 
 // Atrapa cualquier URL que no coincida con las de arriba y le entrega el control a Vue Router.
 Route::get('/{any}', function () {

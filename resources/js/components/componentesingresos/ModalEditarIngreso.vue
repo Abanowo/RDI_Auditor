@@ -462,36 +462,35 @@ export default {
             try {
                 const response = await axios.post('/ingresos-conciliados/buscar-sheet', {
                     pedimentos: pedimentosLimpios,
-                    sucursal: this.sucursalReal, // 🔥 Usa la sucursal inteligente
+                    sucursal: this.sucursalReal,
                     tipo_comprobante: this.tiposComprobanteArray
                 });
 
                 const datos = response.data;
 
-                this.form.honorarios = Number(datos.honorarios) || 0;
-                this.form.impuestos = Number(datos.impuestos) || 0;
-                this.form.eci = Number(datos.eci) || 0;
-                this.form.maniobras = Number(datos.maniobras) || 0;
-                this.form.flete = Number(datos.flete) || 0;
-                this.form.muestras = Number(datos.muestras) || 0;
-                this.form.llc = Number(datos.llc) || 0;
-                this.form.anticipo = Number(datos.anticipo) || 0;
-                this.form.garantias = Number(datos.garantias) || 0;
-                this.form.desglose_naviera = Number(datos.desglose_naviera) || 0;
-
-                this.form.proveedor_maniobras = datos.proveedor_maniobras || null;
-                this.form.factura_maniobras = datos.factura_maniobras || null;
-                this.form.proveedor_flete = datos.proveedor_flete || null;
-                this.form.factura_flete = datos.factura_flete || null;
-                this.form.proveedor_muestras = datos.proveedor_muestras || null;
-                this.form.factura_muestras = datos.factura_muestras || null;
-                this.form.proveedor_llc = datos.proveedor_llc || null;
-                this.form.factura_llc = datos.factura_llc || null;
-                this.form.folio_sc = datos.folio_sc || null;
-                this.form.operacion_id = datos.operacion_id || null;
-                this.form.operation_type = datos.operation_type || null;
-                this.form.pedimento_detectado = datos.pedimento_detectado || null;
-                this.form.operaciones = datos.operaciones || [];
+                this.$set(this.form, 'honorarios', Number(datos.honorarios) || 0);
+                this.$set(this.form, 'impuestos', Number(datos.impuestos) || 0);
+                this.$set(this.form, 'eci', Number(datos.eci) || 0);
+                this.$set(this.form, 'maniobras', Number(datos.maniobras) || 0);
+                this.$set(this.form, 'flete', Number(datos.flete) || 0);
+                this.$set(this.form, 'muestras', Number(datos.muestras) || 0);
+                this.$set(this.form, 'llc', Number(datos.llc) || 0);
+                this.$set(this.form, 'anticipo', Number(datos.anticipo) || 0);
+                this.$set(this.form, 'garantias', Number(datos.garantias) || 0);
+                this.$set(this.form, 'desglose_naviera', Number(datos.desglose_naviera) || 0);
+                this.$set(this.form, 'proveedor_maniobras', datos.proveedor_maniobras || null);
+                this.$set(this.form, 'factura_maniobras', datos.factura_maniobras || null);
+                this.$set(this.form, 'proveedor_flete', datos.proveedor_flete || null);
+                this.$set(this.form, 'factura_flete', datos.factura_flete || null);
+                this.$set(this.form, 'proveedor_muestras', datos.proveedor_muestras || null);
+                this.$set(this.form, 'factura_muestras', datos.factura_muestras || null);
+                this.$set(this.form, 'proveedor_llc', datos.proveedor_llc || null);
+                this.$set(this.form, 'factura_llc', datos.factura_llc || null);
+                this.$set(this.form, 'folio_sc', datos.folio_sc || null);
+                this.$set(this.form, 'operacion_id', datos.operacion_id || null);
+                this.$set(this.form, 'operation_type', datos.operation_type || null);
+                this.$set(this.form, 'pedimento_detectado', datos.pedimento_detectado || null);
+                this.$set(this.form, 'operaciones', datos.operaciones || []);
 
                 const sumatoriaTotal = this.form.honorarios +
                     this.form.impuestos +
@@ -505,25 +504,32 @@ export default {
                     this.form.desglose_naviera;
 
                 if (sumatoriaTotal > 0) {
-                    this.form.monto_deposito = Number(sumatoriaTotal.toFixed(2));
+                    this.$set(this.form, 'monto_deposito', Number(sumatoriaTotal.toFixed(2)));
                 }
 
                 if (datos.cliente_detectado) {
                     const nombreExcel = datos.cliente_detectado.trim().toUpperCase();
                     const clienteEncontrado = this.opcionesCliente.find(c => c.nombre.trim().toUpperCase() === nombreExcel);
                     if (clienteEncontrado) {
-                        this.form.cliente = clienteEncontrado;
+                        this.$set(this.form, 'cliente', clienteEncontrado);
                     }
                 }
 
-                Swal.fire({ title: '¡Datos listos!', text: 'Montos cargados en el formulario.', icon: 'success', timer: 2000, showConfirmButton: false });
+                Swal.fire({ 
+                    title: '¡Datos listos!', 
+                    text: 'Montos y operaciones actualizados.', 
+                    icon: 'success', 
+                    timer: 2000, 
+                    showConfirmButton: false 
+                });
+
             } catch (error) {
                 console.error("🔍 ERROR CRUDO:", error);
                 let mensajeReal = 'No se pudo conectar con el servidor.';
                 if (error.response && error.response.data) {
-                  mensajeReal = error.response.data.message || error.response.data.error || mensajeReal;
+                    mensajeReal = error.response.data.message || error.response.data.error || mensajeReal;
                 } else if (error.message) {
-                  mensajeReal = "Error de Vue/JS: " + error.message;
+                    mensajeReal = "Error de Vue/JS: " + error.message;
                 }
                 Swal.fire({ title: 'Atención', text: mensajeReal, icon: (error.response && error.response.status === 404) ? 'info' : 'warning' });
             }
@@ -538,12 +544,14 @@ export default {
                 return Swal.fire('Atención', 'Selecciona o escribe al menos una referencia/pedimento.', 'warning');
             }
 
+            if (this.form.referenciasObj.length > 0 && (!this.form.operaciones || this.form.operaciones.length === 0)) {
+                return Swal.fire('Faltan Datos', 'Por favor presiona el botón azul de "Recalcular" para extraer los montos exactos antes de guardar.', 'warning');
+            }
+
             this.isSubmitting = true;
             const payload = { ...this.form };
 
             payload.cliente_id = payload.cliente.id || null;
-            
-            // 🔥 Sobrescribir la sucursal real antes de guardar en BD
             payload.sucursal_origen = this.sucursalReal;
 
             delete payload.cliente;
@@ -562,17 +570,33 @@ export default {
             if (payload.pedimento_detectado && !this.esManzanillo) {
                 payload.referencia = payload.pedimento_detectado;
             }
-
             delete payload.pedimento_detectado;
 
             try {
                 const response = await axios.put(`/ingresos-conciliados/${this.form.id}`, payload);
-                if (response.data.success) {
-                    Swal.fire({ title: '¡Actualizado!', text: 'Ingreso modificado correctamente.', icon: 'success', toast: true, position: 'top-end', timer: 3000, showConfirmButton: false });
+                
+                // 🔥 SOLUCIÓN AL MENSAJE: Quitamos el ".success" porque si llega aquí, ya es un éxito 100% seguro.
+                if (response.status === 200 || response.data) {
+                    Swal.fire({ 
+                        title: '¡Actualizado!', 
+                        text: response.data.message || 'Ingreso modificado correctamente.', 
+                        icon: 'success', 
+                        toast: true, 
+                        position: 'top-end', 
+                        timer: 3000, 
+                        showConfirmButton: false 
+                    });
                     this.$emit('ingreso-actualizado');
                 }
             } catch (error) {
-                Swal.fire('Error', 'Problema al guardar los cambios', 'error');
+                console.error("🔍 ERROR CRUDO:", error);
+                let mensajeReal = 'Problema al guardar los cambios';
+                
+                if (error.response && error.response.data && error.response.data.error) {
+                    mensajeReal = error.response.data.error;
+                }
+                
+                Swal.fire('Error', mensajeReal, 'error');
             } finally {
                 this.isSubmitting = false;
             }
@@ -581,13 +605,62 @@ export default {
 }
 </script>
 <style scoped>
-input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-:deep(.multiselect__tags) { border-color: #D1D5DB !important; padding-top: 10px !important; min-height: 48px !important; font-size: 16px !important; border-radius: 8px; overflow: hidden; }
-:deep(.multiselect__select) { height: 48px !important; }
-:deep(.multiselect__single), :deep(.multiselect__input) { font-size: 16px !important; margin-bottom: 0px !important; padding-top: 2px !important; }
-:deep(.multiselect__tag) { background-color: #2A3A4D !important; max-width: 100%; display: inline-flex; align-items: center; font-size: 14px !important; }
-:deep(.multiselect__tag > span) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-:deep(.multiselect__option--highlight) { background-color: #00C09F !important; }
-:deep(.multiselect__option) { font-size: 16px !important; white-space: normal !important; word-break: break-word !important; overflow-wrap: break-word !important; line-height: 1.5 !important; padding: 12px 16px !important; }
-:deep(.field-input) { min-height: 48px !important; font-size: 16px !important; border-radius: 8px !important; }
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+:deep(.multiselect__tags) {
+    border-color: #D1D5DB !important;
+    padding-top: 10px !important;
+    min-height: 48px !important;
+    font-size: 16px !important;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+:deep(.multiselect__select) {
+    height: 48px !important;
+}
+
+:deep(.multiselect__single),
+:deep(.multiselect__input) {
+    font-size: 16px !important;
+    margin-bottom: 0px !important;
+    padding-top: 2px !important;
+}
+
+:deep(.multiselect__tag) {
+    background-color: #2A3A4D !important;
+    max-width: 100%;
+    display: inline-flex;
+    align-items: center;
+    font-size: 14px !important;
+}
+
+:deep(.multiselect__tag > span) {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+:deep(.multiselect__option--highlight) {
+    background-color: #00C09F !important;
+}
+
+:deep(.multiselect__option) {
+    font-size: 16px !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    line-height: 1.5 !important;
+    padding: 12px 16px !important;
+}
+
+:deep(.field-input) {
+    min-height: 48px !important;
+    font-size: 16px !important;
+    border-radius: 8px !important;
+}
 </style>

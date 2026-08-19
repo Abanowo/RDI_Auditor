@@ -434,11 +434,11 @@ export default {
     Multiselect
   },
   props: {
-    subView: { type: String, default: 'OPERACIONES' },
     isPXCC: { type: Boolean, default: false }
   },
   data() {
     return {
+      subView: 'OPERACIONES',
       isLoading: false,
       controlFleteData: [],
       tableData: [],
@@ -624,6 +624,7 @@ export default {
     },
 
     changeSubView(view) {
+      this.subView = view;
       this.$emit('sub-view-change', view);
     },
     toggleAnticipo(id, isControlFlete) {
