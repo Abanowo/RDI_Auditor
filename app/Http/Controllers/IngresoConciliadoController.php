@@ -200,9 +200,30 @@ class IngresoConciliadoController extends Controller
 
     public function buscarEnSheet(Request $request)
     {
-        $terminosBuscados = $request->input('pedimentos', []);
+        $terminosCrudos = $request->input('pedimentos', []);
         $sucursalBuscada = strtoupper(trim($request->input('sucursal')));
         $tiposComprobante = $request->input('tipo_comprobante', []);
+
+        $terminosBuscados = [];
+        foreach ($terminosCrudos as $term) {
+            if (str_contains($term, ' - ')) {
+                $partes = explode(' - ', $term);
+                
+                // La primera parte siempre será el Folio (o el Pedimento si no hay folio)
+                $terminosBuscados[] = trim($partes[0]);
+                
+                // Si hay una segunda parte y contiene números, seguro es el Pedimento
+                if (isset($partes[1]) && preg_match('/[0-9]/', $partes[1])) {
+                    $terminosBuscados[] = trim($partes[1]);
+                }
+            } else {
+                // Si el usuario lo escribió a mano sin guiones (ej. "F-12345" o "6001945")
+                $terminosBuscados[] = trim($term);
+            }
+        }
+        
+        // Limpiamos vacíos y duplicados
+        $terminosBuscados = array_unique(array_filter($terminosBuscados));
 
         if (empty($terminosBuscados) || empty($sucursalBuscada)) {
             return response()->json(['error' => 'Faltan datos para buscar.'], 400);
@@ -468,7 +489,7 @@ class IngresoConciliadoController extends Controller
                                             } elseif ($key === 'honorarios' || str_contains($titulo, 'HONORARIO')) {
                                                 // Nada
                                             } else {
-                                                $anticipoAcumulado += $totalEfectivo;
+                                                $anticipoPref += $totalEfectivo;
                                             }
                                         }
                                     }
