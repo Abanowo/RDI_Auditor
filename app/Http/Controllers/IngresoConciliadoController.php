@@ -105,7 +105,7 @@ class IngresoConciliadoController extends Controller
 
         $esManzanillo = str_contains($sucursal, 'MANZANILLO') || str_contains($sucursal, 'INTSHIPPERT');
 
-        // Configuramos la hoja según la sucursal (Usamos "sheet" en lugar de "gid" para que sea dinámico)
+        // Configuramos la hoja según la sucursal
         if ($esManzanillo) {
             $sheetId = app()->environment('production') ? '18-5okzV-vw35V0Ugjn5KjNcWgHyZ9Qfc6pf5w4VU-2I' : '1zHUYpViLZyu_KPkNCUEx37WjoK0lVt7F0bC1B9Jo8s0';
             $nombrePestanaCodificado = 'ZLO';
@@ -114,7 +114,6 @@ class IngresoConciliadoController extends Controller
             $nombrePestanaCodificado = rawurlencode($sucursal);
         }
 
-        // Se usa 'sheet=' para que Google Sheets busque la pestaña por nombre automáticamente
         $csvUrl = "https://docs.google.com/spreadsheets/d/{$sheetId}/gviz/tq?tqx=out:csv&sheet={$nombrePestanaCodificado}";
 
         try {
@@ -139,19 +138,22 @@ class IngresoConciliadoController extends Controller
 
             $pedimentos = [];
 
-            // Posiciones por defecto
             $idxCliente = 1;
             $idxPedimento = 2;
+            $idxFacturaSC = 8; 
 
-            // Sabueso para buscar cabeceras
             foreach ($rows as $cols) {
                 foreach ($cols as $i => $col) {
                     $txt = strtolower(trim($col));
                     if (str_contains($txt, 'cliente')) {
                         $idxCliente = $i;
                     }
-                    if (str_contains($txt, 'pedimento') || str_contains($txt, 'folio')) {
+                    if (str_contains($txt, 'pedimento') && !str_contains($txt, 'folio')) {
                         $idxPedimento = $i;
+                    }
+
+                    if (str_contains($txt, 'factura sc') || str_contains($txt, 'folio sc')) {
+                        $idxFacturaSC = $i;
                     }
                 }
                 break;
@@ -165,23 +167,30 @@ class IngresoConciliadoController extends Controller
 
                 $clienteCelda = trim($cols[$idxCliente] ?? '');
                 $pedimentoCelda = trim($cols[$idxPedimento] ?? '');
+                $facturaCelda = trim($cols[$idxFacturaSC] ?? ''); // Leemos la Factura SC
 
                 if ($pedimentoCelda !== '' && $clienteCelda !== '') {
                     // Evitar incluir encabezados repetidos
                     if (strtoupper($clienteCelda) === 'CLIENTE' || strtoupper($pedimentoCelda) === 'PEDIMENTO') {
                         continue;
                     }
+                    
+                    $etiqueta = '';
+                    if ($facturaCelda !== '') {
+                        $etiqueta .= $facturaCelda . ' - ';
+                    }
+                    $etiqueta .= $pedimentoCelda . ' - ' . $clienteCelda;
 
                     $pedimentos[] = [
-                        'label' => $pedimentoCelda . ' - ' . $clienteCelda,
-                        'folio' => $pedimentoCelda,
+                        'label' => $etiqueta,
+                        'folio' => $etiqueta, // Guardamos todo en folio para que Vue lo atrape completo
                         'cliente' => strtoupper($clienteCelda)
                     ];
                 }
             }
 
-            // Eliminamos duplicados
-            $pedimentos = collect($pedimentos)->unique('folio')->values()->all();
+            // Eliminamos duplicados basados en la etiqueta completa
+            $pedimentos = collect($pedimentos)->unique('label')->values()->all();
 
             return response()->json($pedimentos);
         } catch (\Exception $e) {
@@ -1590,7 +1599,7 @@ class IngresoConciliadoController extends Controller
 
     public function generarComplemento(Request $request)
     {
-        // 1. Validamos SOLAMENTE los datos del complemento (quitamos los de factura para que no marque 422)
+        // 1. Validamos SOLAMENTE los datos del complemento
         $request->validate([
             'ingreso_id' => 'required|integer',
             'cliente_id' => 'required|integer',
@@ -1632,11 +1641,26 @@ class IngresoConciliadoController extends Controller
                 return response()->json(['error' => "El cliente no tiene configurado un código de Contpaqi para la sucursal {$sucursalBuscada}."], 400);
             }
 
+            // Obtenemos el folio ANTES de crear nada
+            $ingreso = IngresoConciliado::find($request->ingreso_id);
+            $foliosFacturas = $ingreso && !empty($ingreso->folio_sc) ? $ingreso->folio_sc : $request->referencia;
+
+            // Extraemos únicamente los números del folio
+            preg_match('/[0-9]+/', $foliosFacturas, $matches);
+            $folioFacturaLimpio = isset($matches[0]) ? (int) $matches[0] : 0;
+
+            if ($folioFacturaLimpio === 0) {
+                // Detenemos el proceso y mandamos la advertencia al frontend
+                return response()->json([
+                    'error' => "No se detectó un folio numérico válido en la referencia ('{$foliosFacturas}'). Por favor, valide en Contpaqi la existencia de la factura original y asegúrese de ingresarlo correctamente."
+                ], 422);
+            }
+
             // ==============================================================
             // PASO 1: CREAR EL COMPLEMENTO DE PAGO
             // ==============================================================
             $conceptoPagoCP = '100014.0';
-            $conceptoFactura = '520174.0'; // El concepto de la factura a saldar según tu JSON
+            $conceptoFactura = '520174.0';
 
             $payloadCrear = [
                 '$type' => 'CrearDocumentoRequest',
@@ -1677,14 +1701,6 @@ class IngresoConciliadoController extends Controller
             $resData = $responseCrear->json();
             $idRequest = $resData['data']['id'] ?? ($resData['id'] ?? null);
 
-            // Obtenemos los datos del Ingreso para extraer el folio de la factura original
-            $ingreso = IngresoConciliado::find($request->ingreso_id);
-            $foliosFacturas = $ingreso && !empty($ingreso->folio_sc) ? $ingreso->folio_sc : $request->referencia;
-
-            // Extraemos únicamente los números del folio (por si dice "ZLO6873" o "F-123")
-            preg_match('/[0-9]+/', $foliosFacturas, $matches);
-            $folioFacturaLimpio = isset($matches[0]) ? (int) $matches[0] : 0;
-
             // Extraemos los datos del Complemento devueltos por la API
             $folioComplemento = $resData['raw']['response']['contpaqiResponse']['model']['documento']['folio'] ?? null;
             $serieComplemento = $resData['raw']['response']['contpaqiResponse']['model']['documento']['serie'] ?? 'CP';
@@ -1699,14 +1715,13 @@ class IngresoConciliadoController extends Controller
             ]);
 
             // ==============================================================
-            // PASO 2: SALDAR LA FACTURA AUTOMÁTICAMENTE (Si hay folio disponible)
+            // PASO 2: SALDAR LA FACTURA AUTOMÁTICAMENTE
             // ==============================================================
             $resultadoSaldado = null;
-            $mensajeSaldado = "Complemento creado exitosamente, pero el folio es asíncrono y no se saldó la factura.";
+            $mensajeSaldado = "Complemento creado exitosamente, pero no se saldó la factura.";
             $saldadoExitoso = false;
 
             if ($folioComplemento && $folioFacturaLimpio > 0) {
-                // Formateamos la fecha en ISO 8601
                 $fechaAplicacion = $request->fecha_pago ? \Carbon\Carbon::parse($request->fecha_pago) : \Carbon\Carbon::now();
                 $fechaIso = $fechaAplicacion->toIso8601String();
 
@@ -1727,9 +1742,7 @@ class IngresoConciliadoController extends Controller
                         'importe' => (float) $request->total,
                         'monedaId' => (int) $request->moneda
                     ],
-                    'options' => [
-                        'cargarDatosExtra' => false
-                    ]
+                    'options' => ['cargarDatosExtra' => false]
                 ];
 
                 $responseSaldar = Http::withoutVerifying()
@@ -1738,18 +1751,17 @@ class IngresoConciliadoController extends Controller
 
                 if ($responseSaldar->successful()) {
                     $resultadoSaldado = $responseSaldar->json();
-
                     $isContpaqiSuccess = $resultadoSaldado['respuesta']['isSuccess'] ?? false;
 
                     if ($isContpaqiSuccess) {
-                        $mensajeSaldado = "Complemento creado y factura saldada correctamente en Contpaqi.";
+                        $mensajeSaldado = "Complemento creado y factura saldada correctamente en Contpaqi. Listo para revisión y timbrado.";
                         $saldadoExitoso = true;
                     } else {
-                        // Extraemos el error exacto de Contpaqi
+                        // Advertencia si Contpaqi no encuentra el folio
                         $errorContpaqi = $resultadoSaldado['respuesta']['errorMessage'] ?? 'Error desconocido al intentar saldar.';
-
+                        
                         if (str_contains($errorContpaqi, 'LlaveDocumento no existe')) {
-                            $mensajeSaldado = "Complemento creado, pero la factura no existe: [Concepto: '{$conceptoFactura}', Serie: '{$serieFactura}', Folio: '{$folioFacturaLimpio}'].";
+                            $mensajeSaldado = "ADVERTENCIA: El complemento fue creado (Folio: {$folioComplemento}), pero la Factura Original (Serie: {$serieFactura} | Folio: {$folioFacturaLimpio}) NO EXISTE en Contpaqi. Por favor, valide en el sistema Contpaqi.";
                         } else {
                             $mensajeSaldado = "Complemento creado, pero NO se pudo saldar: " . $errorContpaqi;
                         }
@@ -1757,60 +1769,77 @@ class IngresoConciliadoController extends Controller
                 } else {
                     $mensajeSaldado = "Complemento creado, pero hubo un error de conexión al saldar: " . $responseSaldar->body();
                 }
-            } elseif (!$folioFacturaLimpio) {
-                $mensajeSaldado = "Complemento creado, pero no se detectó un folio de factura válido para saldar.";
-            }
-            // ==============================================================
-            // PASO 3: TIMBRAR EL COMPLEMENTO DE PAGO ANTE EL SAT
-            // ==============================================================
-            $resultadoTimbre = null; 
-            
-            // Esto es en base al generado del complemento, si no hay folio, no se puede timbrar. En caso de que se requiera desde 
-            if ($folioComplemento) {
-                $payloadTimbrar = [
-                    '$type' => 'TimbrarDocumentoRequest',
-                    'model' => [
-                        'llaveDocumento' => [
-                            'conceptoCodigo' => $conceptoPagoCP,
-                            'serie'          => $serieComplemento,
-                            'folio'          => (int) $folioComplemento
-                        ],
-                        'contrasenaCertificado' => 'INT081028GF0'
-                    ],
-                    'options' => new \stdClass() 
-                ];
-
-                $responseTimbrar = Http::withoutVerifying()
-                    ->timeout(45)
-                    ->post('https://sistema.intactics.com/v3/contpaqi/api/requests', $payloadTimbrar);
-
-                if ($responseTimbrar->successful()) {
-                    $resultadoTimbre = $responseTimbrar->json();
-                    if (isset($resultadoTimbre['respuesta']['isSuccess']) && $resultadoTimbre['respuesta']['isSuccess']) {
-                        $mensajeSaldado .= " ¡Y el documento fue TIMBRADO con éxito!";
-                    } else {
-                        $errorTimbre = $resultadoTimbre['respuesta']['errorMessage'] ?? 'Error desconocido al timbrar.';
-                        $mensajeSaldado .= " Pero falló al timbrar: " . $errorTimbre;
-                    }
-                } else {
-                    $errorBody = $responseTimbrar->body();
-                    $mensajeSaldado .= " Error de API al timbrar (Código " . $responseTimbrar->status() . "): " . $errorBody;
-                }
             }
 
             return response()->json([
                 'success' => true, 
                 'saldado' => $saldadoExitoso, 
                 'message' => $mensajeSaldado,
+                'serie'   => $serieComplemento,
+                'folio'   => $folioComplemento,
                 'data_complemento' => $resData,
-                'data_saldado' => $resultadoSaldado,
-                'data_timbre' => $resultadoTimbre
+                'data_saldado' => $resultadoSaldado
             ]);
         } catch (\Exception $e) {
             return response()->json(['error' => 'Error interno: ' . $e->getMessage()], 500);
         }
     }
+    public function timbrarComplemento(Request $request)
+    {
+        $request->validate([
+            'serie' => 'required|string',
+            'folio' => 'required|integer',
+            'concepto_codigo' => 'nullable|string'
+        ]);
 
+        try {
+            $conceptoPagoCP = $request->concepto_codigo ?? '100014.0';
+
+            $payloadTimbrar = [
+                '$type' => 'TimbrarDocumentoRequest',
+                'model' => [
+                    'llaveDocumento' => [
+                        'conceptoCodigo' => $conceptoPagoCP,
+                        'serie'          => $request->serie,
+                        'folio'          => (int) $request->folio
+                    ],
+                    'contrasenaCertificado' => 'INT081028GF0'
+                ],
+                'options' => new \stdClass() 
+            ];
+
+            $responseTimbrar = Http::withoutVerifying()
+                ->timeout(45)
+                ->post('https://sistema.intactics.com/v3/contpaqi/api/requests', $payloadTimbrar);
+
+            if ($responseTimbrar->successful()) {
+                $resultadoTimbre = $responseTimbrar->json();
+                $isSuccess = $resultadoTimbre['respuesta']['isSuccess'] ?? false;
+
+                if ($isSuccess) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => '¡El Complemento fue TIMBRADO con éxito ante el SAT!',
+                        'data' => $resultadoTimbre
+                    ]);
+                } else {
+                    $errorTimbre = $resultadoTimbre['respuesta']['errorMessage'] ?? 'Error devuelto por el PAC/SAT.';
+                    return response()->json([
+                        'success' => false,
+                        'error' => 'Fallo al timbrar: ' . $errorTimbre
+                    ], 400);
+                }
+            }
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Error de conexión al intentar timbrar (Código ' . $responseTimbrar->status() . '). ' . $responseTimbrar->body()
+            ], $responseTimbrar->status());
+
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'error' => 'Error interno al timbrar: ' . $e->getMessage()], 500);
+        }
+    }
     public function verComplementoPdf($id)
     {
         try {

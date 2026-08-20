@@ -548,6 +548,22 @@ export default {
                 return Swal.fire('Faltan Datos', 'Por favor presiona el botón azul de "Recalcular" para extraer los montos exactos antes de guardar.', 'warning');
             }
 
+            const confirmacion = await Swal.fire({
+                title: '¿Guardar cambios?',
+                text: "¿Estás seguro de que deseas actualizar este ingreso? Esta acción modificará los montos registrados.",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#2563eb',
+                cancelButtonColor: '#9ca3af',
+                confirmButtonText: 'Sí, actualizar',
+                cancelButtonText: 'Cancelar',
+                reverseButtons: true
+            });
+
+            if (!confirmacion.isConfirmed) {
+                return; 
+            }
+
             this.isSubmitting = true;
             const payload = { ...this.form };
 

@@ -111,12 +111,24 @@
       </div>
 
       <!-- Footer -->
-      <div class="bg-gray-50 px-8 py-6 flex justify-end gap-6 rounded-b-xl border-t shrink-0">
+      <div class="bg-gray-50 px-8 py-6 flex justify-end gap-4 rounded-b-xl border-t shrink-0">
         <button @click="cerrar"
-          class="px-8 py-4 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 font-bold transition-colors text-xl shadow-sm">Cancelar</button>
-        <button @click="enviarComplemento"
-          class="px-8 py-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold transition-colors flex items-center text-xl shadow-sm">
-          Generar Documento
+          class="px-6 py-4 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 font-bold transition-colors text-xl shadow-sm">
+          Cancelar
+        </button>
+
+        <!-- (Se deshabilita si ya tiene folio_complemento) -->
+        <button @click="enviarComplemento" :disabled="!!ingreso.folio_complemento"
+          :class="['px-6 py-4 rounded-lg font-bold transition-colors flex items-center text-xl shadow-sm',
+            !!ingreso.folio_complemento ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700']">
+          Generar Complemento
+        </button>
+
+        <!-- (Se deshabilita si NO tiene folio_complemento) -->
+        <button @click="timbrarComplemento" :disabled="!ingreso.folio_complemento"
+          :class="['px-6 py-4 rounded-lg font-bold transition-colors flex items-center text-xl shadow-sm',
+            !ingreso.folio_complemento ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700']">
+          Timbrar
         </button>
       </div>
     </div>
@@ -238,26 +250,29 @@ export default {
     enviarComplemento() {
       const payloadLimpio = {
         ingreso_id: this.ingreso.id,
-        cliente_id: this.ingreso.cliente_id, // Asumiendo que el objeto ingreso trae el ID del cliente
+        cliente_id: this.ingreso.cliente_id,
         sucursal: this.ingreso.sucursal_origen,
-
-        // Laravel pide 'integer' para la moneda (Contpaqi usa 1 para MXN y 2 para USD)
         moneda: this.form.monedaObj && this.form.monedaObj.value === 'USD' ? 2 : 1,
-
         tipo_cambio: this.form.tipo_cambio,
         referencia: this.form.referencia,
         observaciones: this.form.observaciones,
-
-        // Laravel lo espera como 'total', no como 'suma_total'
         total: this.sumaTotal,
-
-        // Extraemos solo los valores de los multiselects
         forma_pago: this.form.formaPagoObj ? this.form.formaPagoObj.value : '',
         metodo_pago: this.form.metodoPagoObj ? this.form.metodoPagoObj.value : 'PPD',
       };
 
-      // Emitimos el paquete ya limpio hacia el componente Padre
       this.$emit('generar', payloadLimpio);
+      this.cerrar();
+    },
+
+    timbrarComplemento() {
+      const payloadTimbre = {
+        ingreso_id: this.ingreso.id,
+        serie: this.ingreso.serie_complemento || 'CP',
+        folio: this.ingreso.folio_complemento
+      };
+
+      this.$emit('timbrar', payloadTimbre);
       this.cerrar();
     }
   }

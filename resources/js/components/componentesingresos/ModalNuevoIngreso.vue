@@ -61,15 +61,18 @@
 
         <div class="col-span-1">
           <label class="block text-base font-bold text-gray-500 uppercase mb-2">
-            PEDIMENTOS / FOLIOS DISPONIBLES *
+            FOLIOS / PEDIMENTOS DISPONIBLES *
           </label>
+
           <div class="flex w-full min-w-0">
+            <!-- 🔥 Multiselect Inteligente 🔥 -->
             <multiselect v-model="form.referenciasObj" :options="opcionesPedimentos" :multiple="true" :taggable="true"
               @tag="agregarReferencia" track-by="label" label="label" :loading="cargandoSheet"
-              :disabled="!form.sucursal_origen" placeholder="Seleccione folios o escriba..."
+              :disabled="!form.sucursal_origen" placeholder="Seleccione o escriba folio/pedimento..."
               class="w-full min-w-0 flex-1 text-xl">
-              <template slot="noResult">No se encontraron folios para este cliente</template>
+              <template slot="noResult">No se encontraron datos para este cliente</template>
             </multiselect>
+
             <button @click="buscarYRecalcularPedimento" type="button" title="Calcular montos desde XML/Sheet"
               :disabled="cargandoSheet"
               class="bg-blue-500 hover:bg-blue-600 text-white px-5 py-4 rounded-r transition-colors flex items-center justify-center -ml-1 z-10 shrink-0 disabled:opacity-50">
@@ -228,9 +231,7 @@
   </div>
 </template>
 
-<!-- (Mantener script y style provistos anteriormente, el comportamiento no cambia, asegúrate de tener el style que formatea los selects a 48px que te dejé en el componente principal) -->
 <script>
-// El bloque <script> se mantiene idéntico, ya que solo necesitas el reajuste visual.
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import Multiselect from 'vue-multiselect';
@@ -252,7 +253,6 @@ export default {
       cargandoSheet: false,
       pedimentosSheet: [],
       tiposComprobanteArray: ['CFDI'],
-      // 🔥 Nuevas variables para los checkboxes manuales
       checkTransportactics: false,
       checkIntshipperts: false,
       form: {
@@ -291,7 +291,6 @@ export default {
     }
   },
   computed: {
-    // 🔥 Computadas para decidir si mostrar o no los checkboxes
     sucursalSeleccionada() {
       const s = this.form.sucursal_origen;
       return typeof s === 'object' && s !== null ? (s.nombre || s.id) : (s || '');
@@ -402,16 +401,11 @@ export default {
     },
 
     agregarReferencia(nuevaReferencia) {
-      // 1. Creamos el objeto con la estructura que usa tu multiselect
       const nuevaEtiqueta = {
         label: nuevaReferencia,
-        id: nuevaReferencia // O 'value', dependiendo de qué uses como identificador
+        id: nuevaReferencia
       };
-
-      // 2. Lo agregamos a las opciones disponibles para que no marque error
       this.opcionesPedimentos.push(nuevaEtiqueta);
-
-      // 3. Lo seleccionamos automáticamente agregándolo al v-model
       this.form.referenciasObj.push(nuevaEtiqueta);
     },
 
@@ -431,16 +425,18 @@ export default {
 
     async buscarYRecalcularPedimento() {
       if (!this.form.sucursal_origen || this.form.referenciasObj.length === 0) {
-        return Swal.fire('Atención', 'Selecciona la sucursal y agrega al menos un folio.', 'warning');
+        return Swal.fire('Atención', 'Selecciona la sucursal y agrega al menos un dato de búsqueda.', 'warning');
       }
 
+      // 🔥 Lógica de extracción inteligente unificada
+      // Solo enviamos los textos crudos, el backend será el encargado de buscar coincidencias
       let pedimentosLimpios = this.form.referenciasObj.map(ref => {
-        return ref.folio ? String(ref.folio).replace('F-', '').trim() : String(ref.label);
+        return ref.folio ? String(ref.folio).trim() : String(ref.label).trim();
       }).filter(r => r !== '');
 
       Swal.fire({
         title: 'Calculando...',
-        text: 'Buscando folios en el sistema...',
+        text: 'Buscando información en el sistema...',
         allowOutsideClick: false,
         didOpen: () => { Swal.showLoading(); }
       });
@@ -558,7 +554,6 @@ export default {
       try {
         const response = await axios.post(`/ingresos-conciliados`, payload);
 
-        // Mensaje de éxito leyendo la respuesta del backend
         Swal.fire({
           title: '¡Guardado!',
           text: response.data.message || 'Ingreso registrado correctamente.',

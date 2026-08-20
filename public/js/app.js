@@ -9709,6 +9709,18 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 
 
 
@@ -9874,22 +9886,25 @@ __webpack_require__.r(__webpack_exports__);
       var payloadLimpio = {
         ingreso_id: this.ingreso.id,
         cliente_id: this.ingreso.cliente_id,
-        // Asumiendo que el objeto ingreso trae el ID del cliente
         sucursal: this.ingreso.sucursal_origen,
-        // Laravel pide 'integer' para la moneda (Contpaqi usa 1 para MXN y 2 para USD)
         moneda: this.form.monedaObj && this.form.monedaObj.value === 'USD' ? 2 : 1,
         tipo_cambio: this.form.tipo_cambio,
         referencia: this.form.referencia,
         observaciones: this.form.observaciones,
-        // Laravel lo espera como 'total', no como 'suma_total'
         total: this.sumaTotal,
-        // Extraemos solo los valores de los multiselects
         forma_pago: this.form.formaPagoObj ? this.form.formaPagoObj.value : '',
         metodo_pago: this.form.metodoPagoObj ? this.form.metodoPagoObj.value : 'PPD'
       };
-
-      // Emitimos el paquete ya limpio hacia el componente Padre
       this.$emit('generar', payloadLimpio);
+      this.cerrar();
+    },
+    timbrarComplemento: function timbrarComplemento() {
+      var payloadTimbre = {
+        ingreso_id: this.ingreso.id,
+        serie: this.ingreso.serie_complemento || 'CP',
+        folio: this.ingreso.folio_complemento
+      };
+      this.$emit('timbrar', payloadTimbre);
       this.cerrar();
     }
   }
@@ -10497,7 +10512,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     guardarIngreso: function guardarIngreso() {
       var _this3 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
-        var payload, response, mensajeReal, _t3;
+        var confirmacion, payload, response, mensajeReal, _t3;
         return _regenerator().w(function (_context3) {
           while (1) switch (_context3.n) {
             case 0:
@@ -10519,6 +10534,26 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               }
               return _context3.a(2, sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Faltan Datos', 'Por favor presiona el botón azul de "Recalcular" para extraer los montos exactos antes de guardar.', 'warning'));
             case 3:
+              _context3.n = 4;
+              return sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
+                title: '¿Guardar cambios?',
+                text: "¿Estás seguro de que deseas actualizar este ingreso? Esta acción modificará los montos registrados.",
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#2563eb',
+                cancelButtonColor: '#9ca3af',
+                confirmButtonText: 'Sí, actualizar',
+                cancelButtonText: 'Cancelar',
+                reverseButtons: true
+              });
+            case 4:
+              confirmacion = _context3.v;
+              if (confirmacion.isConfirmed) {
+                _context3.n = 5;
+                break;
+              }
+              return _context3.a(2);
+            case 5:
               _this3.isSubmitting = true;
               payload = _objectSpread({}, _this3.form);
               payload.cliente_id = payload.cliente.id || null;
@@ -10539,10 +10574,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
                 payload.referencia = payload.pedimento_detectado;
               }
               delete payload.pedimento_detectado;
-              _context3.p = 4;
-              _context3.n = 5;
+              _context3.p = 6;
+              _context3.n = 7;
               return axios__WEBPACK_IMPORTED_MODULE_5__["default"].put("/ingresos-conciliados/".concat(_this3.form.id), payload);
-            case 5:
+            case 7:
               response = _context3.v;
               // 🔥 SOLUCIÓN AL MENSAJE: Quitamos el ".success" porque si llega aquí, ya es un éxito 100% seguro.
               if (response.status === 200 || response.data) {
@@ -10557,10 +10592,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
                 });
                 _this3.$emit('ingreso-actualizado');
               }
-              _context3.n = 7;
+              _context3.n = 9;
               break;
-            case 6:
-              _context3.p = 6;
+            case 8:
+              _context3.p = 8;
               _t3 = _context3.v;
               console.error("🔍 ERROR CRUDO:", _t3);
               mensajeReal = 'Problema al guardar los cambios';
@@ -10568,14 +10603,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
                 mensajeReal = _t3.response.data.error;
               }
               sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Error', mensajeReal, 'error');
-            case 7:
-              _context3.p = 7;
+            case 9:
+              _context3.p = 9;
               _this3.isSubmitting = false;
-              return _context3.f(7);
-            case 8:
+              return _context3.f(9);
+            case 10:
               return _context3.a(2);
           }
-        }, _callee3, null, [[4, 6, 7, 8]]);
+        }, _callee3, null, [[6, 8, 9, 10]]);
       }))();
     }
   }
@@ -11034,8 +11069,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 //
 //
 //
+//
+//
 
-// El bloque <script> se mantiene idéntico, ya que solo necesitas el reajuste visual.
 
 
 
@@ -11059,7 +11095,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       cargandoSheet: false,
       pedimentosSheet: [],
       tiposComprobanteArray: ['CFDI'],
-      // 🔥 Nuevas variables para los checkboxes manuales
       checkTransportactics: false,
       checkIntshipperts: false,
       form: {
@@ -11098,7 +11133,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     };
   },
   computed: {
-    // 🔥 Computadas para decidir si mostrar o no los checkboxes
     sucursalSeleccionada: function sucursalSeleccionada() {
       var s = this.form.sucursal_origen;
       return _typeof(s) === 'object' && s !== null ? s.nombre || s.id : s || '';
@@ -11196,16 +11230,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }).format(parseFloat(monto) || 0);
     },
     agregarReferencia: function agregarReferencia(nuevaReferencia) {
-      // 1. Creamos el objeto con la estructura que usa tu multiselect
       var nuevaEtiqueta = {
         label: nuevaReferencia,
-        id: nuevaReferencia // O 'value', dependiendo de qué uses como identificador
+        id: nuevaReferencia
       };
-
-      // 2. Lo agregamos a las opciones disponibles para que no marque error
       this.opcionesPedimentos.push(nuevaEtiqueta);
-
-      // 3. Lo seleccionamos automáticamente agregándolo al v-model
       this.form.referenciasObj.push(nuevaEtiqueta);
     },
     cargarListaPedimentos: function cargarListaPedimentos() {
@@ -11253,16 +11282,18 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
                 _context2.n = 1;
                 break;
               }
-              return _context2.a(2, sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Atención', 'Selecciona la sucursal y agrega al menos un folio.', 'warning'));
+              return _context2.a(2, sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Atención', 'Selecciona la sucursal y agrega al menos un dato de búsqueda.', 'warning'));
             case 1:
+              // 🔥 Lógica de extracción inteligente unificada
+              // Solo enviamos los textos crudos, el backend será el encargado de buscar coincidencias
               pedimentosLimpios = _this2.form.referenciasObj.map(function (ref) {
-                return ref.folio ? String(ref.folio).replace('F-', '').trim() : String(ref.label);
+                return ref.folio ? String(ref.folio).trim() : String(ref.label).trim();
               }).filter(function (r) {
                 return r !== '';
               });
               sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
                 title: 'Calculando...',
-                text: 'Buscando folios en el sistema...',
+                text: 'Buscando información en el sistema...',
                 allowOutsideClick: false,
                 didOpen: function didOpen() {
                   sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().showLoading();
@@ -11395,7 +11426,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               return axios__WEBPACK_IMPORTED_MODULE_5__["default"].post("/ingresos-conciliados", payload);
             case 3:
               response = _context3.v;
-              // Mensaje de éxito leyendo la respuesta del backend
               sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
                 title: '¡Guardado!',
                 text: response.data.message || 'Ingreso registrado correctamente.',
@@ -88165,27 +88195,47 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "bg-gray-50 px-8 py-6 flex justify-end gap-6 rounded-b-xl border-t shrink-0",
+                    "bg-gray-50 px-8 py-6 flex justify-end gap-4 rounded-b-xl border-t shrink-0",
                 },
                 [
                   _c(
                     "button",
                     {
                       staticClass:
-                        "px-8 py-4 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 font-bold transition-colors text-xl shadow-sm",
+                        "px-6 py-4 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 font-bold transition-colors text-xl shadow-sm",
                       on: { click: _vm.cerrar },
                     },
-                    [_vm._v("Cancelar")]
+                    [_vm._v("\n        Cancelar\n      ")]
                   ),
                   _vm._v(" "),
                   _c(
                     "button",
                     {
-                      staticClass:
-                        "px-8 py-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold transition-colors flex items-center text-xl shadow-sm",
+                      class: [
+                        "px-6 py-4 rounded-lg font-bold transition-colors flex items-center text-xl shadow-sm",
+                        !!_vm.ingreso.folio_complemento
+                          ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+                          : "bg-indigo-600 text-white hover:bg-indigo-700",
+                      ],
+                      attrs: { disabled: !!_vm.ingreso.folio_complemento },
                       on: { click: _vm.enviarComplemento },
                     },
-                    [_vm._v("\n        Generar Documento\n      ")]
+                    [_vm._v("\n        Generar Complemento\n      ")]
+                  ),
+                  _vm._v(" "),
+                  _c(
+                    "button",
+                    {
+                      class: [
+                        "px-6 py-4 rounded-lg font-bold transition-colors flex items-center text-xl shadow-sm",
+                        !_vm.ingreso.folio_complemento
+                          ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+                          : "bg-green-600 text-white hover:bg-green-700",
+                      ],
+                      attrs: { disabled: !_vm.ingreso.folio_complemento },
+                      on: { click: _vm.timbrarComplemento },
+                    },
+                    [_vm._v("\n        Timbrar\n      ")]
                   ),
                 ]
               ),
@@ -90380,7 +90430,7 @@ var render = function () {
                   },
                   [
                     _vm._v(
-                      "\n          PEDIMENTOS / FOLIOS DISPONIBLES *\n        "
+                      "\n          FOLIOS / PEDIMENTOS DISPONIBLES *\n        "
                     ),
                   ]
                 ),
@@ -90401,7 +90451,8 @@ var render = function () {
                           label: "label",
                           loading: _vm.cargandoSheet,
                           disabled: !_vm.form.sucursal_origen,
-                          placeholder: "Seleccione folios o escriba...",
+                          placeholder:
+                            "Seleccione o escriba folio/pedimento...",
                         },
                         on: { tag: _vm.agregarReferencia },
                         model: {
@@ -90414,7 +90465,7 @@ var render = function () {
                       },
                       [
                         _c("template", { slot: "noResult" }, [
-                          _vm._v("No se encontraron folios para este cliente"),
+                          _vm._v("No se encontraron datos para este cliente"),
                         ]),
                       ],
                       2
