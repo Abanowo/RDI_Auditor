@@ -136,6 +136,9 @@
 </template>
 
 <script>
+import axios from 'axios';
+import Swal from 'sweetalert2';
+
 import Multiselect from 'vue-multiselect';
 import 'vue-multiselect/dist/vue-multiselect.min.css';
 
@@ -262,18 +265,45 @@ export default {
       };
 
       this.$emit('generar', payloadLimpio);
-      this.cerrar();
     },
 
-    timbrarComplemento() {
+    async timbrarComplemento() {
       const payloadTimbre = {
         ingreso_id: this.ingreso.id,
         serie: this.ingreso.serie_complemento || 'CP',
         folio: this.ingreso.folio_complemento
       };
 
-      this.$emit('timbrar', payloadTimbre);
-      this.cerrar();
+      try {
+        Swal.fire({
+          title: 'Timbrando...',
+          text: 'Conectando con el SAT a través de Contpaqi...',
+          allowOutsideClick: false,
+          didOpen: () => { Swal.showLoading(); }
+        });
+
+        // Enviamos el paquete que acabamos de armar
+        const response = await axios.post('/ingresos-conciliados/timbrar-complemento', payloadTimbre);
+
+        if (response.data.success) {
+          Swal.fire('¡Éxito!', response.data.message, 'success');
+        
+          this.$emit('ingreso-actualizado');
+          this.$emit('cerrar'); 
+        }
+      } catch (error) {
+        console.error("Detalle del error:", error); // Imprime el error real en la consola
+        
+        // Atrapa errores del servidor o errores locales de Vue
+        let msjError = 'Error desconocido al timbrar';
+        if (error.response && error.response.data && error.response.data.error) {
+            msjError = error.response.data.error; // Mensaje que viene de Laravel
+        } else if (error.message) {
+            msjError = error.message; // Mensaje local de Javascript (ej. variable no definida)
+        }
+        
+        Swal.fire('Error al Timbrar', msjError, 'error');
+      }
     }
   }
 };
