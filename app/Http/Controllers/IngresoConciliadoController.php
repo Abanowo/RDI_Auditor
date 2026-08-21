@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class IngresoConciliadoController extends Controller
 {
@@ -1497,7 +1498,7 @@ class IngresoConciliadoController extends Controller
 
             $logDebug[] = "1. Buscando pedimento: {$pedimentoBusqueda}";
 
-            $pedimentoDB = \Illuminate\Support\Facades\DB::table('pedimiento')
+            $pedimentoDB = DB::table('pedimiento')
                 ->where('num_pedimiento', 'LIKE', "%{$pedimentoBusqueda}%")
                 ->orderBy('id_pedimiento', 'desc')
                 ->first();
@@ -1666,6 +1667,9 @@ class IngresoConciliadoController extends Controller
             $ingreso = IngresoConciliado::find($request->ingreso_id);
             $foliosFacturas = $ingreso && !empty($ingreso->folio_sc) ? $ingreso->folio_sc : $request->referencia;
 
+            $fechaIngreso = $ingreso && $ingreso->fecha ? Carbon::parse($ingreso->fecha) : Carbon::now();
+            $fechaIngresoIso = $fechaIngreso->toIso8601String();
+
             // Extraemos únicamente los números del folio
             preg_match('/[0-9]+/', $foliosFacturas, $matches);
             $folioFacturaLimpio = isset($matches[0]) ? (int) $matches[0] : 0;
@@ -1689,6 +1693,7 @@ class IngresoConciliadoController extends Controller
                     'documento' => [
                         'concepto' => ['codigo' => $conceptoPagoCP],
                         'cliente' => ['codigo' => $codigoContpaqi],
+                        'fecha' => $fechaIngresoIso,
                         'moneda' => ['id' => (int) $request->moneda],
                         'tipoCambio' => (float) $request->tipo_cambio,
                         'referencia' => $request->referencia ?? '',
@@ -1699,7 +1704,7 @@ class IngresoConciliadoController extends Controller
                     ]
                 ],
                 'options' => [
-                    'usarFechaDelDia' => true,
+                    'usarFechaDelDia' => false,
                     'buscarSiguienteFolio' => true,
                     'crearActualizarCatalogos' => false,
                     'crearActualizarCliente' => false,
@@ -1732,7 +1737,7 @@ class IngresoConciliadoController extends Controller
                 'serie' => $serieComplemento,
                 'folio_factura' => $foliosFacturas,
                 'folio' => $folioComplemento,
-                'fecha' => \Carbon\Carbon::now()
+                'fecha' => $fechaIngreso
             ]);
 
             // ==============================================================
@@ -1743,7 +1748,7 @@ class IngresoConciliadoController extends Controller
             $saldadoExitoso = false;
 
             if ($folioComplemento && $folioFacturaLimpio > 0) {
-                $fechaAplicacion = $request->fecha_pago ? \Carbon\Carbon::parse($request->fecha_pago) : \Carbon\Carbon::now();
+                $fechaAplicacion = $request->fecha_pago ? Carbon::parse($request->fecha_pago) : $fechaIngreso;
                 $fechaIso = $fechaAplicacion->toIso8601String();
 
                 $payloadSaldar = [
