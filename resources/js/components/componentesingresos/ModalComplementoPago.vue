@@ -17,7 +17,9 @@
       <!-- Body -->
       <div class="p-8 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-3 gap-8">
 
-        <!-- Datos Generales -->
+        <!-- ========================================== -->
+        <!-- DATOS GENERALES (AQUÍ AGREGAMOS BANCO Y FECHA) -->
+        <!-- ========================================== -->
         <div class="col-span-1 md:col-span-2">
           <label class="block text-lg font-bold text-gray-700 mb-2 uppercase">Cliente</label>
           <input type="text" :value="ingreso.cliente" disabled
@@ -30,9 +32,19 @@
             class="w-full border-gray-300 bg-gray-100 rounded-lg shadow-sm px-5 py-4 text-xl text-gray-700 font-semibold cursor-not-allowed">
         </div>
 
-        <!-- ========================================== -->
-        <!-- SECCIÓN DE MONTOS SEPARADOS                -->
-        <!-- ========================================== -->
+        <div class="col-span-1 md:col-span-2">
+          <label class="block text-lg font-bold text-gray-700 mb-2 uppercase">Banco</label>
+          <input type="text" :value="ingreso.banco_receptor || 'N/A'" disabled
+            class="w-full border-gray-300 bg-gray-100 rounded-lg shadow-sm px-5 py-4 text-xl text-gray-700 font-semibold cursor-not-allowed">
+        </div>
+
+        <div class="col-span-1">
+          <label class="block text-lg font-bold text-gray-700 mb-2 uppercase">Fecha</label>
+          <input type="text" :value="ingreso.fecha || 'N/A'" disabled
+            class="w-full border-gray-300 bg-gray-100 rounded-lg shadow-sm px-5 py-4 text-xl text-gray-700 font-semibold cursor-not-allowed">
+        </div>
+
+        <!-- SECCIÓN DE MONTOS SEPARADOS -->
         <div
           class="col-span-1 md:col-span-3 border-2 border-indigo-100 bg-indigo-50/30 rounded-xl p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
 
@@ -66,7 +78,6 @@
           </div>
 
         </div>
-        <!-- ========================================== -->
 
         <!-- Configuraciones del Complemento -->
         <div class="col-span-1">
@@ -117,14 +128,12 @@
           Cancelar
         </button>
 
-        <!-- (Se deshabilita si ya tiene folio_complemento) -->
         <button @click="enviarComplemento" :disabled="!!ingreso.folio_complemento"
           :class="['px-6 py-4 rounded-lg font-bold transition-colors flex items-center text-xl shadow-sm',
             !!ingreso.folio_complemento ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700']">
           Generar Complemento
         </button>
 
-        <!-- (Se deshabilita si NO tiene folio_complemento) -->
         <button @click="timbrarComplemento" :disabled="!ingreso.folio_complemento"
           :class="['px-6 py-4 rounded-lg font-bold transition-colors flex items-center text-xl shadow-sm',
             !ingreso.folio_complemento ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700']">
@@ -138,7 +147,6 @@
 <script>
 import axios from 'axios';
 import Swal from 'sweetalert2';
-
 import Multiselect from 'vue-multiselect';
 import 'vue-multiselect/dist/vue-multiselect.min.css';
 
@@ -282,26 +290,24 @@ export default {
           didOpen: () => { Swal.showLoading(); }
         });
 
-        // Enviamos el paquete que acabamos de armar
         const response = await axios.post('/ingresos-conciliados/timbrar-complemento', payloadTimbre);
 
         if (response.data.success) {
           Swal.fire('¡Éxito!', response.data.message, 'success');
-        
+
           this.$emit('ingreso-actualizado');
-          this.$emit('cerrar'); 
+          this.$emit('cerrar');
         }
       } catch (error) {
-        console.error("Detalle del error:", error); // Imprime el error real en la consola
-        
-        // Atrapa errores del servidor o errores locales de Vue
+        console.error("Detalle del error:", error);
+
         let msjError = 'Error desconocido al timbrar';
         if (error.response && error.response.data && error.response.data.error) {
-            msjError = error.response.data.error; // Mensaje que viene de Laravel
+          msjError = error.response.data.error;
         } else if (error.message) {
-            msjError = error.message; // Mensaje local de Javascript (ej. variable no definida)
+          msjError = error.message;
         }
-        
+
         Swal.fire('Error al Timbrar', msjError, 'error');
       }
     }

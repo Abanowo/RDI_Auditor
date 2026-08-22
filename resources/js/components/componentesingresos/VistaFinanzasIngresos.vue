@@ -676,6 +676,9 @@
     <ModalVerDocumento :mostrar="showModalVerDocumento" :url-pdf="urlDocumentoActivo" :titulo="tituloDocumentoActivo"
       @cerrar="showModalVerDocumento = false" />
 
+    <ModalEnviarCorreo :mostrar="showModalEnviarCorreo" :ingreso-id="ingresoIdParaCorreo"
+      @cerrar="showModalEnviarCorreo = false" />
+
   </div>
 </template>
 
@@ -693,6 +696,7 @@ import ModalEditarSaldoFavor from './ModalEditarSaldoFavor.vue';
 import ModalEditarIngreso from './ModalEditarIngreso.vue';
 import ModalComplementoPago from './ModalComplementoPago.vue';
 import ModalVerDocumento from './ModalVerDocumento.vue';
+import ModalEnviarCorreo from './ModalEnviarCorreo.vue';
 
 export default {
   name: 'VistaFinanzasIngresos',
@@ -703,6 +707,7 @@ export default {
     ModalEditarIngreso,
     ModalComplementoPago,
     ModalVerDocumento,
+    ModalEnviarCorreo,
     Multiselect,
     VueCtkDateTimePicker
   },
@@ -714,6 +719,9 @@ export default {
       showModalEditarSaldo: false,
       showModalEditarIngreso: false,
       showModalComplemento: false,
+
+      showModalEnviarCorreo: false,
+      ingresoParaCorreo: null,
 
       ingresoAEditar: null,
       saldoAEditar: null,
@@ -1157,46 +1165,8 @@ export default {
       }
     },
     enviarCorreoComplemento(item) {
-      Swal.fire({
-        title: 'Enviar Complemento',
-        text: `¿A qué correo deseas enviar el documento ${item.cliente}?`,
-        input: 'email',
-        inputPlaceholder: 'correo@ejemplo.com',
-        // Opcional: Si en 'item' tienes el correo del cliente, ponlo por defecto
-        inputValue: item.correo_cliente || '', 
-        showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
-        confirmButtonText: 'Enviar Correo',
-        cancelButtonText: 'Cancelar',
-        showLoaderOnConfirm: true,
-        preConfirm: (correoIngresado) => {
-          return axios.post(`/ingresos-conciliados/${item.id}/complemento/enviar-correo`, { 
-              correo: correoIngresado,
-              sucursal: item.sucursal_origen
-          })
-            .then(response => {
-              return response.data;
-            })
-            .catch(error => {
-              // Si falla, mostramos el error que mandó Laravel
-              Swal.showValidationMessage(
-                `Fallo el envío: ${error.response?.data?.error || error.message}`
-              );
-            });
-        },
-        allowOutsideClick: () => !Swal.isLoading()
-      }).then((result) => {
-        if (result.isConfirmed && result.value?.success) {
-          Swal.fire({
-            icon: 'success',
-            title: '¡Enviado!',
-            text: result.value.message,
-            timer: 3000,
-            showConfirmButton: false
-          });
-        }
-      });
+      this.ingresoParaCorreo = item; 
+      this.showModalEnviarCorreo = true;
     },
   }
 }

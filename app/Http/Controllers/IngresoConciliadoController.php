@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 
 class IngresoConciliadoController extends Controller
@@ -1812,6 +1813,7 @@ class IngresoConciliadoController extends Controller
     }
     public function timbrarComplemento(Request $request)
     {
+        // 1. Validamos los datos necesarios
         $request->validate([
             'serie' => 'required|string',
             'folio' => 'required|integer',
@@ -1819,15 +1821,18 @@ class IngresoConciliadoController extends Controller
         ]);
 
         try {
-            $conceptoPagoCP = $request->concepto_codigo ?? '100014.0';
+            $folio = (int) $request->folio;
 
+            // ==========================================
+            // PASO 1: TIMBRAR EL DOCUMENTO
+            // ==========================================
             $payloadTimbrar = [
                 '$type' => 'TimbrarDocumentoRequest',
                 'model' => [
                     'llaveDocumento' => [
-                        'conceptoCodigo' => $conceptoPagoCP,
-                        'serie'          => $request->serie,
-                        'folio'          => (int) $request->folio
+                        'conceptoCodigo' => 'CP',
+                        'serie'          => '100014.0',
+                        'folio'          => $folio
                     ],
                     'contrasenaCertificado' => 'INT081028GF0'
                 ],
@@ -1835,35 +1840,157 @@ class IngresoConciliadoController extends Controller
             ];
 
             $responseTimbrar = Http::withoutVerifying()
-                ->timeout(45)
+                ->timeout(60)
                 ->post('https://sistema.intactics.com/v3/contpaqi/api/requests', $payloadTimbrar);
 
-            if ($responseTimbrar->successful()) {
-                $resultadoTimbre = $responseTimbrar->json();
-                $isSuccess = $resultadoTimbre['respuesta']['isSuccess'] ?? false;
+            // Validamos si falló la conexión al timbrar
+            if (!$responseTimbrar->successful()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Error de conexión al intentar timbrar (Código ' . $responseTimbrar->status() . '). ' . $responseTimbrar->body(),
+                    'request_timbre' => $payloadTimbrar // Agregado para auditoría
+                ], $responseTimbrar->status());
+            }
 
-                if ($isSuccess) {
+            $resultadoTimbre = $responseTimbrar->json();
+            $isSuccessTimbre = $resultadoTimbre['respuesta']['isSuccess'] ?? false;
+
+            // Si el PAC/SAT rechaza el timbrado, detenemos todo y avisamos
+            if (!$isSuccessTimbre) {
+                $errorTimbre = $resultadoTimbre['respuesta']['errorMessage'] ?? 'Error devuelto por el PAC/SAT.';
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Fallo al timbrar: ' . $errorTimbre,
+                    'request_timbre' => $payloadTimbrar // Agregado para auditoría
+                ], 400);
+            }
+
+            // ==========================================
+            // PASO 2: GENERAR ARCHIVOS (SOLO SI EL TIMBRE FUE EXITOSO)
+            // ==========================================
+            
+            $payloadPdf = [
+                '$type' => 'GenerarDocumentoDigitalRequest',
+                'model' => [
+                    'llaveDocumento' => [
+                        'conceptoCodigo' => 'CP',
+                        'serie'          => '100014.0',
+                        'folio'          => $folio
+                    ]
+                ],
+                'options' => [
+                    'tipo' => 'Pdf',
+                    'nombrePlantilla' => 'REP Intactics.rdl'
+                ]
+            ];
+
+            $payloadXml = [
+                '$type' => 'GenerarDocumentoDigitalRequest',
+                'model' => [
+                    'llaveDocumento' => [
+                        'conceptoCodigo' => 'CP',
+                        'serie'          => '100014.0',
+                        'folio'          => $folio
+                    ]
+                ],
+                'options' => [
+                    'tipo' => 'Xml',
+                    'nombrePlantilla' => ''
+                ]
+            ];
+
+            $responsePdf = Http::withoutVerifying()
+                ->timeout(60)
+                ->post('https://sistema.intactics.com/v3/contpaqi/api/requests', $payloadPdf);
+
+            $responseXml = Http::withoutVerifying()
+                ->timeout(60)
+                ->post('https://sistema.intactics.com/v3/contpaqi/api/requests', $payloadXml);
+
+            // Si falla HTTP en la generación de archivos, devolvemos éxito del timbre pero con aviso
+            if (!$responsePdf->successful() || !$responseXml->successful()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => '¡El Complemento fue TIMBRADO con éxito!, pero hubo un error de red al intentar descargar los archivos.',
+                    'data_timbre' => $resultadoTimbre,
+                    'request_timbre' => $payloadTimbrar,
+                    'request_pdf' => $payloadPdf,
+                    'request_xml' => $payloadXml
+                ]);
+            }
+
+            $dataPdf = $responsePdf->json();
+            $dataXml = $responseXml->json();
+
+            $pdfSuccess = $dataPdf['raw']['response']['isSuccess'] ?? $dataPdf['respuesta']['isSuccess'] ?? false;
+            $xmlSuccess = $dataXml['raw']['response']['isSuccess'] ?? $dataXml['respuesta']['isSuccess'] ?? false;
+
+            if ($pdfSuccess && $xmlSuccess) {
+                
+                // ==========================================
+                // PASO 3: EXTRAER Y GUARDAR LOS ARCHIVOS
+                // ==========================================
+                $base64Pdf = $dataPdf['raw']['response']['contpaqiResponse']['model']['documentoDigital']['contenido'] ?? null;
+                $base64Xml = $dataXml['raw']['response']['contpaqiResponse']['model']['documentoDigital']['contenido'] ?? null;
+
+                if ($base64Pdf && $base64Xml) {
+                    
+                    $archivoPdf = base64_decode($base64Pdf);
+                    $archivoXml = base64_decode($base64Xml);
+
+                    $nombrePdf = "complementos_pago/CP_{$folio}_" . time() . ".pdf";
+                    $nombreXml = "complementos_pago/CP_{$folio}_" . time() . ".xml";
+
+                    /** @var \Illuminate\Filesystem\FilesystemAdapter $discoPersonalizado */
+                    $discoPersonalizado = Storage::disk('storageOldProyect');
+                    
+                    $discoPersonalizado->put($nombrePdf, $archivoPdf);
+                    $discoPersonalizado->put($nombreXml, $archivoXml);
+
+                    // Actualizamos la base de datos en la tabla complementos_pago
+                    DB::table('complementos_pago')
+                        ->where('serie', 'CP')
+                        ->where('folio', $folio)
+                        ->update([
+                            'ruta_pdf' => $nombrePdf,
+                            'ruta_xml' => $nombreXml,
+                            'updated_at' => Carbon::now()
+                        ]);
+
+                    $urlPdf = $discoPersonalizado->url($nombrePdf);
+                    $urlXml = $discoPersonalizado->url($nombreXml);
+
+                    // Todo salió perfecto: Timbre y Archivos
                     return response()->json([
                         'success' => true,
-                        'message' => '¡El Complemento fue TIMBRADO con éxito ante el SAT!',
-                        'data' => $resultadoTimbre
+                        'message' => '¡El Complemento fue TIMBRADO con éxito y los archivos fueron generados y guardados!',
+                        'url_pdf' => $urlPdf,
+                        'url_xml' => $urlXml,
+                        'data_timbre' => $resultadoTimbre,
+                        'request_timbre' => $payloadTimbrar,
+                        'request_pdf' => $payloadPdf,
+                        'request_xml' => $payloadXml
                     ]);
-                } else {
-                    $errorTimbre = $resultadoTimbre['respuesta']['errorMessage'] ?? 'Error devuelto por el PAC/SAT.';
-                    return response()->json([
-                        'success' => false,
-                        'error' => 'Fallo al timbrar: ' . $errorTimbre
-                    ], 400);
                 }
             }
 
+            // Si el PAC rechazó la generación del documento pero SÍ se timbró
             return response()->json([
-                'success' => false,
-                'error' => 'Error de conexión al intentar timbrar (Código ' . $responseTimbrar->status() . '). ' . $responseTimbrar->body()
-            ], $responseTimbrar->status());
+                'success' => true,
+                'message' => '¡El Complemento fue TIMBRADO con éxito!, pero Contpaqi no pudo devolver el PDF/XML en este momento.',
+                'data_timbre' => $resultadoTimbre,
+                'error_pdf' => $dataPdf['raw']['response']['errorMessage'] ?? 'N/A',
+                'error_xml' => $dataXml['raw']['response']['errorMessage'] ?? 'N/A',
+                'request_timbre' => $payloadTimbrar,
+                'request_pdf' => $payloadPdf,
+                'request_xml' => $payloadXml
+            ]);
 
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'error' => 'Error interno al timbrar: ' . $e->getMessage()], 500);
+            return response()->json([
+                'success' => false, 
+                'error' => 'Error interno al procesar el timbrado y los archivos: ' . $e->getMessage()
+            ], 500);
         }
     }
     public function verComplementoPdf($id)
@@ -1875,34 +2002,48 @@ class IngresoConciliadoController extends Controller
                 return response('<h1>Error 404</h1><p>No se encontró el Complemento.</p>', 404)->header('Content-Type', 'text/html');
             }
 
-            // Solicitamos el PDF a Contpaqi
             $payloadPdf = [
-                '$type' => 'GenerarDocumentoPdfRequest',
-                'llaveDocumento' => [
-                    'conceptoCodigo' => '100014.0', 
-                    'serie'          => $complemento->serie,
-                    'folio'          => (int) $complemento->folio
+                '$type' => 'GenerarDocumentoDigitalRequest',
+                'model' => [
+                    'llaveDocumento' => [
+                        'conceptoCodigo' => '100014.0', 
+                        'serie'          => $complemento->serie ?? 'CP',
+                        'folio'          => (int) $complemento->folio
+                    ]
+                ],
+                'options' => [
+                    'tipo' => 'Pdf',
+                    'nombrePlantilla' => 'REP Intactics.rdl'
                 ]
             ];
 
-            $response = Http::withoutVerifying()->timeout(30)
+            $response = Http::withoutVerifying()
+                ->timeout(60)
                 ->post('https://sistema.intactics.com/v3/contpaqi/api/requests', $payloadPdf);
 
             if ($response->successful()) {
                 $data = $response->json();
                 
-                // Buscamos el Base64 en la respuesta
-                $pdfBase64 = $data['data']['pdf'] ?? $data['raw']['response']['contpaqiResponse']['model']['archivo'] ?? null;
+                // ==========================================
+                // 2. BUSCAMOS EL BASE64 EN LA RUTA EXACTA
+                // ==========================================
+                $pdfBase64 = $data['raw']['response']['contpaqiResponse']['model']['documentoDigital']['contenido'] ?? null;
 
                 if (!empty($pdfBase64)) {
-                    return response(base64_decode($pdfBase64), 200)
+                    $archivoDecodificado = base64_decode($pdfBase64);
+                    
+                    // Devolvemos el archivo binario para que el iframe lo lea directo
+                    return response($archivoDecodificado, 200)
                         ->header('Content-Type', 'application/pdf')
-                        ->header('Content-Disposition', 'inline; filename="Complemento_'.$complemento->folio.'.pdf"');
+                        // Usamos 'inline' para que se visualice en el navegador en lugar de descargar forzosamente
+                        ->header('Content-Disposition', 'inline; filename="Complemento_'.$complemento->serie.'_'.$complemento->folio.'.pdf"');
                 }
                 
+                // Si la API respondió 200 OK pero no mandó el Base64, mostramos el JSON para depurar
                 return response("<h1>Documento Timbrado, pero PDF no encontrado.</h1><pre>".json_encode($data, JSON_PRETTY_PRINT)."</pre>", 200)->header('Content-Type', 'text/html');
             }
 
+            // Si la API falló a nivel HTTP (ej. 500, 404)
             return response("<h1>Error de API ({$response->status()})</h1><pre>".htmlspecialchars($response->body())."</pre>", $response->status())->header('Content-Type', 'text/html');
 
         } catch (\Exception $e) {
@@ -1912,36 +2053,94 @@ class IngresoConciliadoController extends Controller
 
     public function enviarCorreoComplemento(Request $request, $id)
     {
-        // 1. Validamos que nos manden un correo válido
+        // 1. Validamos que nos manden un arreglo de correos (gracias a vue-multiselect)
         $request->validate([
-            'correo' => 'required|email'
+            'correos'   => 'required|array|min:1',
+            'correos.*' => 'email' // Valida que cada elemento del arreglo sea un email válido
         ]);
 
         try {
             $complemento = ComplementoPago::where('ingreso_conciliado_id', $id)->latest()->first();
             $ingreso = IngresoConciliado::find($id);
 
-            $correoDestino = $request->correo;
+            if (!$complemento || !$complemento->folio) {
+                return response()->json(['error' => 'No se encontró el Complemento para este ingreso.'], 404);
+            }
 
-            // Desactivamos la parte de PDF por ahora, ya que no queremos enviar adjuntos en la prueba
-            /*
+            // Guardamos el arreglo de correos
+            $correosDestino = $request->correos;
+            
+            $folio = (int) $complemento->folio;
+
+            // ==========================================
+            // 2. PAYLOADS PARA SOLICITAR PDF Y XML
+            // ==========================================
             $payloadPdf = [
-                '$type' => 'GenerarDocumentoPdfRequest',
-                'llaveDocumento' => [
-                    'conceptoCodigo' => '100014.0', 
-                    'serie'          => $complemento->serie ?? 'CP',
-                    'folio'          => (int) ($complemento->folio ?? 0)
+                '$type' => 'GenerarDocumentoDigitalRequest',
+                'model' => [
+                    'llaveDocumento' => [
+                        'conceptoCodigo' => '100014.0',
+                        'serie'          => 'CP',
+                        'folio'          => $folio
+                    ]
+                ],
+                'options' => [
+                    'tipo' => 'Pdf',
+                    'nombrePlantilla' => 'REP Intactics.rdl'
                 ]
             ];
-            $responsePdf = \Illuminate\Support\Facades\Http::withoutVerifying()->timeout(45)->post('https://sistema.intactics.com/v3/contpaqi/api/requests', $payloadPdf);
+
+            $payloadXml = [
+                '$type' => 'GenerarDocumentoDigitalRequest',
+                'model' => [
+                    'llaveDocumento' => [
+                        'conceptoCodigo' => '100014.0',
+                        'serie'          => 'CP',
+                        'folio'          => $folio
+                    ]
+                ],
+                'options' => [
+                    'tipo' => 'Xml',
+                    'nombrePlantilla' => ''
+                ]
+            ];
+
+            // ==========================================
+            // 3. REALIZAMOS LAS PETICIONES A LA API
+            // ==========================================
+            $responsePdf = Http::withoutVerifying()
+                ->timeout(60)
+                ->post('https://sistema.intactics.com/v3/contpaqi/api/requests', $payloadPdf);
+
+            $responseXml = Http::withoutVerifying()
+                ->timeout(60)
+                ->post('https://sistema.intactics.com/v3/contpaqi/api/requests', $payloadXml);
+
+            if (!$responsePdf->successful() || !$responseXml->successful()) {
+                return response()->json(['error' => 'Error al comunicarse con Contpaqi para obtener los documentos.'], 500);
+            }
+
             $dataPdf = $responsePdf->json();
-            $pdfBase64 = $dataPdf['data']['pdf'] ?? $dataPdf['raw']['response']['contpaqiResponse']['model']['archivo'] ?? null;
+            $dataXml = $responseXml->json();
+
+            // Extraemos los Base64 de la ruta correcta
+            $pdfBase64 = $dataPdf['raw']['response']['contpaqiResponse']['model']['documentoDigital']['contenido'] ?? null;
+            $xmlBase64 = $dataXml['raw']['response']['contpaqiResponse']['model']['documentoDigital']['contenido'] ?? null;
+
+            if (!$pdfBase64 || !$xmlBase64) {
+                return response()->json(['error' => 'No se pudo obtener el contenido del documento PDF o XML desde el PAC.'], 404);
+            }
+
+            // Decodificamos a binario para poder adjuntarlos "al vuelo"
             $pdfDecoded = base64_decode($pdfBase64);
-            $nombreArchivo = "Complemento_{$complemento->serie}_{$complemento->folio}.pdf";
-            */
-            
-            // Armamos un arreglo con todas las variables que Blade necesita.
-            // Le ponemos valores por defecto (fallback) en caso de que no encuentre el complemento.
+            $xmlDecoded = base64_decode($xmlBase64);
+
+            $nombreArchivoPdf = "Complemento_CP_{$folio}.pdf";
+            $nombreArchivoXml = "Complemento_CP_{$folio}.xml";
+
+            // ==========================================
+            // 4. ARMAMOS VARIABLES PARA LA VISTA BLADE
+            // ==========================================
             $variableEmpresa = $request->input('sucursal', ''); 
             
             if (empty($variableEmpresa) && $ingreso) {
@@ -1957,30 +2156,38 @@ class IngresoConciliadoController extends Controller
             }
 
             $datosCorreo = [
-                'folioDocumento' => $complemento && $complemento->folio ? ($complemento->serie . '-' . $complemento->folio) : 'CP-PRUEBA',
-                'fechaDocumento' => $complemento && $complemento->fecha ? \Carbon\Carbon::parse($complemento->fecha)->format('d-m-Y') : date('d-m-Y'),
+                'folioDocumento' => 'CP' . '-' . $folio,
+                'fechaDocumento' => $complemento->fecha ? Carbon::parse($complemento->fecha)->format('d-m-Y') : date('d-m-Y'),
                 'nombreCliente'  => ($ingreso && $ingreso->cliente) ? $ingreso->cliente->nombre : 'Estimado Cliente', 
-                'referencia'     => $ingreso ? ($ingreso->folio_sc ?? 'N/A') : 'REF-PRUEBA',
+                'referencia'     => $ingreso ? ($ingreso->folio_sc ?? 'N/A') : 'N/A',
                 'empresaEmisora' => $nombreEmpresaEmisora,
                 'sucursalPura'   => $variableEmpresa 
             ];
 
-            // 4. Llamamos a la vista Blade y enviamos el correo
-            Mail::send('cuerpo_correo_complemento_pago', $datosCorreo, function ($message) use ($correoDestino, $datosCorreo) {
-                $message->to($correoDestino)
-                        ->subject("Complemento de Pago (PRUEBA) - {$datosCorreo['nombreCliente']}");
+            // ==========================================
+            // 5. ENVIAMOS EL CORREO CON LOS ADJUNTOS
+            // ==========================================
+            // Se inyectan las variables decodificadas y el arreglo de correos al "use"
+            Mail::send('cuerpo_correo_complemento_pago', $datosCorreo, function ($message) use ($correosDestino, $datosCorreo, $pdfDecoded, $nombreArchivoPdf, $xmlDecoded, $nombreArchivoXml) {
+                
+                // Le pasamos el arreglo completo a $message->to()
+                $message->to($correosDestino)
+                        ->subject("Complemento de Pago - {$datosCorreo['nombreCliente']}");
 
-                // 5. Adjuntamos el PDF (si lo tuviéramos)
-                /*
-                $message->attachData($pdfDecoded, $nombreArchivo, [
+                // Adjuntamos el PDF "al vuelo"
+                $message->attachData($pdfDecoded, $nombreArchivoPdf, [
                     'mime' => 'application/pdf',
                 ]);
-                */
+
+                // Adjuntamos el XML "al vuelo"
+                $message->attachData($xmlDecoded, $nombreArchivoXml, [
+                    'mime' => 'application/xml',
+                ]);
             });
 
             return response()->json([
                 'success' => true, 
-                'message' => "El correo de prueba (sin adjunto) ha sido enviado exitosamente a {$correoDestino}."
+                'message' => "El correo con los archivos PDF y XML ha sido enviado exitosamente a todos los destinatarios."
             ]);
 
         } catch (\Exception $e) {
