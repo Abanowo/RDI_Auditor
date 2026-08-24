@@ -2005,7 +2005,7 @@ class IngresoConciliadoController extends Controller
                     $discoPersonalizado->put($nombreXml, $archivoXml);
 
                     // Actualizamos la base de datos en la tabla complementos_pago
-                    DB::table('complementos_pago')
+                    DB::table('complemento_pago')
                         ->where('serie', 'CP')
                         ->where('folio', $folio)
                         ->update([
