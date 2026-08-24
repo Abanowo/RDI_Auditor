@@ -100,6 +100,8 @@ class IngresoConciliadoController extends Controller
     public function listarPedimentosSheet(Request $request)
     {
         $sucursal = strtoupper(trim($request->input('sucursal', '')));
+        $esTransportactics = filter_var($request->input('es_transportactics', false), FILTER_VALIDATE_BOOLEAN);
+        $esIntshipperts = filter_var($request->input('es_intshipperts', false), FILTER_VALIDATE_BOOLEAN);
 
         if (empty($sucursal)) {
             return response()->json([]);
@@ -107,7 +109,6 @@ class IngresoConciliadoController extends Controller
 
         $esManzanillo = str_contains($sucursal, 'MANZANILLO') || str_contains($sucursal, 'INTSHIPPERT');
 
-        // Configuramos la hoja según la sucursal
         if ($esManzanillo) {
             $sheetId = app()->environment('production') ? '18-5okzV-vw35V0Ugjn5KjNcWgHyZ9Qfc6pf5w4VU-2I' : '1zHUYpViLZyu_KPkNCUEx37WjoK0lVt7F0bC1B9Jo8s0';
             $nombrePestanaCodificado = 'ZLO';
@@ -142,7 +143,10 @@ class IngresoConciliadoController extends Controller
 
             $idxCliente = 1;
             $idxPedimento = 2;
-            $idxFacturaSC = 8; 
+            $idxProveedor = 4;   
+            $idxFacturaP = 5;    
+            $idxMonto = 6;       
+            $idxFacturaSC = 8;   
 
             foreach ($rows as $cols) {
                 foreach ($cols as $i => $col) {
@@ -153,45 +157,97 @@ class IngresoConciliadoController extends Controller
                     if (str_contains($txt, 'pedimento') && !str_contains($txt, 'folio')) {
                         $idxPedimento = $i;
                     }
-
                     if (str_contains($txt, 'factura sc') || str_contains($txt, 'folio sc')) {
                         $idxFacturaSC = $i;
+                    }
+                    if (str_contains($txt, 'proveedor')) {
+                        $idxProveedor = $i;
+                    }
+                    if (str_contains($txt, 'factura p') || str_contains($txt, 'factura prov')) {
+                        $idxFacturaP = $i;
+                    }
+                    if (str_contains($txt, 'monto') && !str_contains($txt, 'llc')) {
+                        $idxMonto = $i;
                     }
                 }
                 break;
             }
 
-            // Recorremos las filas
+            $ultimoCliente = '';
+            $ultimoPedimento = '';
+            $ultimaFacturaSC = '';
+
             foreach ($rows as $index => $cols) {
                 if ($index === 0) {
                     continue;
                 }
 
-                $clienteCelda = trim($cols[$idxCliente] ?? '');
-                $pedimentoCelda = trim($cols[$idxPedimento] ?? '');
-                $facturaCelda = trim($cols[$idxFacturaSC] ?? ''); // Leemos la Factura SC
+                $clienteCeldaOriginal = trim($cols[$idxCliente] ?? '');
+                $pedimentoCeldaOriginal = trim($cols[$idxPedimento] ?? '');
+                $facturaCeldaOriginal = trim($cols[$idxFacturaSC] ?? ''); 
+                
+                if ($clienteCeldaOriginal !== '') {
+                    $ultimoCliente = $clienteCeldaOriginal;
+                }
+                if ($pedimentoCeldaOriginal !== '') {
+                    $ultimoPedimento = $pedimentoCeldaOriginal;
+                }
+                if ($facturaCeldaOriginal !== '') {
+                    $ultimaFacturaSC = $facturaCeldaOriginal;
+                }
+
+                $clienteCelda = $ultimoCliente;
+                $pedimentoCelda = $ultimoPedimento;
+                $facturaCelda = $ultimaFacturaSC;
+
+                $proveedorCelda = strtoupper(trim($cols[$idxProveedor] ?? ''));
+                $facturaPCelda = trim($cols[$idxFacturaP] ?? '');
+                $montoCelda = (float) filter_var(trim($cols[$idxMonto] ?? '0'), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
 
                 if ($pedimentoCelda !== '' && $clienteCelda !== '') {
-                    // Evitar incluir encabezados repetidos
                     if (strtoupper($clienteCelda) === 'CLIENTE' || strtoupper($pedimentoCelda) === 'PEDIMENTO') {
                         continue;
                     }
                     
+                    if ($esTransportactics) {
+                        if (!str_contains($proveedorCelda, 'TRANSPORTACTICS') || $montoCelda <= 0) {
+                            continue;
+                        }
+                    }
+                    
+                    $folioIntshipperts = '';
+                    if (preg_match('/(ZLOI\s*[0-9]+)/i', $facturaCelda, $matches)) {
+                        $folioIntshipperts = strtoupper(str_replace(' ', '', $matches[1]));
+                    } elseif (preg_match('/(ZLOI\s*[0-9]+)/i', $pedimentoCelda, $matches)) {
+                        $folioIntshipperts = strtoupper(str_replace(' ', '', $matches[1]));
+                    }
+
+                    if ($esIntshipperts && $folioIntshipperts === '') {
+                        continue;
+                    }
+                    
                     $etiqueta = '';
-                    if ($facturaCelda !== '') {
+                    
+                    if ($esTransportactics && $facturaPCelda !== '') {
+                        $etiqueta .= 'TR: ' . $facturaPCelda . ' - ';
+                    } elseif ($esIntshipperts && $folioIntshipperts !== '') {
+                        $etiqueta .= 'INT: ' . $folioIntshipperts . ' - ';
+                    }
+
+                    if ($facturaCelda !== '' && !str_contains($facturaCelda, '$')) {
                         $etiqueta .= $facturaCelda . ' - ';
                     }
+                    
                     $etiqueta .= $pedimentoCelda . ' - ' . $clienteCelda;
 
                     $pedimentos[] = [
                         'label' => $etiqueta,
-                        'folio' => $etiqueta, // Guardamos todo en folio para que Vue lo atrape completo
+                        'folio' => $etiqueta, 
                         'cliente' => strtoupper($clienteCelda)
                     ];
                 }
             }
 
-            // Eliminamos duplicados basados en la etiqueta completa
             $pedimentos = collect($pedimentos)->unique('label')->values()->all();
 
             return response()->json($pedimentos);
@@ -208,19 +264,20 @@ class IngresoConciliadoController extends Controller
 
         $terminosBuscados = [];
         foreach ($terminosCrudos as $term) {
-            if (str_contains($term, ' - ')) {
-                $partes = explode(' - ', $term);
+            $termLimpio = str_replace('TR: ', '', $term);
+
+            if (str_contains($termLimpio, ' - ')) {
+                $partes = explode(' - ', $termLimpio);
                 
-                // La primera parte siempre será el Folio (o el Pedimento si no hay folio)
-                $terminosBuscados[] = trim($partes[0]);
-                
-                // Si hay una segunda parte y contiene números, seguro es el Pedimento
-                if (isset($partes[1]) && preg_match('/[0-9]/', $partes[1])) {
-                    $terminosBuscados[] = trim($partes[1]);
+                foreach ($partes as $parte) {
+                    $parteLimpia = trim($parte);
+                    if (preg_match('/[0-9]/', $parteLimpia)) {
+                        $terminosBuscados[] = $parteLimpia;
+                    }
                 }
             } else {
-                // Si el usuario lo escribió a mano sin guiones (ej. "F-12345" o "6001945")
-                $terminosBuscados[] = trim($term);
+                // Si lo escribieron a mano sin guiones
+                $terminosBuscados[] = trim($termLimpio);
             }
         }
         

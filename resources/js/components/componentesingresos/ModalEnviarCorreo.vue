@@ -224,7 +224,7 @@ export default {
         async enviarCorreos() {
             this.enviando = true;
             try {
-                const response = await axios.post(`/api/complementos/${this.ingreso.id}/enviar-correo`, {
+                const response = await axios.post(`/ingresos-conciliados/${this.ingreso.id}/complemento/enviar-correo`, {
                     correos: this.listaCorreos
                 });
 

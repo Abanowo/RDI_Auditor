@@ -376,6 +376,16 @@ export default {
         this.cargarListaPedimentos();
       }
     },
+    checkTransportactics(newVal, oldVal) {
+      if (newVal !== oldVal) {
+        this.cargarListaPedimentos();
+      }
+    },
+    checkIntshipperts(newVal, oldVal) {
+      if (newVal !== oldVal) {
+        this.cargarListaPedimentos();
+      }
+    },
     'form.referenciasObj': function (newVal) {
       if (!this.form.cliente && newVal && newVal.length > 0) {
         const refSeleccionada = newVal[0];
@@ -413,7 +423,11 @@ export default {
       this.cargandoSheet = true;
       try {
         const response = await axios.get('/ingresos-conciliados/listar-pedimentos', {
-          params: { sucursal: this.sucursalSeleccionada }
+          params: { 
+            sucursal: this.sucursalSeleccionada,
+            es_transportactics: this.checkTransportactics,
+            es_intshipperts: this.esIntshipperts
+          } 
         });
         this.pedimentosSheet = Array.isArray(response.data) ? response.data : [];
       } catch (error) {

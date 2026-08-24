@@ -167,7 +167,6 @@ export default {
             cargandoSheet: false,
             pedimentosSheet: [],
             tiposComprobanteArray: [],
-            // 🔥 Variables para los checkboxes
             checkTransportactics: false,
             checkIntshipperts: false,
             form: {
@@ -191,11 +190,9 @@ export default {
                 flete: null,
                 muestras: null,
                 llc: null,
-
                 anticipo: null,
                 garantias: null,
                 desglose_naviera: null,
-
                 proveedor_maniobras: null,
                 factura_maniobras: null,
                 proveedor_flete: null,
@@ -218,7 +215,6 @@ export default {
         esSucursalOtraBase() {
           return this.sucursalSeleccionada && !this.esSucursalManzanilloBase;
         },
-        // 🔥 Variable inteligente para conectar con Laravel
         sucursalReal() {
           let s = String(this.sucursalSeleccionada).toUpperCase();
           
@@ -328,6 +324,16 @@ export default {
                 this.cargarListaPedimentos();
             }
         },
+        checkTransportactics(newVal, oldVal) {
+            if (newVal !== oldVal) {
+                this.cargarListaPedimentos();
+            }
+        },
+        checkIntshipperts(newVal, oldVal) {
+            if (newVal !== oldVal) {
+                this.cargarListaPedimentos();
+            }
+        },
         'form.referenciasObj': function (newVal) {
             if (!this.form.cliente && newVal && newVal.length > 0) {
                 const refSeleccionada = newVal[0];
@@ -422,9 +428,12 @@ export default {
 
             this.cargandoSheet = true;
             try {
-                // 🔥 Siempre cargamos desde la sucursal base real (ej. NOGALES IMPO) para no perder folios
                 const response = await axios.get('/ingresos-conciliados/listar-pedimentos', {
-                    params: { sucursal: this.sucursalSeleccionada }
+                    params: { 
+                      sucursal: this.sucursalSeleccionada,
+                      es_transportactics: this.esTransportactics,
+                      es_intshipperts: this.esIntshipperts 
+                    }
                 });
 
                 let dataResult = response.data;
@@ -449,7 +458,7 @@ export default {
             }
 
             let pedimentosLimpios = this.form.referenciasObj.map(ref => {
-                return ref.folio ? String(ref.folio).replace('F-', '').trim() : String(ref.label);
+                return ref.folio ? String(ref.folio).replace('F-', '').trim() : String(ref.label).replace('F-', '').trim();
             }).filter(r => r !== '');
 
             Swal.fire({
@@ -591,7 +600,6 @@ export default {
             try {
                 const response = await axios.put(`/ingresos-conciliados/${this.form.id}`, payload);
                 
-                // 🔥 SOLUCIÓN AL MENSAJE: Quitamos el ".success" porque si llega aquí, ya es un éxito 100% seguro.
                 if (response.status === 200 || response.data) {
                     Swal.fire({ 
                         title: '¡Actualizado!', 
