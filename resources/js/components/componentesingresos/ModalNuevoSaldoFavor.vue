@@ -45,7 +45,7 @@
         </div>
       </div>
 
-      <div class="px-8 py-6 border-t border-gray-200 flex justify-end gap-6 bg-gray-50 rounded-b-xl">
+      <div class="px-8 py-6 border-t border-gray-200 flex justify-end gap-6 bg-gray-100 rounded-b-xl">
         <button @click="$emit('close')"
           class="px-8 py-4 rounded-lg bg-gray-200 text-gray-700 text-lg font-bold hover:bg-gray-300 transition-colors">Salir</button>
         <button @click="guardarSaldo" :disabled="isSubmitting"

@@ -22,14 +22,14 @@
 
           <div v-if="sucursalSeleccionada" class="mt-4 flex items-center gap-6">
             <label v-if="esSucursalOtraBase"
-              class="inline-flex items-center cursor-pointer bg-blue-50 px-4 py-3 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors shadow-sm">
+              class="inline-flex items-center cursor-pointer bg-blue-100 px-4 py-3 rounded-lg border border-blue-200 hover:bg-blue-200 transition-colors shadow-sm">
               <input v-model="checkTransportactics" type="checkbox"
                 class="form-checkbox h-6 w-6 text-blue-600 rounded cursor-pointer">
               <span class="ml-3 text-base text-blue-800 font-extrabold uppercase">Es Transportactics</span>
             </label>
 
             <label v-if="esSucursalManzanilloBase"
-              class="inline-flex items-center cursor-pointer bg-purple-50 px-4 py-3 rounded-lg border border-purple-200 hover:bg-purple-100 transition-colors shadow-sm">
+              class="inline-flex items-center cursor-pointer bg-purple-100 px-4 py-3 rounded-lg border border-purple-200 hover:bg-purple-200 transition-colors shadow-sm">
               <input v-model="checkIntshipperts" type="checkbox"
                 class="form-checkbox h-6 w-6 text-purple-600 rounded cursor-pointer">
               <span class="ml-3 text-base text-purple-800 font-extrabold uppercase">Es Intshipperts</span>
@@ -52,8 +52,7 @@
         </div>
 
         <div class="col-span-2">
-          <label class="block text-base font-bold text-gray-500 uppercase mb-2">RAZÓN SOCIAL CLIENTE (Filtra los folios)
-            *</label>
+          <label class="block text-base font-bold text-gray-500 uppercase mb-2">RAZÓN SOCIAL CLIENTE (Filtra los folios) *</label>
           <multiselect v-model="form.cliente" :options="opcionesCliente" track-by="id" label="nombre"
             placeholder="Seleccione un cliente..." :show-labels="false" class="text-xl">
           </multiselect>
@@ -65,7 +64,6 @@
           </label>
 
           <div class="flex w-full min-w-0">
-            <!-- 🔥 Multiselect Inteligente 🔥 -->
             <multiselect v-model="form.referenciasObj" :options="opcionesPedimentos" :multiple="true" :taggable="true"
               @tag="agregarReferencia" track-by="label" label="label" :loading="cargandoSheet"
               :disabled="!form.sucursal_origen" placeholder="Seleccione o escriba folio/pedimento..."
@@ -82,54 +80,52 @@
               </svg>
             </button>
           </div>
-          <span v-if="!form.sucursal_origen" class="text-sm text-red-500 font-bold mt-2 inline-block">⚠️ Selecciona una
-            sucursal
-            para cargar la lista.</span>
+          <span v-if="!form.sucursal_origen" class="text-sm text-red-500 font-bold mt-2 inline-block">⚠️ Selecciona una sucursal para cargar la lista.</span>
         </div>
 
         <div class="col-span-1">
           <label class="block text-base font-bold text-gray-500 uppercase mb-2">MONTO DEPÓSITO ($) *</label>
           <input v-model="form.monto_deposito" type="number" step="0.01" placeholder="0.00"
-            class="w-full border border-gray-300 rounded-lg px-5 py-4 text-3xl font-black text-purple-700 focus:outline-none focus:border-[#2A3A4D]">
+            class="w-full border border-gray-300 rounded-lg px-5 py-4 text-3xl font-black text-purple-700 focus:outline-none focus:border-gray-400">
         </div>
 
-        <div class="col-span-2 flex items-center gap-8 mt-2 p-5 bg-gray-50 border border-gray-200 rounded-xl">
+        <div class="col-span-2 flex items-center gap-8 mt-2 p-5 bg-gray-100 border border-gray-200 rounded-xl">
           <label class="text-lg font-extrabold text-gray-500 uppercase tracking-wide">
             TIPO DE COMPROBANTE:
           </label>
           <div class="flex gap-8">
             <label class="inline-flex items-center cursor-pointer">
               <input v-model="tiposComprobanteArray" type="checkbox" value="CFDI"
-                class="form-checkbox h-6 w-6 text-[#00C09F] focus:ring-[#00C09F] cursor-pointer rounded">
+                class="form-checkbox h-6 w-6 focus:ring-teal-500 cursor-pointer rounded" style="color: #00C09F;">
               <span class="ml-3 text-xl text-gray-700 font-bold">CFDI (Factura)</span>
             </label>
             <label class="inline-flex items-center cursor-pointer">
               <input v-model="tiposComprobanteArray" type="checkbox" value="Nota Cargo"
-                class="form-checkbox h-6 w-6 text-[#00C09F] focus:ring-[#00C09F] cursor-pointer rounded">
+                class="form-checkbox h-6 w-6 focus:ring-teal-500 cursor-pointer rounded" style="color: #00C09F;">
               <span class="ml-3 text-xl text-gray-700 font-bold">Nota Cargo</span>
             </label>
           </div>
         </div>
 
-        <div class="col-span-2 mt-4 border border-[#2A3A4D] rounded-xl p-6 bg-gray-50/50">
-          <h4 class="text-lg font-extrabold text-[#2A3A4D] uppercase tracking-wide mb-6">DESGLOSE:</h4>
+        <div class="col-span-2 mt-4 border rounded-xl p-6 bg-gray-100" style="border-color: #2A3A4D;">
+          <h4 class="text-lg font-extrabold uppercase tracking-wide mb-6" style="color: #2A3A4D;">DESGLOSE:</h4>
 
           <div class="grid grid-cols-3 gap-6" v-if="esTransportactics">
             <div>
               <label class="block text-base text-gray-500 mb-2">Flete (XML):</label>
               <input v-model="form.flete" type="number" step="0.01" placeholder="0.00"
-                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-[#2A3A4D]">
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800">
             </div>
             <div>
               <label class="block text-base text-gray-500 mb-2">Pago Proveedor:</label>
               <input v-model="form.pago_proveedor" type="number" step="0.01" placeholder="0.00"
-                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-[#2A3A4D]">
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800">
             </div>
             <div>
               <label class="block text-base text-emerald-600 mb-2 font-bold">Ganancia:</label>
               <input :value="(parseFloat(form.flete || 0) - parseFloat(form.pago_proveedor || 0)).toFixed(2)" readonly
                 type="number"
-                class="w-full border border-emerald-200 rounded-lg px-4 py-3 text-xl bg-emerald-50 text-emerald-700 font-bold focus:outline-none cursor-not-allowed">
+                class="w-full border border-emerald-200 rounded-lg px-4 py-3 text-xl bg-emerald-100 text-emerald-700 font-bold focus:outline-none cursor-not-allowed">
             </div>
           </div>
 
@@ -137,63 +133,32 @@
             <div>
               <label class="block text-base text-gray-500 mb-2">Anticipo:</label>
               <input v-model="form.anticipo" type="number" step="0.01" placeholder="0.00"
-                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-[#2A3A4D]">
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800">
             </div>
             <div>
               <label class="block text-base text-gray-500 mb-2">ALMAN / Flete:</label>
               <input v-model="form.flete" type="number" step="0.01" placeholder="0.00"
-                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-[#2A3A4D]">
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800">
             </div>
           </div>
 
           <div class="grid grid-cols-4 gap-6" v-else-if="esManzanillo">
-            <div><label class="block text-base text-gray-500 mb-2">Anticipo:</label><input v-model="form.anticipo"
-                type="number" step="0.01" placeholder="0.00"
-                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl"></div>
-            <div><label class="block text-base text-gray-500 mb-2">Garantías:</label><input v-model="form.garantias"
-                type="number" step="0.01" placeholder="0.00"
-                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl">
-            </div>
-            <div><label class="block text-base text-gray-500 mb-2">Desglose Naviera:</label><input
-                v-model="form.desglose_naviera" type="number" step="0.01" placeholder="0.00"
-                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl"></div>
-            <div><label class="block text-base text-gray-500 mb-2">Impuestos:</label><input v-model="form.impuestos"
-                type="number" step="0.01" placeholder="0.00"
-                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl">
-            </div>
-            <div><label class="block text-base text-gray-500 mb-2">ALMAN / Flete:</label><input v-model="form.flete"
-                type="number" step="0.01" placeholder="0.00"
-                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl">
-            </div>
-            <div><label class="block text-base text-gray-500 mb-2">Honorarios:</label><input v-model="form.honorarios"
-                type="number" step="0.01" placeholder="0.00"
-                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl">
-            </div>
+            <div><label class="block text-base text-gray-500 mb-2">Anticipo:</label><input v-model="form.anticipo" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Garantías:</label><input v-model="form.garantias" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Desglose Naviera:</label><input v-model="form.desglose_naviera" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Impuestos:</label><input v-model="form.impuestos" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">ALMAN / Flete:</label><input v-model="form.flete" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Honorarios:</label><input v-model="form.honorarios" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
           </div>
 
           <div class="grid grid-cols-4 gap-6" v-else>
-            <div><label class="block text-base text-gray-500 mb-2">Honorarios:</label><input v-model="form.honorarios"
-                type="number" step="0.01" placeholder="0.00"
-                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl">
-            </div>
-            <div><label class="block text-base text-gray-500 mb-2">Impuestos:</label><input v-model="form.impuestos"
-                type="number" step="0.01" placeholder="0.00"
-                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl">
-            </div>
-            <div><label class="block text-base text-gray-500 mb-2">ECI:</label><input v-model="form.eci" type="number"
-                step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl"></div>
-            <div><label class="block text-base text-gray-500 mb-2">Maniobras:</label><input v-model="form.maniobras"
-                type="number" step="0.01" placeholder="0.00"
-                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl">
-            </div>
-            <div><label class="block text-base text-gray-500 mb-2">Flete:</label><input v-model="form.flete"
-                type="number" step="0.01" placeholder="0.00"
-                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl"></div>
-            <div><label class="block text-base text-gray-500 mb-2">Muestras:</label><input v-model="form.muestras"
-                type="number" step="0.01" placeholder="0.00"
-                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl"></div>
-            <div><label class="block text-base text-gray-500 mb-2">LLC:</label><input v-model="form.llc" type="number"
-                step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Honorarios:</label><input v-model="form.honorarios" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Impuestos:</label><input v-model="form.impuestos" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">ECI:</label><input v-model="form.eci" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Maniobras:</label><input v-model="form.maniobras" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Flete:</label><input v-model="form.flete" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Muestras:</label><input v-model="form.muestras" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">LLC:</label><input v-model="form.llc" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
           </div>
 
           <div
@@ -205,9 +170,9 @@
             <div class="hidden md:block w-px h-10 bg-gray-200"></div>
             <div class="flex items-center gap-4 px-3">
               <span class="text-base text-gray-500 font-bold uppercase">Total Honorarios:</span>
-              <span class="text-2xl font-black text-[#00C09F]">{{ formatearDinero(form.honorarios) }}</span>
+              <span class="text-2xl font-black" style="color: #00C09F;">{{ formatearDinero(form.honorarios) }}</span>
             </div>
-            <div class="flex items-center gap-4 bg-yellow-50 border border-yellow-200 px-6 py-3 rounded-lg ml-auto">
+            <div class="flex items-center gap-4 bg-yellow-100 border border-yellow-200 px-6 py-3 rounded-lg ml-auto">
               <span class="text-base text-yellow-700 font-bold uppercase">Suma Total:</span>
               <span class="text-3xl font-black text-yellow-600">{{ formatearDinero(sumaTotal) }}</span>
             </div>
@@ -216,7 +181,7 @@
         </div>
       </div>
 
-      <div class="px-8 py-6 border-t border-gray-200 flex justify-end gap-6 bg-gray-50 shrink-0">
+      <div class="px-8 py-6 border-t border-gray-200 flex justify-end gap-6 bg-gray-100 shrink-0">
         <button @click="$emit('close')"
           class="px-8 py-4 rounded-lg bg-gray-200 text-gray-700 text-xl font-bold hover:bg-gray-300 transition-colors shadow-sm">
           Cancelar

@@ -7,6 +7,8 @@
 </head>
 <body style="margin: 0; padding: 0; background-color: #f3f4f6;">
     <div style="background-color: #f3f4f6; padding: 40px 20px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6;">
+
+        <!-- RECUADRO BLANCO PRINCIPAL -->
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border: 1px solid #e5e7eb;">
             
             <!-- Encabezado con Logo Integrado -->
@@ -63,6 +65,11 @@
             </div>
             
         </div>
+
+        <div style="max-width: 600px; margin: 30px auto 0 auto; text-align: center;">
+            <img src="{{ $urlFirma }}" alt="Firma del Asesor" style="max-width: 320px; max-height: 120px; border: none; outline: none; display: block; margin: 0 auto;">
+        </div>
+
     </div>
 </body>
 </html>

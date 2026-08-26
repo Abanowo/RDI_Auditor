@@ -92,6 +92,20 @@ class IngresoConciliadoController extends Controller
             $query->where('ingresos_conciliados.tipo_comprobante', $request->tipo_comprobante);
         }
 
+        if ($request->filled('estado_envio')) {
+            $estadoEnvio = strtoupper($request->input('estado_envio'));
+            
+            if ($estadoEnvio === 'ENVIADO') {
+                $query->where('estado_envio', 'ENVIADO');
+            } elseif ($estadoEnvio === 'PENDIENTE') {
+                $query->where(function($q) {
+                    $q->where('estado_envio', 'PENDIENTE')
+                      ->orWhereNull('estado_envio')
+                      ->orWhere('estado_envio', '');
+                });
+            }
+        }
+
         $ingresos = $query->orderBy('ingresos_conciliados.created_at', 'desc')->get();
 
         return response()->json($ingresos);
@@ -2201,7 +2215,7 @@ class IngresoConciliadoController extends Controller
             $variableEmpresa = $request->input('sucursal', ''); 
             
             if (empty($variableEmpresa) && $ingreso) {
-                $variableEmpresa = $ingreso->sucursal ?? ''; 
+                $variableEmpresa = $ingreso->sucursal_origen ?? ''; 
             }
 
             $nombreEmpresaEmisora = 'InTactics';
@@ -2212,13 +2226,25 @@ class IngresoConciliadoController extends Controller
                 $nombreEmpresaEmisora = 'INTSHIPPERTS';
             }
 
+            if (app()->environment('production')) {
+                $remitente = auth()->user(); 
+            } else {
+                Auth::onceUsingId(5);
+                $remitente = auth()->user();
+            }
+
+            // A partir de aquí tu código ya funcionará perfecto:
+            $nombreArchivoFirma = ($remitente && $remitente->signature_image) ? $remitente->signature_image : 'firma_generica.png';
+            $urlFirmaLista = "https://sistema.intactics.com/v3/storage/firmas_usuarios/{$nombreArchivoFirma}?v=" . time();
+
             $datosCorreo = [
                 'folioDocumento' => 'CP' . '-' . $folio,
                 'fechaDocumento' => $complemento->fecha ? Carbon::parse($complemento->fecha)->format('d-m-Y') : date('d-m-Y'),
                 'nombreCliente'  => ($ingreso && $ingreso->cliente) ? $ingreso->cliente->nombre : 'Estimado Cliente', 
                 'referencia'     => $ingreso ? ($ingreso->folio_sc ?? 'N/A') : 'N/A',
                 'empresaEmisora' => $nombreEmpresaEmisora,
-                'sucursalPura'   => $variableEmpresa 
+                'sucursalPura'   => $variableEmpresa,
+                'urlFirma'       => $urlFirmaLista,
             ];
 
             // ==========================================
@@ -2242,6 +2268,11 @@ class IngresoConciliadoController extends Controller
                 ]);
             });
 
+            if ($ingreso) {
+                $ingreso->estado_envio = 'ENVIADO';
+                $ingreso->save();
+            }
+
             return response()->json([
                 'success' => true, 
                 'message' => "El correo con los archivos PDF y XML ha sido enviado exitosamente a todos los destinatarios."
@@ -2251,7 +2282,6 @@ class IngresoConciliadoController extends Controller
             return response()->json(['error' => 'Ocurrió un error al enviar el correo: ' . $e->getMessage()], 500);
         }
     }
-
     public function store(Request $request)
     {
         DB::beginTransaction();
@@ -2565,7 +2595,30 @@ class IngresoConciliadoController extends Controller
     {
         // 1. Buscamos el saldo con su cliente
         $saldo = SaldoFavor::with('cliente')->findOrFail($id);
-        $firmaUsuario = Auth::user()->firma ?? null;
+
+        if (app()->environment('production')) {
+            // En producción tomamos al usuario logueado de forma normal
+            $remitente = auth()->user(); 
+        } else {
+            // En local, buscamos directamente el registro del usuario 5
+            // Así evitamos cualquier problema con las sesiones de Axios/Vue
+            $remitente = \App\Models\User::find(3); 
+        }
+
+        // Hacemos un pequeño truco por si tu base de datos usa "name" en lugar de "nombre"
+        $nombreRemitente = $remitente->nombre ?? $remitente->name ?? '';
+        $apellidosRemitente = $remitente->apellidos ?? $remitente->last_name ?? '';
+
+        $nombreUsuarioLogueado = $remitente ? trim($nombreRemitente . ' ' . $apellidosRemitente) : 'Usuario No Identificado';
+
+        $nombreArchivoFirma = ($remitente && $remitente->signature_image) ? $remitente->signature_image : 'firma_generica.png';
+        $urlFirmaLista = "https://sistema.intactics.com/v3/storage/firmas_usuarios/{$nombreArchivoFirma}?v=" . time();
+
+        // Empaquetamos los datos de la firma y el debug para la vista
+        $datosFirma = [
+            'urlFirma'           => $urlFirmaLista,
+            'nombreUsuarioDebug' => $nombreUsuarioLogueado,
+        ];
 
         // 2. Recibimos los correos desde el SweetAlert (frontend)
         $correosString = $request->input('correos');
@@ -2583,8 +2636,9 @@ class IngresoConciliadoController extends Controller
             return response()->json(['error' => 'No hay correos válidos para enviar'], 400);
         }
 
+        Log::info('DATOS QUE SE VAN AL CORREO:', $datosFirma);
         // 4. Enviamos el correo a la lista de destinatarios
-        Mail::to($destinatarios)->send(new NotificacionSaldoFavorMail($saldo, $firmaUsuario));
+        Mail::to($destinatarios)->send(new NotificacionSaldoFavorMail($saldo, $datosFirma));
 
         return response()->json([
             'success' => true,

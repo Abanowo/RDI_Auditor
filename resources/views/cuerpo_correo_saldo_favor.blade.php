@@ -108,17 +108,15 @@
             </tbody>
         </table>
         
-        <!-- MENSAJE DE DESPEDIDA Y FIRMA -->
+        <!-- MENSAJE DE DESPEDIDA -->
         <div style="margin-top: 40px;">
             <p style="font-size: 13px; color: #333; margin-bottom: 25px;">
                 Si tiene alguna duda sobre este saldo o desea solicitar su aplicación en una operación específica, por favor póngase en contacto con su ejecutivo de cuenta.
             </p>
-            
-            @if(isset($nombreArchivoFirma) && !empty($nombreArchivoFirma))
-                <!-- Firma codificada -->
-                <img src="https://sistema.intactics.com/v3/storage/firmas_usuarios/{{ rawurlencode($nombreArchivoFirma) }}?v=" alt="Firma del Ejecutivo" style="max-width: 250px; height: auto; display: block;">
+
+            @if(isset($urlFirma) && !empty($urlFirma))
+                <img src="{{ $urlFirma }}" alt="Firma del Ejecutivo" style="max-width: 320px; max-height: 120px; border: none; outline: none; display: block;">
             @else
-                <!-- Alternativa si no hay firma -->
                 <p style="color: #333333; font-weight: bold; margin: 0;">El equipo de Finanzas</p>
             @endif
         </div>

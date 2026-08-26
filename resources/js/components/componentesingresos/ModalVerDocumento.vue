@@ -4,7 +4,7 @@
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl flex flex-col overflow-hidden" style="height: 90vh;">
 
       <!-- Header -->
-      <div class="bg-[#2A3A4D] px-6 py-4 flex justify-between items-center shrink-0 shadow-md z-10">
+      <div class="px-6 py-4 flex justify-between items-center shrink-0 shadow-md z-10" style="background-color: #2A3A4D;">
         <h3 class="text-white font-bold text-xl tracking-wide">
           <span class="text-gray-400 mr-2">📄 Visualizando:</span> {{ titulo }}
         </h3>

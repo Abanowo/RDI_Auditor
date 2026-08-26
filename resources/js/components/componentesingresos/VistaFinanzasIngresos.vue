@@ -34,12 +34,10 @@
         style="border-left-color: #00C09F;">
         <div>
           <p class="text-base font-bold text-gray-400 uppercase tracking-wider mb-3">Ingresos Totales</p>
-          <p class="text-4xl font-black text-gray-800 mb-2">${{ totalDepositos.toLocaleString('en-US', {
-            minimumFractionDigits: 2
-          }) }}</p>
+          <p class="text-4xl font-black text-gray-800 mb-2">{{ formatearDinero(totalDepositos) }}</p>
           <p class="text-sm font-bold" style="color: #00C09F;">Depósitos registrados</p>
         </div>
-        <div class="w-16 h-16 rounded-xl bg-teal-50 text-teal-500 flex items-center justify-center shrink-0">
+        <div class="w-16 h-16 rounded-xl bg-teal-100 text-teal-500 flex items-center justify-center shrink-0">
           <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4">
@@ -53,12 +51,10 @@
         style="border-left-color: #8B5CF6;">
         <div>
           <p class="text-base font-bold text-gray-400 uppercase tracking-wider mb-3">Total CFDI (Honorarios)</p>
-          <p class="text-4xl font-black text-purple-700 mb-2">${{ totalHonorarios.toLocaleString('en-US', {
-            minimumFractionDigits: 2
-          }) }}</p>
+          <p class="text-4xl font-black text-purple-700 mb-2">{{ formatearDinero(totalHonorarios) }}</p>
           <p class="text-sm font-bold" style="color: #8B5CF6;">Utilidad de la agencia</p>
         </div>
-        <div class="w-16 h-16 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center shrink-0">
+        <div class="w-16 h-16 rounded-xl bg-purple-100 text-purple-500 flex items-center justify-center shrink-0">
           <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
@@ -72,12 +68,10 @@
         style="border-left-color: #EC4899;">
         <div>
           <p class="text-base font-bold text-gray-400 uppercase tracking-wider mb-3">Total Nota Cargo (GPC)</p>
-          <p class="text-4xl font-black text-pink-600 mb-2">${{ totalNotaCargo.toLocaleString('en-US', {
-            minimumFractionDigits: 2
-          }) }}</p>
+          <p class="text-4xl font-black text-pink-600 mb-2">{{ formatearDinero(totalNotaCargo) }}</p>
           <p class="text-sm font-bold" style="color: #EC4899;">Gastos por cuenta de cliente</p>
         </div>
-        <div class="w-16 h-16 rounded-xl bg-pink-50 text-pink-500 flex items-center justify-center shrink-0">
+        <div class="w-16 h-16 rounded-xl bg-pink-100 text-pink-500 flex items-center justify-center shrink-0">
           <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z">
@@ -91,12 +85,10 @@
         style="border-left-color: #ED8936;">
         <div>
           <p class="text-base font-bold text-gray-400 uppercase tracking-wider mb-3">Saldos aplicados</p>
-          <p class="text-4xl font-black text-gray-800 mb-2">${{ totalSaldosAplicados.toLocaleString('en-US', {
-            minimumFractionDigits: 2
-          }) }}</p>
+          <p class="text-4xl font-black text-gray-800 mb-2">{{ formatearDinero(totalSaldosAplicados) }}</p>
           <p class="text-sm font-bold" style="color: #ED8936;">Historial de aplicaciones</p>
         </div>
-        <div class="w-16 h-16 rounded-xl bg-orange-50 text-orange-400 flex items-center justify-center shrink-0">
+        <div class="w-16 h-16 rounded-xl bg-orange-100 text-orange-400 flex items-center justify-center shrink-0">
           <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
@@ -110,12 +102,10 @@
         style="border-left-color: #4299E1;">
         <div>
           <p class="text-base font-bold text-gray-400 uppercase tracking-wider mb-3">Saldos a Favor</p>
-          <p class="text-4xl font-black text-gray-800 mb-2">${{ totalSaldos.toLocaleString('en-US', {
-            minimumFractionDigits: 2
-          }) }}</p>
+          <p class="text-4xl font-black text-gray-800 mb-2">{{ formatearDinero(totalSaldos) }}</p>
           <p class="text-sm font-bold" style="color: #4299E1;">Abonos listos</p>
         </div>
-        <div class="w-16 h-16 rounded-xl bg-blue-50 text-blue-400 flex items-center justify-center shrink-0">
+        <div class="w-16 h-16 rounded-xl bg-blue-100 text-blue-400 flex items-center justify-center shrink-0">
           <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z">
@@ -130,15 +120,15 @@
     <div class="flex flex-col lg:flex-row justify-between items-center mb-8 gap-6 border-b border-gray-300 pb-8">
       <div class="flex gap-4 w-full lg:w-auto overflow-x-auto">
         <button @click="activeTab = 'ingresos'"
-          :class="['px-8 py-4 rounded-lg text-xl font-bold shadow-sm whitespace-nowrap transition-colors', activeTab === 'ingresos' ? 'bg-blue-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50']">
+          :class="['px-8 py-4 rounded-lg text-xl font-bold shadow-sm whitespace-nowrap transition-colors', activeTab === 'ingresos' ? 'bg-blue-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100']">
           Ingresos
         </button>
         <button @click="activeTab = 'saldos'"
-          :class="['px-8 py-4 rounded-lg text-xl font-bold shadow-sm whitespace-nowrap transition-colors', activeTab === 'saldos' ? 'bg-blue-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50']">
+          :class="['px-8 py-4 rounded-lg text-xl font-bold shadow-sm whitespace-nowrap transition-colors', activeTab === 'saldos' ? 'bg-blue-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100']">
           Saldos a Favor (Vigentes)
         </button>
         <button @click="activeTab = 'saldos_aplicados'"
-          :class="['px-8 py-4 rounded-lg text-xl font-bold shadow-sm whitespace-nowrap transition-colors', activeTab === 'saldos_aplicados' ? 'bg-blue-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50']">
+          :class="['px-8 py-4 rounded-lg text-xl font-bold shadow-sm whitespace-nowrap transition-colors', activeTab === 'saldos_aplicados' ? 'bg-blue-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100']">
           Saldos Aplicados
         </button>
       </div>
@@ -168,64 +158,58 @@
       </div>
 
       <!-- BARRA DE FILTROS INTERNOS DE INGRESOS -->
-      <div class="px-8 py-6 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center gap-8">
-        <div class="flex items-center gap-3">
-          <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-          </svg>
-          <span class="text-xl font-bold text-gray-700">Filtros:</span>
-        </div>
-
-        <!-- Filtro Cliente -->
-        <div class="flex items-center gap-4 z-20 shrink-0" style="min-width: 320px;">
-          <span class="text-xl text-gray-600 shrink-0">Cliente:</span>
-          <multiselect v-model="filtros.cliente" :options="opcionesFiltroCliente" :show-labels="false"
-            placeholder="Todos" class="custom-filter-multiselect w-full"></multiselect>
-        </div>
-
-        <!-- Filtro Tipo de Servicio -->
-        <div class="flex items-center gap-4 z-10 shrink-0" style="min-width: 240px;">
-          <span class="text-xl text-gray-600 shrink-0">Servicio:</span>
-          <multiselect v-model="filtros.tipoServicio" :options="opcionesTipoServicio" placeholder="Todos"
-            :show-labels="false" :allow-empty="false" class="custom-filter-multiselect w-full">
-          </multiselect>
-        </div>
-
-        <!-- Filtro Tipo de Operación -->
-        <div class="flex items-center gap-4 z-10 shrink-0" style="min-width: 240px;">
-          <span class="text-xl text-gray-600 shrink-0">Tipo operación:</span>
-          <multiselect v-model="filtros.tipoOperacion" :options="opcionesTipoOperacion" track-by="id" label="label"
-            :show-labels="false" :searchable="false" :allow-empty="false" placeholder="Seleccione..."
-            class="custom-filter-multiselect w-full">
-          </multiselect>
-        </div>
-
-        <!-- FILTRO DE TIPO DE COMPROBANTE -->
-        <div class="flex items-center gap-4 z-10 shrink-0" style="min-width: 260px;">
-          <span class="text-xl text-gray-600 shrink-0">TIPO COMPROBANTE:</span>
-          <multiselect v-model="filtros.tipo_comprobante" :options="opcionesComprobante" placeholder="Seleccione..."
-            :show-labels="false" :allow-empty="false" @input="cargarIngresos" class="custom-filter-multiselect w-full">
-          </multiselect>
-        </div>
-
-        <!-- Filtro Fechas -->
-        <div class="flex items-center gap-4 z-10 shrink-0" style="min-width: 320px;">
-          <span class="text-xl text-gray-600 shrink-0">Fechas:</span>
-          <VueCtkDateTimePicker v-model="filtros.rangoFechas" format="YYYY-MM-DD" formatted="YYYY-MM-DD" color="#1d4ed8"
-            button-color="#1d4ed8" :only-date="true" :range="true" :no-label="true" input-size="sm"
-            class="custom-filter-datepicker w-full" placeholder="Seleccione un rango..."></VueCtkDateTimePicker>
-        </div>
-
-        <!-- Limpiar Filtros  -->
-        <div class="flex items-center ml-auto">
-          <button @click="limpiarFiltros"
-            class="flex items-center gap-3 px-8 py-3 bg-gray-200 hover:bg-gray-300 text-gray-600 hover:text-gray-700 text-lg font-extrabold rounded-lg transition-colors shadow-sm">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="bg-gray-100 border border-gray-200 rounded-xl p-5 mb-6 mx-8 mt-8 flex flex-col gap-5 shadow-sm">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2 text-gray-700">
+            <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z">
+              </path>
+            </svg>
+            <span class="text-lg font-black uppercase tracking-wider">Filtros</span>
+          </div>
+          <button type="button" @click="limpiarFiltros"
+            class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-5 rounded-lg flex items-center gap-2 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
             </svg>
             Limpiar Filtros
           </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Cliente:</label>
+            <multiselect v-model="filtros.cliente" :options="opcionesFiltroCliente" placeholder="Todos"
+              :searchable="true" :show-labels="false" @input="cargarIngresos"><template slot="noResult">No se
+                encontraron clientes</template>
+            </multiselect>
+          </div>
+          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Servicio:</label>
+            <multiselect v-model="filtros.tipoServicio" :options="opcionesTipoServicio" placeholder="Todos"
+              :searchable="true" :show-labels="false" @input="cargarIngresos"><template slot="noResult">No se
+                encontraron servicios</template>
+            </multiselect>
+          </div>
+          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Tipo
+              Operación:</label>
+            <multiselect v-model="filtros.tipoOperacion" :options="opcionesTipoOperacion" track-by="id" label="label"
+              placeholder="Ambos" :searchable="false" :show-labels="false" @input="cargarIngresos"></multiselect>
+          </div>
+          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Tipo
+              Comprobante:</label>
+            <multiselect v-model="filtros.tipo_comprobante" :options="opcionesComprobante" placeholder="Todos"
+              :searchable="false" :show-labels="false" @input="cargarIngresos"></multiselect>
+          </div>
+          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Fechas:</label>
+            <VueCtkDateTimePicker v-model="filtros.rangoFechas" format="YYYY-MM-DD" formatted="YYYY-MM-DD"
+              color="#1d4ed8" button-color="#1d4ed8" :range="true" label="Select date & time"
+              @validate="cargarIngresos"></VueCtkDateTimePicker>
+          </div>
+          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Envío de
+              Comp.:</label>
+            <multiselect v-model="filtros.estado_envio" :options="opcionesEstadoEnvio" track-by="id" label="label"
+              placeholder="Todos" :searchable="false" :show-labels="false"></multiselect>
+          </div>
         </div>
       </div>
 
@@ -263,8 +247,7 @@
                 <template v-if="!esVistaManzanillo">
                   <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">HONORARIOS
                   </th>
-                  <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">Total GPC
-                  </th>
+                  <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">Total GPC</th>
                   <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">IMPUESTOS</th>
                   <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">ECI</th>
                   <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">MANIOBRAS</th>
@@ -289,8 +272,7 @@
               <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">MONTO SC</th>
               <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">DIFERENCIA</th>
               <th class="px-6 py-5 border-r border-slate-200 text-center" style="min-width: 220px; width: 220px;">TIPO
-                COMPROBANTE
-              </th>
+                COMPROBANTE</th>
               <th class="px-6 py-5 border-r border-slate-200 text-center" style="min-width: 220px; width: 220px;">
                 COMPLEMENTO DE PAGO
               </th>
@@ -300,10 +282,9 @@
             </tr>
           </thead>
           <tbody class="bg-white text-slate-700 font-semibold">
-            <tr v-for="(item, index) in ingresosFiltrados" :key="item.id"
-              class="border-b border-slate-200 hover:bg-slate-50 transition-colors">
+            <tr v-for="item in ingresosFiltrados" :key="item.id"
+              class="border-b border-slate-200 hover:bg-slate-100 transition-colors">
 
-              <!-- DATOS GENERALES -->
               <td class="px-6 py-4 text-xl align-middle border-r border-slate-100 whitespace-nowrap">{{
                 item.sucursal_origen ||
                 'N/A' }}</td>
@@ -314,16 +295,14 @@
               <td class="px-6 py-4 text-xl uppercase align-middle border-r border-slate-100 text-slate-800">{{
                 item.cliente }}
               </td>
-
-              <!-- 🔥 CORRECCIÓN DEL BORDE DERECHO APLICADA AQUÍ -->
               <td class="px-6 py-4 text-center font-bold text-indigo-600 text-xl border-r border-slate-100">{{
-                item.folio_sc ?
-                  item.folio_sc : '--' }}</td>
+                item.folio_sc
+                || '--' }}</td>
 
               <!-- MONTO TOTAL -->
               <td
-                class="px-6 py-4 text-right text-purple-700 text-xl font-black align-middle border-r border-slate-100 bg-purple-50/30">
-                ${{ Number(item.monto_deposito || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
+                class="px-6 py-4 text-right text-purple-700 text-xl font-black align-middle border-r border-slate-100 bg-purple-100">
+                {{ formatearDinero(item.monto_deposito) }}
               </td>
 
               <!-- ========================================== -->
@@ -332,83 +311,81 @@
               <template v-if="esVistaIntshipperts">
                 <td
                   class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                  ${{ Number(item.anticipo || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                  {{ formatearDinero(item.anticipo) }}</td>
                 <td
                   class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-black text-gray-700">
-                  ${{ Number(item.flete || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                  {{ formatearDinero(item.flete) }}</td>
               </template>
 
               <template v-else-if="esVistaTransportactics">
                 <td
                   class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-black text-gray-700">
-                  ${{ Number(item.flete || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                  {{ formatearDinero(item.flete) }}</td>
                 <td
                   class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                  ${{ Number(item.pago_proveedor || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                  {{ formatearDinero(item.pago_proveedor) }}</td>
                 <td
-                  class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-bold text-emerald-600 bg-emerald-50/30">
-                  ${{ Number(item.ganancia || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                  class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-bold text-emerald-600 bg-emerald-100">
+                  {{ formatearDinero(item.ganancia) }}</td>
               </template>
-
               <template v-else>
                 <template v-if="!esVistaManzanillo">
                   <td
                     class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    ${{ Number(item.honorarios || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                    {{ formatearDinero(item.honorarios) }}</td>
                   <td
-                    class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-black text-blue-600 bg-blue-50/30">
-                    ${{ Number(item.total_gpc || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
-                  <td
-                    class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    ${{ Number(item.impuestos || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                    class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-black text-blue-600 bg-blue-100">
+                    {{ formatearDinero(item.total_gpc) }}</td>
                   <td
                     class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    ${{ Number(item.eci || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                    {{ formatearDinero(item.impuestos) }}</td>
                   <td
                     class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    ${{ Number(item.maniobras || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                    {{ formatearDinero(item.eci) }}</td>
                   <td
                     class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    ${{ Number(item.flete || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                    {{ formatearDinero(item.maniobras) }}</td>
                   <td
                     class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    ${{ Number(item.muestras || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                    {{ formatearDinero(item.flete) }}</td>
                   <td
                     class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    ${{ Number(item.llc || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
-                  </td>
+                    {{ formatearDinero(item.muestras) }}</td>
+                  <td
+                    class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
+                    {{ formatearDinero(item.llc) }}</td>
                 </template>
 
                 <template v-else>
                   <td
                     class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    ${{ Number(item.anticipo || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                    {{ formatearDinero(item.anticipo) }}</td>
                   <td
                     class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    ${{ Number(item.garantias || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                    {{ formatearDinero(item.garantias) }}</td>
                   <td
                     class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    ${{ Number(item.desglose_naviera || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                    {{ formatearDinero(item.desglose_naviera) }}</td>
                   <td
                     class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    ${{ Number(item.impuestos || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                    {{ formatearDinero(item.impuestos) }}</td>
                   <td
                     class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    ${{ Number(item.flete || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                    {{ formatearDinero(item.flete) }}</td>
                   <td
                     class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    ${{ Number(item.honorarios || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+                    {{ formatearDinero(item.honorarios) }}</td>
                 </template>
               </template>
 
               <!-- CÁLCULOS Y ESTATUS -->
               <td
-                class="px-6 py-4 text-xl text-right font-black text-slate-800 align-middle border-r border-slate-100 bg-slate-50/50">
-                ${{ calcularMontoSC(item).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
+                class="px-6 py-4 text-xl text-right font-black text-slate-800 align-middle border-r border-slate-100 bg-slate-100">
+                {{ formatearDinero(calcularMontoSC(item)) }}
               </td>
               <td
-                :class="['px-6 py-4 text-xl text-right font-black align-middle border-r border-slate-100', calcularDiferencia(item) < 0 ? 'text-red-500 bg-red-50/30' : 'text-slate-400']">
-                ${{ calcularDiferencia(item).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
+                :class="['px-6 py-4 text-xl text-right font-black align-middle border-r border-slate-100', calcularDiferencia(item) < 0 ? 'text-red-500 bg-red-100' : 'text-slate-400']">
+                {{ formatearDinero(calcularDiferencia(item)) }}
               </td>
 
               <td class="px-8 py-5 whitespace-nowrap text-center border-r border-slate-100 align-middle">
@@ -422,8 +399,7 @@
                     item.tipo_comprobante || 'N/A' }}</span>
               </td>
               <td class="px-6 py-4 align-middle border-r border-slate-100 text-center font-bold text-slate-600 text-xl">
-                {{ item.folio_complemento || 'SIN COMPLEMENTO' }}
-              </td>
+                {{ item.folio_complemento || 'SIN COMPLEMENTO' }}</td>
               <td class="px-6 py-4 text-center font-bold align-middle border-r border-slate-100 text-lg">
                 <span :class="item.estado_envio === 'ENVIADO' ? 'text-green-600' : 'text-orange-500'">{{
                   item.estado_envio ||
@@ -438,8 +414,8 @@
 
                   <!-- 1. Generar Complemento -->
                   <button @click="generarComplemento(item)"
-                    class="text-green-600 hover:text-white bg-green-50 hover:bg-green-500 p-3 rounded-lg transition-colors shadow-sm border border-green-200"
-                    title="Generar Complemento de Pago">
+                    class="text-green-600 hover:text-white bg-green-100 hover:bg-green-500 p-3 rounded-lg transition-colors shadow-sm border border-green-300"
+                    title="Generar Complemento">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
@@ -449,12 +425,11 @@
 
                   <!-- 2. Visualizar Complemento -->
                   <button @click="visualizarComplemento(item)"
-                    class="text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-500 p-3 rounded-lg transition-colors shadow-sm border border-blue-200"
-                    title="Visualizar Complemento de Pago">
+                    class="text-blue-600 hover:text-white bg-blue-100 hover:bg-blue-500 p-3 rounded-lg transition-colors shadow-sm border border-blue-300"
+                    title="Visualizar Complemento">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z">
-                      </path>
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
                       </path>
@@ -463,19 +438,18 @@
 
                   <!-- 3. Enviar Complemento -->
                   <button @click="enviarCorreoComplemento(item)"
-                    class="text-purple-600 hover:text-white bg-purple-50 hover:bg-purple-500 p-3 rounded-lg transition-colors shadow-sm border border-purple-200"
-                    title="Enviar Complemento de Pago">
+                    class="text-purple-600 hover:text-white bg-purple-100 hover:bg-purple-500 p-3 rounded-lg transition-colors shadow-sm border border-purple-300"
+                    title="Enviar Complemento">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8">
-                      </path>
+                        d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
                     </svg>
                   </button>
 
                   <!-- 4. Editar Fila -->
                   <button @click="abrirModalEditarIngreso(item)"
-                    class="text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-500 p-3 rounded-lg transition-colors shadow-sm border border-indigo-200"
-                    title="Editar Registro Completo">
+                    class="text-indigo-600 hover:text-white bg-indigo-100 hover:bg-indigo-500 p-3 rounded-lg transition-colors shadow-sm border border-indigo-300"
+                    title="Editar Fila">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z">
@@ -485,7 +459,7 @@
 
                   <!-- 5. Eliminar Fila -->
                   <button @click="eliminarFila(item.id)"
-                    class="text-red-500 hover:text-white bg-red-50 hover:bg-red-500 p-3 rounded-lg transition-colors shadow-sm border border-red-100"
+                    class="text-red-500 hover:text-white bg-red-100 hover:bg-red-500 p-3 rounded-lg transition-colors shadow-sm border border-red-300"
                     title="Eliminar Fila">
                     <svg class="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -498,7 +472,7 @@
               </td>
             </tr>
             <tr v-if="ingresosFiltrados.length === 0">
-              <td colspan="19" class="text-center py-16 text-2xl text-slate-400 bg-slate-50 font-medium">
+              <td colspan="19" class="text-center py-16 text-2xl text-slate-400 bg-slate-100 font-medium">
                 No se encontraron registros para la sucursal o filtros seleccionados.
               </td>
             </tr>
@@ -513,7 +487,7 @@
     <div v-show="activeTab === 'saldos'" class="flex-1 flex flex-col">
       <div class="flex justify-between items-end mb-8">
         <div>
-          <h2 class="text-2xl font-black text-[#2A3A4D] uppercase tracking-wide">CARTERA DE SALDOS A FAVOR DE CLIENTES
+          <h2 class="text-2xl font-black text-gray-800 uppercase tracking-wide">CARTERA DE SALDOS A FAVOR DE CLIENTES
             (VIGENTES)</h2>
           <p class="text-lg text-gray-500 mt-3">Registros de saldo a favor detectados o notas de crédito que pueden
             aplicarse en despachos futuros</p>
@@ -524,7 +498,7 @@
         </button>
       </div>
 
-      <div class="bg-white rounded-xl shadow-sm border border-[#2A3A4D] overflow-hidden">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden">
         <table class="w-full text-left text-xl">
           <thead
             class="bg-slate-100 text-slate-600 font-extrabold uppercase tracking-wider border-b-4 border-slate-300">
@@ -539,13 +513,11 @@
             </tr>
           </thead>
           <tbody class="text-slate-700 font-medium">
-            <tr v-for="(saldo, index) in saldosVigentesFiltrados" :key="saldo.id"
-              class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+            <tr v-for="saldo in saldosVigentesFiltrados" :key="saldo.id"
+              class="border-b border-slate-100 hover:bg-slate-100 transition-colors">
               <td class="px-8 py-5 font-bold text-slate-800">{{ saldo.cliente }}</td>
               <td class="px-8 py-5 text-slate-500">{{ saldo.sucursal_origen }}</td>
-              <td class="px-8 py-5 text-center font-black text-emerald-600">${{
-                Number(saldo.monto).toLocaleString('en-US',
-                  { minimumFractionDigits: 2 }) }}</td>
+              <td class="px-8 py-5 text-center font-black text-emerald-600">{{ formatearDinero(saldo.monto) }}</td>
               <td class="px-8 py-5 text-center text-slate-500">{{ saldo.fecha_deteccion }}</td>
               <td class="px-8 py-5 text-slate-600">{{ saldo.concepto }}</td>
               <td class="px-8 py-5 text-center">
@@ -555,8 +527,8 @@
               <td class="px-8 py-5 text-center">
                 <div class="flex items-center justify-center gap-4">
                   <button @click="editarSaldo(saldo)"
-                    class="text-indigo-500 hover:text-white bg-indigo-50 hover:bg-indigo-500 p-3 rounded-lg transition-colors shadow-sm border border-indigo-100"
-                    title="Editar Registro">
+                    class="text-indigo-500 hover:text-white bg-indigo-100 hover:bg-indigo-500 p-3 rounded-lg transition-colors shadow-sm border border-indigo-200"
+                    title="Editar">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z">
@@ -565,7 +537,7 @@
                   </button>
 
                   <button @click="eliminarSaldo(saldo.id)"
-                    class="text-red-500 hover:text-white bg-red-50 hover:bg-red-500 p-3 rounded-lg transition-colors shadow-sm border border-red-100"
+                    class="text-red-500 hover:text-white bg-red-100 hover:bg-red-500 p-3 rounded-lg transition-colors shadow-sm border border-red-200"
                     title="Eliminar">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -574,8 +546,8 @@
                     </svg>
                   </button>
                   <button @click="notificarCliente(saldo)"
-                    class="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 hover:bg-blue-200 transition-colors shadow-sm"
-                    title="Notificar saldo al cliente">
+                    class="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 hover:bg-blue-200 transition-colors shadow-sm"
+                    title="Notificar">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
@@ -583,14 +555,12 @@
                     </svg>
                   </button>
                   <button @click="aplicarSaldo(saldo.id)"
-                    class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold text-lg transition-colors shadow-sm ml-2 uppercase tracking-wider">
-                    Aplicar
-                  </button>
+                    class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold text-lg transition-colors shadow-sm ml-2 uppercase tracking-wider">Aplicar</button>
                 </div>
               </td>
             </tr>
             <tr v-if="saldosVigentesFiltrados.length === 0">
-              <td colspan="7" class="text-center py-16 text-xl text-slate-400 bg-slate-50 font-medium">No se encontraron
+              <td colspan="7" class="text-center py-16 text-xl text-slate-400 bg-slate-100 font-medium">No se encontraron
                 saldos vigentes para la sucursal seleccionada.</td>
             </tr>
           </tbody>
@@ -612,7 +582,7 @@
 
       <div class="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden">
         <table class="w-full text-left text-xl">
-          <thead class="bg-slate-50 text-slate-500 font-extrabold uppercase tracking-wider border-b-4 border-slate-200">
+          <thead class="bg-slate-100 text-slate-500 font-extrabold uppercase tracking-wider border-b-4 border-slate-200">
             <tr>
               <th class="px-8 py-5" style="width: 250px;">CLIENTE</th>
               <th class="px-8 py-5" style="width: 200px;">SUCURSAL ORIGEN</th>
@@ -624,28 +594,26 @@
             </tr>
           </thead>
           <tbody class="text-slate-500 font-medium">
-            <tr v-for="(saldo, index) in saldosAplicadosFiltrados" :key="saldo.id"
-              class="border-b border-slate-100 bg-slate-50/50 hover:bg-slate-100 transition-colors">
+            <tr v-for="saldo in saldosAplicadosFiltrados" :key="saldo.id"
+              class="border-b border-slate-200 bg-slate-100 hover:bg-slate-200 transition-colors">
               <td class="px-8 py-5 font-bold text-slate-600">{{ saldo.cliente }}</td>
               <td class="px-8 py-5">{{ saldo.sucursal_origen }}</td>
-              <td class="px-8 py-5 text-center font-black">${{ Number(saldo.monto).toLocaleString('en-US', {
-                minimumFractionDigits: 2
-              }) }}</td>
+              <td class="px-8 py-5 text-center font-black">{{ formatearDinero(saldo.monto) }}</td>
               <td class="px-8 py-5 text-center">{{ saldo.fecha_deteccion }}</td>
               <td class="px-8 py-5">{{ saldo.concepto }}</td>
               <td class="px-8 py-5 text-center">
                 <span
-                  class="px-6 py-3 bg-slate-200 text-slate-500 font-extrabold rounded-full uppercase text-base tracking-widest shadow-inner">APLICADO</span>
+                  class="px-6 py-3 bg-slate-300 text-slate-600 font-extrabold rounded-full uppercase text-base tracking-widest shadow-inner">APLICADO</span>
               </td>
               <td class="px-8 py-5 text-center">
                 <button @click="reactivarSaldo(saldo.id)"
-                  class="bg-white hover:bg-blue-50 text-blue-600 hover:text-blue-700 px-6 py-3 rounded-lg font-extrabold text-lg transition-colors border border-blue-200 shadow-sm uppercase tracking-wider">
+                  class="bg-white hover:bg-blue-100 text-blue-600 hover:text-blue-700 px-6 py-3 rounded-lg font-extrabold text-lg transition-colors border border-blue-200 shadow-sm uppercase tracking-wider">
                   Reactivar
                 </button>
               </td>
             </tr>
             <tr v-if="saldosAplicadosFiltrados.length === 0">
-              <td colspan="7" class="text-center py-16 text-xl text-slate-400 bg-slate-50 font-medium">No se encontraron
+              <td colspan="7" class="text-center py-16 text-xl text-slate-400 bg-slate-100 font-medium">No se encontraron
                 saldos aplicados para la sucursal seleccionada.</td>
             </tr>
           </tbody>
@@ -676,7 +644,7 @@
     <ModalVerDocumento :mostrar="showModalVerDocumento" :url-pdf="urlDocumentoActivo" :titulo="tituloDocumentoActivo"
       @cerrar="showModalVerDocumento = false" />
 
-    <ModalEnviarCorreo :mostrar="showModalEnviarCorreo" :ingreso-id="ingresoIdParaCorreo"
+    <ModalEnviarCorreo :mostrar="showModalEnviarCorreo" :ingreso="ingresoParaCorreo"
       @cerrar="showModalEnviarCorreo = false" />
 
   </div>
@@ -751,12 +719,19 @@ export default {
         { id: 'EXPO', label: 'Exportación (EXPO)' }
       ],
 
+      opcionesEstadoEnvio: [
+        { id: '', label: 'Todos' },
+        { id: 'ENVIADO', label: 'Enviados' },
+        { id: 'PENDIENTE', label: 'Pendientes' }
+      ],
+
       filtros: {
-        cliente: null,
+        cliente: 'Todos',
         rangoFechas: null,
         tipoOperacion: { id: 'Ambos', label: 'Ambos' },
         tipo_comprobante: 'Todos',
-        tipoServicio: 'Todos'
+        tipoServicio: 'Todos',
+        estado_envio: { id: '', label: 'Todos' }
       }
     }
   },
@@ -825,6 +800,19 @@ export default {
             return !isIntshipperts && !isTransportactics;
           }
 
+          return true;
+        });
+      }
+
+      if (this.filtros.estado_envio && this.filtros.estado_envio.id !== '') {
+        const estado = this.filtros.estado_envio.id;
+        data = data.filter(item => {
+          if (estado === 'ENVIADO') {
+            return item.estado_envio === 'ENVIADO';
+          }
+          if (estado === 'PENDIENTE') {
+            return item.estado_envio === 'PENDIENTE' || !item.estado_envio || item.estado_envio === '';
+          }
           return true;
         });
       }
@@ -1090,11 +1078,12 @@ export default {
     limpiarFiltros() {
       this.filtroSucursalActiva = 'Todas';
       this.filtros = {
-        cliente: null,
+        cliente: 'Todos',
         rangoFechas: null,
         tipoOperacion: { id: 'Ambos', label: 'Ambos' },
         tipo_comprobante: 'Todos',
-        tipoServicio: 'Todos'
+        tipoServicio: 'Todos',
+        estado_envio: { id: '', label: 'Todos' }
       };
       this.cargarIngresos();
 
@@ -1165,7 +1154,7 @@ export default {
       }
     },
     enviarCorreoComplemento(item) {
-      this.ingresoParaCorreo = item; 
+      this.ingresoParaCorreo = item;
       this.showModalEnviarCorreo = true;
     },
   }

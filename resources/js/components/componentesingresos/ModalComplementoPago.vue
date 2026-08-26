@@ -46,7 +46,7 @@
 
         <!-- SECCIÓN DE MONTOS SEPARADOS -->
         <div
-          class="col-span-1 md:col-span-3 border-2 border-indigo-100 bg-indigo-50/30 rounded-xl p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+          class="col-span-1 md:col-span-3 border-2 border-indigo-200 bg-indigo-100 rounded-xl p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
 
           <div>
             <label class="block text-sm font-bold text-indigo-800 mb-2 uppercase tracking-wide">Monto CFDI
@@ -122,7 +122,7 @@
       </div>
 
       <!-- Footer -->
-      <div class="bg-gray-50 px-8 py-6 flex justify-end gap-4 rounded-b-xl border-t shrink-0">
+      <div class="bg-gray-100 px-8 py-6 flex justify-end gap-4 rounded-b-xl border-t shrink-0">
         <button @click="cerrar"
           class="px-6 py-4 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 font-bold transition-colors text-xl shadow-sm">
           Cancelar
