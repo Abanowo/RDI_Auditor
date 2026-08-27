@@ -78,9 +78,9 @@ class IngresoConciliadoController extends Controller
     // 2. Traer los datos para mostrarlos en la tabla principal de Vue
     public function index(Request $request)
     {
+        // 1. Iniciamos la consulta base con los Joins y Subconsultas
         $query = IngresoConciliado::select('ingresos_conciliados.*', 'empresas.nombre as cliente')
             ->join('empresas', 'ingresos_conciliados.cliente_id', '=', 'empresas.id')
-            // Usamos un addSelect con subconsulta para no duplicar filas si hay varios complementos
             ->addSelect([
                 'folio_complemento' => ComplementoPago::select('folio')
                     ->whereColumn('ingreso_conciliado_id', 'ingresos_conciliados.id')
@@ -88,27 +88,100 @@ class IngresoConciliadoController extends Controller
                     ->limit(1)
             ]);
 
+        // ==========================================
+        // 2. APLICAR FILTROS (Enviados desde Vue)
+        // ==========================================
+
+        if ($request->filled('sucursal') && $request->sucursal !== 'Todas') {
+            $query->where('ingresos_conciliados.sucursal_origen', 'LIKE', '%' . $request->sucursal . '%');
+        }
+
+        if ($request->filled('cliente') && $request->cliente !== 'Todos') {
+            $query->where('empresas.nombre', $request->cliente);
+        }
+
+        if ($request->filled('tipo_operacion') && $request->tipo_operacion !== 'Ambos') {
+            $query->where('ingresos_conciliados.sucursal_origen', 'LIKE', '%' . $request->tipo_operacion . '%');
+        }
+
         if ($request->filled('tipo_comprobante') && $request->tipo_comprobante !== 'Todos') {
             $query->where('ingresos_conciliados.tipo_comprobante', $request->tipo_comprobante);
         }
 
+        if ($request->filled('fecha_inicio') && $request->filled('fecha_fin')) {
+            $query->whereBetween('ingresos_conciliados.fecha', [$request->fecha_inicio, $request->fecha_fin]);
+        }
+
         if ($request->filled('estado_envio')) {
-            $estadoEnvio = strtoupper($request->input('estado_envio'));
-            
+            $estadoEnvio = strtoupper($request->estado_envio);
+
             if ($estadoEnvio === 'ENVIADO') {
-                $query->where('estado_envio', 'ENVIADO');
+                $query->where('ingresos_conciliados.estado_envio', 'ENVIADO');
             } elseif ($estadoEnvio === 'PENDIENTE') {
-                $query->where(function($q) {
-                    $q->where('estado_envio', 'PENDIENTE')
-                      ->orWhereNull('estado_envio')
-                      ->orWhere('estado_envio', '');
+                $query->where(function ($q) {
+                    $q->where('ingresos_conciliados.estado_envio', 'PENDIENTE')
+                        ->orWhereNull('ingresos_conciliados.estado_envio')
+                        ->orWhere('ingresos_conciliados.estado_envio', '');
                 });
             }
         }
 
-        $ingresos = $query->orderBy('ingresos_conciliados.created_at', 'desc')->get();
+        if ($request->filled('tipo_servicio') && $request->tipo_servicio !== 'Todos') {
+            $servicio = $request->tipo_servicio;
 
-        return response()->json($ingresos);
+            if ($servicio === 'INTSHIPPERTS') {
+                $query->where(function ($q) {
+                    $q->where('empresas.nombre', 'LIKE', '%INTSHIPPERTS%')
+                        ->orWhere('ingresos_conciliados.sucursal_origen', 'LIKE', '%INTSHIPPERT%');
+                });
+            } elseif ($servicio === 'Transportactics') {
+                $query->where(function ($q) {
+                    $q->where('empresas.nombre', 'LIKE', '%TRANSPORTACTICS%')
+                        ->orWhere('ingresos_conciliados.sucursal_origen', 'LIKE', '%TRANSPORTACTIC%');
+                });
+            } elseif ($servicio === 'InTactics') {
+                $query->where(function ($q) {
+                    $q->where('empresas.nombre', 'NOT LIKE', '%INTSHIPPERTS%')
+                        ->where('ingresos_conciliados.sucursal_origen', 'NOT LIKE', '%INTSHIPPERT%')
+                        ->where('empresas.nombre', 'NOT LIKE', '%TRANSPORTACTICS%')
+                        ->where('ingresos_conciliados.sucursal_origen', 'NOT LIKE', '%TRANSPORTACTIC%');
+                });
+            }
+        }
+
+        // ==========================================
+        // 3. CÁLCULO DE KPIs (Ingresos Totales, etc.)
+        // ==========================================
+        // Clonamos la consulta ANTES de paginar para sacar la suma de TODOS los registros filtrados
+
+        $kpis = [
+            'depositos'  => (clone $query)->sum('ingresos_conciliados.monto_deposito'),
+            'honorarios' => (clone $query)->sum('ingresos_conciliados.honorarios'),
+
+            // Replicamos tu lógica de Nota de Cargo dependiendo de si es Manzanillo o Normal
+            'notaCargo'  => (clone $query)->sum(DB::raw("
+                CASE 
+                    WHEN ingresos_conciliados.sucursal_origen LIKE '%MANZANILLO%' OR ingresos_conciliados.sucursal_origen LIKE '%INTSHIPPERT%' 
+                    THEN (COALESCE(ingresos_conciliados.impuestos, 0) + COALESCE(ingresos_conciliados.flete, 0) + COALESCE(ingresos_conciliados.anticipo, 0) + COALESCE(ingresos_conciliados.garantias, 0) + COALESCE(ingresos_conciliados.desglose_naviera, 0))
+                    
+                    ELSE (COALESCE(ingresos_conciliados.impuestos, 0) + COALESCE(ingresos_conciliados.eci, 0) + COALESCE(ingresos_conciliados.maniobras, 0) + COALESCE(ingresos_conciliados.flete, 0) + COALESCE(ingresos_conciliados.muestras, 0) + COALESCE(ingresos_conciliados.llc, 0))
+                END
+            "))
+        ];
+
+        // ==========================================
+        // 4. PAGINACIÓN Y RETORNO
+        // ==========================================
+        // Tomamos el límite enviado por Vue (o 10 por defecto) y paginamos.
+        $perPage = $request->input('per_page', 10);
+        $resultados = $query->orderBy('ingresos_conciliados.created_at', 'desc')->paginate($perPage);
+
+        // Retornamos un JSON estructurado
+        return response()->json([
+            'data'  => $resultados->items(),   // Array con los 10 registros
+            'total' => $resultados->total(),   // Total de registros encontrados
+            'kpis'  => $kpis                   // Objeto con los 3 totales matemáticos
+        ]);
     }
 
     public function listarPedimentosSheet(Request $request)
@@ -157,10 +230,10 @@ class IngresoConciliadoController extends Controller
 
             $idxCliente = 1;
             $idxPedimento = 2;
-            $idxProveedor = 4;   
-            $idxFacturaP = 5;    
-            $idxMonto = 6;       
-            $idxFacturaSC = 8;   
+            $idxProveedor = 4;
+            $idxFacturaP = 5;
+            $idxMonto = 6;
+            $idxFacturaSC = 8;
 
             foreach ($rows as $cols) {
                 foreach ($cols as $i => $col) {
@@ -198,8 +271,8 @@ class IngresoConciliadoController extends Controller
 
                 $clienteCeldaOriginal = trim($cols[$idxCliente] ?? '');
                 $pedimentoCeldaOriginal = trim($cols[$idxPedimento] ?? '');
-                $facturaCeldaOriginal = trim($cols[$idxFacturaSC] ?? ''); 
-                
+                $facturaCeldaOriginal = trim($cols[$idxFacturaSC] ?? '');
+
                 if ($clienteCeldaOriginal !== '') {
                     $ultimoCliente = $clienteCeldaOriginal;
                 }
@@ -222,13 +295,13 @@ class IngresoConciliadoController extends Controller
                     if (strtoupper($clienteCelda) === 'CLIENTE' || strtoupper($pedimentoCelda) === 'PEDIMENTO') {
                         continue;
                     }
-                    
+
                     if ($esTransportactics) {
                         if (!str_contains($proveedorCelda, 'TRANSPORTACTICS') || $montoCelda <= 0) {
                             continue;
                         }
                     }
-                    
+
                     $folioIntshipperts = '';
                     if (preg_match('/(ZLOI\s*[0-9]+)/i', $facturaCelda, $matches)) {
                         $folioIntshipperts = strtoupper(str_replace(' ', '', $matches[1]));
@@ -239,9 +312,9 @@ class IngresoConciliadoController extends Controller
                     if ($esIntshipperts && $folioIntshipperts === '') {
                         continue;
                     }
-                    
+
                     $etiqueta = '';
-                    
+
                     if ($esTransportactics && $facturaPCelda !== '') {
                         $etiqueta .= 'TR: ' . $facturaPCelda . ' - ';
                     } elseif ($esIntshipperts && $folioIntshipperts !== '') {
@@ -251,12 +324,12 @@ class IngresoConciliadoController extends Controller
                     if ($facturaCelda !== '' && !str_contains($facturaCelda, '$')) {
                         $etiqueta .= $facturaCelda . ' - ';
                     }
-                    
+
                     $etiqueta .= $pedimentoCelda . ' - ' . $clienteCelda;
 
                     $pedimentos[] = [
                         'label' => $etiqueta,
-                        'folio' => $etiqueta, 
+                        'folio' => $etiqueta,
                         'cliente' => strtoupper($clienteCelda)
                     ];
                 }
@@ -282,7 +355,7 @@ class IngresoConciliadoController extends Controller
 
             if (str_contains($termLimpio, ' - ')) {
                 $partes = explode(' - ', $termLimpio);
-                
+
                 foreach ($partes as $parte) {
                     $parteLimpia = trim($parte);
                     if (preg_match('/[0-9]/', $parteLimpia)) {
@@ -294,7 +367,7 @@ class IngresoConciliadoController extends Controller
                 $terminosBuscados[] = trim($termLimpio);
             }
         }
-        
+
         // Limpiamos vacíos y duplicados
         $terminosBuscados = array_unique(array_filter($terminosBuscados));
 
@@ -1295,10 +1368,19 @@ class IngresoConciliadoController extends Controller
     private function procesarIngresoTransportactics(array $terminosBuscados)
     {
         $resultados = [
-            'honorarios' => 0, 'impuestos' => 0, 'eci' => 0, 'maniobras' => 0,
-            'flete' => 0, 'muestras' => 0, 'llc' => 0, 'anticipo' => 0,
-            'garantias' => 0, 'desglose_naviera' => 0, 'folio_sc' => [],
-            'pedimento_detectado' => [], 'operaciones' => []
+            'honorarios' => 0,
+            'impuestos' => 0,
+            'eci' => 0,
+            'maniobras' => 0,
+            'flete' => 0,
+            'muestras' => 0,
+            'llc' => 0,
+            'anticipo' => 0,
+            'garantias' => 0,
+            'desglose_naviera' => 0,
+            'folio_sc' => [],
+            'pedimento_detectado' => [],
+            'operaciones' => []
         ];
 
         $logDebug = [];
@@ -1334,14 +1416,20 @@ class IngresoConciliadoController extends Controller
             $impo = DB::table('operaciones_importacion')->where('id_pedimiento', $pedimentoDB->id_pedimiento)->first();
             $expo = DB::table('operaciones_exportacion')->where('id_pedimiento', $pedimentoDB->id_pedimiento)->first();
 
-            $idOp = null; $tipoApi = null; $idPadre = null;
+            $idOp = null;
+            $tipoApi = null;
+            $idPadre = null;
             $opType = null;
 
             if ($impo) {
-                $idOp = $impo->id_importacion; $tipoApi = 'importaciones'; $idPadre = $impo->parent ?? null;
+                $idOp = $impo->id_importacion;
+                $tipoApi = 'importaciones';
+                $idPadre = $impo->parent ?? null;
                 $opType = 'App\Models\OperacionImportacion';
             } elseif ($expo) {
-                $idOp = $expo->id_exportacion; $tipoApi = 'exportaciones'; $idPadre = $expo->parent ?? null;
+                $idOp = $expo->id_exportacion;
+                $tipoApi = 'exportaciones';
+                $idPadre = $expo->parent ?? null;
                 $opType = 'App\Models\OperacionExportacion';
             }
 
@@ -1396,7 +1484,7 @@ class IngresoConciliadoController extends Controller
 
             // Guardamos la operación con su monto para la tabla pivote
             $resultados['operaciones'][] = [
-                'id' => $idOp, 
+                'id' => $idOp,
                 'type' => $opType,
                 'monto_cfdi' => round($montoCfdiOp, 2),
                 'monto_gpc' => 0
@@ -1444,11 +1532,11 @@ class IngresoConciliadoController extends Controller
             // Si falla o da error 404, intentamos la ruta alternativa
             if (!$xmlString) {
                 $rutaAlternativa = 'https://intactics.nyc3.cdn.digitaloceanspaces.com/production/uploads/' . basename($rutaXml);
-                
+
                 $respAlt = Http::withoutVerifying()
                     ->timeout(10)
                     ->get($rutaAlternativa);
-                    
+
                 $xmlString = $respAlt->successful() ? $respAlt->body() : null;
             }
 
@@ -1471,7 +1559,7 @@ class IngresoConciliadoController extends Controller
                     $total = isset($xmlObj['Total']) ? (float) $xmlObj['Total'] : null;
                     $moneda = isset($xmlObj['Moneda']) ? strtoupper((string) $xmlObj['Moneda']) : null;
                     $fecha = isset($xmlObj['Fecha']) ? explode('T', (string) $xmlObj['Fecha'])[0] : null;
-                    
+
                     if (isset($xmlObj['Folio'])) {
                         $folioRaw = (string) $xmlObj['Folio'];
                         $folio = str_contains($folioRaw, '_') ? last(explode('_', $folioRaw)) : $folioRaw;
@@ -1496,7 +1584,7 @@ class IngresoConciliadoController extends Controller
                 if ($total === null && preg_match('/Total=["\']([0-9\,\.]+)["\']/is', $comprobanteAttrs, $mTotal)) {
                     $total = (float) str_replace(',', '', $mTotal[1]);
                 }
-                
+
                 if ($fecha === null && preg_match('/Fecha=["\']([^"\']+)["\']/is', $comprobanteAttrs, $mFecha)) {
                     $fecha = explode('T', $mFecha[1])[0];
                 }
@@ -1523,7 +1611,6 @@ class IngresoConciliadoController extends Controller
                 'fecha'  => $fecha,
                 'folio'  => $folio
             ];
-
         } catch (\Throwable $e) {
             Log::error("Error parseando XML {$rutaXml}: " . $e->getMessage());
             return $defaultReturn;
@@ -1857,7 +1944,7 @@ class IngresoConciliadoController extends Controller
                     } else {
                         // Advertencia si Contpaqi no encuentra el folio
                         $errorContpaqi = $resultadoSaldado['respuesta']['errorMessage'] ?? 'Error desconocido al intentar saldar.';
-                        
+
                         if (str_contains($errorContpaqi, 'LlaveDocumento no existe')) {
                             $mensajeSaldado = "ADVERTENCIA: El complemento fue creado (Folio: {$folioComplemento}), pero la Factura Original (Serie: {$serieFactura} | Folio: {$folioFacturaLimpio}) NO EXISTE en Contpaqi. Por favor, valide en el sistema Contpaqi.";
                         } else {
@@ -1870,8 +1957,8 @@ class IngresoConciliadoController extends Controller
             }
 
             return response()->json([
-                'success' => true, 
-                'saldado' => $saldadoExitoso, 
+                'success' => true,
+                'saldado' => $saldadoExitoso,
                 'message' => $mensajeSaldado,
                 'serie'   => $serieComplemento,
                 'folio'   => $folioComplemento,
@@ -1907,7 +1994,7 @@ class IngresoConciliadoController extends Controller
                     ],
                     'contrasenaCertificado' => 'INT081028GF0'
                 ],
-                'options' => new \stdClass() 
+                'options' => new \stdClass()
             ];
 
             $responseTimbrar = Http::withoutVerifying()
@@ -1939,7 +2026,7 @@ class IngresoConciliadoController extends Controller
             // ==========================================
             // PASO 2: GENERAR ARCHIVOS (SOLO SI EL TIMBRE FUE EXITOSO)
             // ==========================================
-            
+
             $payloadPdf = [
                 '$type' => 'GenerarDocumentoDigitalRequest',
                 'model' => [
@@ -1997,7 +2084,7 @@ class IngresoConciliadoController extends Controller
             $xmlSuccess = $dataXml['raw']['response']['isSuccess'] ?? $dataXml['respuesta']['isSuccess'] ?? false;
 
             if ($pdfSuccess && $xmlSuccess) {
-                
+
                 // ==========================================
                 // PASO 3: EXTRAER Y GUARDAR LOS ARCHIVOS
                 // ==========================================
@@ -2005,7 +2092,7 @@ class IngresoConciliadoController extends Controller
                 $base64Xml = $dataXml['raw']['response']['contpaqiResponse']['model']['documentoDigital']['contenido'] ?? null;
 
                 if ($base64Pdf && $base64Xml) {
-                    
+
                     $archivoPdf = base64_decode($base64Pdf);
                     $archivoXml = base64_decode($base64Xml);
 
@@ -2014,7 +2101,7 @@ class IngresoConciliadoController extends Controller
 
                     /** @var \Illuminate\Filesystem\FilesystemAdapter $discoPersonalizado */
                     $discoPersonalizado = Storage::disk('storageOldProyect');
-                    
+
                     $discoPersonalizado->put($nombrePdf, $archivoPdf);
                     $discoPersonalizado->put($nombreXml, $archivoXml);
 
@@ -2056,10 +2143,9 @@ class IngresoConciliadoController extends Controller
                 'request_pdf' => $payloadPdf,
                 'request_xml' => $payloadXml
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
-                'success' => false, 
+                'success' => false,
                 'error' => 'Error interno al procesar el timbrado y los archivos: ' . $e->getMessage()
             ], 500);
         }
@@ -2077,7 +2163,7 @@ class IngresoConciliadoController extends Controller
                 '$type' => 'GenerarDocumentoDigitalRequest',
                 'model' => [
                     'llaveDocumento' => [
-                        'conceptoCodigo' => '100014.0', 
+                        'conceptoCodigo' => '100014.0',
                         'serie'          => $complemento->serie ?? 'CP',
                         'folio'          => (int) $complemento->folio
                     ]
@@ -2094,7 +2180,7 @@ class IngresoConciliadoController extends Controller
 
             if ($response->successful()) {
                 $data = $response->json();
-                
+
                 // ==========================================
                 // 2. BUSCAMOS EL BASE64 EN LA RUTA EXACTA
                 // ==========================================
@@ -2102,21 +2188,20 @@ class IngresoConciliadoController extends Controller
 
                 if (!empty($pdfBase64)) {
                     $archivoDecodificado = base64_decode($pdfBase64);
-                    
+
                     // Devolvemos el archivo binario para que el iframe lo lea directo
                     return response($archivoDecodificado, 200)
                         ->header('Content-Type', 'application/pdf')
                         // Usamos 'inline' para que se visualice en el navegador en lugar de descargar forzosamente
-                        ->header('Content-Disposition', 'inline; filename="Complemento_'.$complemento->serie.'_'.$complemento->folio.'.pdf"');
+                        ->header('Content-Disposition', 'inline; filename="Complemento_' . $complemento->serie . '_' . $complemento->folio . '.pdf"');
                 }
-                
+
                 // Si la API respondió 200 OK pero no mandó el Base64, mostramos el JSON para depurar
-                return response("<h1>Documento Timbrado, pero PDF no encontrado.</h1><pre>".json_encode($data, JSON_PRETTY_PRINT)."</pre>", 200)->header('Content-Type', 'text/html');
+                return response("<h1>Documento Timbrado, pero PDF no encontrado.</h1><pre>" . json_encode($data, JSON_PRETTY_PRINT) . "</pre>", 200)->header('Content-Type', 'text/html');
             }
 
             // Si la API falló a nivel HTTP (ej. 500, 404)
-            return response("<h1>Error de API ({$response->status()})</h1><pre>".htmlspecialchars($response->body())."</pre>", $response->status())->header('Content-Type', 'text/html');
-
+            return response("<h1>Error de API ({$response->status()})</h1><pre>" . htmlspecialchars($response->body()) . "</pre>", $response->status())->header('Content-Type', 'text/html');
         } catch (\Exception $e) {
             return response('<h1>Error Interno</h1><p>' . $e->getMessage() . '</p>', 500)->header('Content-Type', 'text/html');
         }
@@ -2140,7 +2225,7 @@ class IngresoConciliadoController extends Controller
 
             // Guardamos el arreglo de correos
             $correosDestino = $request->correos;
-            
+
             $folio = (int) $complemento->folio;
 
             // ==========================================
@@ -2212,10 +2297,10 @@ class IngresoConciliadoController extends Controller
             // ==========================================
             // 4. ARMAMOS VARIABLES PARA LA VISTA BLADE
             // ==========================================
-            $variableEmpresa = $request->input('sucursal', ''); 
-            
+            $variableEmpresa = $request->input('sucursal', '');
+
             if (empty($variableEmpresa) && $ingreso) {
-                $variableEmpresa = $ingreso->sucursal_origen ?? ''; 
+                $variableEmpresa = $ingreso->sucursal_origen ?? '';
             }
 
             $nombreEmpresaEmisora = 'InTactics';
@@ -2227,7 +2312,7 @@ class IngresoConciliadoController extends Controller
             }
 
             if (app()->environment('production')) {
-                $remitente = auth()->user(); 
+                $remitente = auth()->user();
             } else {
                 Auth::onceUsingId(5);
                 $remitente = auth()->user();
@@ -2240,7 +2325,7 @@ class IngresoConciliadoController extends Controller
             $datosCorreo = [
                 'folioDocumento' => 'CP' . '-' . $folio,
                 'fechaDocumento' => $complemento->fecha ? Carbon::parse($complemento->fecha)->format('d-m-Y') : date('d-m-Y'),
-                'nombreCliente'  => ($ingreso && $ingreso->cliente) ? $ingreso->cliente->nombre : 'Estimado Cliente', 
+                'nombreCliente'  => ($ingreso && $ingreso->cliente) ? $ingreso->cliente->nombre : 'Estimado Cliente',
                 'referencia'     => $ingreso ? ($ingreso->folio_sc ?? 'N/A') : 'N/A',
                 'empresaEmisora' => $nombreEmpresaEmisora,
                 'sucursalPura'   => $variableEmpresa,
@@ -2252,10 +2337,10 @@ class IngresoConciliadoController extends Controller
             // ==========================================
             // Se inyectan las variables decodificadas y el arreglo de correos al "use"
             Mail::send('cuerpo_correo_complemento_pago', $datosCorreo, function ($message) use ($correosDestino, $datosCorreo, $pdfDecoded, $nombreArchivoPdf, $xmlDecoded, $nombreArchivoXml) {
-                
+
                 // Le pasamos el arreglo completo a $message->to()
                 $message->to($correosDestino)
-                        ->subject("Complemento de Pago - {$datosCorreo['nombreCliente']}");
+                    ->subject("Complemento de Pago - {$datosCorreo['nombreCliente']}");
 
                 // Adjuntamos el PDF "al vuelo"
                 $message->attachData($pdfDecoded, $nombreArchivoPdf, [
@@ -2274,10 +2359,9 @@ class IngresoConciliadoController extends Controller
             }
 
             return response()->json([
-                'success' => true, 
+                'success' => true,
                 'message' => "El correo con los archivos PDF y XML ha sido enviado exitosamente a todos los destinatarios."
             ]);
-
         } catch (\Exception $e) {
             return response()->json(['error' => 'Ocurrió un error al enviar el correo: ' . $e->getMessage()], 500);
         }
@@ -2301,7 +2385,7 @@ class IngresoConciliadoController extends Controller
             $fleteReal = (float) str_replace(['$', ','], '', $request->flete ?? 0);
             $pagoProvReal = (float) str_replace(['$', ','], '', $request->pago_proveedor ?? 0);
             $honorariosReal = (float) str_replace(['$', ','], '', $request->honorarios ?? 0);
-            
+
             $gananciaFrontend = $request->ganancia ?? $request->ganancias ?? 0;
             $gananciaReal = (float) str_replace(['$', ','], '', $gananciaFrontend);
 
@@ -2357,7 +2441,7 @@ class IngresoConciliadoController extends Controller
             // Leemos el arreglo 'operaciones' para el pivote
             if ($request->has('operaciones') && is_array($request->operaciones)) {
                 $pivotData = [];
-                
+
                 // Sumamos el flete exacto que vino de los XML (para evitar fallos matemáticos)
                 $sumaFleteXml = 0;
                 foreach ($request->operaciones as $op) {
@@ -2367,7 +2451,7 @@ class IngresoConciliadoController extends Controller
 
                 foreach ($request->operaciones as $op) {
                     if (isset($op['id']) && isset($op['type'])) {
-                        
+
                         $fleteOperacion = (float) ($op['monto_cfdi'] ?? 0);
                         $montoCfdiFinal = $fleteOperacion;
 
@@ -2428,7 +2512,7 @@ class IngresoConciliadoController extends Controller
             $fleteReal = (float) str_replace(['$', ','], '', $request->flete ?? $ingreso->flete);
             $pagoProvReal = (float) str_replace(['$', ','], '', $request->pago_proveedor ?? $ingreso->pago_proveedor);
             $honorariosReal = (float) str_replace(['$', ','], '', $request->honorarios ?? $ingreso->honorarios);
-            
+
             $gananciaFrontend = $request->ganancia ?? $request->ganancias ?? $ingreso->ganancia;
             $gananciaReal = (float) str_replace(['$', ','], '', $gananciaFrontend);
 
@@ -2469,7 +2553,7 @@ class IngresoConciliadoController extends Controller
                 DB::table('ingreso_operacion')->where('ingreso_id', $ingreso->id)->delete();
 
                 $pivotData = [];
-                
+
                 $sumaFleteXml = 0;
                 foreach ($request->operaciones as $op) {
                     $sumaFleteXml += (float) ($op['monto_cfdi'] ?? 0);
@@ -2478,7 +2562,7 @@ class IngresoConciliadoController extends Controller
 
                 foreach ($request->operaciones as $op) {
                     if (isset($op['id']) && isset($op['type'])) {
-                        
+
                         $fleteOperacion = (float) ($op['monto_cfdi'] ?? 0);
                         $montoCfdiFinal = $fleteOperacion;
 
@@ -2604,11 +2688,11 @@ class IngresoConciliadoController extends Controller
 
         if (app()->environment('production')) {
             // En producción tomamos al usuario logueado de forma normal
-            $remitente = auth()->user(); 
+            $remitente = auth()->user();
         } else {
             // En local, buscamos directamente el registro del usuario 5
             // Así evitamos cualquier problema con las sesiones de Axios/Vue
-            $remitente = \App\Models\User::find(3); 
+            $remitente = \App\Models\User::find(3);
         }
 
         // Hacemos un pequeño truco por si tu base de datos usa "name" en lugar de "nombre"

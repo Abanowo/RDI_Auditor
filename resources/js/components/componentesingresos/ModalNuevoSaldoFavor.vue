@@ -2,7 +2,7 @@
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-6">
 
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl flex flex-col mx-4">
-      <div class="bg-blue-600 rounded-t-xl px-8 py-6 flex justify-between items-center">
+      <div class="rounded-t-xl px-8 py-6 flex justify-between items-center"style="background-color: #2A3A4D;">
         <h3 class="text-white text-xl font-bold uppercase tracking-wider">REGISTRAR SALDO A FAVOR</h3>
         <button @click="$emit('close')" class="text-gray-300 hover:text-white transition-colors">
           <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">

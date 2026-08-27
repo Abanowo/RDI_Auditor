@@ -5,12 +5,12 @@
     <!-- FILTRO POR SUCURSAL                            -->
     <!-- ============================================== -->
     <div class="flex w-full p-3 gap-3 mb-10 rounded-lg shadow-sm" style="background-color: #D69E2E;">
-      <button v-for="sucursal in sucursalesBase" :key="sucursal" @click="filtroSucursalActiva = sucursal"
+      <button v-for="sucursal in sucursalesBase" :key="sucursal" @click="cambiarSucursal(sucursal)"
         class="flex-1 py-4 text-xl font-extrabold transition-colors whitespace-nowrap rounded-md"
         :style="filtroSucursalActiva === sucursal ? 'background-color: #2A3A4D; color: #ffffff;' : 'background-color: #ffffff; color: #2A3A4D;'">
         {{ sucursal }}
       </button>
-      <button @click="filtroSucursalActiva = 'Todas'"
+      <button @click="cambiarSucursal('Todas')"
         class="flex-1 py-4 text-xl font-extrabold transition-colors whitespace-nowrap rounded-md"
         :style="filtroSucursalActiva === 'Todas' ? 'background-color: #2A3A4D; color: #ffffff;' : 'background-color: #ffffff; color: #2A3A4D;'">
         Todas
@@ -81,7 +81,7 @@
       </div>
 
       <!-- 4. SALDOS APLICADOS -->
-      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 border-l-4 flex justify-between items-center"
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 border-l-4 flex justify-between items-center"
         style="border-left-color: #ED8936;">
         <div>
           <p class="text-base font-bold text-gray-400 uppercase tracking-wider mb-3">Saldos aplicados</p>
@@ -180,43 +180,58 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Cliente:</label>
             <multiselect v-model="filtros.cliente" :options="opcionesFiltroCliente" placeholder="Todos"
-              :searchable="true" :show-labels="false"></multiselect>
+              :searchable="true" :show-labels="false" @input="aplicarFiltrosYBuscar"></multiselect>
           </div>
           <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Servicio:</label>
             <multiselect v-model="filtros.tipoServicio" :options="opcionesTipoServicio" placeholder="Todos"
-              :searchable="true" :show-labels="false"></multiselect>
+              :searchable="true" :show-labels="false" @input="aplicarFiltrosYBuscar"></multiselect>
           </div>
           <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Tipo
               Operación:</label>
             <multiselect v-model="filtros.tipoOperacion" :options="opcionesTipoOperacion" track-by="id" label="label"
-              placeholder="Ambos" :searchable="false" :show-labels="false"></multiselect>
+              placeholder="Ambos" :searchable="false" :show-labels="false" @input="aplicarFiltrosYBuscar"></multiselect>
           </div>
           <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Tipo
               Comprobante:</label>
             <multiselect v-model="filtros.tipo_comprobante" :options="opcionesComprobante" placeholder="Todos"
-              :searchable="false" :show-labels="false" @input="cargarIngresos"></multiselect>
+              :searchable="false" :show-labels="false" @input="aplicarFiltrosYBuscar"></multiselect>
           </div>
           <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Fechas:</label>
             <VueCtkDateTimePicker v-model="filtros.rangoFechas" format="YYYY-MM-DD" formatted="YYYY-MM-DD"
-              color="#1d4ed8" button-color="#1d4ed8" :range="true" label="Select date & time"></VueCtkDateTimePicker>
+              color="#1d4ed8" button-color="#1d4ed8" :range="true" label="Select date & time"
+              @validate="aplicarFiltrosYBuscar"></VueCtkDateTimePicker>
           </div>
           <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Envío de
               Comp.:</label>
             <multiselect v-model="filtros.estado_envio" :options="opcionesEstadoEnvio" track-by="id" label="label"
-              placeholder="Todos" :searchable="false" :show-labels="false"></multiselect>
+              placeholder="Todos" :searchable="false" :show-labels="false" @input="aplicarFiltrosYBuscar"></multiselect>
           </div>
         </div>
       </div>
 
-      <!-- CONTENEDOR DE TARJETAS -->
-      <div class="flex-1 overflow-y-auto custom-scrollbar px-6 pb-6 bg-gray-50 pt-4 rounded-b-xl flex flex-col">
+      <!-- CONTENEDOR DE TARJETAS (SOLO DATOS DE LA PÁGINA ACTUAL) -->
+      <div
+        class="flex-1 overflow-y-auto custom-scrollbar px-6 pb-6 bg-gray-50 pt-4 rounded-b-xl flex flex-col relative">
 
-        <IngresoCard v-for="item in paginatedIngresos" :key="item.id" :item="item"
+        <!-- Indicador de carga -->
+        <div v-if="cargandoRegistros"
+          class="absolute inset-0 bg-white/50 z-10 flex flex-col items-center justify-center">
+          <svg class="animate-spin h-10 w-10 text-indigo-600 mb-2" xmlns="http://www.w3.org/2000/svg" fill="none"
+            viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+            </path>
+          </svg>
+          <span class="text-sm font-bold text-gray-500">Cargando registros...</span>
+        </div>
+
+        <IngresoCard v-for="item in ingresosData" :key="item.id" :item="item"
           :es-vista-intshipperts="esVistaIntshipperts" :es-vista-transportactics="esVistaTransportactics"
           :es-vista-manzanillo="esVistaManzanillo" @generar="generarComplemento" @visualizar="visualizarComplemento"
           @enviar="enviarCorreoComplemento" @editar="abrirModalEditarIngreso" @eliminar="eliminarFila" />
 
-        <div v-if="ingresosFiltrados.length === 0"
+        <div v-if="!cargandoRegistros && ingresosData.length === 0"
           class="text-center py-16 text-lg text-gray-500 bg-white rounded-xl shadow-sm border border-gray-200 font-bold mt-4">
           No se encontraron registros de ingresos para estos filtros.
         </div>
@@ -230,10 +245,11 @@
             </button>
 
             <template v-for="(page, index) in visiblePages">
-              <span v-if="page === '...'" :key="'dots-' + index" class="px-3 py-1.5 text-gray-400 font-medium text-sm">...</span>
-              <button v-else :key="'page-' + index" @click="gotoPage(page)" 
-                      :class="['px-3 py-1.5 border rounded text-sm font-medium transition-colors min-w-[36px] text-center', 
-                               currentPage === page ? 'bg-blue-50 border-blue-200 text-blue-700 font-bold' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50']">
+              <span v-if="page === '...'" :key="'dots-' + index"
+                class="px-3 py-1.5 text-gray-400 font-medium text-sm">...</span>
+              <button v-else :key="'page-' + index" @click="gotoPage(page)"
+                :class="['px-3 py-1.5 border rounded text-sm font-medium transition-colors min-w-[36px] text-center',
+                  currentPage === page ? 'bg-blue-50 border-blue-200 text-blue-700 font-bold' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50']">
                 {{ page }}
               </button>
             </template>
@@ -245,6 +261,9 @@
 
           </div>
         </div>
+        <div v-if="totalRegistros > 0" class="text-center text-xs font-bold text-gray-400 mt-2">
+          Mostrando {{ ingresosData.length }} de {{ totalRegistros }} registros encontrados
+        </div>
 
       </div>
     </div>
@@ -253,7 +272,7 @@
     <!-- TAB 2: CARTERA DE SALDOS A FAVOR (VIGENTES)    -->
     <!-- ============================================== -->
     <div v-show="activeTab === 'saldos'" class="flex-1 flex flex-col">
-      <div class="flex justify-between items-end mb-8">
+      <div class="flex justify-between items-end mb-6">
         <div>
           <h2 class="text-2xl font-black text-gray-800 uppercase tracking-wide">CARTERA DE SALDOS A FAVOR DE CLIENTES
             (VIGENTES)</h2>
@@ -266,70 +285,68 @@
         </button>
       </div>
 
-      <div class="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden">
-        <table class="w-full text-left text-xl">
-          <thead
-            class="bg-slate-100 text-slate-600 font-extrabold uppercase tracking-wider border-b-4 border-slate-300">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mt-2">
+        <table class="w-full text-left whitespace-nowrap min-w-max">
+          <thead class="bg-gray-50 text-gray-800 text-sm font-black uppercase tracking-wider border-b border-gray-200">
             <tr>
-              <th class="px-8 py-5" style="width: 250px;">CLIENTE</th>
-              <th class="px-8 py-5" style="width: 200px;">SUCURSAL ORIGEN</th>
-              <th class="px-8 py-5 text-center" style="width: 200px;">MONTO DE CRÉDITO</th>
-              <th class="px-8 py-5 text-center" style="width: 220px;">FECHA DE DETECCIÓN</th>
-              <th class="px-8 py-5">CONCEPTO O JUSTIFICACIÓN</th>
-              <th class="px-8 py-5 text-center" style="width: 200px;">ESTATUS</th>
-              <th class="px-8 py-5 text-center" style="width: 200px;">ACCIÓN</th>
+              <th class="px-6 py-5" style="width: 250px;">CLIENTE</th>
+              <th class="px-6 py-5" style="width: 200px;">SUCURSAL ORIGEN</th>
+              <th class="px-6 py-5 text-center" style="width: 200px;">MONTO DE CRÉDITO</th>
+              <th class="px-6 py-5 text-center" style="width: 220px;">FECHA DE DETECCIÓN</th>
+              <th class="px-6 py-5">CONCEPTO O JUSTIFICACIÓN</th>
+              <th class="px-6 py-5 text-center" style="width: 140px;">ESTATUS</th>
+              <th class="px-6 py-5 text-right" style="width: 280px;">ACCIÓN</th>
             </tr>
           </thead>
-          <tbody class="text-slate-700 font-medium">
+          <tbody class="text-gray-700 font-medium text-base">
             <tr v-for="saldo in saldosVigentesFiltrados" :key="saldo.id"
-              class="border-b border-slate-100 hover:bg-slate-100 transition-colors">
-              <td class="px-8 py-5 font-bold text-slate-800">{{ saldo.cliente }}</td>
-              <td class="px-8 py-5 text-slate-500">{{ saldo.sucursal_origen }}</td>
-              <td class="px-8 py-5 text-center font-black text-emerald-600">{{ formatearDinero(saldo.monto) }}</td>
-              <td class="px-8 py-5 text-center text-slate-500">{{ saldo.fecha_deteccion }}</td>
-              <td class="px-8 py-5 text-slate-600">{{ saldo.concepto }}</td>
-              <td class="px-8 py-5 text-center">
+              class="border-b border-gray-100 hover:bg-gray-50 transition-colors bg-white">
+              <td class="px-6 py-5 font-bold text-gray-900">{{ saldo.cliente }}</td>
+              <td class="px-6 py-5 text-gray-600">{{ saldo.sucursal_origen }}</td>
+              <td class="px-6 py-5 text-center font-black text-gray-900">{{ formatearDinero(saldo.monto) }}</td>
+              <td class="px-6 py-5 text-center text-gray-600">{{ saldo.fecha_deteccion }}</td>
+              <td class="px-6 py-5 text-gray-600">{{ saldo.concepto }}</td>
+              <td class="px-6 py-5 text-center">
                 <span
-                  class="px-6 py-3 bg-emerald-100 text-emerald-700 font-extrabold rounded-full uppercase text-base tracking-widest shadow-sm">VIGENTE</span>
+                  class="px-4 py-1.5 bg-white border border-gray-200 text-gray-800 font-black rounded-full uppercase text-xs tracking-widest shadow-sm">VIGENTE</span>
               </td>
-              <td class="px-8 py-5 text-center">
-                <div class="flex items-center justify-center gap-4">
+              <td class="px-6 py-5 text-right">
+                <div class="flex items-center justify-end gap-2">
                   <button @click="editarSaldo(saldo)"
-                    class="text-indigo-500 hover:text-white bg-indigo-100 hover:bg-indigo-500 p-3 rounded-lg transition-colors shadow-sm border border-indigo-200"
+                    class="text-indigo-600 bg-indigo-100 hover:bg-indigo-200 p-2.5 rounded-lg transition-colors"
                     title="Editar">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z">
                       </path>
                     </svg>
                   </button>
-
                   <button @click="eliminarSaldo(saldo.id)"
-                    class="text-red-500 hover:text-white bg-red-100 hover:bg-red-500 p-3 rounded-lg transition-colors shadow-sm border border-red-200"
+                    class="text-red-500 bg-red-100 hover:bg-red-200 p-2.5 rounded-lg transition-colors"
                     title="Eliminar">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
                       </path>
                     </svg>
                   </button>
                   <button @click="notificarCliente(saldo)"
-                    class="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 hover:bg-blue-200 transition-colors shadow-sm"
+                    class="text-blue-500 bg-blue-100 hover:bg-blue-200 p-2.5 rounded-lg transition-colors"
                     title="Notificar">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
                       </path>
                     </svg>
                   </button>
                   <button @click="aplicarSaldo(saldo.id)"
-                    class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold text-lg transition-colors shadow-sm ml-2 uppercase tracking-wider">Aplicar</button>
+                    class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors uppercase tracking-wider shadow-sm ml-2">APLICAR</button>
                 </div>
               </td>
             </tr>
             <tr v-if="saldosVigentesFiltrados.length === 0">
-              <td colspan="7" class="text-center py-16 text-xl text-slate-400 bg-slate-100 font-medium">No se encontraron
-                saldos vigentes para la sucursal seleccionada.</td>
+              <td colspan="7" class="text-center py-16 text-lg text-gray-400 bg-gray-50 font-medium">No se encontraron
+                saldos vigentes.</td>
             </tr>
           </tbody>
         </table>
@@ -340,7 +357,7 @@
     <!-- TAB 3: SALDOS APLICADOS                        -->
     <!-- ============================================== -->
     <div v-show="activeTab === 'saldos_aplicados'" class="flex-1 flex flex-col">
-      <div class="flex justify-between items-end mb-8">
+      <div class="flex justify-between items-end mb-6">
         <div>
           <h2 class="text-2xl font-black text-gray-700 uppercase tracking-wide">HISTORIAL DE SALDOS APLICADOS</h2>
           <p class="text-lg text-gray-500 mt-3">Registros de saldos que ya fueron utilizados o aplicados en despachos
@@ -348,41 +365,41 @@
         </div>
       </div>
 
-      <div class="bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden">
-        <table class="w-full text-left text-xl">
-          <thead class="bg-slate-100 text-slate-500 font-extrabold uppercase tracking-wider border-b-4 border-slate-200">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mt-2">
+        <table class="w-full text-left whitespace-nowrap min-w-max">
+          <thead class="bg-gray-50 text-gray-800 text-sm font-black uppercase tracking-wider border-b border-gray-200">
             <tr>
-              <th class="px-8 py-5" style="width: 250px;">CLIENTE</th>
-              <th class="px-8 py-5" style="width: 200px;">SUCURSAL ORIGEN</th>
-              <th class="px-8 py-5 text-center" style="width: 200px;">MONTO DE CRÉDITO</th>
-              <th class="px-8 py-5 text-center" style="width: 220px;">FECHA DE DETECCIÓN</th>
-              <th class="px-8 py-5">CONCEPTO O JUSTIFICACIÓN</th>
-              <th class="px-8 py-5 text-center" style="width: 200px;">ESTATUS</th>
-              <th class="px-8 py-5 text-center" style="width: 200px;">ACCIÓN</th>
+              <th class="px-6 py-5" style="width: 250px;">CLIENTE</th>
+              <th class="px-6 py-5" style="width: 200px;">SUCURSAL ORIGEN</th>
+              <th class="px-6 py-5 text-center" style="width: 200px;">MONTO DE CRÉDITO</th>
+              <th class="px-6 py-5 text-center" style="width: 220px;">FECHA DE DETECCIÓN</th>
+              <th class="px-6 py-5">CONCEPTO O JUSTIFICACIÓN</th>
+              <th class="px-6 py-5 text-center" style="width: 140px;">ESTATUS</th>
+              <th class="px-6 py-5 text-right" style="width: 200px;">ACCIÓN</th>
             </tr>
           </thead>
-          <tbody class="text-slate-500 font-medium">
+          <tbody class="text-gray-700 font-medium text-base">
             <tr v-for="saldo in saldosAplicadosFiltrados" :key="saldo.id"
-              class="border-b border-slate-200 bg-slate-100 hover:bg-slate-200 transition-colors">
-              <td class="px-8 py-5 font-bold text-slate-600">{{ saldo.cliente }}</td>
-              <td class="px-8 py-5">{{ saldo.sucursal_origen }}</td>
-              <td class="px-8 py-5 text-center font-black">{{ formatearDinero(saldo.monto) }}</td>
-              <td class="px-8 py-5 text-center">{{ saldo.fecha_deteccion }}</td>
-              <td class="px-8 py-5">{{ saldo.concepto }}</td>
-              <td class="px-8 py-5 text-center">
+              class="border-b border-gray-200 bg-gray-100 hover:bg-gray-200 transition-colors">
+              <td class="px-6 py-5 font-bold text-gray-600">{{ saldo.cliente }}</td>
+              <td class="px-6 py-5 text-gray-500">{{ saldo.sucursal_origen }}</td>
+              <td class="px-6 py-5 text-center font-black text-gray-600">{{ formatearDinero(saldo.monto) }}</td>
+              <td class="px-6 py-5 text-center text-gray-500">{{ saldo.fecha_deteccion }}</td>
+              <td class="px-6 py-5 text-gray-500">{{ saldo.concepto }}</td>
+              <td class="px-6 py-5 text-center">
                 <span
-                  class="px-6 py-3 bg-slate-300 text-slate-600 font-extrabold rounded-full uppercase text-base tracking-widest shadow-inner">APLICADO</span>
+                  class="px-4 py-1.5 bg-gray-200 border border-gray-300 text-gray-500 font-black rounded-full uppercase text-xs tracking-widest shadow-inner">APLICADO</span>
               </td>
-              <td class="px-8 py-5 text-center">
+              <td class="px-6 py-5 text-right">
                 <button @click="reactivarSaldo(saldo.id)"
-                  class="bg-white hover:bg-blue-100 text-blue-600 hover:text-blue-700 px-6 py-3 rounded-lg font-extrabold text-lg transition-colors border border-blue-200 shadow-sm uppercase tracking-wider">
+                  class="bg-white hover:bg-blue-100 text-blue-600 hover:text-blue-700 px-5 py-2.5 rounded-lg font-bold text-sm transition-colors border border-blue-200 shadow-sm uppercase tracking-wider">
                   Reactivar
                 </button>
               </td>
             </tr>
             <tr v-if="saldosAplicadosFiltrados.length === 0">
-              <td colspan="7" class="text-center py-16 text-xl text-slate-400 bg-slate-100 font-medium">No se encontraron
-                saldos aplicados para la sucursal seleccionada.</td>
+              <td colspan="7" class="text-center py-16 text-lg text-gray-400 bg-gray-100 font-medium">No se encontraron
+                saldos aplicados.</td>
             </tr>
           </tbody>
         </table>
@@ -451,6 +468,7 @@ export default {
   data() {
     return {
       activeTab: 'ingresos',
+      cargandoRegistros: false,
       showModal: false,
       showModalSaldo: false,
       showModalEditarSaldo: false,
@@ -503,8 +521,17 @@ export default {
         estado_envio: { id: '', label: 'Todos' }
       },
 
+      // Datos de Paginación del Backend
       currentPage: 1,
       itemsPerPage: 10,
+      totalRegistros: 0,
+
+      // Totales KPIs del Backend (Fallback a suma local)
+      kpisTotales: {
+        depositos: null,
+        honorarios: null,
+        notaCargo: null
+      }
     }
   },
   mounted() {
@@ -523,85 +550,10 @@ export default {
     esVistaTransportactics() {
       return this.filtros.tipoServicio === 'Transportactics';
     },
-    ingresosFiltrados() {
-      let data = this.ingresosData;
 
-      if (this.filtroSucursalActiva !== 'Todas') {
-        const filtroUpper = this.filtroSucursalActiva.toUpperCase();
-        data = data.filter(item => item.sucursal_origen && item.sucursal_origen.toUpperCase().includes(filtroUpper));
-      }
-
-      if (this.filtros.cliente && this.filtros.cliente !== 'Todos') {
-        data = data.filter(item => item.cliente === this.filtros.cliente);
-      }
-
-      if (this.filtros.tipoOperacion && this.filtros.tipoOperacion.id !== 'Ambos') {
-        const tipo = this.filtros.tipoOperacion.id;
-        data = data.filter(item => item.sucursal_origen && item.sucursal_origen.toUpperCase().includes(tipo));
-      }
-
-      if (this.filtros.rangoFechas && this.filtros.rangoFechas.start && this.filtros.rangoFechas.end) {
-        const start = new Date(this.filtros.rangoFechas.start).getTime();
-        const end = new Date(this.filtros.rangoFechas.end).getTime();
-
-        data = data.filter(item => {
-          if (!item.fecha) {
-            return false;
-          }
-          const itemDate = new Date(item.fecha).getTime();
-          return itemDate >= start && itemDate <= end;
-        });
-      }
-
-      if (this.filtros.tipoServicio && this.filtros.tipoServicio !== 'Todos') {
-        data = data.filter(item => {
-          const nombreCliente = String(item.cliente || '').toUpperCase();
-          const sucursalOrigen = String(item.sucursal_origen || '').toUpperCase();
-
-          const isIntshipperts = nombreCliente.includes('INTSHIPPERTS') || sucursalOrigen.includes('INTSHIPPERT');
-          const isTransportactics = nombreCliente.includes('TRANSPORTACTICS') || sucursalOrigen.includes('TRANSPORTACTIC');
-
-          if (this.filtros.tipoServicio === 'INTSHIPPERTS') {
-            return isIntshipperts;
-          }
-          if (this.filtros.tipoServicio === 'Transportactics') {
-            return isTransportactics;
-          }
-
-          if (this.filtros.tipoServicio === 'InTactics') {
-            return !isIntshipperts && !isTransportactics;
-          }
-
-          return true;
-        });
-      }
-
-      if (this.filtros.estado_envio && this.filtros.estado_envio.id !== '') {
-        const estado = this.filtros.estado_envio.id;
-        data = data.filter(item => {
-          if (estado === 'ENVIADO') {
-            return item.estado_envio === 'ENVIADO';
-          }
-          if (estado === 'PENDIENTE') {
-            return item.estado_envio === 'PENDIENTE' || !item.estado_envio || item.estado_envio === '';
-          }
-          return true;
-        });
-      }
-
-      return data;
-    },
+    // Paginación Matemáticas
     totalPages() {
-      return Math.ceil(this.ingresosFiltrados.length / this.itemsPerPage) || 1;
-    },
-    startIndex() {
-      return (this.currentPage - 1) * this.itemsPerPage;
-    },
-    endIndex() {
-      return Math.min(this.startIndex + this.itemsPerPage, this.ingresosFiltrados.length);
-    },
-    paginatedIngresos() {
-      return this.ingresosFiltrados.slice(this.startIndex, this.endIndex);
+      return Math.ceil(this.totalRegistros / this.itemsPerPage) || 1;
     },
     visiblePages() {
       const total = this.totalPages;
@@ -621,49 +573,45 @@ export default {
 
       return [1, 2, '...', current - 2, current - 1, current, current + 1, current + 2, '...', total - 1, total];
     },
-    saldosVigentesFiltrados() {
-      return this.saldosData.filter(s => {
-        if (s.estatus !== 'VIGENTE') {
-          return false;
-        }
-        if (this.filtroSucursalActiva === 'Todas') {
-          return true;
-        }
-        return s.sucursal_origen && s.sucursal_origen.toUpperCase().includes(this.filtroSucursalActiva.toUpperCase());
-      });
-    },
-    saldosAplicadosFiltrados() {
-      return this.saldosData.filter(s => {
-        if (s.estatus !== 'APLICADO') {
-          return false;
-        }
-        if (this.filtroSucursalActiva === 'Todas') {
-          return true;
-        }
-        return s.sucursal_origen && s.sucursal_origen.toUpperCase().includes(this.filtroSucursalActiva.toUpperCase());
-      });
-    },
+
+    // KPIs Inteligentes (Toman del backend, o suman lo actual si el backend aún no envía)
     totalDepositos() {
-      return this.ingresosFiltrados.reduce((acc, item) => acc + (Number(item.monto_deposito) || 0), 0);
+      if (this.kpisTotales.depositos !== null) return this.kpisTotales.depositos;
+      return this.ingresosData.reduce((acc, item) => acc + (Number(item.monto_deposito) || 0), 0);
     },
     totalHonorarios() {
-      return this.ingresosFiltrados.reduce((acc, item) => acc + (Number(item.honorarios) || 0), 0);
+      if (this.kpisTotales.honorarios !== null) return this.kpisTotales.honorarios;
+      return this.ingresosData.reduce((acc, item) => acc + (Number(item.honorarios) || 0), 0);
     },
     totalNotaCargo() {
-      return this.ingresosFiltrados.reduce((acc, item) => {
+      if (this.kpisTotales.notaCargo !== null) return this.kpisTotales.notaCargo;
+      return this.ingresosData.reduce((acc, item) => {
         const sucursal = item.sucursal_origen ? item.sucursal_origen.toUpperCase() : '';
         const esManzanilloRow = sucursal.includes('MANZANILLO') || sucursal.includes('INTSHIPPERT');
-
         if (esManzanilloRow) {
           return acc + (Number(item.impuestos) || 0) + (Number(item.flete) || 0) +
             (Number(item.anticipo) || 0) + (Number(item.garantias) || 0) + (Number(item.desglose_naviera) || 0);
         }
-
         const gpc = (Number(item.impuestos) || 0) + (Number(item.eci) || 0) +
           (Number(item.maniobras) || 0) + (Number(item.flete) || 0) +
           (Number(item.muestras) || 0) + (Number(item.llc) || 0);
         return acc + gpc;
       }, 0);
+    },
+
+    saldosVigentesFiltrados() {
+      return this.saldosData.filter(s => {
+        if (s.estatus !== 'VIGENTE') return false;
+        if (this.filtroSucursalActiva === 'Todas') return true;
+        return s.sucursal_origen && s.sucursal_origen.toUpperCase().includes(this.filtroSucursalActiva.toUpperCase());
+      });
+    },
+    saldosAplicadosFiltrados() {
+      return this.saldosData.filter(s => {
+        if (s.estatus !== 'APLICADO') return false;
+        if (this.filtroSucursalActiva === 'Todas') return true;
+        return s.sucursal_origen && s.sucursal_origen.toUpperCase().includes(this.filtroSucursalActiva.toUpperCase());
+      });
     },
     totalSaldos() {
       return this.saldosVigentesFiltrados.reduce((acc, item) => acc + (Number(item.monto) || 0), 0);
@@ -672,44 +620,115 @@ export default {
       return this.saldosAplicadosFiltrados.reduce((acc, item) => acc + (Number(item.monto) || 0), 0);
     }
   },
-  watch: {
-    ingresosFiltrados() {
-      this.currentPage = 1;
-    }
-  },
   methods: {
+    // Cuando el usuario usa el buscador/filtros manuales
+    aplicarFiltrosYBuscar() {
+      this.currentPage = 1;
+      this.cargarIngresos();
+    },
+    cambiarSucursal(sucursal) {
+      this.filtroSucursalActiva = sucursal;
+      this.currentPage = 1;
+      this.cargarIngresos();
+    },
+
+    // Controles Paginación
     paginaAnterior() {
       if (this.currentPage > 1) {
         this.currentPage--;
+        this.cargarIngresos();
       }
     },
     siguientePagina() {
       if (this.currentPage < this.totalPages) {
         this.currentPage++;
+        this.cargarIngresos();
       }
     },
     gotoPage(page) {
       this.currentPage = page;
+      this.cargarIngresos();
     },
+
+    async cargarIngresos() {
+      this.cargandoRegistros = true;
+      try {
+        // Empaquetamos TODOS los filtros y la página al Backend
+        const params = {
+          page: this.currentPage,
+          per_page: this.itemsPerPage,
+          sucursal: this.filtroSucursalActiva,
+          cliente: this.filtros.cliente,
+          tipo_servicio: this.filtros.tipoServicio,
+          tipo_operacion: this.filtros.tipoOperacion.id,
+          tipo_comprobante: this.filtros.tipo_comprobante,
+          estado_envio: this.filtros.estado_envio.id,
+          fecha_inicio: this.filtros.rangoFechas ? this.filtros.rangoFechas.start : null,
+          fecha_fin: this.filtros.rangoFechas ? this.filtros.rangoFechas.end : null
+        };
+
+        const response = await axios.get('/ingresos-conciliados', { params });
+
+        // Evaluamos si el backend ya usa paginate() o si sigue mandando el array crudo
+        if (response.data.data !== undefined) {
+          // El backend ya fue actualizado con ->paginate()
+          this.ingresosData = response.data.data;
+          this.totalRegistros = response.data.total;
+
+          // Si el backend envía los totales (kpis), los asignamos.
+          if (response.data.kpis) {
+            this.kpisTotales.depositos = response.data.kpis.depositos;
+            this.kpisTotales.honorarios = response.data.kpis.honorarios;
+            this.kpisTotales.notaCargo = response.data.kpis.notaCargo;
+          }
+        } else {
+          // Fallback (Si el Backend aún no se actualiza, usamos el array crudo y simulamos)
+          this.ingresosData = response.data.slice(0, 10);
+          this.totalRegistros = response.data.length;
+          this.kpisTotales.depositos = null; // Fuerza a sumar locamente
+        }
+      } catch (error) {
+        console.error("Error cargando ingresos", error);
+      } finally {
+        this.cargandoRegistros = false;
+      }
+    },
+
+    limpiarFiltros() {
+      this.filtroSucursalActiva = 'Todas';
+      this.filtros = {
+        cliente: 'Todos',
+        rangoFechas: null,
+        tipoOperacion: { id: 'Ambos', label: 'Ambos' },
+        tipo_comprobante: 'Todos',
+        tipoServicio: 'Todos',
+        estado_envio: { id: '', label: 'Todos' }
+      };
+      this.currentPage = 1;
+      this.cargarIngresos();
+    },
+
+    formatearDinero(monto) {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2
+      }).format(parseFloat(monto) || 0);
+    },
+
+    // Resto de métodos de Modales y Acciones
     generarComplemento(item) {
       this.ingresoParaComplemento = item;
       this.showModalComplemento = true;
     },
     visualizarComplemento(item) {
       this.tituloDocumentoActivo = `Complemento - ${item.cliente} (${item.sucursal_origen})`;
-
-      // Armamos la URL apuntando a un nuevo endpoint en Laravel (ej. /ingresos-conciliados/25/complemento/pdf)
       this.urlDocumentoActivo = `/ingresos-conciliados/${item.id}/complemento/pdf`;
-
       this.showModalVerDocumento = true;
     },
-    enviarComplemento(item) {
-      Swal.fire({
-        title: 'Enviar Complemento',
-        text: `Aquí se enviará el correo al cliente: ${item.cliente}`,
-        icon: 'info',
-        confirmButtonColor: '#00C09F'
-      });
+    enviarCorreoComplemento(item) {
+      this.ingresoParaCorreo = item;
+      this.showModalEnviarCorreo = true;
     },
     abrirModalEditarIngreso(item) {
       this.ingresoAEditar = item;
@@ -739,26 +758,6 @@ export default {
         this.opcionesFiltroCliente = ['Todos', ...nombresClientes];
       } catch (error) {
         console.error("Error cargando catálogos", error);
-      }
-    },
-    formatearDinero(monto) {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 2
-      }).format(parseFloat(monto) || 0);
-    },
-    async cargarIngresos() {
-      try {
-        const response = await axios.get('/ingresos-conciliados', {
-          params: { tipo_comprobante: this.filtros.tipo_comprobante }
-        });
-        this.ingresosData = response.data.map(item => ({
-          ...item,
-          _original: { ...item }
-        }));
-      } catch (error) {
-        console.error("Error cargando ingresos", error);
       }
     },
     async cargarSaldos() {
@@ -895,19 +894,6 @@ export default {
         }
       }
     },
-    limpiarFiltros() {
-      this.filtroSucursalActiva = 'Todas';
-      this.filtros = {
-        cliente: 'Todos',
-        rangoFechas: null,
-        tipoOperacion: { id: 'Ambos', label: 'Ambos' },
-        tipo_comprobante: 'Todos',
-        tipoServicio: 'Todos',
-        estado_envio: { id: '', label: 'Todos' }
-      };
-      this.currentPage = 1;
-      this.cargarIngresos();
-    },
     async procesarComplementoBackend(payloadLimpio) {
       try {
         Swal.fire({
@@ -940,11 +926,7 @@ export default {
 
         Swal.fire('Atención', mensajeError, 'error');
       }
-    },
-    enviarCorreoComplemento(item) {
-      this.ingresoParaCorreo = item;
-      this.showModalEnviarCorreo = true;
-    },
+    }
   }
 }
 </script>

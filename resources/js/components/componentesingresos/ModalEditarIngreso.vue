@@ -3,7 +3,7 @@
 
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
 
-      <div class="bg-blue-600 px-8 py-6 flex justify-between items-center shrink-0">
+      <div class="px-8 py-6 flex justify-between items-center shrink-0" style="background-color: #2A3A4D;">
         <h3 class="text-white text-2xl font-bold uppercase tracking-wider">EDITAR INGRESO CONCILIADO</h3>
         <button @click="$emit('close')" class="text-blue-200 hover:text-white transition-colors">
           <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">

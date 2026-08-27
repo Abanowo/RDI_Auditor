@@ -9748,20 +9748,6 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
 
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
   name: 'IngresoCard',
@@ -9812,13 +9798,13 @@ __webpack_require__.r(__webpack_exports__);
           label: 'Garantías',
           monto: this.item.garantias
         }, {
-          label: 'Desglose Naviera',
+          label: 'Desg. Naviera',
           monto: this.item.desglose_naviera
         }, {
           label: 'Impuestos',
           monto: this.item.impuestos
         }, {
-          label: 'Alman / Flete',
+          label: 'Alm/Flete',
           monto: this.item.flete
         }, {
           label: 'Honorarios',
@@ -9864,7 +9850,9 @@ __webpack_require__.r(__webpack_exports__);
       return (Number(this.item.honorarios) || 0) + (Number(this.item.impuestos) || 0) + (Number(this.item.eci) || 0) + (Number(this.item.maniobras) || 0) + (Number(this.item.flete) || 0) + (Number(this.item.muestras) || 0) + (Number(this.item.llc) || 0);
     },
     diferencia: function diferencia() {
-      return (Number(this.item.monto_deposito) || 0) - this.montoSC;
+      // Utilizamos toFixed para evitar errores matemáticos de JS con decimales largos
+      var calc = (Number(this.item.monto_deposito) || 0) - this.montoSC;
+      return Number(calc.toFixed(2));
     }
   },
   methods: {
@@ -12786,22 +12774,33 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _ModalComplementoPago_vue__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! ./ModalComplementoPago.vue */ "./resources/js/components/componentesingresos/ModalComplementoPago.vue");
 /* harmony import */ var _ModalVerDocumento_vue__WEBPACK_IMPORTED_MODULE_11__ = __webpack_require__(/*! ./ModalVerDocumento.vue */ "./resources/js/components/componentesingresos/ModalVerDocumento.vue");
 /* harmony import */ var _ModalEnviarCorreo_vue__WEBPACK_IMPORTED_MODULE_12__ = __webpack_require__(/*! ./ModalEnviarCorreo.vue */ "./resources/js/components/componentesingresos/ModalEnviarCorreo.vue");
-function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
-function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
-function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
-function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
-function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
-function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
-function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i["return"]) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
-function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { if (r) i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n;else { var o = function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); }; o("next", 0), o("throw", 1), o("return", 2); } }, _regeneratorDefine2(e, r, n, t); }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
 function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
 function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i["return"]) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
+function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { if (r) i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n;else { var o = function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); }; o("next", 0), o("throw", 1), o("return", 2); } }, _regeneratorDefine2(e, r, n, t); }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 //
 //
 //
@@ -13254,6 +13253,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
   data: function data() {
     return {
       activeTab: 'ingresos',
+      cargandoRegistros: false,
       showModal: false,
       showModalSaldo: false,
       showModalEditarSaldo: false,
@@ -13311,8 +13311,16 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
           label: 'Todos'
         }
       },
+      // Datos de Paginación del Backend
       currentPage: 1,
-      itemsPerPage: 10
+      itemsPerPage: 10,
+      totalRegistros: 0,
+      // Totales KPIs del Backend (Fallback a suma local)
+      kpisTotales: {
+        depositos: null,
+        honorarios: null,
+        notaCargo: null
+      }
     };
   },
   mounted: function mounted() {
@@ -13331,80 +13339,9 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     esVistaTransportactics: function esVistaTransportactics() {
       return this.filtros.tipoServicio === 'Transportactics';
     },
-    ingresosFiltrados: function ingresosFiltrados() {
-      var _this = this;
-      var data = this.ingresosData;
-      if (this.filtroSucursalActiva !== 'Todas') {
-        var filtroUpper = this.filtroSucursalActiva.toUpperCase();
-        data = data.filter(function (item) {
-          return item.sucursal_origen && item.sucursal_origen.toUpperCase().includes(filtroUpper);
-        });
-      }
-      if (this.filtros.cliente && this.filtros.cliente !== 'Todos') {
-        data = data.filter(function (item) {
-          return item.cliente === _this.filtros.cliente;
-        });
-      }
-      if (this.filtros.tipoOperacion && this.filtros.tipoOperacion.id !== 'Ambos') {
-        var tipo = this.filtros.tipoOperacion.id;
-        data = data.filter(function (item) {
-          return item.sucursal_origen && item.sucursal_origen.toUpperCase().includes(tipo);
-        });
-      }
-      if (this.filtros.rangoFechas && this.filtros.rangoFechas.start && this.filtros.rangoFechas.end) {
-        var start = new Date(this.filtros.rangoFechas.start).getTime();
-        var end = new Date(this.filtros.rangoFechas.end).getTime();
-        data = data.filter(function (item) {
-          if (!item.fecha) {
-            return false;
-          }
-          var itemDate = new Date(item.fecha).getTime();
-          return itemDate >= start && itemDate <= end;
-        });
-      }
-      if (this.filtros.tipoServicio && this.filtros.tipoServicio !== 'Todos') {
-        data = data.filter(function (item) {
-          var nombreCliente = String(item.cliente || '').toUpperCase();
-          var sucursalOrigen = String(item.sucursal_origen || '').toUpperCase();
-          var isIntshipperts = nombreCliente.includes('INTSHIPPERTS') || sucursalOrigen.includes('INTSHIPPERT');
-          var isTransportactics = nombreCliente.includes('TRANSPORTACTICS') || sucursalOrigen.includes('TRANSPORTACTIC');
-          if (_this.filtros.tipoServicio === 'INTSHIPPERTS') {
-            return isIntshipperts;
-          }
-          if (_this.filtros.tipoServicio === 'Transportactics') {
-            return isTransportactics;
-          }
-          if (_this.filtros.tipoServicio === 'InTactics') {
-            return !isIntshipperts && !isTransportactics;
-          }
-          return true;
-        });
-      }
-      if (this.filtros.estado_envio && this.filtros.estado_envio.id !== '') {
-        var estado = this.filtros.estado_envio.id;
-        data = data.filter(function (item) {
-          if (estado === 'ENVIADO') {
-            return item.estado_envio === 'ENVIADO';
-          }
-          if (estado === 'PENDIENTE') {
-            return item.estado_envio === 'PENDIENTE' || !item.estado_envio || item.estado_envio === '';
-          }
-          return true;
-        });
-      }
-      return data;
-    },
+    // Paginación Matemáticas
     totalPages: function totalPages() {
-      return Math.ceil(this.ingresosFiltrados.length / this.itemsPerPage) || 1;
-    },
-    startIndex: function startIndex() {
-      return (this.currentPage - 1) * this.itemsPerPage;
-    },
-    endIndex: function endIndex() {
-      return Math.min(this.startIndex + this.itemsPerPage, this.ingresosFiltrados.length);
-    },
-    paginatedIngresos: function paginatedIngresos() {
-      return this.ingresosFiltrados.slice(this.startIndex, this.endIndex);
+      return Math.ceil(this.totalRegistros / this.itemsPerPage) || 1;
     },
     visiblePages: function visiblePages() {
       var total = this.totalPages;
@@ -13424,42 +13361,22 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }
       return [1, 2, '...', current - 2, current - 1, current, current + 1, current + 2, '...', total - 1, total];
     },
-    saldosVigentesFiltrados: function saldosVigentesFiltrados() {
-      var _this2 = this;
-      return this.saldosData.filter(function (s) {
-        if (s.estatus !== 'VIGENTE') {
-          return false;
-        }
-        if (_this2.filtroSucursalActiva === 'Todas') {
-          return true;
-        }
-        return s.sucursal_origen && s.sucursal_origen.toUpperCase().includes(_this2.filtroSucursalActiva.toUpperCase());
-      });
-    },
-    saldosAplicadosFiltrados: function saldosAplicadosFiltrados() {
-      var _this3 = this;
-      return this.saldosData.filter(function (s) {
-        if (s.estatus !== 'APLICADO') {
-          return false;
-        }
-        if (_this3.filtroSucursalActiva === 'Todas') {
-          return true;
-        }
-        return s.sucursal_origen && s.sucursal_origen.toUpperCase().includes(_this3.filtroSucursalActiva.toUpperCase());
-      });
-    },
+    // KPIs Inteligentes (Toman del backend, o suman lo actual si el backend aún no envía)
     totalDepositos: function totalDepositos() {
-      return this.ingresosFiltrados.reduce(function (acc, item) {
+      if (this.kpisTotales.depositos !== null) return this.kpisTotales.depositos;
+      return this.ingresosData.reduce(function (acc, item) {
         return acc + (Number(item.monto_deposito) || 0);
       }, 0);
     },
     totalHonorarios: function totalHonorarios() {
-      return this.ingresosFiltrados.reduce(function (acc, item) {
+      if (this.kpisTotales.honorarios !== null) return this.kpisTotales.honorarios;
+      return this.ingresosData.reduce(function (acc, item) {
         return acc + (Number(item.honorarios) || 0);
       }, 0);
     },
     totalNotaCargo: function totalNotaCargo() {
-      return this.ingresosFiltrados.reduce(function (acc, item) {
+      if (this.kpisTotales.notaCargo !== null) return this.kpisTotales.notaCargo;
+      return this.ingresosData.reduce(function (acc, item) {
         var sucursal = item.sucursal_origen ? item.sucursal_origen.toUpperCase() : '';
         var esManzanilloRow = sucursal.includes('MANZANILLO') || sucursal.includes('INTSHIPPERT');
         if (esManzanilloRow) {
@@ -13468,6 +13385,22 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         var gpc = (Number(item.impuestos) || 0) + (Number(item.eci) || 0) + (Number(item.maniobras) || 0) + (Number(item.flete) || 0) + (Number(item.muestras) || 0) + (Number(item.llc) || 0);
         return acc + gpc;
       }, 0);
+    },
+    saldosVigentesFiltrados: function saldosVigentesFiltrados() {
+      var _this = this;
+      return this.saldosData.filter(function (s) {
+        if (s.estatus !== 'VIGENTE') return false;
+        if (_this.filtroSucursalActiva === 'Todas') return true;
+        return s.sucursal_origen && s.sucursal_origen.toUpperCase().includes(_this.filtroSucursalActiva.toUpperCase());
+      });
+    },
+    saldosAplicadosFiltrados: function saldosAplicadosFiltrados() {
+      var _this2 = this;
+      return this.saldosData.filter(function (s) {
+        if (s.estatus !== 'APLICADO') return false;
+        if (_this2.filtroSucursalActiva === 'Todas') return true;
+        return s.sucursal_origen && s.sucursal_origen.toUpperCase().includes(_this2.filtroSucursalActiva.toUpperCase());
+      });
     },
     totalSaldos: function totalSaldos() {
       return this.saldosVigentesFiltrados.reduce(function (acc, item) {
@@ -13480,43 +13413,135 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }, 0);
     }
   },
-  watch: {
-    ingresosFiltrados: function ingresosFiltrados() {
-      this.currentPage = 1;
-    }
-  },
   methods: {
+    // Cuando el usuario usa el buscador/filtros manuales
+    aplicarFiltrosYBuscar: function aplicarFiltrosYBuscar() {
+      this.currentPage = 1;
+      this.cargarIngresos();
+    },
+    cambiarSucursal: function cambiarSucursal(sucursal) {
+      this.filtroSucursalActiva = sucursal;
+      this.currentPage = 1;
+      this.cargarIngresos();
+    },
+    // Controles Paginación
     paginaAnterior: function paginaAnterior() {
       if (this.currentPage > 1) {
         this.currentPage--;
+        this.cargarIngresos();
       }
     },
     siguientePagina: function siguientePagina() {
       if (this.currentPage < this.totalPages) {
         this.currentPage++;
+        this.cargarIngresos();
       }
     },
     gotoPage: function gotoPage(page) {
       this.currentPage = page;
+      this.cargarIngresos();
     },
+    cargarIngresos: function cargarIngresos() {
+      var _this3 = this;
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
+        var params, response, _t;
+        return _regenerator().w(function (_context) {
+          while (1) switch (_context.n) {
+            case 0:
+              _this3.cargandoRegistros = true;
+              _context.p = 1;
+              // Empaquetamos TODOS los filtros y la página al Backend
+              params = {
+                page: _this3.currentPage,
+                per_page: _this3.itemsPerPage,
+                sucursal: _this3.filtroSucursalActiva,
+                cliente: _this3.filtros.cliente,
+                tipo_servicio: _this3.filtros.tipoServicio,
+                tipo_operacion: _this3.filtros.tipoOperacion.id,
+                tipo_comprobante: _this3.filtros.tipo_comprobante,
+                estado_envio: _this3.filtros.estado_envio.id,
+                fecha_inicio: _this3.filtros.rangoFechas ? _this3.filtros.rangoFechas.start : null,
+                fecha_fin: _this3.filtros.rangoFechas ? _this3.filtros.rangoFechas.end : null
+              };
+              _context.n = 2;
+              return axios__WEBPACK_IMPORTED_MODULE_13__["default"].get('/ingresos-conciliados', {
+                params: params
+              });
+            case 2:
+              response = _context.v;
+              // Evaluamos si el backend ya usa paginate() o si sigue mandando el array crudo
+              if (response.data.data !== undefined) {
+                // El backend ya fue actualizado con ->paginate()
+                _this3.ingresosData = response.data.data;
+                _this3.totalRegistros = response.data.total;
+
+                // Si el backend envía los totales (kpis), los asignamos.
+                if (response.data.kpis) {
+                  _this3.kpisTotales.depositos = response.data.kpis.depositos;
+                  _this3.kpisTotales.honorarios = response.data.kpis.honorarios;
+                  _this3.kpisTotales.notaCargo = response.data.kpis.notaCargo;
+                }
+              } else {
+                // Fallback (Si el Backend aún no se actualiza, usamos el array crudo y simulamos)
+                _this3.ingresosData = response.data.slice(0, 10);
+                _this3.totalRegistros = response.data.length;
+                _this3.kpisTotales.depositos = null; // Fuerza a sumar locamente
+              }
+              _context.n = 4;
+              break;
+            case 3:
+              _context.p = 3;
+              _t = _context.v;
+              console.error("Error cargando ingresos", _t);
+            case 4:
+              _context.p = 4;
+              _this3.cargandoRegistros = false;
+              return _context.f(4);
+            case 5:
+              return _context.a(2);
+          }
+        }, _callee, null, [[1, 3, 4, 5]]);
+      }))();
+    },
+    limpiarFiltros: function limpiarFiltros() {
+      this.filtroSucursalActiva = 'Todas';
+      this.filtros = {
+        cliente: 'Todos',
+        rangoFechas: null,
+        tipoOperacion: {
+          id: 'Ambos',
+          label: 'Ambos'
+        },
+        tipo_comprobante: 'Todos',
+        tipoServicio: 'Todos',
+        estado_envio: {
+          id: '',
+          label: 'Todos'
+        }
+      };
+      this.currentPage = 1;
+      this.cargarIngresos();
+    },
+    formatearDinero: function formatearDinero(monto) {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2
+      }).format(parseFloat(monto) || 0);
+    },
+    // Resto de métodos de Modales y Acciones
     generarComplemento: function generarComplemento(item) {
       this.ingresoParaComplemento = item;
       this.showModalComplemento = true;
     },
     visualizarComplemento: function visualizarComplemento(item) {
       this.tituloDocumentoActivo = "Complemento - ".concat(item.cliente, " (").concat(item.sucursal_origen, ")");
-
-      // Armamos la URL apuntando a un nuevo endpoint en Laravel (ej. /ingresos-conciliados/25/complemento/pdf)
       this.urlDocumentoActivo = "/ingresos-conciliados/".concat(item.id, "/complemento/pdf");
       this.showModalVerDocumento = true;
     },
-    enviarComplemento: function enviarComplemento(item) {
-      sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
-        title: 'Enviar Complemento',
-        text: "Aqu\xED se enviar\xE1 el correo al cliente: ".concat(item.cliente),
-        icon: 'info',
-        confirmButtonColor: '#00C09F'
-      });
+    enviarCorreoComplemento: function enviarCorreoComplemento(item) {
+      this.ingresoParaCorreo = item;
+      this.showModalEnviarCorreo = true;
     },
     abrirModalEditarIngreso: function abrirModalEditarIngreso(item) {
       this.ingresoAEditar = item;
@@ -13528,16 +13553,16 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     },
     cargarCatalogos: function cargarCatalogos() {
       var _this4 = this;
-      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
-        var response, nombresClientes, _t;
-        return _regenerator().w(function (_context) {
-          while (1) switch (_context.n) {
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
+        var response, nombresClientes, _t2;
+        return _regenerator().w(function (_context2) {
+          while (1) switch (_context2.n) {
             case 0:
-              _context.p = 0;
-              _context.n = 1;
+              _context2.p = 0;
+              _context2.n = 1;
               return axios__WEBPACK_IMPORTED_MODULE_13__["default"].get('/ingresos-conciliados/opciones');
             case 1:
-              response = _context.v;
+              response = _context2.v;
               _this4.opcionesSucursal = response.data.sucursales;
               if (response.data.sucursalesBase) {
                 _this4.sucursalesBase = response.data.sucursalesBase.filter(function (sucursal) {
@@ -13553,52 +13578,12 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                 return c.nombre;
               });
               _this4.opcionesFiltroCliente = ['Todos'].concat(_toConsumableArray(nombresClientes));
-              _context.n = 3;
-              break;
-            case 2:
-              _context.p = 2;
-              _t = _context.v;
-              console.error("Error cargando catálogos", _t);
-            case 3:
-              return _context.a(2);
-          }
-        }, _callee, null, [[0, 2]]);
-      }))();
-    },
-    formatearDinero: function formatearDinero(monto) {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 2
-      }).format(parseFloat(monto) || 0);
-    },
-    cargarIngresos: function cargarIngresos() {
-      var _this5 = this;
-      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
-        var response, _t2;
-        return _regenerator().w(function (_context2) {
-          while (1) switch (_context2.n) {
-            case 0:
-              _context2.p = 0;
-              _context2.n = 1;
-              return axios__WEBPACK_IMPORTED_MODULE_13__["default"].get('/ingresos-conciliados', {
-                params: {
-                  tipo_comprobante: _this5.filtros.tipo_comprobante
-                }
-              });
-            case 1:
-              response = _context2.v;
-              _this5.ingresosData = response.data.map(function (item) {
-                return _objectSpread(_objectSpread({}, item), {}, {
-                  _original: _objectSpread({}, item)
-                });
-              });
               _context2.n = 3;
               break;
             case 2:
               _context2.p = 2;
               _t2 = _context2.v;
-              console.error("Error cargando ingresos", _t2);
+              console.error("Error cargando catálogos", _t2);
             case 3:
               return _context2.a(2);
           }
@@ -13606,7 +13591,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }))();
     },
     cargarSaldos: function cargarSaldos() {
-      var _this6 = this;
+      var _this5 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
         var response, _t3;
         return _regenerator().w(function (_context3) {
@@ -13617,7 +13602,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               return axios__WEBPACK_IMPORTED_MODULE_13__["default"].get('/saldos-favor');
             case 1:
               response = _context3.v;
-              _this6.saldosData = response.data;
+              _this5.saldosData = response.data;
               _context3.n = 3;
               break;
             case 2:
@@ -13638,13 +13623,13 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       this.showModalEditarSaldo = true;
     },
     notificarCliente: function notificarCliente(row) {
-      var _this7 = this;
+      var _this6 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
         var clienteEncontrado, correosSugeridos, _yield$Swal$fire, correosDestino, isConfirmed, _t4;
         return _regenerator().w(function (_context4) {
           while (1) switch (_context4.n) {
             case 0:
-              clienteEncontrado = _this7.opcionesClienteObj.find(function (c) {
+              clienteEncontrado = _this6.opcionesClienteObj.find(function (c) {
                 return c.nombre === row.cliente;
               });
               correosSugeridos = clienteEncontrado ? clienteEncontrado.email || clienteEncontrado.correo || '' : '';
@@ -13711,7 +13696,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }))();
     },
     eliminarSaldo: function eliminarSaldo(id) {
-      var _this8 = this;
+      var _this7 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
         var _t5;
         return _regenerator().w(function (_context5) {
@@ -13725,7 +13710,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               _context5.n = 2;
               return axios__WEBPACK_IMPORTED_MODULE_13__["default"]["delete"]("/saldos-favor/".concat(id));
             case 2:
-              _this8.cargarSaldos();
+              _this7.cargarSaldos();
               _context5.n = 4;
               break;
             case 3:
@@ -13739,7 +13724,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }))();
     },
     aplicarSaldo: function aplicarSaldo(id) {
-      var _this9 = this;
+      var _this8 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
         var _t6;
         return _regenerator().w(function (_context6) {
@@ -13753,7 +13738,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               _context6.n = 2;
               return axios__WEBPACK_IMPORTED_MODULE_13__["default"].put("/saldos-favor/".concat(id, "/aplicar"));
             case 2:
-              _this9.cargarSaldos();
+              _this8.cargarSaldos();
               _context6.n = 4;
               break;
             case 3:
@@ -13767,7 +13752,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }))();
     },
     reactivarSaldo: function reactivarSaldo(id) {
-      var _this0 = this;
+      var _this9 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
         var _t7;
         return _regenerator().w(function (_context7) {
@@ -13781,7 +13766,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               _context7.n = 2;
               return axios__WEBPACK_IMPORTED_MODULE_13__["default"].put("/saldos-favor/".concat(id, "/reactivar"));
             case 2:
-              _this0.cargarSaldos();
+              _this9.cargarSaldos();
               _context7.n = 4;
               break;
             case 3:
@@ -13807,7 +13792,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       this.cargarIngresos();
     },
     eliminarFila: function eliminarFila(id) {
-      var _this1 = this;
+      var _this0 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
         var result, _t8;
         return _regenerator().w(function (_context8) {
@@ -13834,7 +13819,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               _context8.n = 3;
               return axios__WEBPACK_IMPORTED_MODULE_13__["default"]["delete"]("/ingresos-conciliados/".concat(id));
             case 3:
-              _this1.cargarIngresos();
+              _this0.cargarIngresos();
               _context8.n = 5;
               break;
             case 4:
@@ -13847,27 +13832,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         }, _callee8, null, [[2, 4]]);
       }))();
     },
-    limpiarFiltros: function limpiarFiltros() {
-      this.filtroSucursalActiva = 'Todas';
-      this.filtros = {
-        cliente: 'Todos',
-        rangoFechas: null,
-        tipoOperacion: {
-          id: 'Ambos',
-          label: 'Ambos'
-        },
-        tipo_comprobante: 'Todos',
-        tipoServicio: 'Todos',
-        estado_envio: {
-          id: '',
-          label: 'Todos'
-        }
-      };
-      this.currentPage = 1;
-      this.cargarIngresos();
-    },
     procesarComplementoBackend: function procesarComplementoBackend(payloadLimpio) {
-      var _this10 = this;
+      var _this1 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
         var response, mensajeError, _t9;
         return _regenerator().w(function (_context9) {
@@ -13895,7 +13861,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                   text: response.data.message,
                   icon: response.data.saldado ? 'success' : 'warning'
                 });
-                _this10.cargarIngresos(); // Actualizamos la tabla
+                _this1.cargarIngresos(); // Actualizamos la tabla
               }
               _context9.n = 3;
               break;
@@ -13913,10 +13879,6 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
           }
         }, _callee9, null, [[0, 2]]);
       }))();
-    },
-    enviarCorreoComplemento: function enviarCorreoComplemento(item) {
-      this.ingresoParaCorreo = item;
-      this.showModalEnviarCorreo = true;
     }
   }
 });
@@ -88584,28 +88546,36 @@ var render = function () {
     "div",
     {
       staticClass:
-        "bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200 flex flex-col relative mb-6",
+        "bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200 flex flex-col relative mb-3",
     },
     [
       _c("div", {
-        staticClass: "absolute left-0 top-0 bottom-0 w-2",
-        class: _vm.diferencia < 0 ? "bg-red-500" : "bg-green-500",
+        staticClass: "absolute left-0 top-0 bottom-0 w-1.5",
+        class:
+          _vm.diferencia < 0
+            ? "bg-red-500"
+            : _vm.diferencia > 0
+            ? "bg-yellow-500"
+            : "bg-green-500",
       }),
       _vm._v(" "),
       _c(
         "div",
         {
           staticClass:
-            "px-8 py-5 border-b border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-100 ml-2",
+            "px-4 py-2 border-b border-gray-200 flex justify-between items-center bg-gray-100 ml-1.5",
         },
         [
-          _c("div", { staticClass: "flex items-center gap-4" }, [
+          _c("div", { staticClass: "flex items-center gap-3" }, [
             _c(
               "span",
               {
                 staticClass:
-                  "px-4 py-1.5 text-white text-sm font-black rounded-lg tracking-wider uppercase shadow-sm",
-                staticStyle: { "background-color": "#2A3A4D" },
+                  "px-2 py-0.5 text-white font-black rounded uppercase shadow-sm",
+                staticStyle: {
+                  "font-size": "10px",
+                  "background-color": "#2A3A4D",
+                },
               },
               [
                 _vm._v(
@@ -88616,281 +88586,235 @@ var render = function () {
               ]
             ),
             _vm._v(" "),
-            _c("span", { staticClass: "text-base font-bold text-gray-500" }, [
+            _c("span", { staticClass: "text-xs font-bold text-gray-500" }, [
               _vm._v(_vm._s(_vm.item.fecha)),
             ]),
-          ]),
-          _vm._v(" "),
-          _c("div", { staticClass: "flex items-center gap-3" }, [
+            _vm._v(" "),
             _c(
               "span",
-              { staticClass: "text-sm font-bold text-gray-400 uppercase" },
-              [_vm._v("Banco Receptor:")]
+              {
+                staticClass:
+                  "text-[10px] font-bold text-indigo-700 bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded uppercase hidden sm:block",
+              },
+              [
+                _vm._v(
+                  "\n                Ref: " +
+                    _vm._s(_vm.item.folio_sc || "N/A") +
+                    "\n            "
+                ),
+              ]
+            ),
+          ]),
+          _vm._v(" "),
+          _c("div", { staticClass: "flex items-center gap-2" }, [
+            _c(
+              "span",
+              {
+                staticClass:
+                  "font-bold text-gray-400 uppercase text-[10px] hidden md:block",
+              },
+              [_vm._v("Banco:")]
             ),
             _vm._v(" "),
-            _c("span", { staticClass: "text-base font-bold text-gray-700" }, [
-              _vm._v(_vm._s(_vm.item.banco_receptor || "No Especificado")),
+            _c("span", { staticClass: "text-xs font-bold text-gray-700" }, [
+              _vm._v(_vm._s(_vm.item.banco_receptor || "N/E")),
             ]),
           ]),
         ]
       ),
       _vm._v(" "),
-      _c("div", { staticClass: "p-8 flex flex-col xl:flex-row gap-10 ml-2" }, [
+      _c("div", { staticClass: "p-3 ml-1.5 flex flex-col gap-3" }, [
         _c(
-          "div",
-          { staticClass: "w-full xl:w-1/3 flex flex-col justify-center" },
-          [
-            _c("div", { staticClass: "flex items-center gap-2 mb-3" }, [
-              _c(
-                "span",
-                {
-                  staticClass:
-                    "text-sm font-bold text-indigo-700 bg-indigo-100 border border-indigo-200 px-3 py-1 rounded-md tracking-wide uppercase",
-                },
-                [
-                  _vm._v(
-                    "\n                    Ref / Folio SC: " +
-                      _vm._s(_vm.item.folio_sc || "N/A") +
-                      "\n                "
-                  ),
-                ]
-              ),
-            ]),
-            _vm._v(" "),
-            _c(
-              "h3",
-              {
-                staticClass:
-                  "text-2xl lg:text-3xl font-black text-gray-800 uppercase tracking-tight mb-8 leading-tight",
-              },
-              [
-                _vm._v(
-                  "\n                " +
-                    _vm._s(_vm.item.cliente) +
-                    "\n            "
-                ),
-              ]
-            ),
-            _vm._v(" "),
-            _c("div", { staticClass: "space-y-3" }, [
-              _c(
-                "div",
-                {
-                  staticClass:
-                    "flex justify-between items-center p-4 bg-purple-100 rounded-xl border border-purple-200",
-                },
-                [
-                  _c(
-                    "span",
-                    {
-                      staticClass:
-                        "text-sm font-bold text-purple-700 uppercase",
-                    },
-                    [_vm._v("Monto Depósito")]
-                  ),
-                  _vm._v(" "),
-                  _c(
-                    "span",
-                    { staticClass: "text-xl font-black text-purple-700" },
-                    [
-                      _vm._v(
-                        _vm._s(_vm.formatearDinero(_vm.item.monto_deposito))
-                      ),
-                    ]
-                  ),
-                ]
-              ),
-              _vm._v(" "),
-              _c(
-                "div",
-                {
-                  staticClass:
-                    "flex justify-between items-center p-4 bg-gray-100 rounded-xl border border-gray-200",
-                },
-                [
-                  _c(
-                    "span",
-                    {
-                      staticClass: "text-sm font-bold text-gray-600 uppercase",
-                    },
-                    [_vm._v("Monto SC (Calc)")]
-                  ),
-                  _vm._v(" "),
-                  _c(
-                    "span",
-                    { staticClass: "text-xl font-black text-gray-800" },
-                    [_vm._v(_vm._s(_vm.formatearDinero(_vm.montoSC)))]
-                  ),
-                ]
-              ),
-              _vm._v(" "),
-              _c(
-                "div",
-                {
-                  staticClass:
-                    "flex justify-between items-center p-4 rounded-xl border",
-                  class:
-                    _vm.diferencia < 0
-                      ? "bg-red-100 border-red-200"
-                      : "bg-green-100 border-green-200",
-                },
-                [
-                  _c(
-                    "span",
-                    {
-                      staticClass: "text-sm font-bold uppercase",
-                      class:
-                        _vm.diferencia < 0 ? "text-red-700" : "text-green-700",
-                    },
-                    [_vm._v("Diferencia")]
-                  ),
-                  _vm._v(" "),
-                  _c(
-                    "span",
-                    {
-                      staticClass: "text-xl font-black",
-                      class:
-                        _vm.diferencia < 0 ? "text-red-600" : "text-green-600",
-                    },
-                    [_vm._v(_vm._s(_vm.formatearDinero(_vm.diferencia)))]
-                  ),
-                ]
-              ),
-            ]),
-          ]
+          "h3",
+          {
+            staticClass:
+              "text-base font-black text-gray-800 uppercase tracking-tight leading-none truncate",
+          },
+          [_vm._v("\n            " + _vm._s(_vm.item.cliente) + "\n        ")]
         ),
         _vm._v(" "),
-        _c(
-          "div",
-          { staticClass: "w-full xl:w-2/3 flex flex-col justify-center" },
-          [
+        _c("div", { staticClass: "flex flex-col xl:flex-row gap-4 w-full" }, [
+          _c("div", { staticClass: "flex gap-2 w-full xl:w-auto shrink-0" }, [
             _c(
-              "h4",
+              "div",
               {
                 staticClass:
-                  "text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 border-b border-gray-200 pb-3",
+                  "flex flex-col justify-center px-3 py-1.5 bg-blue-100 border border-blue-200 rounded shrink-0 min-w-[110px]",
               },
-              [_vm._v("\n                Desglose de Conceptos\n            ")]
+              [
+                _c(
+                  "span",
+                  {
+                    staticClass:
+                      "font-bold text-blue-700 uppercase text-[9px] mb-0.5",
+                  },
+                  [_vm._v("Depósito")]
+                ),
+                _vm._v(" "),
+                _c(
+                  "span",
+                  {
+                    staticClass:
+                      "text-sm font-black text-blue-700 leading-none",
+                  },
+                  [_vm._v(_vm._s(_vm.formatearDinero(_vm.item.monto_deposito)))]
+                ),
+              ]
             ),
             _vm._v(" "),
             _c(
               "div",
               {
                 staticClass:
-                  "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4",
+                  "flex flex-col justify-center px-3 py-1.5 bg-gray-100 border border-gray-200 rounded shrink-0 min-w-[110px]",
               },
-              _vm._l(_vm.desgloseActivo, function (concepto, index) {
-                return _c(
-                  "div",
+              [
+                _c(
+                  "span",
                   {
-                    key: index,
                     staticClass:
-                      "bg-white border border-gray-200 rounded-xl p-4 flex flex-col justify-between transition-colors shadow-sm relative overflow-hidden group",
-                    class:
-                      Number(concepto.monto) > 0
-                        ? "border-green-300 bg-green-50"
-                        : "hover:border-blue-300",
+                      "font-bold text-gray-500 uppercase text-[9px] mb-0.5",
                   },
-                  [
-                    _c("div", {
+                  [_vm._v("SC")]
+                ),
+                _vm._v(" "),
+                _c(
+                  "span",
+                  {
+                    staticClass:
+                      "text-sm font-black text-gray-800 leading-none",
+                  },
+                  [_vm._v(_vm._s(_vm.formatearDinero(_vm.montoSC)))]
+                ),
+              ]
+            ),
+            _vm._v(" "),
+            _c(
+              "div",
+              {
+                staticClass:
+                  "flex flex-col justify-center px-3 py-1.5 border rounded shrink-0 min-w-[110px]",
+                class:
+                  _vm.diferencia < 0
+                    ? "bg-red-100 border-red-200"
+                    : _vm.diferencia > 0
+                    ? "bg-yellow-100 border-yellow-200"
+                    : "bg-green-100 border-green-200",
+              },
+              [
+                _c(
+                  "span",
+                  {
+                    staticClass: "font-bold uppercase text-[9px] mb-0.5",
+                    class:
+                      _vm.diferencia < 0
+                        ? "text-red-600"
+                        : _vm.diferencia > 0
+                        ? "text-yellow-600"
+                        : "text-green-600",
+                  },
+                  [_vm._v("Diferencia")]
+                ),
+                _vm._v(" "),
+                _c(
+                  "span",
+                  {
+                    staticClass: "text-sm font-black leading-none",
+                    class:
+                      _vm.diferencia < 0
+                        ? "text-red-700"
+                        : _vm.diferencia > 0
+                        ? "text-yellow-700"
+                        : "text-green-700",
+                  },
+                  [_vm._v(_vm._s(_vm.formatearDinero(_vm.diferencia)))]
+                ),
+              ]
+            ),
+          ]),
+          _vm._v(" "),
+          _c("div", {
+            staticClass: "hidden xl:block w-px bg-gray-200 shrink-0 my-1",
+          }),
+          _vm._v(" "),
+          _c(
+            "div",
+            {
+              staticClass:
+                "grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2 w-full",
+            },
+            _vm._l(_vm.desgloseActivo, function (concepto, index) {
+              return _c(
+                "div",
+                {
+                  key: index,
+                  staticClass:
+                    "border rounded px-2 py-1.5 flex flex-col justify-center items-start relative overflow-hidden transition-colors",
+                  class:
+                    Number(concepto.monto) > 0
+                      ? "border-green-300 bg-green-100"
+                      : "bg-white border-gray-200",
+                },
+                [
+                  _c(
+                    "span",
+                    {
                       staticClass:
-                        "absolute top-0 left-0 right-0 h-1.5 transition-colors",
+                        "font-bold uppercase tracking-wider text-[9px] truncate w-full mb-0.5",
                       class:
                         Number(concepto.monto) > 0
-                          ? "bg-green-500"
-                          : "bg-gray-200 group-hover:bg-blue-400",
-                    }),
-                    _vm._v(" "),
-                    _c(
-                      "div",
-                      {
-                        staticClass:
-                          "flex justify-between items-start mb-3 mt-2",
-                      },
-                      [
-                        _c(
-                          "span",
-                          {
-                            staticClass:
-                              "text-xs font-black uppercase tracking-wider",
-                            class:
-                              Number(concepto.monto) > 0
-                                ? "text-gray-800"
-                                : "text-gray-400",
-                          },
-                          [_vm._v(_vm._s(concepto.label))]
-                        ),
-                      ]
-                    ),
-                    _vm._v(" "),
-                    _c(
-                      "div",
-                      { staticClass: "flex justify-between items-end" },
-                      [
-                        _c(
-                          "span",
-                          {
-                            staticClass: "text-[11px] font-bold uppercase",
-                            class:
-                              Number(concepto.monto) > 0
-                                ? "text-green-600"
-                                : "text-gray-400",
-                          },
-                          [
-                            _vm._v(
-                              "\n                            " +
-                                _vm._s(
-                                  Number(concepto.monto) > 0
-                                    ? "Registrado"
-                                    : "S/D"
-                                ) +
-                                "\n                        "
-                            ),
-                          ]
-                        ),
-                        _vm._v(" "),
-                        _c(
-                          "span",
-                          {
-                            staticClass: "text-lg font-black",
-                            class:
-                              Number(concepto.monto) > 0
-                                ? "text-green-600"
-                                : "text-gray-300",
-                          },
-                          [
-                            _vm._v(
-                              "\n                            " +
-                                _vm._s(_vm.formatearDinero(concepto.monto)) +
-                                "\n                        "
-                            ),
-                          ]
-                        ),
-                      ]
-                    ),
-                  ]
-                )
-              }),
-              0
-            ),
-          ]
-        ),
+                          ? "text-gray-700"
+                          : "text-gray-400",
+                    },
+                    [
+                      _vm._v(
+                        "\n                        " +
+                          _vm._s(concepto.label) +
+                          "\n                    "
+                      ),
+                    ]
+                  ),
+                  _vm._v(" "),
+                  _c(
+                    "span",
+                    {
+                      staticClass:
+                        "text-xs font-black truncate w-full leading-none",
+                      class:
+                        Number(concepto.monto) > 0
+                          ? "text-green-600"
+                          : "text-gray-300",
+                    },
+                    [
+                      _vm._v(
+                        "\n                        " +
+                          _vm._s(_vm.formatearDinero(concepto.monto)) +
+                          "\n                    "
+                      ),
+                    ]
+                  ),
+                ]
+              )
+            }),
+            0
+          ),
+        ]),
       ]),
       _vm._v(" "),
       _c(
         "div",
         {
           staticClass:
-            "px-8 py-5 bg-gray-100 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-6 ml-2",
+            "px-4 py-2 bg-gray-100 border-t border-gray-200 flex justify-between items-center ml-1.5",
         },
         [
-          _c("div", { staticClass: "flex flex-wrap items-center gap-4" }, [
+          _c("div", { staticClass: "flex items-center gap-3" }, [
             _vm.item.tipo_comprobante === "CFDI"
               ? _c(
                   "span",
                   {
                     staticClass:
-                      "px-4 py-1.5 bg-blue-100 text-blue-700 font-extrabold rounded-lg border border-blue-200 text-xs",
+                      "px-2 py-0.5 bg-blue-100 text-blue-700 font-bold rounded border border-blue-200 text-[10px]",
                   },
                   [_vm._v("CFDI")]
                 )
@@ -88899,7 +88823,7 @@ var render = function () {
                   "span",
                   {
                     staticClass:
-                      "px-4 py-1.5 bg-purple-100 text-purple-700 font-extrabold rounded-lg border border-purple-200 text-xs",
+                      "px-2 py-0.5 bg-purple-100 text-purple-700 font-bold rounded border border-purple-200 text-[10px]",
                   },
                   [_vm._v("NOTA\n                CARGO")]
                 )
@@ -88907,27 +88831,27 @@ var render = function () {
                   "span",
                   {
                     staticClass:
-                      "px-4 py-1.5 bg-gray-200 text-gray-600 font-extrabold rounded-lg border border-gray-300 text-xs",
+                      "px-2 py-0.5 bg-gray-200 text-gray-600 font-bold rounded border border-gray-300 text-[10px]",
                   },
                   [_vm._v(_vm._s(_vm.item.tipo_comprobante || "N/A"))]
                 ),
             _vm._v(" "),
-            _c("div", { staticClass: "h-6 w-px bg-gray-300 hidden sm:block" }),
+            _c("div", { staticClass: "h-3 w-px bg-gray-300" }),
             _vm._v(" "),
-            _c("span", { staticClass: "text-sm font-bold text-gray-600" }, [
+            _c("span", { staticClass: "text-[11px] font-bold text-gray-500" }, [
               _vm._v("Comp: "),
               _c("span", { staticClass: "text-gray-800" }, [
                 _vm._v(_vm._s(_vm.item.folio_complemento || "SIN COMPLEMENTO")),
               ]),
             ]),
             _vm._v(" "),
-            _c("div", { staticClass: "h-6 w-px bg-gray-300 hidden sm:block" }),
+            _c("div", { staticClass: "h-3 w-px bg-gray-300" }),
             _vm._v(" "),
             _c(
               "span",
               {
                 staticClass:
-                  "text-xs font-bold px-4 py-1.5 rounded-lg uppercase tracking-wider border",
+                  "font-bold px-2 py-0.5 rounded uppercase border text-[10px]",
                 class:
                   _vm.item.estado_envio === "ENVIADO"
                     ? "bg-green-100 text-green-700 border-green-200"
@@ -88943,12 +88867,12 @@ var render = function () {
             ),
           ]),
           _vm._v(" "),
-          _c("div", { staticClass: "flex items-center gap-3" }, [
+          _c("div", { staticClass: "flex items-center gap-1.5" }, [
             _c(
               "button",
               {
                 staticClass:
-                  "text-green-600 hover:text-white bg-green-100 hover:bg-green-500 p-3 rounded-xl transition-colors shadow-sm",
+                  "text-green-600 hover:text-white bg-green-100 hover:bg-green-500 p-1.5 rounded transition-colors",
                 attrs: { title: "Generar Complemento" },
                 on: {
                   click: function ($event) {
@@ -88960,7 +88884,7 @@ var render = function () {
                 _c(
                   "svg",
                   {
-                    staticClass: "w-5 h-5",
+                    staticClass: "w-4 h-4",
                     attrs: {
                       fill: "none",
                       stroke: "currentColor",
@@ -88985,7 +88909,7 @@ var render = function () {
               "button",
               {
                 staticClass:
-                  "text-blue-600 hover:text-white bg-blue-100 hover:bg-blue-500 p-3 rounded-xl transition-colors shadow-sm",
+                  "text-blue-600 hover:text-white bg-blue-100 hover:bg-blue-500 p-1.5 rounded transition-colors",
                 attrs: { title: "Visualizar Complemento" },
                 on: {
                   click: function ($event) {
@@ -88997,7 +88921,7 @@ var render = function () {
                 _c(
                   "svg",
                   {
-                    staticClass: "w-5 h-5",
+                    staticClass: "w-4 h-4",
                     attrs: {
                       fill: "none",
                       stroke: "currentColor",
@@ -89031,7 +88955,7 @@ var render = function () {
               "button",
               {
                 staticClass:
-                  "text-purple-600 hover:text-white bg-purple-100 hover:bg-purple-500 p-3 rounded-xl transition-colors shadow-sm",
+                  "text-purple-600 hover:text-white bg-purple-100 hover:bg-purple-500 p-1.5 rounded transition-colors",
                 attrs: { title: "Enviar Complemento" },
                 on: {
                   click: function ($event) {
@@ -89043,7 +88967,7 @@ var render = function () {
                 _c(
                   "svg",
                   {
-                    staticClass: "w-5 h-5",
+                    staticClass: "w-4 h-4",
                     attrs: {
                       fill: "none",
                       stroke: "currentColor",
@@ -89068,7 +88992,7 @@ var render = function () {
               "button",
               {
                 staticClass:
-                  "text-indigo-600 hover:text-white bg-indigo-100 hover:bg-indigo-500 p-3 rounded-xl transition-colors shadow-sm",
+                  "text-indigo-600 hover:text-white bg-indigo-100 hover:bg-indigo-500 p-1.5 rounded transition-colors",
                 attrs: { title: "Editar Fila" },
                 on: {
                   click: function ($event) {
@@ -89080,7 +89004,7 @@ var render = function () {
                 _c(
                   "svg",
                   {
-                    staticClass: "w-5 h-5",
+                    staticClass: "w-4 h-4",
                     attrs: {
                       fill: "none",
                       stroke: "currentColor",
@@ -89105,7 +89029,7 @@ var render = function () {
               "button",
               {
                 staticClass:
-                  "text-red-500 hover:text-white bg-red-100 hover:bg-red-500 p-3 rounded-xl transition-colors shadow-sm",
+                  "text-red-500 hover:text-white bg-red-100 hover:bg-red-500 p-1.5 rounded transition-colors",
                 attrs: { title: "Eliminar Fila" },
                 on: {
                   click: function ($event) {
@@ -89117,7 +89041,7 @@ var render = function () {
                 _c(
                   "svg",
                   {
-                    staticClass: "w-5 h-5",
+                    staticClass: "w-4 h-4",
                     attrs: {
                       fill: "none",
                       stroke: "currentColor",
@@ -89756,7 +89680,8 @@ var render = function () {
             "div",
             {
               staticClass:
-                "bg-blue-600 px-8 py-6 flex justify-between items-center shrink-0",
+                "px-8 py-6 flex justify-between items-center shrink-0",
+              staticStyle: { "background-color": "#2A3A4D" },
             },
             [
               _c(
@@ -92290,7 +92215,8 @@ var render = function () {
             "div",
             {
               staticClass:
-                "bg-blue-600 px-8 py-6 flex justify-between items-center shrink-0",
+                "px-8 py-6 flex justify-between items-center shrink-0",
+              staticStyle: { "background-color": "#2A3A4D" },
             },
             [
               _c(
@@ -93799,7 +93725,8 @@ var render = function () {
             "div",
             {
               staticClass:
-                "bg-blue-600 rounded-t-xl px-8 py-6 flex justify-between items-center",
+                "rounded-t-xl px-8 py-6 flex justify-between items-center",
+              staticStyle: { "background-color": "#2A3A4D" },
             },
             [
               _c(
@@ -94299,7 +94226,7 @@ var render = function () {
                     : "background-color: #ffffff; color: #2A3A4D;",
                 on: {
                   click: function ($event) {
-                    _vm.filtroSucursalActiva = sucursal
+                    return _vm.cambiarSucursal(sucursal)
                   },
                 },
               },
@@ -94318,7 +94245,7 @@ var render = function () {
                   : "background-color: #ffffff; color: #2A3A4D;",
               on: {
                 click: function ($event) {
-                  _vm.filtroSucursalActiva = "Todas"
+                  return _vm.cambiarSucursal("Todas")
                 },
               },
             },
@@ -94542,7 +94469,7 @@ var render = function () {
             "div",
             {
               staticClass:
-                "bg-white rounded-xl shadow-sm border border-gray-100 p-8 border-l-4 flex justify-between items-center",
+                "bg-white rounded-xl shadow-sm border border-gray-100 p-6 border-l-4 flex justify-between items-center",
               staticStyle: { "border-left-color": "#ED8936" },
             },
             [
@@ -94917,6 +94844,7 @@ var render = function () {
                           searchable: true,
                           "show-labels": false,
                         },
+                        on: { input: _vm.aplicarFiltrosYBuscar },
                         model: {
                           value: _vm.filtros.cliente,
                           callback: function ($$v) {
@@ -94949,6 +94877,7 @@ var render = function () {
                           searchable: true,
                           "show-labels": false,
                         },
+                        on: { input: _vm.aplicarFiltrosYBuscar },
                         model: {
                           value: _vm.filtros.tipoServicio,
                           callback: function ($$v) {
@@ -94983,6 +94912,7 @@ var render = function () {
                           searchable: false,
                           "show-labels": false,
                         },
+                        on: { input: _vm.aplicarFiltrosYBuscar },
                         model: {
                           value: _vm.filtros.tipoOperacion,
                           callback: function ($$v) {
@@ -95015,7 +94945,7 @@ var render = function () {
                           searchable: false,
                           "show-labels": false,
                         },
-                        on: { input: _vm.cargarIngresos },
+                        on: { input: _vm.aplicarFiltrosYBuscar },
                         model: {
                           value: _vm.filtros.tipo_comprobante,
                           callback: function ($$v) {
@@ -95050,6 +94980,7 @@ var render = function () {
                           range: true,
                           label: "Select date & time",
                         },
+                        on: { validate: _vm.aplicarFiltrosYBuscar },
                         model: {
                           value: _vm.filtros.rangoFechas,
                           callback: function ($$v) {
@@ -95084,6 +95015,7 @@ var render = function () {
                           searchable: false,
                           "show-labels": false,
                         },
+                        on: { input: _vm.aplicarFiltrosYBuscar },
                         model: {
                           value: _vm.filtros.estado_envio,
                           callback: function ($$v) {
@@ -95104,10 +95036,60 @@ var render = function () {
             "div",
             {
               staticClass:
-                "flex-1 overflow-y-auto custom-scrollbar px-6 pb-6 bg-gray-50 pt-4 rounded-b-xl flex flex-col",
+                "flex-1 overflow-y-auto custom-scrollbar px-6 pb-6 bg-gray-50 pt-4 rounded-b-xl flex flex-col relative",
             },
             [
-              _vm._l(_vm.paginatedIngresos, function (item) {
+              _vm.cargandoRegistros
+                ? _c(
+                    "div",
+                    {
+                      staticClass:
+                        "absolute inset-0 bg-white/50 z-10 flex flex-col items-center justify-center",
+                    },
+                    [
+                      _c(
+                        "svg",
+                        {
+                          staticClass:
+                            "animate-spin h-10 w-10 text-indigo-600 mb-2",
+                          attrs: {
+                            xmlns: "http://www.w3.org/2000/svg",
+                            fill: "none",
+                            viewBox: "0 0 24 24",
+                          },
+                        },
+                        [
+                          _c("circle", {
+                            staticClass: "opacity-25",
+                            attrs: {
+                              cx: "12",
+                              cy: "12",
+                              r: "10",
+                              stroke: "currentColor",
+                              "stroke-width": "4",
+                            },
+                          }),
+                          _vm._v(" "),
+                          _c("path", {
+                            staticClass: "opacity-75",
+                            attrs: {
+                              fill: "currentColor",
+                              d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z",
+                            },
+                          }),
+                        ]
+                      ),
+                      _vm._v(" "),
+                      _c(
+                        "span",
+                        { staticClass: "text-sm font-bold text-gray-500" },
+                        [_vm._v("Cargando registros...")]
+                      ),
+                    ]
+                  )
+                : _vm._e(),
+              _vm._v(" "),
+              _vm._l(_vm.ingresosData, function (item) {
                 return _c("IngresoCard", {
                   key: item.id,
                   attrs: {
@@ -95126,7 +95108,7 @@ var render = function () {
                 })
               }),
               _vm._v(" "),
-              _vm.ingresosFiltrados.length === 0
+              !_vm.cargandoRegistros && _vm.ingresosData.length === 0
                 ? _c(
                     "div",
                     {
@@ -95221,6 +95203,25 @@ var render = function () {
                     ]
                   )
                 : _vm._e(),
+              _vm._v(" "),
+              _vm.totalRegistros > 0
+                ? _c(
+                    "div",
+                    {
+                      staticClass:
+                        "text-center text-xs font-bold text-gray-400 mt-2",
+                    },
+                    [
+                      _vm._v(
+                        "\n        Mostrando " +
+                          _vm._s(_vm.ingresosData.length) +
+                          " de " +
+                          _vm._s(_vm.totalRegistros) +
+                          " registros encontrados\n      "
+                      ),
+                    ]
+                  )
+                : _vm._e(),
             ],
             2
           ),
@@ -95241,7 +95242,7 @@ var render = function () {
           staticClass: "flex-1 flex flex-col",
         },
         [
-          _c("div", { staticClass: "flex justify-between items-end mb-8" }, [
+          _c("div", { staticClass: "flex justify-between items-end mb-6" }, [
             _vm._m(2),
             _vm._v(" "),
             _c(
@@ -95264,225 +95265,230 @@ var render = function () {
             "div",
             {
               staticClass:
-                "bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden",
+                "bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mt-2",
             },
             [
-              _c("table", { staticClass: "w-full text-left text-xl" }, [
-                _vm._m(3),
-                _vm._v(" "),
-                _c(
-                  "tbody",
-                  { staticClass: "text-slate-700 font-medium" },
-                  [
-                    _vm._l(_vm.saldosVigentesFiltrados, function (saldo) {
-                      return _c(
-                        "tr",
-                        {
-                          key: saldo.id,
-                          staticClass:
-                            "border-b border-slate-100 hover:bg-slate-100 transition-colors",
-                        },
-                        [
-                          _c(
-                            "td",
-                            {
-                              staticClass: "px-8 py-5 font-bold text-slate-800",
-                            },
-                            [_vm._v(_vm._s(saldo.cliente))]
-                          ),
-                          _vm._v(" "),
-                          _c(
-                            "td",
-                            { staticClass: "px-8 py-5 text-slate-500" },
-                            [_vm._v(_vm._s(saldo.sucursal_origen))]
-                          ),
-                          _vm._v(" "),
-                          _c(
-                            "td",
-                            {
-                              staticClass:
-                                "px-8 py-5 text-center font-black text-emerald-600",
-                            },
-                            [_vm._v(_vm._s(_vm.formatearDinero(saldo.monto)))]
-                          ),
-                          _vm._v(" "),
-                          _c(
-                            "td",
-                            {
-                              staticClass:
-                                "px-8 py-5 text-center text-slate-500",
-                            },
-                            [_vm._v(_vm._s(saldo.fecha_deteccion))]
-                          ),
-                          _vm._v(" "),
-                          _c(
-                            "td",
-                            { staticClass: "px-8 py-5 text-slate-600" },
-                            [_vm._v(_vm._s(saldo.concepto))]
-                          ),
-                          _vm._v(" "),
-                          _vm._m(4, true),
-                          _vm._v(" "),
-                          _c("td", { staticClass: "px-8 py-5 text-center" }, [
+              _c(
+                "table",
+                { staticClass: "w-full text-left whitespace-nowrap min-w-max" },
+                [
+                  _vm._m(3),
+                  _vm._v(" "),
+                  _c(
+                    "tbody",
+                    { staticClass: "text-gray-700 font-medium text-base" },
+                    [
+                      _vm._l(_vm.saldosVigentesFiltrados, function (saldo) {
+                        return _c(
+                          "tr",
+                          {
+                            key: saldo.id,
+                            staticClass:
+                              "border-b border-gray-100 hover:bg-gray-50 transition-colors bg-white",
+                          },
+                          [
                             _c(
-                              "div",
+                              "td",
                               {
                                 staticClass:
-                                  "flex items-center justify-center gap-4",
+                                  "px-6 py-5 font-bold text-gray-900",
+                              },
+                              [_vm._v(_vm._s(saldo.cliente))]
+                            ),
+                            _vm._v(" "),
+                            _c(
+                              "td",
+                              { staticClass: "px-6 py-5 text-gray-600" },
+                              [_vm._v(_vm._s(saldo.sucursal_origen))]
+                            ),
+                            _vm._v(" "),
+                            _c(
+                              "td",
+                              {
+                                staticClass:
+                                  "px-6 py-5 text-center font-black text-gray-900",
+                              },
+                              [_vm._v(_vm._s(_vm.formatearDinero(saldo.monto)))]
+                            ),
+                            _vm._v(" "),
+                            _c(
+                              "td",
+                              {
+                                staticClass:
+                                  "px-6 py-5 text-center text-gray-600",
+                              },
+                              [_vm._v(_vm._s(saldo.fecha_deteccion))]
+                            ),
+                            _vm._v(" "),
+                            _c(
+                              "td",
+                              { staticClass: "px-6 py-5 text-gray-600" },
+                              [_vm._v(_vm._s(saldo.concepto))]
+                            ),
+                            _vm._v(" "),
+                            _vm._m(4, true),
+                            _vm._v(" "),
+                            _c("td", { staticClass: "px-6 py-5 text-right" }, [
+                              _c(
+                                "div",
+                                {
+                                  staticClass:
+                                    "flex items-center justify-end gap-2",
+                                },
+                                [
+                                  _c(
+                                    "button",
+                                    {
+                                      staticClass:
+                                        "text-indigo-600 bg-indigo-100 hover:bg-indigo-200 p-2.5 rounded-lg transition-colors",
+                                      attrs: { title: "Editar" },
+                                      on: {
+                                        click: function ($event) {
+                                          return _vm.editarSaldo(saldo)
+                                        },
+                                      },
+                                    },
+                                    [
+                                      _c(
+                                        "svg",
+                                        {
+                                          staticClass: "w-5 h-5",
+                                          attrs: {
+                                            fill: "none",
+                                            stroke: "currentColor",
+                                            viewBox: "0 0 24 24",
+                                          },
+                                        },
+                                        [
+                                          _c("path", {
+                                            attrs: {
+                                              "stroke-linecap": "round",
+                                              "stroke-linejoin": "round",
+                                              "stroke-width": "2",
+                                              d: "M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z",
+                                            },
+                                          }),
+                                        ]
+                                      ),
+                                    ]
+                                  ),
+                                  _vm._v(" "),
+                                  _c(
+                                    "button",
+                                    {
+                                      staticClass:
+                                        "text-red-500 bg-red-100 hover:bg-red-200 p-2.5 rounded-lg transition-colors",
+                                      attrs: { title: "Eliminar" },
+                                      on: {
+                                        click: function ($event) {
+                                          return _vm.eliminarSaldo(saldo.id)
+                                        },
+                                      },
+                                    },
+                                    [
+                                      _c(
+                                        "svg",
+                                        {
+                                          staticClass: "w-5 h-5",
+                                          attrs: {
+                                            fill: "none",
+                                            stroke: "currentColor",
+                                            viewBox: "0 0 24 24",
+                                          },
+                                        },
+                                        [
+                                          _c("path", {
+                                            attrs: {
+                                              "stroke-linecap": "round",
+                                              "stroke-linejoin": "round",
+                                              "stroke-width": "2",
+                                              d: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16",
+                                            },
+                                          }),
+                                        ]
+                                      ),
+                                    ]
+                                  ),
+                                  _vm._v(" "),
+                                  _c(
+                                    "button",
+                                    {
+                                      staticClass:
+                                        "text-blue-500 bg-blue-100 hover:bg-blue-200 p-2.5 rounded-lg transition-colors",
+                                      attrs: { title: "Notificar" },
+                                      on: {
+                                        click: function ($event) {
+                                          return _vm.notificarCliente(saldo)
+                                        },
+                                      },
+                                    },
+                                    [
+                                      _c(
+                                        "svg",
+                                        {
+                                          staticClass: "w-5 h-5",
+                                          attrs: {
+                                            fill: "none",
+                                            stroke: "currentColor",
+                                            viewBox: "0 0 24 24",
+                                          },
+                                        },
+                                        [
+                                          _c("path", {
+                                            attrs: {
+                                              "stroke-linecap": "round",
+                                              "stroke-linejoin": "round",
+                                              "stroke-width": "2",
+                                              d: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z",
+                                            },
+                                          }),
+                                        ]
+                                      ),
+                                    ]
+                                  ),
+                                  _vm._v(" "),
+                                  _c(
+                                    "button",
+                                    {
+                                      staticClass:
+                                        "bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors uppercase tracking-wider shadow-sm ml-2",
+                                      on: {
+                                        click: function ($event) {
+                                          return _vm.aplicarSaldo(saldo.id)
+                                        },
+                                      },
+                                    },
+                                    [_vm._v("APLICAR")]
+                                  ),
+                                ]
+                              ),
+                            ]),
+                          ]
+                        )
+                      }),
+                      _vm._v(" "),
+                      _vm.saldosVigentesFiltrados.length === 0
+                        ? _c("tr", [
+                            _c(
+                              "td",
+                              {
+                                staticClass:
+                                  "text-center py-16 text-lg text-gray-400 bg-gray-50 font-medium",
+                                attrs: { colspan: "7" },
                               },
                               [
-                                _c(
-                                  "button",
-                                  {
-                                    staticClass:
-                                      "text-indigo-500 hover:text-white bg-indigo-100 hover:bg-indigo-500 p-3 rounded-lg transition-colors shadow-sm border border-indigo-200",
-                                    attrs: { title: "Editar" },
-                                    on: {
-                                      click: function ($event) {
-                                        return _vm.editarSaldo(saldo)
-                                      },
-                                    },
-                                  },
-                                  [
-                                    _c(
-                                      "svg",
-                                      {
-                                        staticClass: "w-6 h-6",
-                                        attrs: {
-                                          fill: "none",
-                                          stroke: "currentColor",
-                                          viewBox: "0 0 24 24",
-                                        },
-                                      },
-                                      [
-                                        _c("path", {
-                                          attrs: {
-                                            "stroke-linecap": "round",
-                                            "stroke-linejoin": "round",
-                                            "stroke-width": "2",
-                                            d: "M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z",
-                                          },
-                                        }),
-                                      ]
-                                    ),
-                                  ]
-                                ),
-                                _vm._v(" "),
-                                _c(
-                                  "button",
-                                  {
-                                    staticClass:
-                                      "text-red-500 hover:text-white bg-red-100 hover:bg-red-500 p-3 rounded-lg transition-colors shadow-sm border border-red-200",
-                                    attrs: { title: "Eliminar" },
-                                    on: {
-                                      click: function ($event) {
-                                        return _vm.eliminarSaldo(saldo.id)
-                                      },
-                                    },
-                                  },
-                                  [
-                                    _c(
-                                      "svg",
-                                      {
-                                        staticClass: "w-6 h-6",
-                                        attrs: {
-                                          fill: "none",
-                                          stroke: "currentColor",
-                                          viewBox: "0 0 24 24",
-                                        },
-                                      },
-                                      [
-                                        _c("path", {
-                                          attrs: {
-                                            "stroke-linecap": "round",
-                                            "stroke-linejoin": "round",
-                                            "stroke-width": "2",
-                                            d: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16",
-                                          },
-                                        }),
-                                      ]
-                                    ),
-                                  ]
-                                ),
-                                _vm._v(" "),
-                                _c(
-                                  "button",
-                                  {
-                                    staticClass:
-                                      "w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 hover:bg-blue-200 transition-colors shadow-sm",
-                                    attrs: { title: "Notificar" },
-                                    on: {
-                                      click: function ($event) {
-                                        return _vm.notificarCliente(saldo)
-                                      },
-                                    },
-                                  },
-                                  [
-                                    _c(
-                                      "svg",
-                                      {
-                                        staticClass: "w-6 h-6",
-                                        attrs: {
-                                          fill: "none",
-                                          stroke: "currentColor",
-                                          viewBox: "0 0 24 24",
-                                        },
-                                      },
-                                      [
-                                        _c("path", {
-                                          attrs: {
-                                            "stroke-linecap": "round",
-                                            "stroke-linejoin": "round",
-                                            "stroke-width": "2",
-                                            d: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z",
-                                          },
-                                        }),
-                                      ]
-                                    ),
-                                  ]
-                                ),
-                                _vm._v(" "),
-                                _c(
-                                  "button",
-                                  {
-                                    staticClass:
-                                      "bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold text-lg transition-colors shadow-sm ml-2 uppercase tracking-wider",
-                                    on: {
-                                      click: function ($event) {
-                                        return _vm.aplicarSaldo(saldo.id)
-                                      },
-                                    },
-                                  },
-                                  [_vm._v("Aplicar")]
+                                _vm._v(
+                                  "No se encontraron\n              saldos vigentes."
                                 ),
                               ]
                             ),
-                          ]),
-                        ]
-                      )
-                    }),
-                    _vm._v(" "),
-                    _vm.saldosVigentesFiltrados.length === 0
-                      ? _c("tr", [
-                          _c(
-                            "td",
-                            {
-                              staticClass:
-                                "text-center py-16 text-xl text-slate-400 bg-slate-100 font-medium",
-                              attrs: { colspan: "7" },
-                            },
-                            [
-                              _vm._v(
-                                "No se encontraron\n              saldos vigentes para la sucursal seleccionada."
-                              ),
-                            ]
-                          ),
-                        ])
-                      : _vm._e(),
-                  ],
-                  2
-                ),
-              ]),
+                          ])
+                        : _vm._e(),
+                    ],
+                    2
+                  ),
+                ]
+              ),
             ]
           ),
         ]
@@ -95508,97 +95514,114 @@ var render = function () {
             "div",
             {
               staticClass:
-                "bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden",
+                "bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mt-2",
             },
             [
-              _c("table", { staticClass: "w-full text-left text-xl" }, [
-                _vm._m(6),
-                _vm._v(" "),
-                _c(
-                  "tbody",
-                  { staticClass: "text-slate-500 font-medium" },
-                  [
-                    _vm._l(_vm.saldosAplicadosFiltrados, function (saldo) {
-                      return _c(
-                        "tr",
-                        {
-                          key: saldo.id,
-                          staticClass:
-                            "border-b border-slate-200 bg-slate-100 hover:bg-slate-200 transition-colors",
-                        },
-                        [
-                          _c(
-                            "td",
-                            {
-                              staticClass: "px-8 py-5 font-bold text-slate-600",
-                            },
-                            [_vm._v(_vm._s(saldo.cliente))]
-                          ),
-                          _vm._v(" "),
-                          _c("td", { staticClass: "px-8 py-5" }, [
-                            _vm._v(_vm._s(saldo.sucursal_origen)),
-                          ]),
-                          _vm._v(" "),
-                          _c(
-                            "td",
-                            { staticClass: "px-8 py-5 text-center font-black" },
-                            [_vm._v(_vm._s(_vm.formatearDinero(saldo.monto)))]
-                          ),
-                          _vm._v(" "),
-                          _c("td", { staticClass: "px-8 py-5 text-center" }, [
-                            _vm._v(_vm._s(saldo.fecha_deteccion)),
-                          ]),
-                          _vm._v(" "),
-                          _c("td", { staticClass: "px-8 py-5" }, [
-                            _vm._v(_vm._s(saldo.concepto)),
-                          ]),
-                          _vm._v(" "),
-                          _vm._m(7, true),
-                          _vm._v(" "),
-                          _c("td", { staticClass: "px-8 py-5 text-center" }, [
+              _c(
+                "table",
+                { staticClass: "w-full text-left whitespace-nowrap min-w-max" },
+                [
+                  _vm._m(6),
+                  _vm._v(" "),
+                  _c(
+                    "tbody",
+                    { staticClass: "text-gray-700 font-medium text-base" },
+                    [
+                      _vm._l(_vm.saldosAplicadosFiltrados, function (saldo) {
+                        return _c(
+                          "tr",
+                          {
+                            key: saldo.id,
+                            staticClass:
+                              "border-b border-gray-200 bg-gray-100 hover:bg-gray-200 transition-colors",
+                          },
+                          [
                             _c(
-                              "button",
+                              "td",
                               {
                                 staticClass:
-                                  "bg-white hover:bg-blue-100 text-blue-600 hover:text-blue-700 px-6 py-3 rounded-lg font-extrabold text-lg transition-colors border border-blue-200 shadow-sm uppercase tracking-wider",
-                                on: {
-                                  click: function ($event) {
-                                    return _vm.reactivarSaldo(saldo.id)
+                                  "px-6 py-5 font-bold text-gray-600",
+                              },
+                              [_vm._v(_vm._s(saldo.cliente))]
+                            ),
+                            _vm._v(" "),
+                            _c(
+                              "td",
+                              { staticClass: "px-6 py-5 text-gray-500" },
+                              [_vm._v(_vm._s(saldo.sucursal_origen))]
+                            ),
+                            _vm._v(" "),
+                            _c(
+                              "td",
+                              {
+                                staticClass:
+                                  "px-6 py-5 text-center font-black text-gray-600",
+                              },
+                              [_vm._v(_vm._s(_vm.formatearDinero(saldo.monto)))]
+                            ),
+                            _vm._v(" "),
+                            _c(
+                              "td",
+                              {
+                                staticClass:
+                                  "px-6 py-5 text-center text-gray-500",
+                              },
+                              [_vm._v(_vm._s(saldo.fecha_deteccion))]
+                            ),
+                            _vm._v(" "),
+                            _c(
+                              "td",
+                              { staticClass: "px-6 py-5 text-gray-500" },
+                              [_vm._v(_vm._s(saldo.concepto))]
+                            ),
+                            _vm._v(" "),
+                            _vm._m(7, true),
+                            _vm._v(" "),
+                            _c("td", { staticClass: "px-6 py-5 text-right" }, [
+                              _c(
+                                "button",
+                                {
+                                  staticClass:
+                                    "bg-white hover:bg-blue-100 text-blue-600 hover:text-blue-700 px-5 py-2.5 rounded-lg font-bold text-sm transition-colors border border-blue-200 shadow-sm uppercase tracking-wider",
+                                  on: {
+                                    click: function ($event) {
+                                      return _vm.reactivarSaldo(saldo.id)
+                                    },
                                   },
                                 },
+                                [
+                                  _vm._v(
+                                    "\n                Reactivar\n              "
+                                  ),
+                                ]
+                              ),
+                            ]),
+                          ]
+                        )
+                      }),
+                      _vm._v(" "),
+                      _vm.saldosAplicadosFiltrados.length === 0
+                        ? _c("tr", [
+                            _c(
+                              "td",
+                              {
+                                staticClass:
+                                  "text-center py-16 text-lg text-gray-400 bg-gray-100 font-medium",
+                                attrs: { colspan: "7" },
                               },
                               [
                                 _vm._v(
-                                  "\n                Reactivar\n              "
+                                  "No se encontraron\n              saldos aplicados."
                                 ),
                               ]
                             ),
-                          ]),
-                        ]
-                      )
-                    }),
-                    _vm._v(" "),
-                    _vm.saldosAplicadosFiltrados.length === 0
-                      ? _c("tr", [
-                          _c(
-                            "td",
-                            {
-                              staticClass:
-                                "text-center py-16 text-xl text-slate-400 bg-slate-100 font-medium",
-                              attrs: { colspan: "7" },
-                            },
-                            [
-                              _vm._v(
-                                "No se encontraron\n              saldos aplicados para la sucursal seleccionada."
-                              ),
-                            ]
-                          ),
-                        ])
-                      : _vm._e(),
-                  ],
-                  2
-                ),
-              ]),
+                          ])
+                        : _vm._e(),
+                    ],
+                    2
+                  ),
+                ]
+              ),
             ]
           ),
         ]
@@ -95788,26 +95811,26 @@ var staticRenderFns = [
       "thead",
       {
         staticClass:
-          "bg-slate-100 text-slate-600 font-extrabold uppercase tracking-wider border-b-4 border-slate-300",
+          "bg-gray-50 text-gray-800 text-sm font-black uppercase tracking-wider border-b border-gray-200",
       },
       [
         _c("tr", [
           _c(
             "th",
-            { staticClass: "px-8 py-5", staticStyle: { width: "250px" } },
+            { staticClass: "px-6 py-5", staticStyle: { width: "250px" } },
             [_vm._v("CLIENTE")]
           ),
           _vm._v(" "),
           _c(
             "th",
-            { staticClass: "px-8 py-5", staticStyle: { width: "200px" } },
+            { staticClass: "px-6 py-5", staticStyle: { width: "200px" } },
             [_vm._v("SUCURSAL ORIGEN")]
           ),
           _vm._v(" "),
           _c(
             "th",
             {
-              staticClass: "px-8 py-5 text-center",
+              staticClass: "px-6 py-5 text-center",
               staticStyle: { width: "200px" },
             },
             [_vm._v("MONTO DE CRÉDITO")]
@@ -95816,21 +95839,21 @@ var staticRenderFns = [
           _c(
             "th",
             {
-              staticClass: "px-8 py-5 text-center",
+              staticClass: "px-6 py-5 text-center",
               staticStyle: { width: "220px" },
             },
             [_vm._v("FECHA DE DETECCIÓN")]
           ),
           _vm._v(" "),
-          _c("th", { staticClass: "px-8 py-5" }, [
+          _c("th", { staticClass: "px-6 py-5" }, [
             _vm._v("CONCEPTO O JUSTIFICACIÓN"),
           ]),
           _vm._v(" "),
           _c(
             "th",
             {
-              staticClass: "px-8 py-5 text-center",
-              staticStyle: { width: "200px" },
+              staticClass: "px-6 py-5 text-center",
+              staticStyle: { width: "140px" },
             },
             [_vm._v("ESTATUS")]
           ),
@@ -95838,8 +95861,8 @@ var staticRenderFns = [
           _c(
             "th",
             {
-              staticClass: "px-8 py-5 text-center",
-              staticStyle: { width: "200px" },
+              staticClass: "px-6 py-5 text-right",
+              staticStyle: { width: "280px" },
             },
             [_vm._v("ACCIÓN")]
           ),
@@ -95851,12 +95874,12 @@ var staticRenderFns = [
     var _vm = this
     var _h = _vm.$createElement
     var _c = _vm._self._c || _h
-    return _c("td", { staticClass: "px-8 py-5 text-center" }, [
+    return _c("td", { staticClass: "px-6 py-5 text-center" }, [
       _c(
         "span",
         {
           staticClass:
-            "px-6 py-3 bg-emerald-100 text-emerald-700 font-extrabold rounded-full uppercase text-base tracking-widest shadow-sm",
+            "px-4 py-1.5 bg-white border border-gray-200 text-gray-800 font-black rounded-full uppercase text-xs tracking-widest shadow-sm",
         },
         [_vm._v("VIGENTE")]
       ),
@@ -95866,7 +95889,7 @@ var staticRenderFns = [
     var _vm = this
     var _h = _vm.$createElement
     var _c = _vm._self._c || _h
-    return _c("div", { staticClass: "flex justify-between items-end mb-8" }, [
+    return _c("div", { staticClass: "flex justify-between items-end mb-6" }, [
       _c("div", [
         _c(
           "h2",
@@ -95893,26 +95916,26 @@ var staticRenderFns = [
       "thead",
       {
         staticClass:
-          "bg-slate-100 text-slate-500 font-extrabold uppercase tracking-wider border-b-4 border-slate-200",
+          "bg-gray-50 text-gray-800 text-sm font-black uppercase tracking-wider border-b border-gray-200",
       },
       [
         _c("tr", [
           _c(
             "th",
-            { staticClass: "px-8 py-5", staticStyle: { width: "250px" } },
+            { staticClass: "px-6 py-5", staticStyle: { width: "250px" } },
             [_vm._v("CLIENTE")]
           ),
           _vm._v(" "),
           _c(
             "th",
-            { staticClass: "px-8 py-5", staticStyle: { width: "200px" } },
+            { staticClass: "px-6 py-5", staticStyle: { width: "200px" } },
             [_vm._v("SUCURSAL ORIGEN")]
           ),
           _vm._v(" "),
           _c(
             "th",
             {
-              staticClass: "px-8 py-5 text-center",
+              staticClass: "px-6 py-5 text-center",
               staticStyle: { width: "200px" },
             },
             [_vm._v("MONTO DE CRÉDITO")]
@@ -95921,21 +95944,21 @@ var staticRenderFns = [
           _c(
             "th",
             {
-              staticClass: "px-8 py-5 text-center",
+              staticClass: "px-6 py-5 text-center",
               staticStyle: { width: "220px" },
             },
             [_vm._v("FECHA DE DETECCIÓN")]
           ),
           _vm._v(" "),
-          _c("th", { staticClass: "px-8 py-5" }, [
+          _c("th", { staticClass: "px-6 py-5" }, [
             _vm._v("CONCEPTO O JUSTIFICACIÓN"),
           ]),
           _vm._v(" "),
           _c(
             "th",
             {
-              staticClass: "px-8 py-5 text-center",
-              staticStyle: { width: "200px" },
+              staticClass: "px-6 py-5 text-center",
+              staticStyle: { width: "140px" },
             },
             [_vm._v("ESTATUS")]
           ),
@@ -95943,7 +95966,7 @@ var staticRenderFns = [
           _c(
             "th",
             {
-              staticClass: "px-8 py-5 text-center",
+              staticClass: "px-6 py-5 text-right",
               staticStyle: { width: "200px" },
             },
             [_vm._v("ACCIÓN")]
@@ -95956,12 +95979,12 @@ var staticRenderFns = [
     var _vm = this
     var _h = _vm.$createElement
     var _c = _vm._self._c || _h
-    return _c("td", { staticClass: "px-8 py-5 text-center" }, [
+    return _c("td", { staticClass: "px-6 py-5 text-center" }, [
       _c(
         "span",
         {
           staticClass:
-            "px-6 py-3 bg-slate-300 text-slate-600 font-extrabold rounded-full uppercase text-base tracking-widest shadow-inner",
+            "px-4 py-1.5 bg-gray-200 border border-gray-300 text-gray-500 font-black rounded-full uppercase text-xs tracking-widest shadow-inner",
         },
         [_vm._v("APLICADO")]
       ),
