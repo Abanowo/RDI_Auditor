@@ -2541,12 +2541,15 @@ class IngresoConciliadoController extends Controller
             'sucursal' => 'required|string'
         ]);
 
-        $data = $request->except(['cliente']);
+        // Whitelisting: solo tomamos los campos que el modelo espera para evitar
+        // que cualquier key extra en el request rompa el INSERT (SaldoFavor tiene
+        // $guarded = [] así que cualquier campo se intenta insertar como columna).
+        $data = $request->only(['cliente_id', 'monto', 'sucursal', 'fecha_deteccion', 'concepto']);
 
         $data['sucursal_origen'] = $data['sucursal'];
         unset($data['sucursal']);
 
-        $data['fecha_deteccion'] = now()->toDateString();
+        $data['fecha_deteccion'] = $data['fecha_deteccion'] ?? now()->toDateString();
         $data['estatus'] = 'VIGENTE';
 
         $saldo = SaldoFavor::create($data);
@@ -2580,7 +2583,10 @@ class IngresoConciliadoController extends Controller
     {
         $saldo = SaldoFavor::findOrFail($id);
 
-        $data = $request->except(['cliente']);
+        // Whitelisting: solo tomamos los campos que el modelo espera para evitar
+        // que cualquier key extra en el request rompa el UPDATE (SaldoFavor tiene
+        // $guarded = [] así que cualquier campo se intenta actualizar como columna).
+        $data = $request->only(['cliente_id', 'monto', 'sucursal', 'fecha_deteccion', 'concepto']);
 
         if ($request->has('sucursal')) {
             $data['sucursal_origen'] = $data['sucursal'];
