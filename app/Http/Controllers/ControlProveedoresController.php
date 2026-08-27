@@ -2,128 +2,156 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\IngresoConciliado;
+use App\Models\Importacion;
+use App\Models\Exportacion;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 
 class ControlProveedoresController extends Controller
 {
     public function index(Request $request)
     {
-        // 1. Leemos qué concepto/pestaña está activa y qué tipo de operación buscamos
-        $concepto = strtoupper($request->input('concepto', 'GENERAL'));
-        $tipoOperacion = strtoupper($request->input('tipo_operacion', 'TODOS'));
-        $sucursal = strtoupper($request->input('sucursal', 'TODAS'));
-        
-        $query = IngresoConciliado::with('cliente');
+        try {
+            $concepto = strtoupper($request->input('concepto', 'GENERAL'));
+            $tipoOperacion = strtoupper($request->input('tipo_operacion', 'TODOS'));
+            $sucursal = strtoupper($request->input('sucursal', 'TODAS'));
 
-        if ($tipoOperacion === 'IMPO') {
-            $query->where('sucursal_origen', 'LIKE', '%IMPO%');
-        } elseif ($tipoOperacion === 'EXPO') {
-            $query->where('sucursal_origen', 'LIKE', '%EXPO%');
-        }
+            $operaciones = collect();
 
-        if ($sucursal !== 'TODAS') {
-            $query->where('sucursal_origen', 'LIKE', "%{$sucursal}%");
-        }
+            $aplicarFiltros = function ($query) use ($sucursal, $request, $concepto) {
+                $query->with('cliente');
 
-        if ($request->filled('pedimento')) {
-            $query->where('referencia', 'LIKE', "%{$request->pedimento}%");
-        }
+                if ($sucursal !== 'TODAS') {
+                    $query->whereHas('getSucursal', function ($q) use ($sucursal) {
+                        $q->where('nombre', 'LIKE', "%{$sucursal}%");
+                    });
+                }
 
-        if ($request->filled('fecha')) {
-            $query->whereDate('fecha', $request->fecha);
-        }
+                if ($request->filled('pedimento')) {
+                    $query->where(function ($q) use ($request) {
+                        $q->where('pedimento', 'LIKE', "%{$request->pedimento}%")
+                            ->orWhere('referencia', 'LIKE', "%{$request->pedimento}%");
+                    });
+                }
 
-        // 3. Filtramos para que solo traiga operaciones con montos en el concepto seleccionado
-        switch ($concepto) {
-            case 'MANIOBRAS':
-                $query->where('maniobras', '>', 0);
-                break;
-            case 'MUESTRAS':
-                $query->where('muestras', '>', 0);
-                break;
-            case 'FLETE':
-                $query->where('flete', '>', 0);
-                break;
-            case 'LLC':
-                $query->where('llc', '>', 0);
-                break;
-            case 'ROJOS':
-                $query->where('eci', '>', 0);
-                break;
-            case 'GENERAL':
-            default:
-                $query->where('monto_deposito', '>', 0);
-                break;
-        }
+                if ($request->filled('fecha')) {
+                    $query->whereDate('fecha', $request->fecha);
+                }
 
-        // Traemos las 30 más recientes para agilizar
-        $ingresosDB = $query->orderBy('created_at', 'desc')->take(30)->get();
+                return $query->orderBy('created_at', 'desc')->take(30)->get();
+            };
 
-        // 4. Mapeamos la información para el Frontend
-        $todasLasOperaciones = $ingresosDB->map(function ($op) use ($concepto) {
-            
-            $ventaConcepto = 0;
-            $proveedorExtraido = '';
-            $facturaExtraida = '';
-
-            // Detectamos los datos correctos según la pestaña activa
-            switch ($concepto) {
-                case 'MANIOBRAS': 
-                    $ventaConcepto = $op->maniobras; 
-                    $proveedorExtraido = $op->proveedor_maniobras;
-                    $facturaExtraida = $op->factura_maniobras;
-                    break;
-                case 'MUESTRAS':  
-                    $ventaConcepto = $op->muestras; 
-                    $proveedorExtraido = $op->proveedor_muestras;
-                    $facturaExtraida = $op->factura_muestras;
-                    break;
-                case 'FLETE':     
-                    $ventaConcepto = $op->flete; 
-                    $proveedorExtraido = $op->proveedor_flete;
-                    $facturaExtraida = $op->factura_flete;
-                    break;
-                case 'LLC':       
-                    $ventaConcepto = $op->llc; 
-                    $proveedorExtraido = $op->proveedor_llc;
-                    $facturaExtraida = $op->factura_llc;
-                    break;
-                case 'ROJOS':     
-                    $ventaConcepto = $op->eci; 
-                    break;
-                case 'GENERAL':   
-                    $ventaConcepto = $op->monto_deposito; 
-                    break;
+            if ($tipoOperacion === 'IMPO' || $tipoOperacion === 'TODOS') {
+                $impos = $aplicarFiltros(Importacion::query());
+                $operaciones = $operaciones->merge($impos);
             }
 
-            return [
-                'id'            => 'ING-' . $op->id, 
-                'tipo'          => $concepto,
-                'cliente'       => $op->cliente ? $op->cliente->nombre : 'Desconocido', 
-                'pedimento'     => $op->referencia ?? '--',
-                'transportista' => !empty($proveedorExtraido) ? $proveedorExtraido : 'SIN ASIGNAR', 
-                'fProveedor'    => !empty($facturaExtraida) ? $facturaExtraida : '--', 
-                'costo'         => (float) $ventaConcepto, 
-                'venta'         => (float) $ventaConcepto,
-                'ganancia'      => 0, 
-                'moneda'        => 'MXN', 
-                'fInTactics'    => $op->folio_sc ?? '--', 
-                'status'        => 'sin_facturar', 
-                'hasAnticipo'   => false, 
-            ];
-        });
+            if ($tipoOperacion === 'EXPO' || $tipoOperacion === 'TODOS') {
+                $expos = $aplicarFiltros(Exportacion::query());
+                $operaciones = $operaciones->merge($expos);
+            }
 
-        // 5. Filtros aplicados sobre la colección resultante
-        if ($request->filled('proveedor')) {
-            $todasLasOperaciones = $todasLasOperaciones->where('transportista', $request->proveedor);
+            // Ordenamos y usamos values() para resetear los índices a 0, 1, 2, 3...
+            $operaciones = $operaciones->sortByDesc('created_at')->take(30)->values();
+
+            // Agregamos $index a la función map
+            $todasLasOperaciones = $operaciones->map(function ($op, $index) use ($concepto) {
+
+                $ventaConcepto = 0;
+                $proveedorExtraido = '';
+                $facturaExtraida = '';
+
+                switch ($concepto) {
+                    case 'MANIOBRAS':
+                        $ventaConcepto = $op->maniobras ?? 0;
+                        $proveedorExtraido = $op->proveedor_maniobras ?? '';
+                        $facturaExtraida = $op->factura_maniobras ?? '';
+                        break;
+                    case 'FLETE':
+                        $ventaConcepto = $op->flete ?? 0;
+                        $proveedorExtraido = $op->proveedor_flete ?? '';
+                        $facturaExtraida = $op->factura_flete ?? '';
+                        break;
+                    case 'GENERAL':
+                        $ventaConcepto = $op->total ?? $op->subtotal ?? 0;
+                        break;
+                }
+
+                $esImpo = $op instanceof Importacion;
+                $tipoApi = $esImpo ? 'impo' : 'expo';
+
+                $atributos = $op->getAttributes();
+
+                $realId = $atributos['id']
+                    ?? $atributos['id_importacion']
+                    ?? $atributos['id_exportacion']
+                    ?? $atributos['id_operacion']
+                    ?? null;
+
+                // Si la base de datos no nos entrega un ID, usamos el $index del ciclo
+                // Esto garantiza 100% que Vue nunca tendrá "Duplicate Keys"
+                if (!$realId) {
+                    $realId = 'R' . $index . uniqid();
+                }
+
+                $statusFactura = 'sin_facturar';
+
+                try {
+                    // Usamos $realId si es que la API consulta usando el ID principal
+                    $url = "https://sistema.intactics.com/v3/operaciones/{$tipoApi}/{$realId}/get-files-momentaneo";
+                    $response = Http::timeout(3)->get($url);
+
+                    if ($response->successful()) {
+                        $archivos = $response->json();
+                        if (isset($archivos['HONORARIOS SC'])) {
+                            $seccionTexto = strtoupper(json_encode($archivos['HONORARIOS SC']));
+                            if (str_contains($seccionTexto, 'PDF') && str_contains($seccionTexto, 'XML')) {
+                                $statusFactura = 'facturado';
+                            }
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // Ignorar error de API silenciosamente
+                }
+
+                return [
+                    //  Regresamos el prefijo 'ING-' para no romper la edición en el frontend
+                    'id'            => 'ING-' . $realId,
+                    'tipo_operacion' => $esImpo ? 'IMPO' : 'EXPO',
+                    'tipo'          => $concepto,
+                    'cliente'       => $op->cliente ? $op->cliente->nombre : 'Sin Cliente',
+                    'pedimento'     => is_object($op->pedimento) ? ($op->pedimento->num_pedimiento ?? '--') : ($op->pedimento ?? $op->referencia ?? '--'),
+                    'transportista' => !empty($proveedorExtraido) ? $proveedorExtraido : 'SIN ASIGNAR',
+                    'fProveedor'    => !empty($facturaExtraida) ? $facturaExtraida : '--',
+                    'costo'         => (float) $ventaConcepto,
+                    'venta'         => (float) $ventaConcepto,
+                    'ganancia'      => 0,
+                    'moneda'        => 'MXN',
+                    'fInTactics'    => $op->folio_sc ?? '--',
+                    'status'        => $statusFactura,
+                    'hasAnticipo'   => false,
+                ];
+            });
+
+            if ($request->filled('proveedor')) {
+                $todasLasOperaciones = $todasLasOperaciones->where('transportista', $request->proveedor);
+            }
+
+            // Aquí filtramos si en el frontend seleccionaron "Facturado" o "Sin Facturar"
+            if ($request->filled('status')) {
+                $todasLasOperaciones = $todasLasOperaciones->where('status', $request->status);
+            }
+
+            return response()->json([
+                'controlFleteData' => $todasLasOperaciones->values(),
+                'tableData'        => $todasLasOperaciones->values(),
+                'orderData'        => [],
+                'paidOrders'       => []
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Hubo un error en la BD: ' . $e->getMessage()
+            ], 500);
         }
-
-        return response()->json([
-            'controlFleteData' => $todasLasOperaciones->values(),
-            'tableData'        => $todasLasOperaciones->values(),
-            'orderData'        => [],
-            'paidOrders'       => []
-        ]);
     }
 }

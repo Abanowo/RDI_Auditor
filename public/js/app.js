@@ -9570,6 +9570,316 @@ __webpack_require__.r(__webpack_exports__);
 
 /***/ }),
 
+/***/ "./node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/IngresoCard.vue?vue&type=script&lang=js&":
+/*!**************************************************************************************************************************************************************************************************************************************!*\
+  !*** ./node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/IngresoCard.vue?vue&type=script&lang=js& ***!
+  \**************************************************************************************************************************************************************************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
+  name: 'IngresoCard',
+  props: {
+    item: {
+      type: Object,
+      required: true
+    },
+    esVistaManzanillo: {
+      type: Boolean,
+      "default": false
+    },
+    esVistaIntshipperts: {
+      type: Boolean,
+      "default": false
+    },
+    esVistaTransportactics: {
+      type: Boolean,
+      "default": false
+    }
+  },
+  computed: {
+    desgloseActivo: function desgloseActivo() {
+      if (this.esVistaIntshipperts) {
+        return [{
+          label: 'Anticipo',
+          monto: this.item.anticipo
+        }, {
+          label: 'Alman / Flete',
+          monto: this.item.flete
+        }];
+      } else if (this.esVistaTransportactics) {
+        return [{
+          label: 'Flete (XML)',
+          monto: this.item.flete
+        }, {
+          label: 'Pago Proveedor',
+          monto: this.item.pago_proveedor
+        }, {
+          label: 'Ganancia',
+          monto: this.item.ganancia
+        }];
+      } else if (this.esVistaManzanillo) {
+        return [{
+          label: 'Anticipo',
+          monto: this.item.anticipo
+        }, {
+          label: 'Garantías',
+          monto: this.item.garantias
+        }, {
+          label: 'Desglose Naviera',
+          monto: this.item.desglose_naviera
+        }, {
+          label: 'Impuestos',
+          monto: this.item.impuestos
+        }, {
+          label: 'Alman / Flete',
+          monto: this.item.flete
+        }, {
+          label: 'Honorarios',
+          monto: this.item.honorarios
+        }];
+      } else {
+        return [{
+          label: 'Honorarios',
+          monto: this.item.honorarios
+        }, {
+          label: 'Total GPC',
+          monto: this.item.total_gpc
+        }, {
+          label: 'Impuestos',
+          monto: this.item.impuestos
+        }, {
+          label: 'ECI',
+          monto: this.item.eci
+        }, {
+          label: 'Maniobras',
+          monto: this.item.maniobras
+        }, {
+          label: 'Flete',
+          monto: this.item.flete
+        }, {
+          label: 'Muestras',
+          monto: this.item.muestras
+        }, {
+          label: 'LLC',
+          monto: this.item.llc
+        }];
+      }
+    },
+    montoSC: function montoSC() {
+      var nombreCliente = String(this.item.cliente || '').toUpperCase();
+      var sucursalOrigen = String(this.item.sucursal_origen || '').toUpperCase();
+      var isTransportactics = nombreCliente.includes('TRANSPORTACTICS') || sucursalOrigen.includes('TRANSPORTACTIC');
+      if (isTransportactics) return Number(this.item.flete) || 0;
+      var esManzanilloRow = sucursalOrigen.includes('MANZANILLO') || sucursalOrigen.includes('INTSHIPPERT');
+      if (esManzanilloRow) {
+        return (Number(this.item.anticipo) || 0) + (Number(this.item.garantias) || 0) + (Number(this.item.desglose_naviera) || 0) + (Number(this.item.impuestos) || 0) + (Number(this.item.flete) || 0) + (Number(this.item.honorarios) || 0);
+      }
+      return (Number(this.item.honorarios) || 0) + (Number(this.item.impuestos) || 0) + (Number(this.item.eci) || 0) + (Number(this.item.maniobras) || 0) + (Number(this.item.flete) || 0) + (Number(this.item.muestras) || 0) + (Number(this.item.llc) || 0);
+    },
+    diferencia: function diferencia() {
+      return (Number(this.item.monto_deposito) || 0) - this.montoSC;
+    }
+  },
+  methods: {
+    formatearDinero: function formatearDinero(monto) {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2
+      }).format(parseFloat(monto) || 0);
+    }
+  }
+});
+
+/***/ }),
+
 /***/ "./node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalComplementoPago.vue?vue&type=script&lang=js&":
 /*!***********************************************************************************************************************************************************************************************************************************************!*\
   !*** ./node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalComplementoPago.vue?vue&type=script&lang=js& ***!
@@ -9581,9 +9891,16 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
-/* harmony import */ var vue_multiselect__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! vue-multiselect */ "./node_modules/vue-multiselect/dist/vue-multiselect.min.js");
-/* harmony import */ var vue_multiselect__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(vue_multiselect__WEBPACK_IMPORTED_MODULE_0__);
-/* harmony import */ var vue_multiselect_dist_vue_multiselect_min_css__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! vue-multiselect/dist/vue-multiselect.min.css */ "./node_modules/vue-multiselect/dist/vue-multiselect.min.css");
+/* harmony import */ var axios__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! axios */ "./node_modules/axios/lib/axios.js");
+/* harmony import */ var sweetalert2__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! sweetalert2 */ "./node_modules/sweetalert2/dist/sweetalert2.all.js");
+/* harmony import */ var sweetalert2__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(sweetalert2__WEBPACK_IMPORTED_MODULE_0__);
+/* harmony import */ var vue_multiselect__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! vue-multiselect */ "./node_modules/vue-multiselect/dist/vue-multiselect.min.js");
+/* harmony import */ var vue_multiselect__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(vue_multiselect__WEBPACK_IMPORTED_MODULE_1__);
+/* harmony import */ var vue_multiselect_dist_vue_multiselect_min_css__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! vue-multiselect/dist/vue-multiselect.min.css */ "./node_modules/vue-multiselect/dist/vue-multiselect.min.css");
+function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i["return"]) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
+function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { if (r) i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n;else { var o = function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); }; o("next", 0), o("throw", 1), o("return", 2); } }, _regeneratorDefine2(e, r, n, t); }
+function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
+function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
 //
 //
 //
@@ -9721,13 +10038,24 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
+//
+//
+//
+//
+//
+//
+//
+//
+//
+
+
 
 
 
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
   name: 'ModalComplementoPago',
   components: {
-    Multiselect: (vue_multiselect__WEBPACK_IMPORTED_MODULE_0___default())
+    Multiselect: (vue_multiselect__WEBPACK_IMPORTED_MODULE_1___default())
   },
   props: {
     mostrar: {
@@ -9896,16 +10224,55 @@ __webpack_require__.r(__webpack_exports__);
         metodo_pago: this.form.metodoPagoObj ? this.form.metodoPagoObj.value : 'PPD'
       };
       this.$emit('generar', payloadLimpio);
-      this.cerrar();
     },
     timbrarComplemento: function timbrarComplemento() {
-      var payloadTimbre = {
-        ingreso_id: this.ingreso.id,
-        serie: this.ingreso.serie_complemento || 'CP',
-        folio: this.ingreso.folio_complemento
-      };
-      this.$emit('timbrar', payloadTimbre);
-      this.cerrar();
+      var _this = this;
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
+        var payloadTimbre, response, msjError, _t;
+        return _regenerator().w(function (_context) {
+          while (1) switch (_context.n) {
+            case 0:
+              payloadTimbre = {
+                ingreso_id: _this.ingreso.id,
+                serie: _this.ingreso.serie_complemento || 'CP',
+                folio: _this.ingreso.folio_complemento
+              };
+              _context.p = 1;
+              sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
+                title: 'Timbrando...',
+                text: 'Conectando con el SAT a través de Contpaqi...',
+                allowOutsideClick: false,
+                didOpen: function didOpen() {
+                  sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().showLoading();
+                }
+              });
+              _context.n = 2;
+              return axios__WEBPACK_IMPORTED_MODULE_3__["default"].post('/ingresos-conciliados/timbrar-complemento', payloadTimbre);
+            case 2:
+              response = _context.v;
+              if (response.data.success) {
+                sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('¡Éxito!', response.data.message, 'success');
+                _this.$emit('ingreso-actualizado');
+                _this.$emit('cerrar');
+              }
+              _context.n = 4;
+              break;
+            case 3:
+              _context.p = 3;
+              _t = _context.v;
+              console.error("Detalle del error:", _t);
+              msjError = 'Error desconocido al timbrar';
+              if (_t.response && _t.response.data && _t.response.data.error) {
+                msjError = _t.response.data.error;
+              } else if (_t.message) {
+                msjError = _t.message;
+              }
+              sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Error al Timbrar', msjError, 'error');
+            case 4:
+              return _context.a(2);
+          }
+        }, _callee, null, [[1, 3]]);
+      }))();
     }
   }
 });
@@ -10122,7 +10489,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       cargandoSheet: false,
       pedimentosSheet: [],
       tiposComprobanteArray: [],
-      // 🔥 Variables para los checkboxes
       checkTransportactics: false,
       checkIntshipperts: false,
       form: {
@@ -10171,7 +10537,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     esSucursalOtraBase: function esSucursalOtraBase() {
       return this.sucursalSeleccionada && !this.esSucursalManzanilloBase;
     },
-    // 🔥 Variable inteligente para conectar con Laravel
     sucursalReal: function sucursalReal() {
       var s = String(this.sucursalSeleccionada).toUpperCase();
       if (this.checkTransportactics && !s.includes('TRANSPORTACTIC')) {
@@ -10267,6 +10632,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       this.checkTransportactics = false;
       this.checkIntshipperts = false;
       if (newVal && newVal !== oldVal) {
+        this.cargarListaPedimentos();
+      }
+    },
+    checkTransportactics: function checkTransportactics(newVal, oldVal) {
+      if (newVal !== oldVal) {
+        this.cargarListaPedimentos();
+      }
+    },
+    checkIntshipperts: function checkIntshipperts(newVal, oldVal) {
+      if (newVal !== oldVal) {
         this.cargarListaPedimentos();
       }
     },
@@ -10380,7 +10755,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               _context.n = 3;
               return axios__WEBPACK_IMPORTED_MODULE_5__["default"].get('/ingresos-conciliados/listar-pedimentos', {
                 params: {
-                  sucursal: _this.sucursalSeleccionada
+                  sucursal: _this.sucursalSeleccionada,
+                  es_transportactics: _this.esTransportactics,
+                  es_intshipperts: _this.esIntshipperts
                 }
               });
             case 3:
@@ -10421,7 +10798,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               return _context2.a(2, sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Atención', 'Selecciona la sucursal y agrega al menos un folio.', 'warning'));
             case 1:
               pedimentosLimpios = _this2.form.referenciasObj.map(function (ref) {
-                return ref.folio ? String(ref.folio).replace('F-', '').trim() : String(ref.label);
+                return ref.folio ? String(ref.folio).replace('F-', '').trim() : String(ref.label).replace('F-', '').trim();
               }).filter(function (r) {
                 return r !== '';
               });
@@ -10579,7 +10956,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               return axios__WEBPACK_IMPORTED_MODULE_5__["default"].put("/ingresos-conciliados/".concat(_this3.form.id), payload);
             case 7:
               response = _context3.v;
-              // 🔥 SOLUCIÓN AL MENSAJE: Quitamos el ".success" porque si llega aquí, ya es un éxito 100% seguro.
               if (response.status === 200 || response.data) {
                 sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
                   title: '¡Actualizado!',
@@ -10808,6 +11184,674 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
 
 /***/ }),
 
+/***/ "./node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalEnviarCorreo.vue?vue&type=script&lang=js&":
+/*!********************************************************************************************************************************************************************************************************************************************!*\
+  !*** ./node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalEnviarCorreo.vue?vue&type=script&lang=js& ***!
+  \********************************************************************************************************************************************************************************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+/* harmony import */ var sweetalert2__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! sweetalert2 */ "./node_modules/sweetalert2/dist/sweetalert2.all.js");
+/* harmony import */ var sweetalert2__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(sweetalert2__WEBPACK_IMPORTED_MODULE_0__);
+/* harmony import */ var axios__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! axios */ "./node_modules/axios/lib/axios.js");
+/* harmony import */ var vue_multiselect__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! vue-multiselect */ "./node_modules/vue-multiselect/dist/vue-multiselect.min.js");
+/* harmony import */ var vue_multiselect__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__webpack_require__.n(vue_multiselect__WEBPACK_IMPORTED_MODULE_1__);
+/* harmony import */ var vue_multiselect_dist_vue_multiselect_min_css__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! vue-multiselect/dist/vue-multiselect.min.css */ "./node_modules/vue-multiselect/dist/vue-multiselect.min.css");
+function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i["return"]) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
+function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { if (r) i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n;else { var o = function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); }; o("next", 0), o("throw", 1), o("return", 2); } }, _regeneratorDefine2(e, r, n, t); }
+function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
+function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
+function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
+function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t["return"] && (u = t["return"](), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
+function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
+function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+
+
+
+
+
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
+  name: 'ModalEnviarCorreo',
+  components: {
+    Multiselect: (vue_multiselect__WEBPACK_IMPORTED_MODULE_1___default())
+  },
+  props: {
+    mostrar: {
+      type: Boolean,
+      "default": false
+    },
+    ingreso: {
+      type: Object,
+      "default": function _default() {
+        return {};
+      }
+    }
+  },
+  data: function data() {
+    return {
+      listaCorreos: [],
+      opcionesSugeridas: [],
+      enviando: false,
+      directorioCorreos: {
+        'MANZANILLO': {
+          'COPSAYS': ['mferreiro@grupomla.com.mx'],
+          'ACUMEN FRUIT': ['conta05@grupomla.com.mx', 'kantonio@grupomla.com.mx'],
+          'SEASONXPRESS': ['alejandronp@seasonxpress.com', 'logistica@seasonxpress.com'],
+          'ALMACENADORA Y MAQUILAS': ['jreyes@grupovaca.com', 'GGARCIA@grupovaca.com', 'mmiranda@grupovaca.com'],
+          'PROMOTORA EN COMERCIO EXTERIOR RG': ['prom.comercioexterior@gmail.com', 'robles1827@hotmail.com'],
+          'FRESKOS IMPORT': ['finanzas@proebapack.mx', 'ventas@freskos.mx', 'aux_contableproeba@outlook.com', 'administracion@proebapack.mx', 'guillermobarajas@proebapack.com.mx', 'ivanbarajas017@gmail.com', 'administracion@freskos.mx']
+        },
+        'TIJUANA': {
+          'CARNICOS DM': ['direccionbpl@gmail.com', 'gerente1bpl@gmail.com', 'logisticabpl1@gmail.com', 'contabilidad1.bpl@gmail.com', 'vtasmaycentro.cdm@gmail.com'],
+          'CONSULTORES ADUANALES LP': ['patricia@lpina.com', 'direccionbpl@gmail.com', 'gerente1bpl@gmail.com', 'logisticabpl1@gmail.com', 'contabilidad1.bpl@gmail.com', 'vtasmaycentro.cdm@gmail.com'],
+          'MERCADO MK': ['Admon3@mercadomk.com', 'admon4@mercadomk.com', 'facturas.importacion@mercadomk.com', 'logistica2@mercadomk.com'],
+          'CONGELADORA DON PULPITO': ['donpulpitosadecv@gmail.com', 'ferlechuga@live.com.mx'],
+          'PRODUCTOS BGA': ['yrobledo@jfar.us', 'mgomez@pbga.mx', 'mgarza@pbga.mx', 'hherrera@jfar.us'],
+          'IDE FOODS': ['airizar@idefoods.com', 'operaciones2@idefoods.com', 'dgarcia@idefoods.com'],
+          'LA COSMOPOLITANA': ['irmin.alvarez@ck.com.mx', 'sandra.hernandez@ck.com.mx', 'nidia.quintero@ck.com.mx', 'sandra.padilla@ck.com.mx', 'gustavo.sanchez@ck.com.mx'],
+          'BO KWANG PRINTING': ['rubi@woori-usa.com', 'wooritrafico2@gmail.com', 'import@woori-usa.com', 'wooritraffico@gmail.com', 'wooriimport@gmail.com', 'trafico@woori-usa.com', 'import2@woori-usa.com'],
+          'MAS BODEGA Y LOGISTICA': ['auxadmon.tijuana@masbodega.com', 'luis.yances@iconn.com.mx', 'comprador.tijuana@iconn.com.mx', 'leslie.romero@iconn.com.mx', 'ximena.garcia@iconn.com.mx', 'alondra.ramirez@iconn.com.mx'],
+          'AQUARIUM SEAFOOD': ['exportaciones@aquariumseafood.com', 'cortespacificfoods@gmail.com'],
+          'TAOS ALIMENTOS': ['facturas@taos.mx'],
+          'G Y S MARKETING': ['Yadira.Rodriguez@gysmarketing.com', 'Denisse.Pujol@gysmarketing.com'],
+          'MVF': ['fgutierrez@venturafoods.com', 'gcrosbie@venturafoods.com', 'ggaribay@venturafoods.com', 'venturafoodsoperationsebill@venturafoods.com', 'fsanchez@venturafoods.com', 'laguilar@venturafoods.com', 'bvilchis@venturafoods.com', 'lmaldonado@venturafoods.com', 'rorozco@venturafoods.com'],
+          'CY ALIMENTOS': ['proveedores@cyalimentos.com', 'jcordova@cyalimentos.com', 'cuentasporpagar@cyalimentos.com'],
+          'ALIMENTOS SOLES': ['uxcompras@soles.com.mx', 'dcamargo@soles.com.mx', 'cmadrid@soles.com.mx'],
+          'COBRE DEL MAYO': ['maria.celaya@cobredelmayo.com', 'pedro.apodaca@cobredelmayo.com', 'nalleli.lopez@cobredelmayo.com'],
+          'TP LASER': ['Marlenis.Villatoro@transplace.com', 'Jonathan.Osoria@transplace.com', 'Jose.Vargas@transplace.com', 'Alejandra.Chapa@transplace.com'],
+          'CORTEZ SEA FOOD': ['contador@bsfoods.com.mx', 'director@bsfoods.com.mx'],
+          'ESTATE PRODUCE': ['oscar@estateproduce.com', 'david.gonzalez@estateproduce.com'],
+          'CITRUS GAME': ['hectormarcoff@citrusgame.com.mx', 'esmeralda@citrusgame.com.mx', 'facturas@citrusgame.com.mx'],
+          'VITCITRUS': ['pattyvitcitrus@gmail.com', 'renelajoya@hotmail.com', 'embarquesvitcitrus@gmail.com'],
+          'FOOD INTERNATIONAL BOARD OF TRADE': ['contabilidad@foodint.com'],
+          'PRODUCTOS Y ALIMENTOS GUADALAJARA': ['sandra.padilla@ck.com.mx', 'nidia.quintero@ck.com.mx', 'i.administrativo@goci.com.mx', 'irmin.alvarez@ck.com.mx', 'sandra.hernandez@ck.com.mx'],
+          'SONORA AGROPECUARIA': ['santiago.gonzalez@bachoco.net', 'jessica.navarro@bachoco.net', 'rebeca.diaz@bachoco.net'],
+          'COMPAÑIA MINERA LA PITALLA': ['guadalupe.sabori@heliostarmetals.com', 'humberto.leyva@heliostarmetals.com', 'Ana.Pablos@heliostarmetals.com', 'Recepcion.HMO@heliostarmetals.com', 'Guadalupe.Navarro@heliostarmetals.com'],
+          'MARCO ANTONIO COTA GAXIOLA': ['marcocota@outlook.com', 'itzelbarrloa28@hotmail.com'],
+          'FOOD SERVICE DE MEXICO': ['angmoral@foodservice.com.mx', 'rosaelva.hernandez@foodservice.com.mx', 'mayrymf@foodservice.com.mx', 'ernanda.juarez@foodservice.com.mx'],
+          'LABORATORIOS DE PRODUCTOS ECOLOGICOS NATURALM': ['denisse@highvibesbrands.com'],
+          'DISTRIBUIDORA TRES REGIONES': ['anacristinazunigab@gmail.com', 'distribuidoratresregiones@gmail.com'],
+          'COMERCIAL DE ALIMENTOS SANCHEZ': ['logistica@comercialdealimentossanchez.com', 'admon4@comercialdealimentossanchez.com'],
+          'LUIS ANTONIO ARAMBURO NAJAR': ['bodegademariscos_004@hotmail.com']
+        },
+        'MEXICALI': {
+          'TP LASER': ['zahira.alvarez@tplaser.com.mx'],
+          'IDE FOODS': ['airizar@idefoods.com', 'operaciones2@idefoods.com'],
+          'MERCADO MK': ['compras2@mercadomk.com', 'logistica2@mercadomk.com', 'logistica5@mercadomk.com', 'admon4@mercadomk.com', 'Admon3@mercadomk.com', 'facturas.importacion@mercadomk.com'],
+          'CONSULTORES ADUANALES LP': ['patricia@lpina.com'],
+          'GRUPO AUTOELECTRICO PERMOR': ['eramirezu@gmail.com', 'grupopermor_contabilidad@hotmail.com', 'autopro.alko@gmail.com'],
+          'ACUMEN FRUIT': ['administrativo11@grupomla.com.mx', 'conta04@grupomla.com.mx', 'administrativo15@grupomla.com.mx', 'pagosgdl@grupomla.com.mx'],
+          'ARACELI DEL PILAR GONZALEZ ACOSTA': ['patricia@lpina.com', 'atrevino@lpina.com', 'lpina3@lpina.com', 'administracion@lpina.com'],
+          'GYS MARKETING': ['Yadira.Rodriguez@gysmarketing.com', 'Denisse.Pujol@gysmarketing.com', 'Rigoberto.Sugich@gysmarketing.com'],
+          'BO KWANG PRINTING': ['rubi@woori-usa.com']
+        },
+        'LAREDO': _defineProperty(_defineProperty(_defineProperty(_defineProperty(_defineProperty(_defineProperty(_defineProperty(_defineProperty({
+          'GSI CUMBERLAND DE MEXICO': ['Salvador.Rojas@agcocorp.com', 'ahuri.lopez@grainproteintech.com'],
+          'BO KWANG PRINTING': ['rubi@woori-usa.com'],
+          'CREMERIAS DE OCCIDENTE': ['cremeriasdeoccidente@hotmail.com', 'anibalruav@gmail.com'],
+          'ALIMENTOS SOLES': ['vosuna@soles.com.mx', 'Gustavo@soles.com.mx'],
+          'AGRICOLA DIANA LAURA': ['gerentegeneral@adlproduce.com.mx', 'pagos@adlproduce.com.mx'],
+          'CINTHYA VERONICA BERNAL LAMARQUE': ['robertoghenderson2009@hotmail.com', 'cbl90@hotmail.com'],
+          'MINAS DE ORO NACIONAL': ['ctasxpagar@minasdeoro.com', 'Flor.Perez@minasdeoro.com', 'Paola.Penunuri@minasdeoro.com', 'Karen.Perez@minasdeoro.com', 'Viridiana.Ozuna@minasdeoro.com'],
+          'COLOSTRO': ['juan@colostro.mx', 'jfheguertty@produceexports.mx'],
+          'SONORA AGROPECUARIA': ['santiago.gonzalez@bachoco.net', 'jessica.navarro@bachoco.net', 'rebeca.diaz@bachoco.net'],
+          'PRODUCTOS CARNICOS SANTA CECILIA': ['Aexport@santara.com.mx', 'Gerente.Operaciones@santara.com.mx', 'Compras@santara.com.mx', 'Pagos@pecuarias.com'],
+          'JAIME MAURICIO GODINEZ GUERRERO': ['adriana.mcc@advancers.com.mx'],
+          'DGD PRODUCCIONES': ['adriana.mcc@advancers.com.mx'],
+          'G Y S MARKETING': ['Denisse.Pujol@gysmarketing.com', 'Rigoberto.Sugich@gysmarketing.com'],
+          'DAVID GARCIA CALDERON': ['dgcalderon@hotmail.com'],
+          'LUZ LILIANA GARCIA LOPEZ': ['Comprasmty@elmariscal.mx', 'Lgonzalez@elmariscal.mx', 'jgonzalez@elmariscal.mx'],
+          'ALIMENTOS PROFUSA': ['exportacionimportacion@profusa.net', 'luis.galvan@profusa.net', 'tesoreria@profusa.com'],
+          'HECTOR EDUARDO DIAZ GARCIA': ['a.imperial@mtomove.com', 'operaciones@mtomove.com'],
+          'CARNES SELECTAS EL ENCANTO': ['nydialmp@gmail.com', 'admon.irancastillo@gmail.com'],
+          'MACSA DE LA SULTANA': ['Comprasmty@elmariscal.mx', 'jgonzalez@elmariscal.mx'],
+          'CARNES DON CARMELO': ['nydialmp@gmail.com', 'admon.irancastillo@gmail.com'],
+          'AFS LOGISTICA ALIMENTARIA': ['alimco@megared.net.mx', 'contabilidadalimco@hotmail.com', 'lfgg_fiscal@outlook.com'],
+          'LOAMONT': ['nydialmp@gmail.com', 'admon.irancastillo@gmail.com'],
+          'SIGMA FOODSERVICE COMERCIAL': ['facturasigma@alliax.com'],
+          'ALMACENADORA Y MAQUILAS': ['mmartinez@grupovaca.com', 'ggarcia@grupovaca.com'],
+          'SURTIDORA DEL BAJIO': ['yulissa.herrera@surtidoradelbajio.com'],
+          'CENTRO ABARROTERO DEL BAJIO': ['cgorozcog@cabqro.com', 'cmontesf@cabqro.com', 'gsubaldog@cabqro.com', 'mubaldog@cabqro.com'],
+          'XSANT': ['bhuerta@grupoaltex.com', 'cespinozag@grupoaltex.com', 'acomprasxst@grupoaltex.com'],
+          'SURTIDORA ABARROTERA DE GUADALAJARA': ['alejandra.callejas@surtidoradelbajio.com', 'yulissa.herrera@surtidoradelbajio.com', 'pablo.arenas@surtidoradelbajio.com', 'aida.gamiz@sag.com.mx', 'proveedores.importaciones@surtidoradelbajio.com'],
+          'COMERCIALIZADORA SUAREZ VARGAS': ['comersuavar@prodigy.net.mx'],
+          'VITCITRUS': ['pattyvitcitrus@gmail.com', 'embarquesvitcitrus@gmail.com', 'renelajoya@hotmail.com'],
+          'AGROPECUARIA JS': ['admon.irancastillo@gmail.com'],
+          'MODULA STORAGE SOLUTIONS': ['karina.laja@salab.com.mx'],
+          'MVF': ['fgutierrez@venturafoods.com', 'gcrosbie@venturafoods.com', 'ggaribay@venturafoods.com', 'venturafoodsoperationsebill@venturafoods.com', 'fsanchez@venturafoods.com', 'laguilar@venturafoods.com', 'bvilchis@venturafoods.com', 'lmaldonado@venturafoods.com', 'rorozco@venturafoods.com'],
+          'GUILLERMO ACEVES CASILLAS': ['gacevescasillas@outlook.com', 'a.moreno@asesoresmm.com.mx', 'lcardenas@arlifoods.com', 'mweber@arlifoods.com', 'e.dominguez@asesoresmm.com.mx', 'malegarcia@arlifoods.com'],
+          'PPP FOODS COMMERCIAL': ['nydialmp@gmail.com', 'admon.irancastillo@gmail.com'],
+          'PRODUCTOS BGA': ['yrobledo@jfar.us', 'mgomez@pbga.mx', 'mgarza@pbga.mx', 'hherrera@jfar.us'],
+          'REPRESENTACIONES MINERAS E INDUSTRIALES': ['gerardo.mena@reminsaco.mx', 'administracion@reminsaco.mx']
+        }, "CARNES SELECTAS EL ENCANTO", ['nydialmp@gmail.com', 'admon.irancastillo@gmail.com']), "COMERCIALIZADORA SUAREZ VARGAS", ['comersuavar@prodigy.net.mx']), 'CONSTRUCCIONES DROBER MEXICANO', ['karina.laja@salab.com.mx']), 'PRODUCTOS ORTOPEDICOS HRR', ['ricardo.hernandez@iowabrace.com.mx', 'hilda.larrazabal@iowabrace.com.mx']), 'SIERRA SERVICIOS DE PERFORACION ', ['karina.laja@salab.com.mx']), 'GIANT FOOD SERVICE', ['anajera@giantfs.mx', 'sfierro@giantfs.mx', 'analista@giantfs.mx', 'anajera@giantfs.mx;']), 'MADRID FRANCO Y ASOCIADOS', ['mfasa36@hotmail.com', 'direccion@logisticasim.com.mx', 'comercializacion@logisticasim.com.mx', 'transportes@logisticasim.com.mx']), 'PRODUCTOS SANOS DEL VALLE', ['operaciones@vidadignaproduce.com', 'pagos@vidadignaproduce.com']),
+        'NOGALES': {
+          'CITRUS GAME': ['hectormarcoff@citrusgame.com.mx', 'esmeralda@citrusgame.com.mx', 'facturas@citrusgame.com.mx', 'monica@citrusgame.com.mx', 'violeta@flavorkingfarms.com', 'vannesapaco@citrusgame.com.mx', 'compras@citrusgame.com.mx', 'eliza@flavorkingfarms.com', 'joelencinas@citrusgame.com.mx', 'logistica@citrusgame.com.mx', 'citrusgame@gmail.com', 'fernanda@citrusgame.com.mx', 'transportes@citrusgame.com.mx', 'rociovidal@citrusgame.com.mx'],
+          'ACUMEN FRUIT': ['administrativo11@grupomla.com.mx', 'conta04@grupomla.com.mx', 'administrativo15@grupomla.com.mx', 'pagosgdl@grupomla.com.mx', 'mportaciones@grupomla.com.mx', 'jramirez@grupomla.com.mx', 'importaciones3@grupomla.com.mx', 'jfp@grupomla.com.mx', 'karzate@grupomla.com.mx', 'luceromeza@grupomla.com.mx', 'conta02@grupomla.com.mx', 'conta07@grupomla.com.mx', 'acruz@grupomla.com.mx', 'conta05@grupomla.com.mx', 'edaena@grupomla.com.mx', 'administrativo5@grupomla.com.mx', 'admin01@grupomla.com.mx', 'valente@grupomla.com.mx', 'importadoras4@grupomla.com.mx', 'conta09@grupomla.com.mx', 'chequesq185@grupomla.com.mx', 'contaimp@grupomla.com.mx', 'jornelas@grupomla.com.mx', 'kantonio@grupomla.com.mx'],
+          'SURTIDORA ABARROTERA DE GUADALAJARA': ['aida.gamiz@sag.com.mx', 'proveedores.importaciones@sag.com.mx', 'pablo.arenas@surtidoradelbajio.com'],
+          'SURTIDORA DEL BAJIO': ['alejandra.callejas@surtidoradelbajio.com', 'yulissa.herrera@surtidoradelbajio.com', 'proveedores.importaciones@surtidoradelbajio.com', 'pablo.arenas@surtidoradelbajio.com', 'aida.gamiz@sag.com.mx'],
+          'G Y S MARKETING': ['denisse.pujol@gysmarketing.com', 'rigoberto.sugich@gysmarketing.com', 'marcela.vasquez@gysmarketing.com', 'yadira.rodriguez@gysmarketing.com', 'sgonzalez@gysmarketing.com'],
+          'SONORA AGROPECUARIA': ['santiago.gonzalez@bachoco.net', 'jessica.navarro@bachoco.net', 'rebeca.diaz@bachoco.net', 'jesus.castrejon@bachoco.net', 'yesenia.toral@bachoco.net', 'maria.evaristo@bachoco.net', 'jorge.garcia@bachoco.net'],
+          'BACHOCO': ['rebeca.diaz@bachoco.net', 'pamela.cazares@bachoco.net', 'santiago.gonzalez@bachoco.net', 'jesus.castrejon@bachoco.net', 'yesenia.toral@bachoco.net', 'maria.evaristo@bachoco.net', 'jorge.garcia@bachoco.net'],
+          'PRODUCTOS Y ALIMENTOS GUADALAJARA': ['sandra.padilla@ck.com.mx', 'nidia.quintero@ck.com.mx', 'i.administrativo@goci.com.mx', 'irmin.alvarez@ck.com.mx', 'sandra.hernandez@ck.com.mx'],
+          'QUESOS Y QUESOS': ['malday@quesosyquesos.com.mx', 'marilu_alday@prodigy.net.mx', 'vsalazar@quesosyquesos.com.mx', 'logisticaqyq@gmail.com', 'mvalladares@quesosyquesos.com.mx', 'nlohr@quesosyquesos.com.mx', 'bcaballero@quesosyquesos.com.mx'],
+          'RN DEL PACIFICO': ['gvega.chayrez@gmail.com', 'facturasrndelpacifico2025@hotmail.com', 'nava_ueass@hotmail.com', 'iemarson@hotmail.com', 'gvega_chayrez@hotmail.com'],
+          'JARUSO IMPO': ['jorgerubio5@hotmail.com', 'jarusoadmon@gmail.com'],
+          'YOREME CORTES Y PROCESOS': ['santiago@yoreme.com', 'tesoreriaycp@yoreme.com', 'logisticaycp@yoreme.com', 'ventasyoreme@yoreme.com', 'ilopez@yoreme.com'],
+          'SIGMA FOODSERVICE COMERCIAL': ['mbriones@sigma-alimentos.com', 'jgamez@sigma-alimentos.com', 'oortiz@sigma-alimentos.com', 'epolanco@sigma-alimentos.com', 'dahernandezga@sigma-alimentos.com', 'facturasigma@alliax.com', 'soportesigmaareqsat@sigma-limentos.com'],
+          'ANABEL GALAVIZ ESCALANTE': ['emmanuelyanabel@hotmail.com', 'anabell_gala@hotmail.com', 'distribuidora.roga@hotmail.com'],
+          'ARROW COMPONENTS MEXICO': ['ernesto.velasco@arrow.com', 'nicolas.castillo@arrow.com', 'afra.estevis@arrow.com', 'ivan.deolarte@arrow.com', 'raul.fariasgarcia@arrow.com', 'raymundo.carrasco@arrow.com'],
+          'TAOS ALIMENTOS': ['atapia@taos.mx', 'otapia@taos.mx', 'facturas@taos.mx', 'logistica@taos.mx', 'lsanteliz@taos.mx', 'sergio@foodlinkcorp.com', 'alondra@foodlinkcorp.com'],
+          'CINTHYA VERONICA BERNAL LAMARQUE': ['cbl90@hotmail.com', 'robertoghenderson2009@hotmail.com'],
+          'ALIMENTOS SOLES': ['amolina@soles.com.mx', 'cmadrid@soles.com.mx', 'export@soles.com.mx', 'logisticacamaron@soles.com.mx', 'comprasjr@soles.com.mx', 'exportsoles@gmail.com', 'elizabeth.pb.soles@gmail.com', 'lgutierrez@soles.com.mx', 'auxcamaron@soles.com.mx', 'erivez53@gmail.com'],
+          'SILVA CAMACHO': ['silvacamacho1@hotmail.com', 'frank@agrococo.com', 'paty_sc2387@hotmail.com'],
+          'COLOSTRO': ['juan@colostro.mx', 'administracion@colostro.mx', 'contabilidad@colostro.mx'],
+          'MACSA DE LA SULTANA': ['jgonzalez@elmariscal.mx', 'comprasmty@elmariscal.mx'],
+          'SERVICIOS ADMINISTRATIVOS DEL YAQUI': ['gkuraica@horticola.com.mx', 'rcastro@horticola.com.mx', 'jcarrillo@horticola.com.mx', 'facturacion@horticola.com.mx', 'auxadmon@horticola.com.mx', 'contabilidadsaysa@horticola.com.mx', 'sgarcia@horticola.com.mx', 'icarrillo@horticola.com.mx'],
+          'COBRE DEL MAYO': ['nalleli.lopez@cobredelmayo.com', 'rodolfo.rodriguez@cobredelmayo.com', 'thomas.felix@cobredelmayo.com', 'maria.celaya@cobredelmayo.com', 'mario.barreras@cobredelmayo.com', 'jose.felix@cipriamineralia.com'],
+          'VIÑEDOS MARIBEL': ['mrleonoficina@hotmail.com', 'mrleonalfonso@hotmail.com', 'mllexportaciones@hotmail.com', 'josealfredo_diazorozco@hotmail.com'],
+          'GUILLERMO ACEVES CASILLAS': ['gacevescasillas@outlook.com', 'a.moreno@asesoresmm.com.mx', 'lcardenas@arlifoods.com', 'e.dominguez@asesoresmm.com.mx', 'mweber@arlifoods.com'],
+          'NEGOCIOS AGROPECUARIOS SANTA MARIA': ['nasm97@hotmail.com'],
+          'LUIS FERNANDO ROMERO DAVILA': ['piratamex@yahoo.com', 'aidaleyva@hotmail.com'],
+          'LUIS ENRIQUE SOTO LABRADA': ['raulsanchez.sct@gmail.com', 'josechaparrom@outlook.com', 'carneseltigre@outlook.com'],
+          'IEMARSON': ['gvega.chayrez@gmail.com', 'costosiemarson@outlook.com', 'iemarson@hotmail.com'],
+          'JCP MAQUINARIA': ['adiaz@jcpmex.com', 'saulchavez@maqse.com', 'compras@jcpmex.com'],
+          'COMESTIBLES MALDONADO': ['compras@comestiblesmaldonado.com', 'contabilidad@comestiblesmaldonado.com', 'fletes@comestiblesmaldonado.com'],
+          'LUAL 300': ['contabilidad@lual300.com', 'luisramirez@lual300.com'],
+          'SERVICIOS ADMINISTRATIVOS OSLO': ['rosa.esquer@caffenio.com', 'jesus.salazar@caffenio.com', 'olivia@caffenio.com'],
+          'PRODUCTORA YOREME': ['avasquez@yoreme.com', 'fruiz@yoreme.com', 'coordinador.compras@yoreme.com', 'javier@yoreme.com'],
+          'CARNICOS DM': ['direccionbpl@gmail.com', 'gerente1bpl@gmail.com', 'contabilidad1.bpl@gmail.com', 'logisticabpl1@gmail.com'],
+          'VC BRANGUS': ['vcbrangus@gmail.com', 'sales.aux@vitcitrus.com'],
+          'JUAN ALBERTO RODRIGUEZ': ['juan.rodriguez.llanes@gmail.com'],
+          'FOOD SERVICE DE MEXICO': ['angmoral@foodservice.com.mx', 'rosaelva.hernandez@foodservice.com.mx', 'mayrymfernanda.juarez@foodservice.com.mx'],
+          'INTEGRA INSTALACIONES Y MANTENIMIENTOS S': ['dacosta@integraim.com', 'administracion@integraim.com', 'auxiliarcompras@integraim.com'],
+          'AGRICOLA DEL NAINARI, SA DE CV': ['sgarcia@horticola.com.mx', 'carlos.ojeda@horticola.com.mx'],
+          'BIBIANA BALLESTEROS': ['guerita_vsa@hotmail.com', 'vsagrocentro@hotmail.com'],
+          'CARLOS ALBERTO OJEDA SALMON': ['transportesojesa@hotmail.com', 'carlos.ojeda@horticola.com.mx'],
+          'SKIN BY ERIKA VEGA': ['skin.facturas@outlook.com', 'erikayiv@hotmail.com', 'skin.sucursalesymayoreo@gmail.com'],
+          'DISTRIBUIDORA TRES REGIONES': ['anacristinazunigab@gmail.com', 'distribuidoratresregiones@gmail.com'],
+          'MERCADO MK': ['admon3@mercadomk.com', 'admon4@mercadomk.com', 'facturas.importacion@mercadomk.com', 'logistica2@mercadomk.com'],
+          'GRUPO IBAGARU': ['compras@ibagaru.mx', 'admin2@ibagaru.mx', 'admin1@ibagaru.mx', 'admin@ibagaru.mx'],
+          'PCR TECH': ['pcrtech2014@gmail.com', 'josealcala@pcrtech.com.mx', 'cesarpcrtech@gmail.com', 'pcrtech10@gmail.com'],
+          'TP LASER': ['zahira.alvarez@tplaser.com.mx'],
+          'DM FRESH AVOCADOS S.A. DE C.V.': ['logistica@dmavocados.com', 'dmora@dmavocados.com', 'jbarragan@dmavocados.com', 'contabilidad@dmavocados.com'],
+          'LUZ LILIANA GARCIA LOPEZ': ['jgonzalez@elmariscal.mx', 'comprasmty@elmariscal.mx'],
+          'COMPAÑIA HORTOFRUTICOLA SIGLO 21': ['norma.lopez@oremor.com.mx', 'luis.leyva@oremor.com.mx'],
+          'RACE MAQUINARIA Y CARNICOS SA DE C': ['ramiro.espinoza@gruporace.com', 'sales@gruporace.com', 'administracion@gruporace.com', 'facturacion@gruporace.com', 'ventas@gruporace.com', 'logistica@gruporace.com'],
+          'GIADELA': ['giadela@hotmail.com'],
+          'CIPRIA MINERALIA': ['elizabeth.lopez@cipriamineralia.com', 'mario.barreras@cobredelmayo.com', 'rodolfo.rodriguez@cobredelmayo.com', 'jose.felix@cipriamineralia.com', 'comercio.exterior@cipriamineralia.com', 'maria.celaya@cobredelmayo.com', 'thomas.felix@cobredelmayo.com'],
+          'MINAS DE ORO NACIONAL': ['ctasxpagar@minasdeoro.com', 'flor.perez@minasdeoro.com', 'paola.penunuri@minasdeoro.com', 'karen.perez@minasdeoro.com', 'viridiana.ozuna@minasdeoro.com', 'israel.monge@alamosgold.com'],
+          'ACUICOLA LA FILIPINA': ['walterhubbard@gmail.com', 'rodolfopineda.lafilipina@hotmail.com'],
+          'CARNE DE JAIBA': ['info@aquariumseafood.com', 'carnedejaiba@gmail.com'],
+          'AGRICOLA GALBA': ['exportacionimportacion@profusa.net', 'luis.galvan@profusa.net'],
+          'RASTROS Y FRIGORIFICOS DE CULIACAN': ['nydialmp@gmail.com', 'admon.irancastillo@gmail.com'],
+          'CARNES SELECTAS EL ENCANTO': ['nydialmp@gmail.com', 'admon.irancastillo@gmail.com'],
+          'LEONALI': ['nydialmp@gmail.com', 'admon.irancastillo@gmail.com', 'ivan.perez@leonali.com', 'alejandro.marti@leonali.com', 'ariadna.mani@leonali.com'],
+          'RYC ALIMENTOS': ['diana.axcal@bachoco.net'],
+          'FIVETACTICS': ['mirna.lopez@intactics.com'],
+          'PRODUCE IMPORT SOLUTIONS': ['carlos@produceimportsolutions.com', 'monserrat@xtrategas.com', 'jeff@washingtonexport.com', 'compras@produceimportsolutions.com'],
+          'AGROINDUSTRIA DEL BACANORA': ['labacanorera@gmail.com'],
+          'PROMOTORA DE MERCADOS RA': ['pagos@alimsa.com.mx', 'facturacion@promerca.com.mx', 'pagos@promerca.com.mx', 'nelly.galaviz@altosano.com'],
+          'AGRICOLA DUKE': ['victor_mjacoboc@hotmail.com'],
+          'GRUPO MULTIDICONA': ['finanzas2@gmd1.com', 'facturas@gmd1.com', 'importaciones@gmd-ventas.com'],
+          'BERRIES PARADISE': ['igarcia@berriesparadise.com.mx', 'mvalencia@berriesparadise.com.mx', 'lquintero@berriesparadise.com.mx', 'cmedina@berriesparadise.com.mx'],
+          'PROALIMENTOS DEL YAQUI': ['gkuraica@horticola.com.mx', 'sgarcia@horticola.com.mx', 'rcastro@horticola.com.mx', 'icarrillo@horticola.com.mx'],
+          'MARTIN LEON LIZARRAGA': ['mrleonoficina@hotmail.com', 'rosariogs-mll@hotmail.com'],
+          'PROMOTORA COMERCIAL ALPRO': ['lorenia.robles@bachoco.net', 'maria.padilla@bachoco.net', 'karina.enriquez@bachoco.net', 'jazive.gracia@bachoco.net'],
+          'GSI CUMBERLAND DE MEXICO': ['salvador.rojas@agcocorp.com', 'ahuri.lopez@grainproteintech.com'],
+          'AGRICOLA DIANA LAURA': ['cuentasporcobrar@adlproduce.com.mx', 'contabilidad@adlproduce.com.mx'],
+          'MULTIGRANOS DEL YAQUI': ['gkuraica@horticola.com.mx', 'sgarcia@horticola.com.mx', 'rcastro@horticola.com.mx', 'icarrillo@horticola.com.mx', 'facturacion@horticola.com.mx'],
+          'DISTRIBUIDORA J&I': ['robertobarreras@joritafood.com.com'],
+          'DUKE FRESH PROCESS': ['marcob@bourncom.com', 'contabilidad@bctuscustoms.com', 'accounting@bctuscustoms.com'],
+          'MONTECRISTO FRESH LLC': ['marcob@bourncom.com', 'contabilidad@bctuscustoms.com', 'accounting@bctuscustoms.com'],
+          'FRUTAS RCH': ['robertobarreras@joritafood.com'],
+          'CORTEZ SEA FOOD': ['cortezseafood@live.com.mx', 'facturascsf@hotmail.com'],
+          'CY ALIMENTOS': ['cuentasporpagar@cyalimentos.com', 'comprascyalimentos@gmail.com', 'proveedores@cyalimentos.com', 'jcordova@cyalimentos.com'],
+          'EMMANUEL JACOBO CORDOVA YEPSON': ['cuentasporpagar@cyalimentos.com', 'comprascyalimentos@gmail.com', 'proveedores@cyalimentos.com'],
+          'SUNNY BROS LLC': ['teyofoods2@gmail.com', 'exportsoles@gmail.com', 'export@soles.com.m'],
+          'UNIVERCO': [],
+          'RODUSA PITIC': ['jorge@gfcfarms.com', 'rodusapitic@gmail.com'],
+          'CWP EZFE SERVICIOS DE CONSTRUCCION Y TRITURACION': ['oezquerra@cwpezfe.com', 'ricardojurado@cwpezfe.com', 'srodriguez@cwpezfe.com', 'cpberemorales@gmail.com'],
+          'INTRO PACIFICO DEL MAR': ['misael.mariscal@gbpo.com.mx', 'maria.guaracha@gbpo.com.mx', 'tiare.sanchez@gbpo.com.mx', 'ivette.galvez@gbpo.com.mx'],
+          'S.I. SUPPLY': ['tgarcia@solucionesindustriales.net', 'compras@solucionesindustriales.net', 'contabilidad@solucionesindustriales.net'],
+          'PPP FOODS': ['nydialmp@gmail.com', 'admon.irancastillo@gmail.com'],
+          'CITROAGRO': ['pablo@citrusgame.com.mx', 'joelencinas@citrusgame.com.mx', 'esmeralda@citrusgame.com.mx', 'logistica@citrusgame.com.mx'],
+          'AQUARIUM SEAFOOD': ['exportaciones@aquariumseafood.com', 'cortespacificfoods@gmail.com'],
+          'DISTRIBUCION Y MANTENIMIENTO DEL NOROESTE': ['ccuevas@dismant.com.mx', 'dismant_servicios@dismant.com.mx', 'compras@dismant.com.mx', 'proveedores@dismant.com.mx', 'credito_cobranza@dismant.com.mx', 'comprasdismant@gmail.com'],
+          'LA COSMOPOLITANA': ['irmin.alvarez@ck.com.mx', 'sandra.hernandez@ck.com.mx', 'nidia.quintero@ck.com.mx', 'sandra.padilla@ck.com.mx', 'gustavo.sanchez@ck.com.mx'],
+          'W AGRIPACKING': ['javierval22@hotmail.com', 'aranzawagripacking@gmail.com', 'contabilidad.wagripacking@gmail.com'],
+          'MINERA GUAYACANES': ['rodolfo.rodriguez@cobredelmayo.com', 'nalleli.lopez@cobredelmayo.com', 'jose.felix@cipriamineralia.com', 'juan.diazdeleon@cobredelmayo.com', 'thomas.felix@cobredelmayo.com', 'maria.celaya@cobredelmayo.com'],
+          'LUZ ELENA': ['f.baranzini@hotmail.com', 'gerencia@luzelenaspr.com', 'hector.jaime@luzelenaspr.com'],
+          'CARBACO': ['f.baranzini@hotmail.com', 'gerencia@luzelenaspr.com'],
+          'COMPAÑIA MINERA LA PITALLA': ['guadalupe.sabori@heliostarmetals.com', 'humberto.leyva@heliostarmetals.com', 'ana.pablos@heliostarmetals.com'],
+          'ATLANTIC BLUE CRAB': ['rogelio_inzunza@hotmail.com', 'edgarodinramirez@gmail.com', 'abcatlanticbluecrab@gmail.com'],
+          'EL PITAYOSO': ['lsanteliz@taos.mx'],
+          'JULIAN FERNANDO CAJIGAS MAGANA': ['julian@margaritamx.com', 'facturacion@margaritamx.com'],
+          'EMPRESAS VILHER': ['msarabia@vilher.com.mx', 'jmiranda@vilher.com.mx', 'aaguayo@vilher.com.mx'],
+          'AGROPECUARIA JS': ['nydialmp@gmail.com', 'admon.irancastillo@gmail.com'],
+          'AGROVELAI': ['victor@soles.com.mx', 'mfelix@soles.com.mx', 'jeny@soles.com.mx'],
+          'ALSO MONTACARGAS': ['bflores@alsomontacargas.com', 'hgallegos@alsomontacargas.com'],
+          'ALIMENTOS GROLE': ['rodolfo@soles.com.mx', 'mfelix@soles.com.mx', 'rgomez@soles.com.mx'],
+          'EBYS FOODS': ['administrativo@ebysfoods.com', 'finanzas3@gmd1.com'],
+          'AGRICOLA OREMOR': ['humberto.romero@oremor.com.mx', 'luis.romero@oremor.com.mx', 'norma.lopez@oremor.com.mx'],
+          'CHRISTIAN YARELY CURLANGO RAMOS': ['bajaditarh@gmail.com', 'christian.yarely89@gmail.com'],
+          'AGRICOLA PARGAN': ['marco@bctuscustoms.com', 'julio@bctuscustoms.com', 'agricolapargan@hotmail.com'],
+          'COMERCIALIZADORA INTERNACIONAL MANSIVA': ['logistics@andesgt.com', 'eacuna@andesgt.com', 'bmojica@andesgt.com'],
+          'AGRICOLA 2 AMIGOS': ['juanpablo@agricola2amigos.com'],
+          'K INDUSTRIA ALIMENTARIA': ['nydialmp@gmail.com', 'admon.irancastillo@gmail.com'],
+          'SKON LOGISTICS': ['direccion@merkai.com.mx', 'operacion@merkai.com.mx'],
+          'VALOR TRANSPORTATION': ['a.resendiz@namerical.us'],
+          'GRANOS DUKE': ['team@bctuscustoms.com', 'expo@bctuscustoms.com', 'marco@bctuscustoms.com'],
+          'ACUICOLA LOS AHUMADA': ['aleyva@bocamar.com.mx', 'jmurillo@bocamar.com.mx', 'joshima@bocamar.com.mx'],
+          'BIOPLANET MEXICO': ['fernando.espinoza@bioplanetmexico.com.mx', 'maricruz.espinoza@bioplanetmexico.com.mx'],
+          'ACUICOLA BOCA': ['aleyva@bocamar.com.mx', 'jmurillo@bocamar.com.mx', 'joshima@bocamar.com.mx']
+        }
+      }
+    };
+  },
+  computed: {
+    previewCliente: function previewCliente() {
+      return this.ingreso && this.ingreso.cliente ? this.ingreso.cliente : 'Estimado Cliente';
+    },
+    previewFolioSc: function previewFolioSc() {
+      return this.ingreso && this.ingreso.folio_sc ? this.ingreso.folio_sc : 'N/A';
+    },
+    previewFolioComp: function previewFolioComp() {
+      return this.ingreso && this.ingreso.folio_complemento ? this.ingreso.folio_complemento : 'Pendiente';
+    },
+    previewFecha: function previewFecha() {
+      return this.ingreso && this.ingreso.fecha ? this.ingreso.fecha : 'N/A';
+    },
+    previewMonto: function previewMonto() {
+      return this.ingreso && this.ingreso.monto_deposito ? this.ingreso.monto_deposito : 0;
+    },
+    previewNombreArchivo: function previewNombreArchivo() {
+      return this.ingreso && this.ingreso.folio_complemento ? this.ingreso.folio_complemento : 'folio';
+    },
+    nombreEmpresaEmisora: function nombreEmpresaEmisora() {
+      if (!this.ingreso || !this.ingreso.sucursal_origen) {
+        return 'InTactics';
+      }
+      var sucursal = String(this.ingreso.sucursal_origen).toUpperCase();
+      if (sucursal.includes('TRANSPORTACTICS')) {
+        return 'Transportactics';
+      }
+      if (sucursal.includes('INTSHIPPERTS')) {
+        return 'INTSHIPPERTS';
+      }
+      return 'InTactics';
+    }
+  },
+  watch: {
+    tiposComprobanteArray: {
+      deep: true,
+      handler: function handler(newVal, oldVal) {
+        // Solo lo encendemos si el usuario hizo un cambio real (evitamos que se encienda al cargar el modal)
+        if (oldVal && oldVal.length !== undefined) {
+          this.necesitaRecalcular = true;
+        }
+      }
+    },
+    mostrar: {
+      immediate: true,
+      handler: function handler(val) {
+        var _this = this;
+        if (val) {
+          this.listaCorreos = [];
+          this.opcionesSugeridas = [];
+          this.enviando = false;
+          this.$nextTick(function () {
+            _this.precargarCorreosCliente();
+          });
+        }
+      }
+    },
+    ingreso: {
+      deep: true,
+      handler: function handler() {
+        if (this.mostrar) {
+          this.precargarCorreosCliente();
+        }
+      }
+    }
+  },
+  methods: {
+    precargarCorreosCliente: function precargarCorreosCliente() {
+      // Si no hay ingreso o no hay sucursal, detenemos la ejecución
+      if (!this.ingreso || !this.ingreso.sucursal_origen) {
+        return;
+      }
+
+      // 1. Limpiamos la sucursal (Detectará perfectamente "NOGALES IMPO")
+      var sucursal = String(this.ingreso.sucursal_origen).toUpperCase();
+
+      // 2. Extraemos el nombre del cliente resolviendo la relación de la BD (cliente_id)
+      var nombreCliente = '';
+      if (this.ingreso.cliente && _typeof(this.ingreso.cliente) === 'object') {
+        // Si Laravel manda el objeto de la relación por el cliente_id
+        nombreCliente = String(this.ingreso.cliente.nombre || '').toUpperCase().trim();
+      } else if (this.ingreso.cliente) {
+        // Si Laravel ya manda el string procesado
+        nombreCliente = String(this.ingreso.cliente).toUpperCase().trim();
+      }
+      if (!nombreCliente) {
+        return;
+      }
+      var zonaDetectada = null;
+
+      // 3. Detección Inteligente a prueba de sufijos como " IMPO" o " EXPO"
+      if (sucursal.includes('MANZANILLO') || sucursal.includes('INTSHIPPERT') || sucursal.includes('ZLO')) {
+        zonaDetectada = 'MANZANILLO';
+      } else if (sucursal.includes('TIJUANA') || sucursal.includes('TIJ')) {
+        zonaDetectada = 'TIJUANA';
+      } else if (sucursal.includes('MEXICALI') || sucursal.includes('MXL')) {
+        zonaDetectada = 'MEXICALI';
+      } else if (sucursal.includes('LAREDO') || sucursal.includes('NL')) {
+        zonaDetectada = 'LAREDO';
+      } else if (sucursal.includes('NOGALES') || sucursal.includes('NOG')) {
+        zonaDetectada = 'NOGALES';
+      }
+      if (!zonaDetectada) {
+        return;
+      }
+      var clientesZona = this.directorioCorreos[zonaDetectada];
+      if (!clientesZona) {
+        return;
+      }
+
+      // 4. Buscamos al cliente en el diccionario
+      for (var _i = 0, _Object$entries = Object.entries(clientesZona); _i < _Object$entries.length; _i++) {
+        var _Object$entries$_i = _slicedToArray(_Object$entries[_i], 2),
+          claveDiccionario = _Object$entries$_i[0],
+          correosArray = _Object$entries$_i[1];
+        if (nombreCliente.includes(claveDiccionario) || claveDiccionario.includes(nombreCliente)) {
+          // Se limpian los correos pasándolos todos a minúsculas
+          var correosLimpios = correosArray.map(function (email) {
+            return String(email).toLowerCase().trim();
+          });
+
+          // Asignación reactiva a las listas
+          this.opcionesSugeridas = _toConsumableArray(correosLimpios);
+          this.listaCorreos = _toConsumableArray(correosLimpios);
+          break;
+        }
+      }
+    },
+    agregarCorreo: function agregarCorreo(nuevoCorreo) {
+      var email = String(nuevoCorreo).trim().toLowerCase();
+      var regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!regex.test(email)) {
+        sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Correo inválido', "\"".concat(email, "\" no es un formato v\xE1lido."), 'warning');
+        return;
+      }
+      if (!this.opcionesSugeridas.includes(email)) {
+        this.opcionesSugeridas.push(email);
+      }
+      if (!this.listaCorreos.includes(email)) {
+        this.listaCorreos.push(email);
+      }
+    },
+    enviarCorreos: function enviarCorreos() {
+      var _this2 = this;
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
+        var response, msj, _t;
+        return _regenerator().w(function (_context) {
+          while (1) switch (_context.n) {
+            case 0:
+              _this2.enviando = true;
+              _context.p = 1;
+              _context.n = 2;
+              return axios__WEBPACK_IMPORTED_MODULE_3__["default"].post("/ingresos-conciliados/".concat(_this2.ingreso.id, "/complemento/enviar-correo"), {
+                correos: _this2.listaCorreos
+              });
+            case 2:
+              response = _context.v;
+              if (response.data.success) {
+                sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('¡Enviado!', response.data.message, 'success');
+                _this2.cerrar();
+              }
+              _context.n = 4;
+              break;
+            case 3:
+              _context.p = 3;
+              _t = _context.v;
+              msj = 'Error al enviar los correos.';
+              if (_t.response && _t.response.data && _t.response.data.error) {
+                msj = _t.response.data.error;
+              }
+              sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Error', msj, 'error');
+            case 4:
+              _context.p = 4;
+              _this2.enviando = false;
+              return _context.f(4);
+            case 5:
+              return _context.a(2);
+          }
+        }, _callee, null, [[1, 3, 4, 5]]);
+      }))();
+    },
+    cerrar: function cerrar() {
+      this.$emit('cerrar');
+    }
+  }
+});
+
+/***/ }),
+
 /***/ "./node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalNuevoIngreso.vue?vue&type=script&lang=js&":
 /*!********************************************************************************************************************************************************************************************************************************************!*\
   !*** ./node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalNuevoIngreso.vue?vue&type=script&lang=js& ***!
@@ -10838,41 +11882,6 @@ function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { 
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
 //
 //
 //
@@ -11202,6 +12211,16 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         this.cargarListaPedimentos();
       }
     },
+    checkTransportactics: function checkTransportactics(newVal, oldVal) {
+      if (newVal !== oldVal) {
+        this.cargarListaPedimentos();
+      }
+    },
+    checkIntshipperts: function checkIntshipperts(newVal, oldVal) {
+      if (newVal !== oldVal) {
+        this.cargarListaPedimentos();
+      }
+    },
     'form.referenciasObj': function formReferenciasObj(newVal) {
       if (!this.form.cliente && newVal && newVal.length > 0) {
         var refSeleccionada = newVal[0];
@@ -11249,7 +12268,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               _context.n = 2;
               return axios__WEBPACK_IMPORTED_MODULE_5__["default"].get('/ingresos-conciliados/listar-pedimentos', {
                 params: {
-                  sucursal: _this.sucursalSeleccionada
+                  sucursal: _this.sucursalSeleccionada,
+                  es_transportactics: _this.checkTransportactics,
+                  es_intshipperts: _this.esIntshipperts
                 }
               });
             case 2:
@@ -11695,7 +12716,6 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
-//
 
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
   name: 'ModalVerDocumento',
@@ -11749,7 +12769,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
-/* harmony import */ var axios__WEBPACK_IMPORTED_MODULE_11__ = __webpack_require__(/*! axios */ "./node_modules/axios/lib/axios.js");
+/* harmony import */ var axios__WEBPACK_IMPORTED_MODULE_13__ = __webpack_require__(/*! axios */ "./node_modules/axios/lib/axios.js");
 /* harmony import */ var sweetalert2__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! sweetalert2 */ "./node_modules/sweetalert2/dist/sweetalert2.all.js");
 /* harmony import */ var sweetalert2__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(sweetalert2__WEBPACK_IMPORTED_MODULE_0__);
 /* harmony import */ var vue_multiselect__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! vue-multiselect */ "./node_modules/vue-multiselect/dist/vue-multiselect.min.js");
@@ -11758,12 +12778,14 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var vue_ctk_date_time_picker__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! vue-ctk-date-time-picker */ "./node_modules/vue-ctk-date-time-picker/dist/vue-ctk-date-time-picker.common.js");
 /* harmony import */ var vue_ctk_date_time_picker__WEBPACK_IMPORTED_MODULE_3___default = /*#__PURE__*/__webpack_require__.n(vue_ctk_date_time_picker__WEBPACK_IMPORTED_MODULE_3__);
 /* harmony import */ var vue_ctk_date_time_picker_dist_vue_ctk_date_time_picker_css__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! vue-ctk-date-time-picker/dist/vue-ctk-date-time-picker.css */ "./node_modules/vue-ctk-date-time-picker/dist/vue-ctk-date-time-picker.css");
-/* harmony import */ var _ModalNuevoIngreso_vue__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./ModalNuevoIngreso.vue */ "./resources/js/components/componentesingresos/ModalNuevoIngreso.vue");
-/* harmony import */ var _ModalNuevoSaldoFavor_vue__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./ModalNuevoSaldoFavor.vue */ "./resources/js/components/componentesingresos/ModalNuevoSaldoFavor.vue");
-/* harmony import */ var _ModalEditarSaldoFavor_vue__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./ModalEditarSaldoFavor.vue */ "./resources/js/components/componentesingresos/ModalEditarSaldoFavor.vue");
-/* harmony import */ var _ModalEditarIngreso_vue__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./ModalEditarIngreso.vue */ "./resources/js/components/componentesingresos/ModalEditarIngreso.vue");
-/* harmony import */ var _ModalComplementoPago_vue__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ./ModalComplementoPago.vue */ "./resources/js/components/componentesingresos/ModalComplementoPago.vue");
-/* harmony import */ var _ModalVerDocumento_vue__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! ./ModalVerDocumento.vue */ "./resources/js/components/componentesingresos/ModalVerDocumento.vue");
+/* harmony import */ var _IngresoCard_vue__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./IngresoCard.vue */ "./resources/js/components/componentesingresos/IngresoCard.vue");
+/* harmony import */ var _ModalNuevoIngreso_vue__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./ModalNuevoIngreso.vue */ "./resources/js/components/componentesingresos/ModalNuevoIngreso.vue");
+/* harmony import */ var _ModalNuevoSaldoFavor_vue__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./ModalNuevoSaldoFavor.vue */ "./resources/js/components/componentesingresos/ModalNuevoSaldoFavor.vue");
+/* harmony import */ var _ModalEditarSaldoFavor_vue__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./ModalEditarSaldoFavor.vue */ "./resources/js/components/componentesingresos/ModalEditarSaldoFavor.vue");
+/* harmony import */ var _ModalEditarIngreso_vue__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ./ModalEditarIngreso.vue */ "./resources/js/components/componentesingresos/ModalEditarIngreso.vue");
+/* harmony import */ var _ModalComplementoPago_vue__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! ./ModalComplementoPago.vue */ "./resources/js/components/componentesingresos/ModalComplementoPago.vue");
+/* harmony import */ var _ModalVerDocumento_vue__WEBPACK_IMPORTED_MODULE_11__ = __webpack_require__(/*! ./ModalVerDocumento.vue */ "./resources/js/components/componentesingresos/ModalVerDocumento.vue");
+/* harmony import */ var _ModalEnviarCorreo_vue__WEBPACK_IMPORTED_MODULE_12__ = __webpack_require__(/*! ./ModalEnviarCorreo.vue */ "./resources/js/components/componentesingresos/ModalEnviarCorreo.vue");
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
@@ -12200,267 +13222,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
 //
 //
 //
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
+
+
 
 
 
@@ -12477,12 +13240,14 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
   name: 'VistaFinanzasIngresos',
   components: {
-    ModalNuevoIngreso: _ModalNuevoIngreso_vue__WEBPACK_IMPORTED_MODULE_5__["default"],
-    ModalNuevoSaldoFavor: _ModalNuevoSaldoFavor_vue__WEBPACK_IMPORTED_MODULE_6__["default"],
-    ModalEditarSaldoFavor: _ModalEditarSaldoFavor_vue__WEBPACK_IMPORTED_MODULE_7__["default"],
-    ModalEditarIngreso: _ModalEditarIngreso_vue__WEBPACK_IMPORTED_MODULE_8__["default"],
-    ModalComplementoPago: _ModalComplementoPago_vue__WEBPACK_IMPORTED_MODULE_9__["default"],
-    ModalVerDocumento: _ModalVerDocumento_vue__WEBPACK_IMPORTED_MODULE_10__["default"],
+    IngresoCard: _IngresoCard_vue__WEBPACK_IMPORTED_MODULE_5__["default"],
+    ModalNuevoIngreso: _ModalNuevoIngreso_vue__WEBPACK_IMPORTED_MODULE_6__["default"],
+    ModalNuevoSaldoFavor: _ModalNuevoSaldoFavor_vue__WEBPACK_IMPORTED_MODULE_7__["default"],
+    ModalEditarSaldoFavor: _ModalEditarSaldoFavor_vue__WEBPACK_IMPORTED_MODULE_8__["default"],
+    ModalEditarIngreso: _ModalEditarIngreso_vue__WEBPACK_IMPORTED_MODULE_9__["default"],
+    ModalComplementoPago: _ModalComplementoPago_vue__WEBPACK_IMPORTED_MODULE_10__["default"],
+    ModalVerDocumento: _ModalVerDocumento_vue__WEBPACK_IMPORTED_MODULE_11__["default"],
+    ModalEnviarCorreo: _ModalEnviarCorreo_vue__WEBPACK_IMPORTED_MODULE_12__["default"],
     Multiselect: (vue_multiselect__WEBPACK_IMPORTED_MODULE_1___default()),
     VueCtkDateTimePicker: (vue_ctk_date_time_picker__WEBPACK_IMPORTED_MODULE_3___default())
   },
@@ -12494,6 +13259,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       showModalEditarSaldo: false,
       showModalEditarIngreso: false,
       showModalComplemento: false,
+      showModalEnviarCorreo: false,
+      ingresoParaCorreo: null,
       ingresoAEditar: null,
       saldoAEditar: null,
       ingresoParaComplemento: null,
@@ -12520,16 +13287,32 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         id: 'EXPO',
         label: 'Exportación (EXPO)'
       }],
+      opcionesEstadoEnvio: [{
+        id: '',
+        label: 'Todos'
+      }, {
+        id: 'ENVIADO',
+        label: 'Enviados'
+      }, {
+        id: 'PENDIENTE',
+        label: 'Pendientes'
+      }],
       filtros: {
-        cliente: null,
+        cliente: 'Todos',
         rangoFechas: null,
         tipoOperacion: {
           id: 'Ambos',
           label: 'Ambos'
         },
         tipo_comprobante: 'Todos',
-        tipoServicio: 'Todos'
-      }
+        tipoServicio: 'Todos',
+        estado_envio: {
+          id: '',
+          label: 'Todos'
+        }
+      },
+      currentPage: 1,
+      itemsPerPage: 10
     };
   },
   mounted: function mounted() {
@@ -12597,7 +13380,49 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
           return true;
         });
       }
+      if (this.filtros.estado_envio && this.filtros.estado_envio.id !== '') {
+        var estado = this.filtros.estado_envio.id;
+        data = data.filter(function (item) {
+          if (estado === 'ENVIADO') {
+            return item.estado_envio === 'ENVIADO';
+          }
+          if (estado === 'PENDIENTE') {
+            return item.estado_envio === 'PENDIENTE' || !item.estado_envio || item.estado_envio === '';
+          }
+          return true;
+        });
+      }
       return data;
+    },
+    totalPages: function totalPages() {
+      return Math.ceil(this.ingresosFiltrados.length / this.itemsPerPage) || 1;
+    },
+    startIndex: function startIndex() {
+      return (this.currentPage - 1) * this.itemsPerPage;
+    },
+    endIndex: function endIndex() {
+      return Math.min(this.startIndex + this.itemsPerPage, this.ingresosFiltrados.length);
+    },
+    paginatedIngresos: function paginatedIngresos() {
+      return this.ingresosFiltrados.slice(this.startIndex, this.endIndex);
+    },
+    visiblePages: function visiblePages() {
+      var total = this.totalPages;
+      var current = this.currentPage;
+      if (total <= 12) {
+        return Array.from({
+          length: total
+        }, function (_, i) {
+          return i + 1;
+        });
+      }
+      if (current <= 6) {
+        return [1, 2, 3, 4, 5, 6, 7, 8, '...', total - 1, total];
+      }
+      if (current >= total - 5) {
+        return [1, 2, '...', total - 7, total - 6, total - 5, total - 4, total - 3, total - 2, total - 1, total];
+      }
+      return [1, 2, '...', current - 2, current - 1, current, current + 1, current + 2, '...', total - 1, total];
     },
     saldosVigentesFiltrados: function saldosVigentesFiltrados() {
       var _this2 = this;
@@ -12655,7 +13480,25 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }, 0);
     }
   },
+  watch: {
+    ingresosFiltrados: function ingresosFiltrados() {
+      this.currentPage = 1;
+    }
+  },
   methods: {
+    paginaAnterior: function paginaAnterior() {
+      if (this.currentPage > 1) {
+        this.currentPage--;
+      }
+    },
+    siguientePagina: function siguientePagina() {
+      if (this.currentPage < this.totalPages) {
+        this.currentPage++;
+      }
+    },
+    gotoPage: function gotoPage(page) {
+      this.currentPage = page;
+    },
     generarComplemento: function generarComplemento(item) {
       this.ingresoParaComplemento = item;
       this.showModalComplemento = true;
@@ -12692,7 +13535,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
             case 0:
               _context.p = 0;
               _context.n = 1;
-              return axios__WEBPACK_IMPORTED_MODULE_11__["default"].get('/ingresos-conciliados/opciones');
+              return axios__WEBPACK_IMPORTED_MODULE_13__["default"].get('/ingresos-conciliados/opciones');
             case 1:
               response = _context.v;
               _this4.opcionesSucursal = response.data.sucursales;
@@ -12738,7 +13581,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
             case 0:
               _context2.p = 0;
               _context2.n = 1;
-              return axios__WEBPACK_IMPORTED_MODULE_11__["default"].get('/ingresos-conciliados', {
+              return axios__WEBPACK_IMPORTED_MODULE_13__["default"].get('/ingresos-conciliados', {
                 params: {
                   tipo_comprobante: _this5.filtros.tipo_comprobante
                 }
@@ -12771,7 +13614,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
             case 0:
               _context3.p = 0;
               _context3.n = 1;
-              return axios__WEBPACK_IMPORTED_MODULE_11__["default"].get('/saldos-favor');
+              return axios__WEBPACK_IMPORTED_MODULE_13__["default"].get('/saldos-favor');
             case 1:
               response = _context3.v;
               _this6.saldosData = response.data;
@@ -12843,7 +13686,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                 }
               });
               _context4.n = 3;
-              return axios__WEBPACK_IMPORTED_MODULE_11__["default"].post("/saldos-favor/".concat(row.id, "/notificar"), {
+              return axios__WEBPACK_IMPORTED_MODULE_13__["default"].post("/saldos-favor/".concat(row.id, "/notificar"), {
                 correos: correosDestino
               });
             case 3:
@@ -12880,7 +13723,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               }
               _context5.p = 1;
               _context5.n = 2;
-              return axios__WEBPACK_IMPORTED_MODULE_11__["default"]["delete"]("/saldos-favor/".concat(id));
+              return axios__WEBPACK_IMPORTED_MODULE_13__["default"]["delete"]("/saldos-favor/".concat(id));
             case 2:
               _this8.cargarSaldos();
               _context5.n = 4;
@@ -12908,7 +13751,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               }
               _context6.p = 1;
               _context6.n = 2;
-              return axios__WEBPACK_IMPORTED_MODULE_11__["default"].put("/saldos-favor/".concat(id, "/aplicar"));
+              return axios__WEBPACK_IMPORTED_MODULE_13__["default"].put("/saldos-favor/".concat(id, "/aplicar"));
             case 2:
               _this9.cargarSaldos();
               _context6.n = 4;
@@ -12936,7 +13779,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               }
               _context7.p = 1;
               _context7.n = 2;
-              return axios__WEBPACK_IMPORTED_MODULE_11__["default"].put("/saldos-favor/".concat(id, "/reactivar"));
+              return axios__WEBPACK_IMPORTED_MODULE_13__["default"].put("/saldos-favor/".concat(id, "/reactivar"));
             case 2:
               _this0.cargarSaldos();
               _context7.n = 4;
@@ -12989,7 +13832,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               }
               _context8.p = 2;
               _context8.n = 3;
-              return axios__WEBPACK_IMPORTED_MODULE_11__["default"]["delete"]("/ingresos-conciliados/".concat(id));
+              return axios__WEBPACK_IMPORTED_MODULE_13__["default"]["delete"]("/ingresos-conciliados/".concat(id));
             case 3:
               _this1.cargarIngresos();
               _context8.n = 5;
@@ -13007,32 +13850,21 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     limpiarFiltros: function limpiarFiltros() {
       this.filtroSucursalActiva = 'Todas';
       this.filtros = {
-        cliente: null,
+        cliente: 'Todos',
         rangoFechas: null,
         tipoOperacion: {
           id: 'Ambos',
           label: 'Ambos'
         },
         tipo_comprobante: 'Todos',
-        tipoServicio: 'Todos'
+        tipoServicio: 'Todos',
+        estado_envio: {
+          id: '',
+          label: 'Todos'
+        }
       };
+      this.currentPage = 1;
       this.cargarIngresos();
-    },
-    calcularMontoSC: function calcularMontoSC(item) {
-      var nombreCliente = String(item.cliente || '').toUpperCase();
-      var sucursalOrigen = String(item.sucursal_origen || '').toUpperCase();
-      var isTransportactics = nombreCliente.includes('TRANSPORTACTICS') || sucursalOrigen.includes('TRANSPORTACTIC');
-      if (isTransportactics) {
-        return Number(item.flete) || 0;
-      }
-      var esManzanilloRow = sucursalOrigen.includes('MANZANILLO') || sucursalOrigen.includes('INTSHIPPERT');
-      if (esManzanilloRow) {
-        return (Number(item.anticipo) || 0) + (Number(item.garantias) || 0) + (Number(item.desglose_naviera) || 0) + (Number(item.impuestos) || 0) + (Number(item.flete) || 0) + (Number(item.honorarios) || 0);
-      }
-      return (Number(item.honorarios) || 0) + (Number(item.impuestos) || 0) + (Number(item.eci) || 0) + (Number(item.maniobras) || 0) + (Number(item.flete) || 0) + (Number(item.muestras) || 0) + (Number(item.llc) || 0);
-    },
-    calcularDiferencia: function calcularDiferencia(item) {
-      return (Number(item.monto_deposito) || 0) - this.calcularMontoSC(item);
     },
     procesarComplementoBackend: function procesarComplementoBackend(payloadLimpio) {
       var _this10 = this;
@@ -13053,7 +13885,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
 
               // Asegúrate de que esta URL coincida exactamente con la que configuraste en tu routes/api.php o web.php
               _context9.n = 1;
-              return axios__WEBPACK_IMPORTED_MODULE_11__["default"].post('/ingresos-conciliados/generar-complemento', payloadLimpio);
+              return axios__WEBPACK_IMPORTED_MODULE_13__["default"].post('/ingresos-conciliados/generar-complemento', payloadLimpio);
             case 1:
               response = _context9.v;
               if (response.data.success) {
@@ -13083,46 +13915,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }))();
     },
     enviarCorreoComplemento: function enviarCorreoComplemento(item) {
-      sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
-        title: 'Enviar Complemento',
-        text: "\xBFA qu\xE9 correo deseas enviar el documento ".concat(item.cliente, "?"),
-        input: 'email',
-        inputPlaceholder: 'correo@ejemplo.com',
-        // Opcional: Si en 'item' tienes el correo del cliente, ponlo por defecto
-        inputValue: item.correo_cliente || '',
-        showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
-        confirmButtonText: 'Enviar Correo',
-        cancelButtonText: 'Cancelar',
-        showLoaderOnConfirm: true,
-        preConfirm: function preConfirm(correoIngresado) {
-          return axios__WEBPACK_IMPORTED_MODULE_11__["default"].post("/ingresos-conciliados/".concat(item.id, "/complemento/enviar-correo"), {
-            correo: correoIngresado,
-            sucursal: item.sucursal_origen
-          }).then(function (response) {
-            return response.data;
-          })["catch"](function (error) {
-            var _error$response;
-            // Si falla, mostramos el error que mandó Laravel
-            sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().showValidationMessage("Fallo el env\xEDo: ".concat(((_error$response = error.response) === null || _error$response === void 0 || (_error$response = _error$response.data) === null || _error$response === void 0 ? void 0 : _error$response.error) || error.message));
-          });
-        },
-        allowOutsideClick: function allowOutsideClick() {
-          return !sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().isLoading();
-        }
-      }).then(function (result) {
-        var _result$value;
-        if (result.isConfirmed && (_result$value = result.value) !== null && _result$value !== void 0 && _result$value.success) {
-          sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
-            icon: 'success',
-            title: '¡Enviado!',
-            text: result.value.message,
-            timer: 3000,
-            showConfirmButton: false
-          });
-        }
-      });
+      this.ingresoParaCorreo = item;
+      this.showModalEnviarCorreo = true;
     }
   }
 });
@@ -21041,6 +21835,30 @@ __webpack_require__.r(__webpack_exports__);
 var ___CSS_LOADER_EXPORT___ = _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0___default()(function(i){return i[1]});
 // Module
 ___CSS_LOADER_EXPORT___.push([module.id, "input[type=number][data-v-02d815c0]::-webkit-inner-spin-button,\r\ninput[type=number][data-v-02d815c0]::-webkit-outer-spin-button {\n  -webkit-appearance: none;\n  margin: 0;\n}\n[data-v-02d815c0]:deep(.multiselect__tags) {\n  border-color: #D1D5DB !important;\n  padding-top: 10px !important;\n  min-height: 48px !important;\n  font-size: 16px !important;\n  border-radius: 8px;\n}\n[data-v-02d815c0]:deep(.multiselect__select) {\n  height: 48px !important;\n}\n[data-v-02d815c0]:deep(.multiselect__single),[data-v-02d815c0]:deep(.multiselect__input) {\n  font-size: 16px !important;\n  margin-bottom: 0px !important;\n}\n[data-v-02d815c0]:deep(.multiselect__tag) {\n  background-color: #2563eb !important;\n  font-size: 14px !important;\n}\n[data-v-02d815c0]:deep(.field-input) {\n  min-height: 48px !important;\n  font-size: 16px !important;\n  border-radius: 8px !important;\n}\r\n", ""]);
+// Exports
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
+
+
+/***/ }),
+
+/***/ "./node_modules/css-loader/dist/cjs.js??clonedRuleSet-9[0].rules[0].use[1]!./node_modules/vue-loader/lib/loaders/stylePostLoader.js!./node_modules/postcss-loader/dist/cjs.js??clonedRuleSet-9[0].rules[0].use[2]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalEnviarCorreo.vue?vue&type=style&index=0&id=49a74cb3&scoped=true&lang=css&":
+/*!****************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** ./node_modules/css-loader/dist/cjs.js??clonedRuleSet-9[0].rules[0].use[1]!./node_modules/vue-loader/lib/loaders/stylePostLoader.js!./node_modules/postcss-loader/dist/cjs.js??clonedRuleSet-9[0].rules[0].use[2]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalEnviarCorreo.vue?vue&type=style&index=0&id=49a74cb3&scoped=true&lang=css& ***!
+  \****************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************/
+/***/ ((module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+/* harmony import */ var _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../../../node_modules/css-loader/dist/runtime/api.js */ "./node_modules/css-loader/dist/runtime/api.js");
+/* harmony import */ var _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0__);
+// Imports
+
+var ___CSS_LOADER_EXPORT___ = _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0___default()(function(i){return i[1]});
+// Module
+___CSS_LOADER_EXPORT___.push([module.id, ".custom-scrollbar[data-v-49a74cb3]::-webkit-scrollbar {\n  width: 10px;\n}\n.custom-scrollbar[data-v-49a74cb3]::-webkit-scrollbar-track {\n  background: #f1f5f9;\n  border-radius: 8px;\n}\n.custom-scrollbar[data-v-49a74cb3]::-webkit-scrollbar-thumb {\n  background: #cbd5e1;\n  border-radius: 8px;\n}\n\n/* Ajustes para hacer más grande y legible el multiselect internamente */\n[data-v-49a74cb3]:deep(.multiselect__tags) {\n  min-height: 50px;\n  padding-top: 12px;\n  border-radius: 8px;\n}\n[data-v-49a74cb3]:deep(.multiselect__input) {\n  font-size: 16px;\n}\n[data-v-49a74cb3]:deep(.multiselect__tag) {\n  font-size: 14px;\n  padding: 6px 28px 6px 12px;\n  margin-bottom: 8px;\n  background-color: #2A3A4D;\n}\n[data-v-49a74cb3]:deep(.multiselect__tag-icon) {\n  line-height: 28px;\n}\n[data-v-49a74cb3]:deep(.multiselect__tag-icon:after) {\n  color: #fff;\n}\n[data-v-49a74cb3]:deep(.multiselect__tag-icon:hover) {\n  background: #e53e3e;\n}\r\n", ""]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
 
@@ -54803,6 +55621,36 @@ var update = _node_modules_style_loader_dist_runtime_injectStylesIntoStyleTag_js
 
 /***/ }),
 
+/***/ "./node_modules/style-loader/dist/cjs.js!./node_modules/css-loader/dist/cjs.js??clonedRuleSet-9[0].rules[0].use[1]!./node_modules/vue-loader/lib/loaders/stylePostLoader.js!./node_modules/postcss-loader/dist/cjs.js??clonedRuleSet-9[0].rules[0].use[2]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalEnviarCorreo.vue?vue&type=style&index=0&id=49a74cb3&scoped=true&lang=css&":
+/*!********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** ./node_modules/style-loader/dist/cjs.js!./node_modules/css-loader/dist/cjs.js??clonedRuleSet-9[0].rules[0].use[1]!./node_modules/vue-loader/lib/loaders/stylePostLoader.js!./node_modules/postcss-loader/dist/cjs.js??clonedRuleSet-9[0].rules[0].use[2]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalEnviarCorreo.vue?vue&type=style&index=0&id=49a74cb3&scoped=true&lang=css& ***!
+  \********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+/* harmony import */ var _node_modules_style_loader_dist_runtime_injectStylesIntoStyleTag_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! !../../../../node_modules/style-loader/dist/runtime/injectStylesIntoStyleTag.js */ "./node_modules/style-loader/dist/runtime/injectStylesIntoStyleTag.js");
+/* harmony import */ var _node_modules_style_loader_dist_runtime_injectStylesIntoStyleTag_js__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(_node_modules_style_loader_dist_runtime_injectStylesIntoStyleTag_js__WEBPACK_IMPORTED_MODULE_0__);
+/* harmony import */ var _node_modules_css_loader_dist_cjs_js_clonedRuleSet_9_0_rules_0_use_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_dist_cjs_js_clonedRuleSet_9_0_rules_0_use_2_node_modules_vue_loader_lib_index_js_vue_loader_options_ModalEnviarCorreo_vue_vue_type_style_index_0_id_49a74cb3_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! !!../../../../node_modules/css-loader/dist/cjs.js??clonedRuleSet-9[0].rules[0].use[1]!../../../../node_modules/vue-loader/lib/loaders/stylePostLoader.js!../../../../node_modules/postcss-loader/dist/cjs.js??clonedRuleSet-9[0].rules[0].use[2]!../../../../node_modules/vue-loader/lib/index.js??vue-loader-options!./ModalEnviarCorreo.vue?vue&type=style&index=0&id=49a74cb3&scoped=true&lang=css& */ "./node_modules/css-loader/dist/cjs.js??clonedRuleSet-9[0].rules[0].use[1]!./node_modules/vue-loader/lib/loaders/stylePostLoader.js!./node_modules/postcss-loader/dist/cjs.js??clonedRuleSet-9[0].rules[0].use[2]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalEnviarCorreo.vue?vue&type=style&index=0&id=49a74cb3&scoped=true&lang=css&");
+
+            
+
+var options = {};
+
+options.insert = "head";
+options.singleton = false;
+
+var update = _node_modules_style_loader_dist_runtime_injectStylesIntoStyleTag_js__WEBPACK_IMPORTED_MODULE_0___default()(_node_modules_css_loader_dist_cjs_js_clonedRuleSet_9_0_rules_0_use_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_dist_cjs_js_clonedRuleSet_9_0_rules_0_use_2_node_modules_vue_loader_lib_index_js_vue_loader_options_ModalEnviarCorreo_vue_vue_type_style_index_0_id_49a74cb3_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_1__["default"], options);
+
+
+
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (_node_modules_css_loader_dist_cjs_js_clonedRuleSet_9_0_rules_0_use_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_dist_cjs_js_clonedRuleSet_9_0_rules_0_use_2_node_modules_vue_loader_lib_index_js_vue_loader_options_ModalEnviarCorreo_vue_vue_type_style_index_0_id_49a74cb3_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_1__["default"].locals || {});
+
+/***/ }),
+
 /***/ "./node_modules/style-loader/dist/cjs.js!./node_modules/css-loader/dist/cjs.js??clonedRuleSet-9[0].rules[0].use[1]!./node_modules/vue-loader/lib/loaders/stylePostLoader.js!./node_modules/postcss-loader/dist/cjs.js??clonedRuleSet-9[0].rules[0].use[2]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalNuevoIngreso.vue?vue&type=style&index=0&id=2b30bb2a&scoped=true&lang=css&":
 /*!********************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************!*\
   !*** ./node_modules/style-loader/dist/cjs.js!./node_modules/css-loader/dist/cjs.js??clonedRuleSet-9[0].rules[0].use[1]!./node_modules/vue-loader/lib/loaders/stylePostLoader.js!./node_modules/postcss-loader/dist/cjs.js??clonedRuleSet-9[0].rules[0].use[2]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalNuevoIngreso.vue?vue&type=style&index=0&id=2b30bb2a&scoped=true&lang=css& ***!
@@ -87716,6 +88564,592 @@ render._withStripped = true
 
 /***/ }),
 
+/***/ "./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/IngresoCard.vue?vue&type=template&id=af0196f8&":
+/*!*******************************************************************************************************************************************************************************************************************************************!*\
+  !*** ./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/IngresoCard.vue?vue&type=template&id=af0196f8& ***!
+  \*******************************************************************************************************************************************************************************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   render: () => (/* binding */ render),
+/* harmony export */   staticRenderFns: () => (/* binding */ staticRenderFns)
+/* harmony export */ });
+var render = function () {
+  var _vm = this
+  var _h = _vm.$createElement
+  var _c = _vm._self._c || _h
+  return _c(
+    "div",
+    {
+      staticClass:
+        "bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200 flex flex-col relative mb-6",
+    },
+    [
+      _c("div", {
+        staticClass: "absolute left-0 top-0 bottom-0 w-2",
+        class: _vm.diferencia < 0 ? "bg-red-500" : "bg-green-500",
+      }),
+      _vm._v(" "),
+      _c(
+        "div",
+        {
+          staticClass:
+            "px-8 py-5 border-b border-gray-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gray-100 ml-2",
+        },
+        [
+          _c("div", { staticClass: "flex items-center gap-4" }, [
+            _c(
+              "span",
+              {
+                staticClass:
+                  "px-4 py-1.5 text-white text-sm font-black rounded-lg tracking-wider uppercase shadow-sm",
+                staticStyle: { "background-color": "#2A3A4D" },
+              },
+              [
+                _vm._v(
+                  "\n                " +
+                    _vm._s(_vm.item.sucursal_origen || "N/A") +
+                    "\n            "
+                ),
+              ]
+            ),
+            _vm._v(" "),
+            _c("span", { staticClass: "text-base font-bold text-gray-500" }, [
+              _vm._v(_vm._s(_vm.item.fecha)),
+            ]),
+          ]),
+          _vm._v(" "),
+          _c("div", { staticClass: "flex items-center gap-3" }, [
+            _c(
+              "span",
+              { staticClass: "text-sm font-bold text-gray-400 uppercase" },
+              [_vm._v("Banco Receptor:")]
+            ),
+            _vm._v(" "),
+            _c("span", { staticClass: "text-base font-bold text-gray-700" }, [
+              _vm._v(_vm._s(_vm.item.banco_receptor || "No Especificado")),
+            ]),
+          ]),
+        ]
+      ),
+      _vm._v(" "),
+      _c("div", { staticClass: "p-8 flex flex-col xl:flex-row gap-10 ml-2" }, [
+        _c(
+          "div",
+          { staticClass: "w-full xl:w-1/3 flex flex-col justify-center" },
+          [
+            _c("div", { staticClass: "flex items-center gap-2 mb-3" }, [
+              _c(
+                "span",
+                {
+                  staticClass:
+                    "text-sm font-bold text-indigo-700 bg-indigo-100 border border-indigo-200 px-3 py-1 rounded-md tracking-wide uppercase",
+                },
+                [
+                  _vm._v(
+                    "\n                    Ref / Folio SC: " +
+                      _vm._s(_vm.item.folio_sc || "N/A") +
+                      "\n                "
+                  ),
+                ]
+              ),
+            ]),
+            _vm._v(" "),
+            _c(
+              "h3",
+              {
+                staticClass:
+                  "text-2xl lg:text-3xl font-black text-gray-800 uppercase tracking-tight mb-8 leading-tight",
+              },
+              [
+                _vm._v(
+                  "\n                " +
+                    _vm._s(_vm.item.cliente) +
+                    "\n            "
+                ),
+              ]
+            ),
+            _vm._v(" "),
+            _c("div", { staticClass: "space-y-3" }, [
+              _c(
+                "div",
+                {
+                  staticClass:
+                    "flex justify-between items-center p-4 bg-purple-100 rounded-xl border border-purple-200",
+                },
+                [
+                  _c(
+                    "span",
+                    {
+                      staticClass:
+                        "text-sm font-bold text-purple-700 uppercase",
+                    },
+                    [_vm._v("Monto Depósito")]
+                  ),
+                  _vm._v(" "),
+                  _c(
+                    "span",
+                    { staticClass: "text-xl font-black text-purple-700" },
+                    [
+                      _vm._v(
+                        _vm._s(_vm.formatearDinero(_vm.item.monto_deposito))
+                      ),
+                    ]
+                  ),
+                ]
+              ),
+              _vm._v(" "),
+              _c(
+                "div",
+                {
+                  staticClass:
+                    "flex justify-between items-center p-4 bg-gray-100 rounded-xl border border-gray-200",
+                },
+                [
+                  _c(
+                    "span",
+                    {
+                      staticClass: "text-sm font-bold text-gray-600 uppercase",
+                    },
+                    [_vm._v("Monto SC (Calc)")]
+                  ),
+                  _vm._v(" "),
+                  _c(
+                    "span",
+                    { staticClass: "text-xl font-black text-gray-800" },
+                    [_vm._v(_vm._s(_vm.formatearDinero(_vm.montoSC)))]
+                  ),
+                ]
+              ),
+              _vm._v(" "),
+              _c(
+                "div",
+                {
+                  staticClass:
+                    "flex justify-between items-center p-4 rounded-xl border",
+                  class:
+                    _vm.diferencia < 0
+                      ? "bg-red-100 border-red-200"
+                      : "bg-green-100 border-green-200",
+                },
+                [
+                  _c(
+                    "span",
+                    {
+                      staticClass: "text-sm font-bold uppercase",
+                      class:
+                        _vm.diferencia < 0 ? "text-red-700" : "text-green-700",
+                    },
+                    [_vm._v("Diferencia")]
+                  ),
+                  _vm._v(" "),
+                  _c(
+                    "span",
+                    {
+                      staticClass: "text-xl font-black",
+                      class:
+                        _vm.diferencia < 0 ? "text-red-600" : "text-green-600",
+                    },
+                    [_vm._v(_vm._s(_vm.formatearDinero(_vm.diferencia)))]
+                  ),
+                ]
+              ),
+            ]),
+          ]
+        ),
+        _vm._v(" "),
+        _c(
+          "div",
+          { staticClass: "w-full xl:w-2/3 flex flex-col justify-center" },
+          [
+            _c(
+              "h4",
+              {
+                staticClass:
+                  "text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 border-b border-gray-200 pb-3",
+              },
+              [_vm._v("\n                Desglose de Conceptos\n            ")]
+            ),
+            _vm._v(" "),
+            _c(
+              "div",
+              {
+                staticClass:
+                  "grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4",
+              },
+              _vm._l(_vm.desgloseActivo, function (concepto, index) {
+                return _c(
+                  "div",
+                  {
+                    key: index,
+                    staticClass:
+                      "bg-white border border-gray-200 rounded-xl p-4 flex flex-col justify-between transition-colors shadow-sm relative overflow-hidden group",
+                    class:
+                      Number(concepto.monto) > 0
+                        ? "border-green-300 bg-green-50"
+                        : "hover:border-blue-300",
+                  },
+                  [
+                    _c("div", {
+                      staticClass:
+                        "absolute top-0 left-0 right-0 h-1.5 transition-colors",
+                      class:
+                        Number(concepto.monto) > 0
+                          ? "bg-green-500"
+                          : "bg-gray-200 group-hover:bg-blue-400",
+                    }),
+                    _vm._v(" "),
+                    _c(
+                      "div",
+                      {
+                        staticClass:
+                          "flex justify-between items-start mb-3 mt-2",
+                      },
+                      [
+                        _c(
+                          "span",
+                          {
+                            staticClass:
+                              "text-xs font-black uppercase tracking-wider",
+                            class:
+                              Number(concepto.monto) > 0
+                                ? "text-gray-800"
+                                : "text-gray-400",
+                          },
+                          [_vm._v(_vm._s(concepto.label))]
+                        ),
+                      ]
+                    ),
+                    _vm._v(" "),
+                    _c(
+                      "div",
+                      { staticClass: "flex justify-between items-end" },
+                      [
+                        _c(
+                          "span",
+                          {
+                            staticClass: "text-[11px] font-bold uppercase",
+                            class:
+                              Number(concepto.monto) > 0
+                                ? "text-green-600"
+                                : "text-gray-400",
+                          },
+                          [
+                            _vm._v(
+                              "\n                            " +
+                                _vm._s(
+                                  Number(concepto.monto) > 0
+                                    ? "Registrado"
+                                    : "S/D"
+                                ) +
+                                "\n                        "
+                            ),
+                          ]
+                        ),
+                        _vm._v(" "),
+                        _c(
+                          "span",
+                          {
+                            staticClass: "text-lg font-black",
+                            class:
+                              Number(concepto.monto) > 0
+                                ? "text-green-600"
+                                : "text-gray-300",
+                          },
+                          [
+                            _vm._v(
+                              "\n                            " +
+                                _vm._s(_vm.formatearDinero(concepto.monto)) +
+                                "\n                        "
+                            ),
+                          ]
+                        ),
+                      ]
+                    ),
+                  ]
+                )
+              }),
+              0
+            ),
+          ]
+        ),
+      ]),
+      _vm._v(" "),
+      _c(
+        "div",
+        {
+          staticClass:
+            "px-8 py-5 bg-gray-100 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center gap-6 ml-2",
+        },
+        [
+          _c("div", { staticClass: "flex flex-wrap items-center gap-4" }, [
+            _vm.item.tipo_comprobante === "CFDI"
+              ? _c(
+                  "span",
+                  {
+                    staticClass:
+                      "px-4 py-1.5 bg-blue-100 text-blue-700 font-extrabold rounded-lg border border-blue-200 text-xs",
+                  },
+                  [_vm._v("CFDI")]
+                )
+              : _vm.item.tipo_comprobante === "Nota Cargo"
+              ? _c(
+                  "span",
+                  {
+                    staticClass:
+                      "px-4 py-1.5 bg-purple-100 text-purple-700 font-extrabold rounded-lg border border-purple-200 text-xs",
+                  },
+                  [_vm._v("NOTA\n                CARGO")]
+                )
+              : _c(
+                  "span",
+                  {
+                    staticClass:
+                      "px-4 py-1.5 bg-gray-200 text-gray-600 font-extrabold rounded-lg border border-gray-300 text-xs",
+                  },
+                  [_vm._v(_vm._s(_vm.item.tipo_comprobante || "N/A"))]
+                ),
+            _vm._v(" "),
+            _c("div", { staticClass: "h-6 w-px bg-gray-300 hidden sm:block" }),
+            _vm._v(" "),
+            _c("span", { staticClass: "text-sm font-bold text-gray-600" }, [
+              _vm._v("Comp: "),
+              _c("span", { staticClass: "text-gray-800" }, [
+                _vm._v(_vm._s(_vm.item.folio_complemento || "SIN COMPLEMENTO")),
+              ]),
+            ]),
+            _vm._v(" "),
+            _c("div", { staticClass: "h-6 w-px bg-gray-300 hidden sm:block" }),
+            _vm._v(" "),
+            _c(
+              "span",
+              {
+                staticClass:
+                  "text-xs font-bold px-4 py-1.5 rounded-lg uppercase tracking-wider border",
+                class:
+                  _vm.item.estado_envio === "ENVIADO"
+                    ? "bg-green-100 text-green-700 border-green-200"
+                    : "bg-orange-100 text-orange-700 border-orange-200",
+              },
+              [
+                _vm._v(
+                  "\n                " +
+                    _vm._s(_vm.item.estado_envio || "PENDIENTE") +
+                    "\n            "
+                ),
+              ]
+            ),
+          ]),
+          _vm._v(" "),
+          _c("div", { staticClass: "flex items-center gap-3" }, [
+            _c(
+              "button",
+              {
+                staticClass:
+                  "text-green-600 hover:text-white bg-green-100 hover:bg-green-500 p-3 rounded-xl transition-colors shadow-sm",
+                attrs: { title: "Generar Complemento" },
+                on: {
+                  click: function ($event) {
+                    return _vm.$emit("generar", _vm.item)
+                  },
+                },
+              },
+              [
+                _c(
+                  "svg",
+                  {
+                    staticClass: "w-5 h-5",
+                    attrs: {
+                      fill: "none",
+                      stroke: "currentColor",
+                      viewBox: "0 0 24 24",
+                    },
+                  },
+                  [
+                    _c("path", {
+                      attrs: {
+                        "stroke-linecap": "round",
+                        "stroke-linejoin": "round",
+                        "stroke-width": "2",
+                        d: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+                      },
+                    }),
+                  ]
+                ),
+              ]
+            ),
+            _vm._v(" "),
+            _c(
+              "button",
+              {
+                staticClass:
+                  "text-blue-600 hover:text-white bg-blue-100 hover:bg-blue-500 p-3 rounded-xl transition-colors shadow-sm",
+                attrs: { title: "Visualizar Complemento" },
+                on: {
+                  click: function ($event) {
+                    return _vm.$emit("visualizar", _vm.item)
+                  },
+                },
+              },
+              [
+                _c(
+                  "svg",
+                  {
+                    staticClass: "w-5 h-5",
+                    attrs: {
+                      fill: "none",
+                      stroke: "currentColor",
+                      viewBox: "0 0 24 24",
+                    },
+                  },
+                  [
+                    _c("path", {
+                      attrs: {
+                        "stroke-linecap": "round",
+                        "stroke-linejoin": "round",
+                        "stroke-width": "2",
+                        d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z",
+                      },
+                    }),
+                    _vm._v(" "),
+                    _c("path", {
+                      attrs: {
+                        "stroke-linecap": "round",
+                        "stroke-linejoin": "round",
+                        "stroke-width": "2",
+                        d: "M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z",
+                      },
+                    }),
+                  ]
+                ),
+              ]
+            ),
+            _vm._v(" "),
+            _c(
+              "button",
+              {
+                staticClass:
+                  "text-purple-600 hover:text-white bg-purple-100 hover:bg-purple-500 p-3 rounded-xl transition-colors shadow-sm",
+                attrs: { title: "Enviar Complemento" },
+                on: {
+                  click: function ($event) {
+                    return _vm.$emit("enviar", _vm.item)
+                  },
+                },
+              },
+              [
+                _c(
+                  "svg",
+                  {
+                    staticClass: "w-5 h-5",
+                    attrs: {
+                      fill: "none",
+                      stroke: "currentColor",
+                      viewBox: "0 0 24 24",
+                    },
+                  },
+                  [
+                    _c("path", {
+                      attrs: {
+                        "stroke-linecap": "round",
+                        "stroke-linejoin": "round",
+                        "stroke-width": "2",
+                        d: "M12 19l9 2-9-18-9 18 9-2zm0 0v-8",
+                      },
+                    }),
+                  ]
+                ),
+              ]
+            ),
+            _vm._v(" "),
+            _c(
+              "button",
+              {
+                staticClass:
+                  "text-indigo-600 hover:text-white bg-indigo-100 hover:bg-indigo-500 p-3 rounded-xl transition-colors shadow-sm",
+                attrs: { title: "Editar Fila" },
+                on: {
+                  click: function ($event) {
+                    return _vm.$emit("editar", _vm.item)
+                  },
+                },
+              },
+              [
+                _c(
+                  "svg",
+                  {
+                    staticClass: "w-5 h-5",
+                    attrs: {
+                      fill: "none",
+                      stroke: "currentColor",
+                      viewBox: "0 0 24 24",
+                    },
+                  },
+                  [
+                    _c("path", {
+                      attrs: {
+                        "stroke-linecap": "round",
+                        "stroke-linejoin": "round",
+                        "stroke-width": "2",
+                        d: "M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z",
+                      },
+                    }),
+                  ]
+                ),
+              ]
+            ),
+            _vm._v(" "),
+            _c(
+              "button",
+              {
+                staticClass:
+                  "text-red-500 hover:text-white bg-red-100 hover:bg-red-500 p-3 rounded-xl transition-colors shadow-sm",
+                attrs: { title: "Eliminar Fila" },
+                on: {
+                  click: function ($event) {
+                    return _vm.$emit("eliminar", _vm.item.id)
+                  },
+                },
+              },
+              [
+                _c(
+                  "svg",
+                  {
+                    staticClass: "w-5 h-5",
+                    attrs: {
+                      fill: "none",
+                      stroke: "currentColor",
+                      viewBox: "0 0 24 24",
+                    },
+                  },
+                  [
+                    _c("path", {
+                      attrs: {
+                        "stroke-linecap": "round",
+                        "stroke-linejoin": "round",
+                        "stroke-width": "2",
+                        d: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16",
+                      },
+                    }),
+                  ]
+                ),
+              ]
+            ),
+          ]),
+        ]
+      ),
+    ]
+  )
+}
+var staticRenderFns = []
+render._withStripped = true
+
+
+
+/***/ }),
+
 /***/ "./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalComplementoPago.vue?vue&type=template&id=16123a42&scoped=true&":
 /*!****************************************************************************************************************************************************************************************************************************************************************!*\
   !*** ./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalComplementoPago.vue?vue&type=template&id=16123a42&scoped=true& ***!
@@ -87840,11 +89274,47 @@ var render = function () {
                     }),
                   ]),
                   _vm._v(" "),
+                  _c("div", { staticClass: "col-span-1 md:col-span-2" }, [
+                    _c(
+                      "label",
+                      {
+                        staticClass:
+                          "block text-lg font-bold text-gray-700 mb-2 uppercase",
+                      },
+                      [_vm._v("Banco")]
+                    ),
+                    _vm._v(" "),
+                    _c("input", {
+                      staticClass:
+                        "w-full border-gray-300 bg-gray-100 rounded-lg shadow-sm px-5 py-4 text-xl text-gray-700 font-semibold cursor-not-allowed",
+                      attrs: { type: "text", disabled: "" },
+                      domProps: { value: _vm.ingreso.banco_receptor || "N/A" },
+                    }),
+                  ]),
+                  _vm._v(" "),
+                  _c("div", { staticClass: "col-span-1" }, [
+                    _c(
+                      "label",
+                      {
+                        staticClass:
+                          "block text-lg font-bold text-gray-700 mb-2 uppercase",
+                      },
+                      [_vm._v("Fecha")]
+                    ),
+                    _vm._v(" "),
+                    _c("input", {
+                      staticClass:
+                        "w-full border-gray-300 bg-gray-100 rounded-lg shadow-sm px-5 py-4 text-xl text-gray-700 font-semibold cursor-not-allowed",
+                      attrs: { type: "text", disabled: "" },
+                      domProps: { value: _vm.ingreso.fecha || "N/A" },
+                    }),
+                  ]),
+                  _vm._v(" "),
                   _c(
                     "div",
                     {
                       staticClass:
-                        "col-span-1 md:col-span-3 border-2 border-indigo-100 bg-indigo-50/30 rounded-xl p-6 grid grid-cols-1 md:grid-cols-3 gap-6",
+                        "col-span-1 md:col-span-3 border-2 border-indigo-200 bg-indigo-100 rounded-xl p-6 grid grid-cols-1 md:grid-cols-3 gap-6",
                     },
                     [
                       _c("div", [
@@ -88195,7 +89665,7 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "bg-gray-50 px-8 py-6 flex justify-end gap-4 rounded-b-xl border-t shrink-0",
+                    "bg-gray-100 px-8 py-6 flex justify-end gap-4 rounded-b-xl border-t shrink-0",
                 },
                 [
                   _c(
@@ -88381,7 +89851,7 @@ var render = function () {
                                 "label",
                                 {
                                   staticClass:
-                                    "inline-flex items-center cursor-pointer bg-blue-50 px-4 py-3 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors shadow-sm",
+                                    "inline-flex items-center cursor-pointer bg-blue-100 px-4 py-3 rounded-lg border border-blue-200 hover:bg-blue-200 transition-colors shadow-sm",
                                 },
                                 [
                                   _c("input", {
@@ -88448,7 +89918,7 @@ var render = function () {
                                 "label",
                                 {
                                   staticClass:
-                                    "inline-flex items-center cursor-pointer bg-purple-50 px-4 py-3 rounded-lg border border-purple-200 hover:bg-purple-100 transition-colors shadow-sm",
+                                    "inline-flex items-center cursor-pointer bg-purple-100 px-4 py-3 rounded-lg border border-purple-200 hover:bg-purple-200 transition-colors shadow-sm",
                                 },
                                 [
                                   _c("input", {
@@ -88736,7 +90206,7 @@ var render = function () {
                     },
                   ],
                   staticClass:
-                    "w-full border border-gray-300 rounded-lg px-5 py-4 text-3xl font-black text-purple-700 focus:outline-none focus:border-[#2A3A4D]",
+                    "w-full border border-gray-300 rounded-lg px-5 py-4 text-3xl font-black text-purple-700 focus:outline-none focus:border-gray-400",
                   attrs: { type: "number", step: "0.01", placeholder: "0.00" },
                   domProps: { value: _vm.form.monto_deposito },
                   on: {
@@ -88754,7 +90224,7 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "col-span-2 flex items-center gap-8 mt-2 p-5 bg-gray-50 border border-gray-200 rounded-xl",
+                    "col-span-2 flex items-center gap-8 mt-2 p-5 bg-gray-100 border border-gray-200 rounded-xl",
                 },
                 [
                   _c(
@@ -88783,7 +90253,8 @@ var render = function () {
                             },
                           ],
                           staticClass:
-                            "form-checkbox h-6 w-6 text-[#00C09F] focus:ring-[#00C09F] cursor-pointer rounded",
+                            "form-checkbox h-6 w-6 focus:ring-teal-500 cursor-pointer rounded",
+                          staticStyle: { color: "#00C09F" },
                           attrs: { type: "checkbox", value: "CFDI" },
                           domProps: {
                             checked: Array.isArray(_vm.tiposComprobanteArray)
@@ -88842,7 +90313,8 @@ var render = function () {
                             },
                           ],
                           staticClass:
-                            "form-checkbox h-6 w-6 text-[#00C09F] focus:ring-[#00C09F] cursor-pointer rounded",
+                            "form-checkbox h-6 w-6 focus:ring-teal-500 cursor-pointer rounded",
+                          staticStyle: { color: "#00C09F" },
                           attrs: { type: "checkbox", value: "Nota Cargo" },
                           domProps: {
                             checked: Array.isArray(_vm.tiposComprobanteArray)
@@ -88895,14 +90367,16 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "col-span-2 mt-4 border border-[#2A3A4D] rounded-xl p-6 bg-gray-50/50",
+                    "col-span-2 mt-4 border rounded-xl p-6 bg-gray-100",
+                  staticStyle: { "border-color": "#2A3A4D" },
                 },
                 [
                   _c(
                     "h4",
                     {
                       staticClass:
-                        "text-lg font-extrabold text-[#2A3A4D] uppercase tracking-wide mb-6",
+                        "text-lg font-extrabold uppercase tracking-wide mb-6",
+                      staticStyle: { color: "#2A3A4D" },
                     },
                     [_vm._v("DESGLOSE:")]
                   ),
@@ -88927,7 +90401,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -88963,7 +90437,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -88996,7 +90470,7 @@ var render = function () {
                           ),
                           _c("input", {
                             staticClass:
-                              "w-full border border-emerald-200 rounded-lg px-4 py-3 text-xl bg-emerald-50 text-emerald-700 font-bold",
+                              "w-full border border-emerald-200 rounded-lg px-4 py-3 text-xl bg-emerald-100 text-emerald-700 font-bold focus:outline-none cursor-not-allowed",
                             attrs: { readonly: "", type: "number" },
                             domProps: {
                               value: (
@@ -89027,7 +90501,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89067,7 +90541,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89105,7 +90579,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89145,7 +90619,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89185,7 +90659,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89225,7 +90699,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89265,7 +90739,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89301,7 +90775,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89342,7 +90816,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89382,7 +90856,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89422,7 +90896,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89458,7 +90932,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89498,7 +90972,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89534,7 +91008,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89574,7 +91048,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -89643,7 +91117,8 @@ var render = function () {
                           _c(
                             "span",
                             {
-                              staticClass: "text-2xl font-black text-[#00C09F]",
+                              staticClass: "text-2xl font-black",
+                              staticStyle: { color: "#00C09F" },
                             },
                             [
                               _vm._v(
@@ -89658,7 +91133,7 @@ var render = function () {
                         "div",
                         {
                           staticClass:
-                            "flex items-center gap-4 bg-yellow-50 border border-yellow-200 px-6 py-3 rounded-lg ml-auto",
+                            "flex items-center gap-4 bg-yellow-100 border border-yellow-200 px-6 py-3 rounded-lg ml-auto",
                         },
                         [
                           _c(
@@ -89691,7 +91166,7 @@ var render = function () {
             "div",
             {
               staticClass:
-                "px-8 py-6 border-t border-gray-200 flex justify-end gap-6 bg-gray-50 shrink-0",
+                "px-8 py-6 border-t border-gray-200 flex justify-end gap-6 bg-gray-100 shrink-0",
             },
             [
               _c(
@@ -90001,7 +91476,7 @@ var render = function () {
             "div",
             {
               staticClass:
-                "px-8 py-6 border-t border-gray-200 flex justify-end gap-6 bg-gray-50 rounded-b-xl",
+                "px-8 py-6 border-t border-gray-200 flex justify-end gap-6 bg-gray-100 rounded-b-xl",
             },
             [
               _c(
@@ -90048,6 +91523,733 @@ var render = function () {
   )
 }
 var staticRenderFns = []
+render._withStripped = true
+
+
+
+/***/ }),
+
+/***/ "./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalEnviarCorreo.vue?vue&type=template&id=49a74cb3&scoped=true&":
+/*!*************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** ./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalEnviarCorreo.vue?vue&type=template&id=49a74cb3&scoped=true& ***!
+  \*************************************************************************************************************************************************************************************************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   render: () => (/* binding */ render),
+/* harmony export */   staticRenderFns: () => (/* binding */ staticRenderFns)
+/* harmony export */ });
+var render = function () {
+  var _vm = this
+  var _h = _vm.$createElement
+  var _c = _vm._self._c || _h
+  return _vm.mostrar
+    ? _c(
+        "div",
+        {
+          staticClass:
+            "fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-4 md:p-8",
+        },
+        [
+          _c(
+            "div",
+            {
+              staticClass:
+                "bg-white rounded-xl shadow-2xl w-full max-w-7xl flex flex-col overflow-visible",
+              staticStyle: { height: "90vh" },
+            },
+            [
+              _c(
+                "div",
+                {
+                  staticClass:
+                    "px-8 py-5 flex justify-between items-center rounded-t-xl shrink-0",
+                  staticStyle: { "background-color": "#2A3A4D" },
+                },
+                [
+                  _c(
+                    "h3",
+                    {
+                      staticClass: "text-white font-bold text-xl tracking-wide",
+                    },
+                    [_vm._v("✉️ Configurar y Enviar Correo")]
+                  ),
+                  _vm._v(" "),
+                  _c(
+                    "button",
+                    {
+                      staticClass:
+                        "text-gray-400 hover:text-white transition-colors bg-gray-700 hover:bg-gray-600 rounded-full p-2",
+                      on: { click: _vm.cerrar },
+                    },
+                    [
+                      _c(
+                        "svg",
+                        {
+                          staticClass: "w-6 h-6",
+                          attrs: {
+                            fill: "none",
+                            stroke: "currentColor",
+                            viewBox: "0 0 24 24",
+                          },
+                        },
+                        [
+                          _c("path", {
+                            attrs: {
+                              "stroke-linecap": "round",
+                              "stroke-linejoin": "round",
+                              "stroke-width": "2",
+                              d: "M6 18L18 6M6 6l12 12",
+                            },
+                          }),
+                        ]
+                      ),
+                    ]
+                  ),
+                ]
+              ),
+              _vm._v(" "),
+              _c(
+                "div",
+                {
+                  staticClass:
+                    "flex-1 flex flex-col lg:flex-row overflow-hidden",
+                },
+                [
+                  _c(
+                    "div",
+                    {
+                      staticClass:
+                        "w-full lg:w-4/12 p-8 border-r border-gray-200 flex flex-col overflow-visible bg-white",
+                    },
+                    [
+                      _c(
+                        "h4",
+                        {
+                          staticClass:
+                            "font-extrabold text-gray-800 text-xl mb-3",
+                        },
+                        [_vm._v("Destinatarios")]
+                      ),
+                      _vm._v(" "),
+                      _vm.listaCorreos.length > 0
+                        ? _c(
+                            "div",
+                            {
+                              staticClass:
+                                "mb-4 bg-green-100 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm font-bold flex items-center gap-2",
+                            },
+                            [
+                              _c(
+                                "svg",
+                                {
+                                  staticClass: "w-5 h-5",
+                                  attrs: {
+                                    fill: "none",
+                                    stroke: "currentColor",
+                                    viewBox: "0 0 24 24",
+                                  },
+                                },
+                                [
+                                  _c("path", {
+                                    attrs: {
+                                      "stroke-linecap": "round",
+                                      "stroke-linejoin": "round",
+                                      "stroke-width": "2",
+                                      d: "M5 13l4 4L19 7",
+                                    },
+                                  }),
+                                ]
+                              ),
+                              _vm._v(
+                                "\n                    Correos precargados automáticamente.\n                "
+                              ),
+                            ]
+                          )
+                        : _c(
+                            "p",
+                            { staticClass: "text-base text-gray-600 mb-6" },
+                            [
+                              _vm._v("Ingresa los correos y presiona "),
+                              _c("strong", [_vm._v("Enter")]),
+                              _vm._v(
+                                "\n                    para agregarlos a la lista de envío."
+                              ),
+                            ]
+                          ),
+                      _vm._v(" "),
+                      _c(
+                        "div",
+                        { staticClass: "flex-1 overflow-visible" },
+                        [
+                          _c(
+                            "multiselect",
+                            {
+                              staticClass: "w-full shadow-sm text-lg",
+                              attrs: {
+                                options: _vm.opcionesSugeridas,
+                                multiple: true,
+                                taggable: true,
+                                placeholder:
+                                  "Escribe un correo y presiona Enter...",
+                                "tag-placeholder":
+                                  "Presiona Enter para agregar",
+                                "select-label": "",
+                                "selected-label": "Seleccionado",
+                                "deselect-label": "Remover",
+                              },
+                              on: { tag: _vm.agregarCorreo },
+                              model: {
+                                value: _vm.listaCorreos,
+                                callback: function ($$v) {
+                                  _vm.listaCorreos = $$v
+                                },
+                                expression: "listaCorreos",
+                              },
+                            },
+                            [
+                              _c("template", { slot: "noResult" }, [
+                                _vm._v("No se encontraron correos."),
+                              ]),
+                              _vm._v(" "),
+                              _c("template", { slot: "noOptions" }, [
+                                _vm._v("Escribe un correo para agregarlo."),
+                              ]),
+                            ],
+                            2
+                          ),
+                        ],
+                        1
+                      ),
+                    ]
+                  ),
+                  _vm._v(" "),
+                  _c(
+                    "div",
+                    {
+                      staticClass:
+                        "w-full lg:w-8/12 p-8 bg-gray-100 flex flex-col overflow-y-auto custom-scrollbar",
+                    },
+                    [
+                      _c(
+                        "h4",
+                        {
+                          staticClass:
+                            "font-extrabold text-gray-800 text-xl mb-6 flex items-center gap-3",
+                        },
+                        [
+                          _c(
+                            "svg",
+                            {
+                              staticClass: "w-6 h-6 text-gray-500",
+                              attrs: {
+                                fill: "none",
+                                stroke: "currentColor",
+                                viewBox: "0 0 24 24",
+                              },
+                            },
+                            [
+                              _c("path", {
+                                attrs: {
+                                  "stroke-linecap": "round",
+                                  "stroke-linejoin": "round",
+                                  "stroke-width": "2",
+                                  d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z",
+                                },
+                              }),
+                              _vm._v(" "),
+                              _c("path", {
+                                attrs: {
+                                  "stroke-linecap": "round",
+                                  "stroke-linejoin": "round",
+                                  "stroke-width": "2",
+                                  d: "M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z",
+                                },
+                              }),
+                            ]
+                          ),
+                          _vm._v(
+                            "\n                    Vista Previa del Mensaje\n                "
+                          ),
+                        ]
+                      ),
+                      _vm._v(" "),
+                      _c(
+                        "div",
+                        {
+                          staticClass:
+                            "bg-white border border-gray-200 flex flex-col flex-1 relative mx-auto w-full max-w-3xl shadow-sm rounded-sm",
+                        },
+                        [
+                          _c(
+                            "div",
+                            {
+                              staticClass:
+                                "px-10 pt-10 pb-6 flex justify-between items-start",
+                            },
+                            [
+                              _c("div", [
+                                _c(
+                                  "h2",
+                                  {
+                                    staticClass:
+                                      "text-2xl font-black tracking-wide mb-2",
+                                    staticStyle: { color: "#1b365d" },
+                                  },
+                                  [
+                                    _vm._v(
+                                      "Complemento de Pago\n                            "
+                                    ),
+                                  ]
+                                ),
+                                _vm._v(" "),
+                                _c(
+                                  "p",
+                                  { staticClass: "text-gray-500 text-base" },
+                                  [
+                                    _vm._v("Folio: "),
+                                    _c(
+                                      "span",
+                                      {
+                                        staticClass: "font-black text-gray-800",
+                                      },
+                                      [
+                                        _vm._v(
+                                          "CP-" + _vm._s(_vm.previewFolioComp)
+                                        ),
+                                      ]
+                                    ),
+                                  ]
+                                ),
+                              ]),
+                              _vm._v(" "),
+                              _c(
+                                "div",
+                                {
+                                  staticClass:
+                                    "flex flex-col items-center justify-center mr-2",
+                                },
+                                [
+                                  _vm._m(0),
+                                  _vm._v(" "),
+                                  _c(
+                                    "span",
+                                    {
+                                      staticClass:
+                                        "text-gray-500 font-medium text-sm tracking-tight",
+                                    },
+                                    [
+                                      _vm._v(_vm._s(_vm.nombreEmpresaEmisora)),
+                                      _c("sup", { staticClass: "text-[8px]" }, [
+                                        _vm._v("®"),
+                                      ]),
+                                    ]
+                                  ),
+                                ]
+                              ),
+                            ]
+                          ),
+                          _vm._v(" "),
+                          _c("div", {
+                            staticClass: "w-full h-1",
+                            staticStyle: { "background-color": "#1b365d" },
+                          }),
+                          _vm._v(" "),
+                          _c(
+                            "div",
+                            {
+                              staticClass:
+                                "px-10 py-8 text-gray-700 text-base flex-1",
+                            },
+                            [
+                              _c("p", { staticClass: "mb-6 text-[15px]" }, [
+                                _vm._v("Buen día estimado "),
+                                _c(
+                                  "strong",
+                                  { staticClass: "text-gray-800 uppercase" },
+                                  [_vm._v(_vm._s(_vm.previewCliente))]
+                                ),
+                                _vm._v(","),
+                              ]),
+                              _vm._v(" "),
+                              _vm._m(1),
+                              _vm._v(" "),
+                              _c(
+                                "div",
+                                {
+                                  staticClass:
+                                    "w-full rounded-md overflow-hidden border border-gray-100",
+                                },
+                                [
+                                  _c(
+                                    "table",
+                                    {
+                                      staticClass:
+                                        "w-full text-left border-collapse",
+                                    },
+                                    [
+                                      _vm._m(2),
+                                      _vm._v(" "),
+                                      _c("tbody", [
+                                        _c(
+                                          "tr",
+                                          {
+                                            staticClass:
+                                              "border-t border-gray-100",
+                                          },
+                                          [
+                                            _c(
+                                              "td",
+                                              {
+                                                staticClass:
+                                                  "py-5 px-6 text-sm text-gray-600",
+                                              },
+                                              [_vm._v(_vm._s(_vm.previewFecha))]
+                                            ),
+                                            _vm._v(" "),
+                                            _c(
+                                              "td",
+                                              {
+                                                staticClass:
+                                                  "py-5 px-6 text-sm text-gray-600",
+                                              },
+                                              [
+                                                _vm._v(
+                                                  _vm._s(_vm.previewFolioSc)
+                                                ),
+                                              ]
+                                            ),
+                                            _vm._v(" "),
+                                            _c(
+                                              "td",
+                                              {
+                                                staticClass:
+                                                  "py-5 px-6 text-sm font-bold text-center border-l border-blue-100",
+                                                staticStyle: {
+                                                  "background-color": "#f4f7fb",
+                                                  color: "#1b365d",
+                                                },
+                                              },
+                                              [
+                                                _vm._v(
+                                                  "\n                                            CP-" +
+                                                    _vm._s(_vm.previewFolioComp)
+                                                ),
+                                              ]
+                                            ),
+                                          ]
+                                        ),
+                                      ]),
+                                    ]
+                                  ),
+                                ]
+                              ),
+                              _vm._v(" "),
+                              _c(
+                                "p",
+                                {
+                                  staticClass:
+                                    "text-[13px] text-gray-500 italic mt-8",
+                                },
+                                [
+                                  _vm._v(
+                                    "* Adjunto a este correo encontrará el\n                            archivo PDF\n                            correspondiente a su documento fiscal."
+                                  ),
+                                ]
+                              ),
+                            ]
+                          ),
+                          _vm._v(" "),
+                          _c(
+                            "div",
+                            {
+                              staticClass:
+                                "px-10 pb-8 pt-8 border-t border-gray-100 text-center",
+                            },
+                            [
+                              _c(
+                                "p",
+                                {
+                                  staticClass:
+                                    "text-gray-700 text-[15px] font-medium mb-1",
+                                },
+                                [_vm._v("Atentamente,")]
+                              ),
+                              _vm._v(" "),
+                              _c(
+                                "p",
+                                {
+                                  staticClass: "text-lg font-bold mb-4",
+                                  staticStyle: { color: "#1b365d" },
+                                },
+                                [
+                                  _vm._v(
+                                    "Cuentas por Pagar " +
+                                      _vm._s(_vm.nombreEmpresaEmisora)
+                                  ),
+                                ]
+                              ),
+                              _vm._v(" "),
+                              _c(
+                                "p",
+                                { staticClass: "text-xs text-gray-400" },
+                                [
+                                  _vm._v(
+                                    "Generado automáticamente por el Sistema " +
+                                      _vm._s(_vm.nombreEmpresaEmisora)
+                                  ),
+                                ]
+                              ),
+                            ]
+                          ),
+                        ]
+                      ),
+                    ]
+                  ),
+                ]
+              ),
+              _vm._v(" "),
+              _c(
+                "div",
+                {
+                  staticClass:
+                    "bg-gray-100 px-8 py-5 flex justify-end gap-4 rounded-b-xl shrink-0 border-t border-gray-200",
+                },
+                [
+                  _c(
+                    "button",
+                    {
+                      staticClass:
+                        "bg-gray-300 hover:bg-gray-400 text-gray-800 px-8 py-3 rounded-lg font-bold text-lg transition",
+                      on: { click: _vm.cerrar },
+                    },
+                    [_vm._v("\n                Cancelar\n            ")]
+                  ),
+                  _vm._v(" "),
+                  _c(
+                    "button",
+                    {
+                      staticClass:
+                        "bg-blue-600 hover:bg-blue-700 text-white px-10 py-3 rounded-lg font-black text-lg transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center",
+                      attrs: {
+                        disabled: _vm.enviando || _vm.listaCorreos.length === 0,
+                      },
+                      on: { click: _vm.enviarCorreos },
+                    },
+                    [
+                      _vm.enviando
+                        ? _c(
+                            "svg",
+                            {
+                              staticClass:
+                                "animate-spin -ml-1 mr-3 h-6 w-6 text-white",
+                              attrs: { fill: "none", viewBox: "0 0 24 24" },
+                            },
+                            [
+                              _c("circle", {
+                                staticClass: "opacity-25",
+                                attrs: {
+                                  cx: "12",
+                                  cy: "12",
+                                  r: "10",
+                                  stroke: "currentColor",
+                                  "stroke-width": "4",
+                                },
+                              }),
+                              _vm._v(" "),
+                              _c("path", {
+                                staticClass: "opacity-75",
+                                attrs: {
+                                  fill: "currentColor",
+                                  d: "M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z",
+                                },
+                              }),
+                            ]
+                          )
+                        : _c(
+                            "svg",
+                            {
+                              staticClass: "w-6 h-6 mr-3",
+                              attrs: {
+                                fill: "none",
+                                stroke: "currentColor",
+                                viewBox: "0 0 24 24",
+                              },
+                            },
+                            [
+                              _c("path", {
+                                attrs: {
+                                  "stroke-linecap": "round",
+                                  "stroke-linejoin": "round",
+                                  "stroke-width": "2",
+                                  d: "M12 19l9 2-9-18-9 18 9-2zm0 0v-8",
+                                },
+                              }),
+                            ]
+                          ),
+                      _vm._v(
+                        "\n                " +
+                          _vm._s(
+                            _vm.enviando
+                              ? "Enviando Documentos..."
+                              : "Enviar Documentos"
+                          ) +
+                          "\n            "
+                      ),
+                    ]
+                  ),
+                ]
+              ),
+            ]
+          ),
+        ]
+      )
+    : _vm._e()
+}
+var staticRenderFns = [
+  function () {
+    var _vm = this
+    var _h = _vm.$createElement
+    var _c = _vm._self._c || _h
+    return _c(
+      "div",
+      { staticClass: "flex flex-col gap-[3px] mb-1 transform -skew-x-12" },
+      [
+        _c("div", { staticClass: "flex gap-[3px]" }, [
+          _c("div", { staticClass: "w-1.5 h-1.5 rounded-full bg-transparent" }),
+          _vm._v(" "),
+          _c("div", { staticClass: "w-1.5 h-1.5 rounded-full bg-transparent" }),
+          _vm._v(" "),
+          _c("div", { staticClass: "w-1.5 h-1.5 rounded-full bg-gray-400" }),
+          _vm._v(" "),
+          _c("div", { staticClass: "w-1.5 h-1.5 rounded-full bg-gray-500" }),
+          _vm._v(" "),
+          _c("div", {
+            staticClass: "w-1.5 h-1.5 rounded-full",
+            staticStyle: { "background-color": "#1b365d" },
+          }),
+          _vm._v(" "),
+          _c("div", {
+            staticClass: "w-1.5 h-1.5 rounded-full",
+            staticStyle: { "background-color": "#1b365d" },
+          }),
+        ]),
+        _vm._v(" "),
+        _c("div", { staticClass: "flex gap-[3px]" }, [
+          _c("div", { staticClass: "w-1.5 h-1.5 rounded-full bg-transparent" }),
+          _vm._v(" "),
+          _c("div", { staticClass: "w-1.5 h-1.5 rounded-full bg-gray-300" }),
+          _vm._v(" "),
+          _c("div", { staticClass: "w-1.5 h-1.5 rounded-full bg-gray-400" }),
+          _vm._v(" "),
+          _c("div", { staticClass: "w-1.5 h-1.5 rounded-full bg-gray-500" }),
+          _vm._v(" "),
+          _c("div", {
+            staticClass: "w-1.5 h-1.5 rounded-full",
+            staticStyle: { "background-color": "#1b365d" },
+          }),
+          _vm._v(" "),
+          _c("div", {
+            staticClass: "w-1.5 h-1.5 rounded-full",
+            staticStyle: { "background-color": "#1b365d" },
+          }),
+        ]),
+        _vm._v(" "),
+        _c("div", { staticClass: "flex gap-[3px]" }, [
+          _c("div", { staticClass: "w-1.5 h-1.5 rounded-full bg-gray-300" }),
+          _vm._v(" "),
+          _c("div", { staticClass: "w-1.5 h-1.5 rounded-full bg-gray-400" }),
+          _vm._v(" "),
+          _c("div", {
+            staticClass: "w-1.5 h-1.5 rounded-full",
+            staticStyle: { "background-color": "#1b365d" },
+          }),
+          _vm._v(" "),
+          _c("div", {
+            staticClass: "w-1.5 h-1.5 rounded-full",
+            staticStyle: { "background-color": "#1b365d" },
+          }),
+          _vm._v(" "),
+          _c("div", { staticClass: "w-1.5 h-1.5 rounded-full bg-gray-400" }),
+          _vm._v(" "),
+          _c("div", { staticClass: "w-1.5 h-1.5 rounded-full bg-transparent" }),
+        ]),
+        _vm._v(" "),
+        _c("div", { staticClass: "flex gap-[3px]" }, [
+          _c("div", { staticClass: "w-1.5 h-1.5 rounded-full bg-gray-400" }),
+          _vm._v(" "),
+          _c("div", {
+            staticClass: "w-1.5 h-1.5 rounded-full",
+            staticStyle: { "background-color": "#1b365d" },
+          }),
+          _vm._v(" "),
+          _c("div", {
+            staticClass: "w-1.5 h-1.5 rounded-full",
+            staticStyle: { "background-color": "#1b365d" },
+          }),
+          _vm._v(" "),
+          _c("div", { staticClass: "w-1.5 h-1.5 rounded-full bg-gray-500" }),
+          _vm._v(" "),
+          _c("div", { staticClass: "w-1.5 h-1.5 rounded-full bg-gray-300" }),
+          _vm._v(" "),
+          _c("div", { staticClass: "w-1.5 h-1.5 rounded-full bg-transparent" }),
+        ]),
+      ]
+    )
+  },
+  function () {
+    var _vm = this
+    var _h = _vm.$createElement
+    var _c = _vm._self._c || _h
+    return _c("p", { staticClass: "mb-8 text-[15px]" }, [
+      _vm._v(
+        "\n                            Por medio del presente le compartimos su complemento de pago"
+      ),
+      _c("br"),
+      _vm._v(
+        "\n                            correspondiente a las facturas referenciadas.\n                        "
+      ),
+    ])
+  },
+  function () {
+    var _vm = this
+    var _h = _vm.$createElement
+    var _c = _vm._self._c || _h
+    return _c("thead", [
+      _c("tr", [
+        _c(
+          "th",
+          {
+            staticClass:
+              "bg-gray-100 text-gray-500 text-xs font-bold uppercase tracking-wider py-4 px-6 w-[30%]",
+          },
+          [_vm._v("\n                                            FECHA")]
+        ),
+        _vm._v(" "),
+        _c(
+          "th",
+          {
+            staticClass:
+              "bg-gray-100 text-gray-500 text-xs font-bold uppercase tracking-wider py-4 px-6 w-[35%]",
+          },
+          [_vm._v("\n                                            REFERENCIA")]
+        ),
+        _vm._v(" "),
+        _c(
+          "th",
+          {
+            staticClass:
+              "text-xs font-bold uppercase tracking-wider py-4 px-6 w-[35%] text-center border-l border-blue-100",
+            staticStyle: { "background-color": "#f0f4f8", color: "#1b365d" },
+          },
+          [_vm._v("\n                                            COMPLEMENTO")]
+        ),
+      ]),
+    ])
+  },
+]
 render._withStripped = true
 
 
@@ -90183,7 +92385,7 @@ var render = function () {
                                 "label",
                                 {
                                   staticClass:
-                                    "inline-flex items-center cursor-pointer bg-blue-50 px-4 py-3 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors shadow-sm",
+                                    "inline-flex items-center cursor-pointer bg-blue-100 px-4 py-3 rounded-lg border border-blue-200 hover:bg-blue-200 transition-colors shadow-sm",
                                 },
                                 [
                                   _c("input", {
@@ -90250,7 +92452,7 @@ var render = function () {
                                 "label",
                                 {
                                   staticClass:
-                                    "inline-flex items-center cursor-pointer bg-purple-50 px-4 py-3 rounded-lg border border-purple-200 hover:bg-purple-100 transition-colors shadow-sm",
+                                    "inline-flex items-center cursor-pointer bg-purple-100 px-4 py-3 rounded-lg border border-purple-200 hover:bg-purple-200 transition-colors shadow-sm",
                                 },
                                 [
                                   _c("input", {
@@ -90393,11 +92595,7 @@ var render = function () {
                       staticClass:
                         "block text-base font-bold text-gray-500 uppercase mb-2",
                     },
-                    [
-                      _vm._v(
-                        "RAZÓN SOCIAL CLIENTE (Filtra los folios)\n          *"
-                      ),
-                    ]
+                    [_vm._v("RAZÓN SOCIAL CLIENTE (Filtra los folios) *")]
                   ),
                   _vm._v(" "),
                   _c("multiselect", {
@@ -90520,7 +92718,7 @@ var render = function () {
                       },
                       [
                         _vm._v(
-                          "⚠️ Selecciona una\n          sucursal\n          para cargar la lista."
+                          "⚠️ Selecciona una sucursal para cargar la lista."
                         ),
                       ]
                     )
@@ -90547,7 +92745,7 @@ var render = function () {
                     },
                   ],
                   staticClass:
-                    "w-full border border-gray-300 rounded-lg px-5 py-4 text-3xl font-black text-purple-700 focus:outline-none focus:border-[#2A3A4D]",
+                    "w-full border border-gray-300 rounded-lg px-5 py-4 text-3xl font-black text-purple-700 focus:outline-none focus:border-gray-400",
                   attrs: { type: "number", step: "0.01", placeholder: "0.00" },
                   domProps: { value: _vm.form.monto_deposito },
                   on: {
@@ -90565,7 +92763,7 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "col-span-2 flex items-center gap-8 mt-2 p-5 bg-gray-50 border border-gray-200 rounded-xl",
+                    "col-span-2 flex items-center gap-8 mt-2 p-5 bg-gray-100 border border-gray-200 rounded-xl",
                 },
                 [
                   _c(
@@ -90594,7 +92792,8 @@ var render = function () {
                             },
                           ],
                           staticClass:
-                            "form-checkbox h-6 w-6 text-[#00C09F] focus:ring-[#00C09F] cursor-pointer rounded",
+                            "form-checkbox h-6 w-6 focus:ring-teal-500 cursor-pointer rounded",
+                          staticStyle: { color: "#00C09F" },
                           attrs: { type: "checkbox", value: "CFDI" },
                           domProps: {
                             checked: Array.isArray(_vm.tiposComprobanteArray)
@@ -90653,7 +92852,8 @@ var render = function () {
                             },
                           ],
                           staticClass:
-                            "form-checkbox h-6 w-6 text-[#00C09F] focus:ring-[#00C09F] cursor-pointer rounded",
+                            "form-checkbox h-6 w-6 focus:ring-teal-500 cursor-pointer rounded",
+                          staticStyle: { color: "#00C09F" },
                           attrs: { type: "checkbox", value: "Nota Cargo" },
                           domProps: {
                             checked: Array.isArray(_vm.tiposComprobanteArray)
@@ -90706,14 +92906,16 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "col-span-2 mt-4 border border-[#2A3A4D] rounded-xl p-6 bg-gray-50/50",
+                    "col-span-2 mt-4 border rounded-xl p-6 bg-gray-100",
+                  staticStyle: { "border-color": "#2A3A4D" },
                 },
                 [
                   _c(
                     "h4",
                     {
                       staticClass:
-                        "text-lg font-extrabold text-[#2A3A4D] uppercase tracking-wide mb-6",
+                        "text-lg font-extrabold uppercase tracking-wide mb-6",
+                      staticStyle: { color: "#2A3A4D" },
                     },
                     [_vm._v("DESGLOSE:")]
                   ),
@@ -90739,7 +92941,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -90776,7 +92978,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -90810,7 +93012,7 @@ var render = function () {
                           _vm._v(" "),
                           _c("input", {
                             staticClass:
-                              "w-full border border-emerald-200 rounded-lg px-4 py-3 text-xl bg-emerald-50 text-emerald-700 font-bold focus:outline-none cursor-not-allowed",
+                              "w-full border border-emerald-200 rounded-lg px-4 py-3 text-xl bg-emerald-100 text-emerald-700 font-bold focus:outline-none cursor-not-allowed",
                             attrs: { readonly: "", type: "number" },
                             domProps: {
                               value: (
@@ -90842,7 +93044,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -90883,7 +93085,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-[#2A3A4D]",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -90921,7 +93123,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -90961,7 +93163,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -91001,7 +93203,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -91041,7 +93243,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -91081,7 +93283,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -91117,7 +93319,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -91158,7 +93360,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -91198,7 +93400,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -91238,7 +93440,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -91274,7 +93476,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -91314,7 +93516,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -91350,7 +93552,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -91390,7 +93592,7 @@ var render = function () {
                               },
                             ],
                             staticClass:
-                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl",
+                              "w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800",
                             attrs: {
                               type: "number",
                               step: "0.01",
@@ -91459,7 +93661,8 @@ var render = function () {
                           _c(
                             "span",
                             {
-                              staticClass: "text-2xl font-black text-[#00C09F]",
+                              staticClass: "text-2xl font-black",
+                              staticStyle: { color: "#00C09F" },
                             },
                             [
                               _vm._v(
@@ -91474,7 +93677,7 @@ var render = function () {
                         "div",
                         {
                           staticClass:
-                            "flex items-center gap-4 bg-yellow-50 border border-yellow-200 px-6 py-3 rounded-lg ml-auto",
+                            "flex items-center gap-4 bg-yellow-100 border border-yellow-200 px-6 py-3 rounded-lg ml-auto",
                         },
                         [
                           _c(
@@ -91507,7 +93710,7 @@ var render = function () {
             "div",
             {
               staticClass:
-                "px-8 py-6 border-t border-gray-200 flex justify-end gap-6 bg-gray-50 shrink-0",
+                "px-8 py-6 border-t border-gray-200 flex justify-end gap-6 bg-gray-100 shrink-0",
             },
             [
               _c(
@@ -91822,7 +94025,7 @@ var render = function () {
             "div",
             {
               staticClass:
-                "px-8 py-6 border-t border-gray-200 flex justify-end gap-6 bg-gray-50 rounded-b-xl",
+                "px-8 py-6 border-t border-gray-200 flex justify-end gap-6 bg-gray-100 rounded-b-xl",
             },
             [
               _c(
@@ -91901,14 +94104,16 @@ var render = function () {
             "div",
             {
               staticClass:
-                "bg-white rounded-xl shadow-2xl w-full max-w-6xl flex flex-col h-[90vh] overflow-hidden",
+                "bg-white rounded-xl shadow-2xl w-full max-w-6xl flex flex-col overflow-hidden",
+              staticStyle: { height: "90vh" },
             },
             [
               _c(
                 "div",
                 {
                   staticClass:
-                    "bg-[#2A3A4D] px-6 py-4 flex justify-between items-center shrink-0 shadow-md z-10",
+                    "px-6 py-4 flex justify-between items-center shrink-0 shadow-md z-10",
+                  staticStyle: { "background-color": "#2A3A4D" },
                 },
                 [
                   _c(
@@ -91960,7 +94165,10 @@ var render = function () {
               _vm._v(" "),
               _c(
                 "div",
-                { staticClass: "flex-1 bg-gray-200 relative w-full h-full" },
+                {
+                  staticClass:
+                    "flex-1 bg-gray-200 relative w-full flex flex-col",
+                },
                 [
                   _vm.cargando
                     ? _c(
@@ -92024,7 +94232,7 @@ var render = function () {
                         expression: "!cargando",
                       },
                     ],
-                    staticClass: "w-full h-full border-0",
+                    staticClass: "w-full flex-1 border-0",
                     attrs: { src: _vm.urlPdf },
                     on: {
                       load: function ($event) {
@@ -92150,16 +94358,7 @@ var render = function () {
                 _c(
                   "p",
                   { staticClass: "text-4xl font-black text-gray-800 mb-2" },
-                  [
-                    _vm._v(
-                      "$" +
-                        _vm._s(
-                          _vm.totalDepositos.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                          })
-                        )
-                    ),
-                  ]
+                  [_vm._v(_vm._s(_vm.formatearDinero(_vm.totalDepositos)))]
                 ),
                 _vm._v(" "),
                 _c(
@@ -92176,7 +94375,7 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "w-16 h-16 rounded-xl bg-teal-50 text-teal-500 flex items-center justify-center shrink-0",
+                    "w-16 h-16 rounded-xl bg-teal-100 text-teal-500 flex items-center justify-center shrink-0",
                 },
                 [
                   _c(
@@ -92226,16 +94425,7 @@ var render = function () {
                 _c(
                   "p",
                   { staticClass: "text-4xl font-black text-purple-700 mb-2" },
-                  [
-                    _vm._v(
-                      "$" +
-                        _vm._s(
-                          _vm.totalHonorarios.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                          })
-                        )
-                    ),
-                  ]
+                  [_vm._v(_vm._s(_vm.formatearDinero(_vm.totalHonorarios)))]
                 ),
                 _vm._v(" "),
                 _c(
@@ -92252,7 +94442,7 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "w-16 h-16 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center shrink-0",
+                    "w-16 h-16 rounded-xl bg-purple-100 text-purple-500 flex items-center justify-center shrink-0",
                 },
                 [
                   _c(
@@ -92302,16 +94492,7 @@ var render = function () {
                 _c(
                   "p",
                   { staticClass: "text-4xl font-black text-pink-600 mb-2" },
-                  [
-                    _vm._v(
-                      "$" +
-                        _vm._s(
-                          _vm.totalNotaCargo.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                          })
-                        )
-                    ),
-                  ]
+                  [_vm._v(_vm._s(_vm.formatearDinero(_vm.totalNotaCargo)))]
                 ),
                 _vm._v(" "),
                 _c(
@@ -92328,7 +94509,7 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "w-16 h-16 rounded-xl bg-pink-50 text-pink-500 flex items-center justify-center shrink-0",
+                    "w-16 h-16 rounded-xl bg-pink-100 text-pink-500 flex items-center justify-center shrink-0",
                 },
                 [
                   _c(
@@ -92380,12 +94561,7 @@ var render = function () {
                   { staticClass: "text-4xl font-black text-gray-800 mb-2" },
                   [
                     _vm._v(
-                      "$" +
-                        _vm._s(
-                          _vm.totalSaldosAplicados.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                          })
-                        )
+                      _vm._s(_vm.formatearDinero(_vm.totalSaldosAplicados))
                     ),
                   ]
                 ),
@@ -92404,7 +94580,7 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "w-16 h-16 rounded-xl bg-orange-50 text-orange-400 flex items-center justify-center shrink-0",
+                    "w-16 h-16 rounded-xl bg-orange-100 text-orange-400 flex items-center justify-center shrink-0",
                 },
                 [
                   _c(
@@ -92454,16 +94630,7 @@ var render = function () {
                 _c(
                   "p",
                   { staticClass: "text-4xl font-black text-gray-800 mb-2" },
-                  [
-                    _vm._v(
-                      "$" +
-                        _vm._s(
-                          _vm.totalSaldos.toLocaleString("en-US", {
-                            minimumFractionDigits: 2,
-                          })
-                        )
-                    ),
-                  ]
+                  [_vm._v(_vm._s(_vm.formatearDinero(_vm.totalSaldos)))]
                 ),
                 _vm._v(" "),
                 _c(
@@ -92480,7 +94647,7 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "w-16 h-16 rounded-xl bg-blue-50 text-blue-400 flex items-center justify-center shrink-0",
+                    "w-16 h-16 rounded-xl bg-blue-100 text-blue-400 flex items-center justify-center shrink-0",
                 },
                 [
                   _c(
@@ -92529,7 +94696,7 @@ var render = function () {
                     "px-8 py-4 rounded-lg text-xl font-bold shadow-sm whitespace-nowrap transition-colors",
                     _vm.activeTab === "ingresos"
                       ? "bg-blue-500 text-white"
-                      : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50",
+                      : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-100",
                   ],
                   on: {
                     click: function ($event) {
@@ -92544,10 +94711,10 @@ var render = function () {
                 "button",
                 {
                   class: [
-                    "px-8 py-4 rounded-lg text-xl font-bold shadow-sm whitespace-nowrap transition-colors",
+                    "px-6 py-3 rounded-lg text-base font-bold shadow-sm whitespace-nowrap transition-colors",
                     _vm.activeTab === "saldos"
                       ? "bg-blue-500 text-white"
-                      : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50",
+                      : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-100",
                   ],
                   on: {
                     click: function ($event) {
@@ -92565,7 +94732,7 @@ var render = function () {
                     "px-8 py-4 rounded-lg text-xl font-bold shadow-sm whitespace-nowrap transition-colors",
                     _vm.activeTab === "saldos_aplicados"
                       ? "bg-blue-500 text-white"
-                      : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50",
+                      : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-100",
                   ],
                   on: {
                     click: function ($event) {
@@ -92647,223 +94814,60 @@ var render = function () {
             "div",
             {
               staticClass:
-                "px-8 py-6 bg-gray-50 border-b border-gray-200 flex flex-wrap items-center gap-8",
+                "bg-gray-100 border border-gray-200 rounded-xl p-5 mb-6 mx-8 mt-8 flex flex-col gap-5 shadow-sm",
             },
             [
-              _c("div", { staticClass: "flex items-center gap-3" }, [
+              _c("div", { staticClass: "flex items-center justify-between" }, [
                 _c(
-                  "svg",
-                  {
-                    staticClass: "w-6 h-6 text-green-600",
-                    attrs: {
-                      fill: "none",
-                      stroke: "currentColor",
-                      viewBox: "0 0 24 24",
-                    },
-                  },
+                  "div",
+                  { staticClass: "flex items-center gap-2 text-gray-700" },
                   [
-                    _c("path", {
-                      attrs: {
-                        "stroke-linecap": "round",
-                        "stroke-linejoin": "round",
-                        "stroke-width": "2",
-                        d: "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
+                    _c(
+                      "svg",
+                      {
+                        staticClass: "w-6 h-6 text-emerald-600",
+                        attrs: {
+                          fill: "none",
+                          stroke: "currentColor",
+                          viewBox: "0 0 24 24",
+                        },
                       },
-                    }),
+                      [
+                        _c("path", {
+                          attrs: {
+                            "stroke-linecap": "round",
+                            "stroke-linejoin": "round",
+                            "stroke-width": "2",
+                            d: "M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z",
+                          },
+                        }),
+                      ]
+                    ),
+                    _vm._v(" "),
+                    _c(
+                      "span",
+                      {
+                        staticClass:
+                          "text-lg font-black uppercase tracking-wider",
+                      },
+                      [_vm._v("Filtros")]
+                    ),
                   ]
                 ),
                 _vm._v(" "),
-                _c("span", { staticClass: "text-xl font-bold text-gray-700" }, [
-                  _vm._v("Filtros:"),
-                ]),
-              ]),
-              _vm._v(" "),
-              _c(
-                "div",
-                {
-                  staticClass: "flex items-center gap-4 z-20 shrink-0",
-                  staticStyle: { "min-width": "320px" },
-                },
-                [
-                  _c(
-                    "span",
-                    { staticClass: "text-xl text-gray-600 shrink-0" },
-                    [_vm._v("Cliente:")]
-                  ),
-                  _vm._v(" "),
-                  _c("multiselect", {
-                    staticClass: "custom-filter-multiselect w-full",
-                    attrs: {
-                      options: _vm.opcionesFiltroCliente,
-                      "show-labels": false,
-                      placeholder: "Todos",
-                    },
-                    model: {
-                      value: _vm.filtros.cliente,
-                      callback: function ($$v) {
-                        _vm.$set(_vm.filtros, "cliente", $$v)
-                      },
-                      expression: "filtros.cliente",
-                    },
-                  }),
-                ],
-                1
-              ),
-              _vm._v(" "),
-              _c(
-                "div",
-                {
-                  staticClass: "flex items-center gap-4 z-10 shrink-0",
-                  staticStyle: { "min-width": "240px" },
-                },
-                [
-                  _c(
-                    "span",
-                    { staticClass: "text-xl text-gray-600 shrink-0" },
-                    [_vm._v("Servicio:")]
-                  ),
-                  _vm._v(" "),
-                  _c("multiselect", {
-                    staticClass: "custom-filter-multiselect w-full",
-                    attrs: {
-                      options: _vm.opcionesTipoServicio,
-                      placeholder: "Todos",
-                      "show-labels": false,
-                      "allow-empty": false,
-                    },
-                    model: {
-                      value: _vm.filtros.tipoServicio,
-                      callback: function ($$v) {
-                        _vm.$set(_vm.filtros, "tipoServicio", $$v)
-                      },
-                      expression: "filtros.tipoServicio",
-                    },
-                  }),
-                ],
-                1
-              ),
-              _vm._v(" "),
-              _c(
-                "div",
-                {
-                  staticClass: "flex items-center gap-4 z-10 shrink-0",
-                  staticStyle: { "min-width": "240px" },
-                },
-                [
-                  _c(
-                    "span",
-                    { staticClass: "text-xl text-gray-600 shrink-0" },
-                    [_vm._v("Tipo operación:")]
-                  ),
-                  _vm._v(" "),
-                  _c("multiselect", {
-                    staticClass: "custom-filter-multiselect w-full",
-                    attrs: {
-                      options: _vm.opcionesTipoOperacion,
-                      "track-by": "id",
-                      label: "label",
-                      "show-labels": false,
-                      searchable: false,
-                      "allow-empty": false,
-                      placeholder: "Seleccione...",
-                    },
-                    model: {
-                      value: _vm.filtros.tipoOperacion,
-                      callback: function ($$v) {
-                        _vm.$set(_vm.filtros, "tipoOperacion", $$v)
-                      },
-                      expression: "filtros.tipoOperacion",
-                    },
-                  }),
-                ],
-                1
-              ),
-              _vm._v(" "),
-              _c(
-                "div",
-                {
-                  staticClass: "flex items-center gap-4 z-10 shrink-0",
-                  staticStyle: { "min-width": "260px" },
-                },
-                [
-                  _c(
-                    "span",
-                    { staticClass: "text-xl text-gray-600 shrink-0" },
-                    [_vm._v("TIPO COMPROBANTE:")]
-                  ),
-                  _vm._v(" "),
-                  _c("multiselect", {
-                    staticClass: "custom-filter-multiselect w-full",
-                    attrs: {
-                      options: _vm.opcionesComprobante,
-                      placeholder: "Seleccione...",
-                      "show-labels": false,
-                      "allow-empty": false,
-                    },
-                    on: { input: _vm.cargarIngresos },
-                    model: {
-                      value: _vm.filtros.tipo_comprobante,
-                      callback: function ($$v) {
-                        _vm.$set(_vm.filtros, "tipo_comprobante", $$v)
-                      },
-                      expression: "filtros.tipo_comprobante",
-                    },
-                  }),
-                ],
-                1
-              ),
-              _vm._v(" "),
-              _c(
-                "div",
-                {
-                  staticClass: "flex items-center gap-4 z-10 shrink-0",
-                  staticStyle: { "min-width": "320px" },
-                },
-                [
-                  _c(
-                    "span",
-                    { staticClass: "text-xl text-gray-600 shrink-0" },
-                    [_vm._v("Fechas:")]
-                  ),
-                  _vm._v(" "),
-                  _c("VueCtkDateTimePicker", {
-                    staticClass: "custom-filter-datepicker w-full",
-                    attrs: {
-                      format: "YYYY-MM-DD",
-                      formatted: "YYYY-MM-DD",
-                      color: "#1d4ed8",
-                      "button-color": "#1d4ed8",
-                      "only-date": true,
-                      range: true,
-                      "no-label": true,
-                      "input-size": "sm",
-                      placeholder: "Seleccione un rango...",
-                    },
-                    model: {
-                      value: _vm.filtros.rangoFechas,
-                      callback: function ($$v) {
-                        _vm.$set(_vm.filtros, "rangoFechas", $$v)
-                      },
-                      expression: "filtros.rangoFechas",
-                    },
-                  }),
-                ],
-                1
-              ),
-              _vm._v(" "),
-              _c("div", { staticClass: "flex items-center ml-auto" }, [
                 _c(
                   "button",
                   {
                     staticClass:
-                      "flex items-center gap-3 px-8 py-3 bg-gray-200 hover:bg-gray-300 text-gray-600 hover:text-gray-700 text-lg font-extrabold rounded-lg transition-colors shadow-sm",
+                      "bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-5 rounded-lg flex items-center gap-2 transition-colors",
+                    attrs: { type: "button" },
                     on: { click: _vm.limpiarFiltros },
                   },
                   [
                     _c(
                       "svg",
                       {
-                        staticClass: "w-6 h-6",
+                        staticClass: "w-5 h-5",
                         attrs: {
                           fill: "none",
                           stroke: "currentColor",
@@ -92885,1323 +94889,340 @@ var render = function () {
                   ]
                 ),
               ]),
+              _vm._v(" "),
+              _c(
+                "div",
+                {
+                  staticClass:
+                    "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4",
+                },
+                [
+                  _c(
+                    "div",
+                    { staticClass: "flex flex-col" },
+                    [
+                      _c(
+                        "label",
+                        {
+                          staticClass:
+                            "text-xs font-bold text-gray-500 uppercase mb-1",
+                        },
+                        [_vm._v("Cliente:")]
+                      ),
+                      _vm._v(" "),
+                      _c("multiselect", {
+                        attrs: {
+                          options: _vm.opcionesFiltroCliente,
+                          placeholder: "Todos",
+                          searchable: true,
+                          "show-labels": false,
+                        },
+                        model: {
+                          value: _vm.filtros.cliente,
+                          callback: function ($$v) {
+                            _vm.$set(_vm.filtros, "cliente", $$v)
+                          },
+                          expression: "filtros.cliente",
+                        },
+                      }),
+                    ],
+                    1
+                  ),
+                  _vm._v(" "),
+                  _c(
+                    "div",
+                    { staticClass: "flex flex-col" },
+                    [
+                      _c(
+                        "label",
+                        {
+                          staticClass:
+                            "text-xs font-bold text-gray-500 uppercase mb-1",
+                        },
+                        [_vm._v("Servicio:")]
+                      ),
+                      _vm._v(" "),
+                      _c("multiselect", {
+                        attrs: {
+                          options: _vm.opcionesTipoServicio,
+                          placeholder: "Todos",
+                          searchable: true,
+                          "show-labels": false,
+                        },
+                        model: {
+                          value: _vm.filtros.tipoServicio,
+                          callback: function ($$v) {
+                            _vm.$set(_vm.filtros, "tipoServicio", $$v)
+                          },
+                          expression: "filtros.tipoServicio",
+                        },
+                      }),
+                    ],
+                    1
+                  ),
+                  _vm._v(" "),
+                  _c(
+                    "div",
+                    { staticClass: "flex flex-col" },
+                    [
+                      _c(
+                        "label",
+                        {
+                          staticClass:
+                            "text-xs font-bold text-gray-500 uppercase mb-1",
+                        },
+                        [_vm._v("Tipo\n            Operación:")]
+                      ),
+                      _vm._v(" "),
+                      _c("multiselect", {
+                        attrs: {
+                          options: _vm.opcionesTipoOperacion,
+                          "track-by": "id",
+                          label: "label",
+                          placeholder: "Ambos",
+                          searchable: false,
+                          "show-labels": false,
+                        },
+                        model: {
+                          value: _vm.filtros.tipoOperacion,
+                          callback: function ($$v) {
+                            _vm.$set(_vm.filtros, "tipoOperacion", $$v)
+                          },
+                          expression: "filtros.tipoOperacion",
+                        },
+                      }),
+                    ],
+                    1
+                  ),
+                  _vm._v(" "),
+                  _c(
+                    "div",
+                    { staticClass: "flex flex-col" },
+                    [
+                      _c(
+                        "label",
+                        {
+                          staticClass:
+                            "text-xs font-bold text-gray-500 uppercase mb-1",
+                        },
+                        [_vm._v("Tipo\n            Comprobante:")]
+                      ),
+                      _vm._v(" "),
+                      _c("multiselect", {
+                        attrs: {
+                          options: _vm.opcionesComprobante,
+                          placeholder: "Todos",
+                          searchable: false,
+                          "show-labels": false,
+                        },
+                        on: { input: _vm.cargarIngresos },
+                        model: {
+                          value: _vm.filtros.tipo_comprobante,
+                          callback: function ($$v) {
+                            _vm.$set(_vm.filtros, "tipo_comprobante", $$v)
+                          },
+                          expression: "filtros.tipo_comprobante",
+                        },
+                      }),
+                    ],
+                    1
+                  ),
+                  _vm._v(" "),
+                  _c(
+                    "div",
+                    { staticClass: "flex flex-col" },
+                    [
+                      _c(
+                        "label",
+                        {
+                          staticClass:
+                            "text-xs font-bold text-gray-500 uppercase mb-1",
+                        },
+                        [_vm._v("Fechas:")]
+                      ),
+                      _vm._v(" "),
+                      _c("VueCtkDateTimePicker", {
+                        attrs: {
+                          format: "YYYY-MM-DD",
+                          formatted: "YYYY-MM-DD",
+                          color: "#1d4ed8",
+                          "button-color": "#1d4ed8",
+                          range: true,
+                          label: "Select date & time",
+                        },
+                        model: {
+                          value: _vm.filtros.rangoFechas,
+                          callback: function ($$v) {
+                            _vm.$set(_vm.filtros, "rangoFechas", $$v)
+                          },
+                          expression: "filtros.rangoFechas",
+                        },
+                      }),
+                    ],
+                    1
+                  ),
+                  _vm._v(" "),
+                  _c(
+                    "div",
+                    { staticClass: "flex flex-col" },
+                    [
+                      _c(
+                        "label",
+                        {
+                          staticClass:
+                            "text-xs font-bold text-gray-500 uppercase mb-1",
+                        },
+                        [_vm._v("Envío de\n            Comp.:")]
+                      ),
+                      _vm._v(" "),
+                      _c("multiselect", {
+                        attrs: {
+                          options: _vm.opcionesEstadoEnvio,
+                          "track-by": "id",
+                          label: "label",
+                          placeholder: "Todos",
+                          searchable: false,
+                          "show-labels": false,
+                        },
+                        model: {
+                          value: _vm.filtros.estado_envio,
+                          callback: function ($$v) {
+                            _vm.$set(_vm.filtros, "estado_envio", $$v)
+                          },
+                          expression: "filtros.estado_envio",
+                        },
+                      }),
+                    ],
+                    1
+                  ),
+                ]
+              ),
             ]
           ),
           _vm._v(" "),
           _c(
             "div",
             {
-              staticClass: "overflow-x-auto flex-1 custom-scrollbar",
-              staticStyle: { "padding-bottom": "200px" },
+              staticClass:
+                "flex-1 overflow-y-auto custom-scrollbar px-6 pb-6 bg-gray-50 pt-4 rounded-b-xl flex flex-col",
             },
             [
-              _c(
-                "table",
-                {
-                  staticClass:
-                    "w-full text-left text-lg border-collapse whitespace-nowrap",
-                  staticStyle: { "min-width": "4200px" },
-                },
-                [
-                  _c(
-                    "thead",
+              _vm._l(_vm.paginatedIngresos, function (item) {
+                return _c("IngresoCard", {
+                  key: item.id,
+                  attrs: {
+                    item: item,
+                    "es-vista-intshipperts": _vm.esVistaIntshipperts,
+                    "es-vista-transportactics": _vm.esVistaTransportactics,
+                    "es-vista-manzanillo": _vm.esVistaManzanillo,
+                  },
+                  on: {
+                    generar: _vm.generarComplemento,
+                    visualizar: _vm.visualizarComplemento,
+                    enviar: _vm.enviarCorreoComplemento,
+                    editar: _vm.abrirModalEditarIngreso,
+                    eliminar: _vm.eliminarFila,
+                  },
+                })
+              }),
+              _vm._v(" "),
+              _vm.ingresosFiltrados.length === 0
+                ? _c(
+                    "div",
                     {
                       staticClass:
-                        "bg-slate-100 text-slate-600 font-extrabold uppercase tracking-wider border-b-4 border-slate-300",
+                        "text-center py-16 text-lg text-gray-500 bg-white rounded-xl shadow-sm border border-gray-200 font-bold mt-4",
                     },
                     [
+                      _vm._v(
+                        "\n        No se encontraron registros de ingresos para estos filtros.\n      "
+                      ),
+                    ]
+                  )
+                : _vm._e(),
+              _vm._v(" "),
+              _vm.totalPages > 1
+                ? _c(
+                    "div",
+                    { staticClass: "mt-auto pt-8 pb-4 flex justify-center" },
+                    [
                       _c(
-                        "tr",
+                        "div",
+                        {
+                          staticClass:
+                            "flex items-center gap-1 bg-white p-2 rounded-md shadow-sm border border-gray-200",
+                        },
                         [
                           _c(
-                            "th",
+                            "button",
                             {
                               staticClass:
-                                "px-6 py-5 border-r border-slate-200",
-                              staticStyle: {
-                                "min-width": "180px",
-                                width: "180px",
-                              },
+                                "px-3 py-1.5 border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 rounded text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
+                              attrs: { disabled: _vm.currentPage === 1 },
+                              on: { click: _vm.paginaAnterior },
                             },
-                            [_vm._v("SUCURSAL")]
+                            [_vm._v("\n            « Anterior\n          ")]
                           ),
                           _vm._v(" "),
-                          _c(
-                            "th",
-                            {
-                              staticClass:
-                                "px-6 py-5 border-r border-slate-200",
-                              staticStyle: {
-                                "min-width": "180px",
-                                width: "180px",
-                              },
-                            },
-                            [_vm._v("BANCO")]
-                          ),
-                          _vm._v(" "),
-                          _c(
-                            "th",
-                            {
-                              staticClass:
-                                "px-6 py-5 border-r border-slate-200",
-                              staticStyle: {
-                                "min-width": "180px",
-                                width: "180px",
-                              },
-                            },
-                            [_vm._v("FECHA")]
-                          ),
-                          _vm._v(" "),
-                          _c(
-                            "th",
-                            {
-                              staticClass:
-                                "px-6 py-5 border-r border-slate-200",
-                              staticStyle: {
-                                "min-width": "220px",
-                                width: "220px",
-                              },
-                            },
-                            [_vm._v("CLIENTE")]
-                          ),
-                          _vm._v(" "),
-                          _c(
-                            "th",
-                            {
-                              staticClass:
-                                "px-6 py-5 border-r border-slate-200",
-                              staticStyle: {
-                                "min-width": "180px",
-                                width: "180px",
-                              },
-                            },
-                            [_vm._v("REFERENCIA")]
-                          ),
-                          _vm._v(" "),
-                          _c(
-                            "th",
-                            {
-                              staticClass:
-                                "px-6 py-5 border-r border-slate-200 text-purple-700",
-                              staticStyle: {
-                                "min-width": "180px",
-                                width: "180px",
-                              },
-                            },
-                            [_vm._v("\n              MONTO DEPOSITO")]
-                          ),
-                          _vm._v(" "),
-                          _vm.esVistaIntshipperts
-                            ? [
-                                _c(
-                                  "th",
-                                  {
-                                    staticClass:
-                                      "px-6 py-5 border-r border-slate-200",
-                                    staticStyle: {
-                                      "min-width": "180px",
-                                      width: "180px",
+                          _vm._l(_vm.visiblePages, function (page, index) {
+                            return [
+                              page === "..."
+                                ? _c(
+                                    "span",
+                                    {
+                                      key: "dots-" + index,
+                                      staticClass:
+                                        "px-3 py-1.5 text-gray-400 font-medium text-sm",
                                     },
-                                  },
-                                  [_vm._v("ANTICIPO")]
-                                ),
-                                _vm._v(" "),
-                                _c(
-                                  "th",
-                                  {
-                                    staticClass:
-                                      "px-6 py-5 border-r border-slate-200",
-                                    staticStyle: {
-                                      "min-width": "180px",
-                                      width: "180px",
+                                    [_vm._v("...")]
+                                  )
+                                : _c(
+                                    "button",
+                                    {
+                                      key: "page-" + index,
+                                      class: [
+                                        "px-3 py-1.5 border rounded text-sm font-medium transition-colors min-w-[36px] text-center",
+                                        _vm.currentPage === page
+                                          ? "bg-blue-50 border-blue-200 text-blue-700 font-bold"
+                                          : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50",
+                                      ],
+                                      on: {
+                                        click: function ($event) {
+                                          return _vm.gotoPage(page)
+                                        },
+                                      },
                                     },
-                                  },
-                                  [_vm._v("ALMAN / FLETE\n              ")]
-                                ),
-                              ]
-                            : _vm.esVistaTransportactics
-                            ? [
-                                _c(
-                                  "th",
-                                  {
-                                    staticClass:
-                                      "px-6 py-5 border-r border-slate-200",
-                                    staticStyle: {
-                                      "min-width": "180px",
-                                      width: "180px",
-                                    },
-                                  },
-                                  [_vm._v("FLETE (XML)")]
-                                ),
-                                _vm._v(" "),
-                                _c(
-                                  "th",
-                                  {
-                                    staticClass:
-                                      "px-6 py-5 border-r border-slate-200",
-                                    staticStyle: {
-                                      "min-width": "180px",
-                                      width: "180px",
-                                    },
-                                  },
-                                  [_vm._v("PAGO PROVEEDOR\n              ")]
-                                ),
-                                _vm._v(" "),
-                                _c(
-                                  "th",
-                                  {
-                                    staticClass:
-                                      "px-6 py-5 border-r border-slate-200 text-emerald-600",
-                                    staticStyle: {
-                                      "min-width": "180px",
-                                      width: "180px",
-                                    },
-                                  },
-                                  [_vm._v("GANANCIA")]
-                                ),
-                              ]
-                            : [
-                                !_vm.esVistaManzanillo
-                                  ? [
-                                      _c(
-                                        "th",
-                                        {
-                                          staticClass:
-                                            "px-6 py-5 border-r border-slate-200",
-                                          staticStyle: {
-                                            "min-width": "180px",
-                                            width: "180px",
-                                          },
-                                        },
-                                        [_vm._v("HONORARIOS\n                ")]
-                                      ),
-                                      _vm._v(" "),
-                                      _c(
-                                        "th",
-                                        {
-                                          staticClass:
-                                            "px-6 py-5 border-r border-slate-200",
-                                          staticStyle: {
-                                            "min-width": "180px",
-                                            width: "180px",
-                                          },
-                                        },
-                                        [_vm._v("Total GPC\n                ")]
-                                      ),
-                                      _vm._v(" "),
-                                      _c(
-                                        "th",
-                                        {
-                                          staticClass:
-                                            "px-6 py-5 border-r border-slate-200",
-                                          staticStyle: {
-                                            "min-width": "180px",
-                                            width: "180px",
-                                          },
-                                        },
-                                        [_vm._v("IMPUESTOS")]
-                                      ),
-                                      _vm._v(" "),
-                                      _c(
-                                        "th",
-                                        {
-                                          staticClass:
-                                            "px-6 py-5 border-r border-slate-200",
-                                          staticStyle: {
-                                            "min-width": "180px",
-                                            width: "180px",
-                                          },
-                                        },
-                                        [_vm._v("ECI")]
-                                      ),
-                                      _vm._v(" "),
-                                      _c(
-                                        "th",
-                                        {
-                                          staticClass:
-                                            "px-6 py-5 border-r border-slate-200",
-                                          staticStyle: {
-                                            "min-width": "180px",
-                                            width: "180px",
-                                          },
-                                        },
-                                        [_vm._v("MANIOBRAS")]
-                                      ),
-                                      _vm._v(" "),
-                                      _c(
-                                        "th",
-                                        {
-                                          staticClass:
-                                            "px-6 py-5 border-r border-slate-200",
-                                          staticStyle: {
-                                            "min-width": "180px",
-                                            width: "180px",
-                                          },
-                                        },
-                                        [_vm._v("FLETE")]
-                                      ),
-                                      _vm._v(" "),
-                                      _c(
-                                        "th",
-                                        {
-                                          staticClass:
-                                            "px-6 py-5 border-r border-slate-200",
-                                          staticStyle: {
-                                            "min-width": "180px",
-                                            width: "180px",
-                                          },
-                                        },
-                                        [_vm._v("MUESTRAS")]
-                                      ),
-                                      _vm._v(" "),
-                                      _c(
-                                        "th",
-                                        {
-                                          staticClass:
-                                            "px-6 py-5 border-r border-slate-200",
-                                          staticStyle: {
-                                            "min-width": "180px",
-                                            width: "180px",
-                                          },
-                                        },
-                                        [_vm._v("LLC")]
+                                    [
+                                      _vm._v(
+                                        "\n              " +
+                                          _vm._s(page) +
+                                          "\n            "
                                       ),
                                     ]
-                                  : [
-                                      _c(
-                                        "th",
-                                        {
-                                          staticClass:
-                                            "px-6 py-5 border-r border-slate-200",
-                                          staticStyle: {
-                                            "min-width": "180px",
-                                            width: "180px",
-                                          },
-                                        },
-                                        [_vm._v("ANTICIPO")]
-                                      ),
-                                      _vm._v(" "),
-                                      _c(
-                                        "th",
-                                        {
-                                          staticClass:
-                                            "px-6 py-5 border-r border-slate-200",
-                                          staticStyle: {
-                                            "min-width": "180px",
-                                            width: "180px",
-                                          },
-                                        },
-                                        [_vm._v("GARANTÍAS")]
-                                      ),
-                                      _vm._v(" "),
-                                      _c(
-                                        "th",
-                                        {
-                                          staticClass:
-                                            "px-6 py-5 border-r border-slate-200",
-                                          staticStyle: {
-                                            "min-width": "180px",
-                                            width: "180px",
-                                          },
-                                        },
-                                        [
-                                          _vm._v(
-                                            "DESGLOSE\n                  NAVIERA"
-                                          ),
-                                        ]
-                                      ),
-                                      _vm._v(" "),
-                                      _c(
-                                        "th",
-                                        {
-                                          staticClass:
-                                            "px-6 py-5 border-r border-slate-200",
-                                          staticStyle: {
-                                            "min-width": "180px",
-                                            width: "180px",
-                                          },
-                                        },
-                                        [_vm._v("IMPUESTOS")]
-                                      ),
-                                      _vm._v(" "),
-                                      _c(
-                                        "th",
-                                        {
-                                          staticClass:
-                                            "px-6 py-5 border-r border-slate-200",
-                                          staticStyle: {
-                                            "min-width": "180px",
-                                            width: "180px",
-                                          },
-                                        },
-                                        [
-                                          _vm._v(
-                                            "ALMAN / FLETE\n                "
-                                          ),
-                                        ]
-                                      ),
-                                      _vm._v(" "),
-                                      _c(
-                                        "th",
-                                        {
-                                          staticClass:
-                                            "px-6 py-5 border-r border-slate-200",
-                                          staticStyle: {
-                                            "min-width": "180px",
-                                            width: "180px",
-                                          },
-                                        },
-                                        [_vm._v("HONORARIOS\n                ")]
-                                      ),
-                                    ],
-                              ],
-                          _vm._v(" "),
-                          _c(
-                            "th",
-                            {
-                              staticClass:
-                                "px-6 py-5 border-r border-slate-200",
-                              staticStyle: {
-                                "min-width": "180px",
-                                width: "180px",
-                              },
-                            },
-                            [_vm._v("MONTO SC")]
-                          ),
-                          _vm._v(" "),
-                          _c(
-                            "th",
-                            {
-                              staticClass:
-                                "px-6 py-5 border-r border-slate-200",
-                              staticStyle: {
-                                "min-width": "180px",
-                                width: "180px",
-                              },
-                            },
-                            [_vm._v("DIFERENCIA")]
-                          ),
-                          _vm._v(" "),
-                          _c(
-                            "th",
-                            {
-                              staticClass:
-                                "px-6 py-5 border-r border-slate-200 text-center",
-                              staticStyle: {
-                                "min-width": "220px",
-                                width: "220px",
-                              },
-                            },
-                            [
-                              _vm._v(
-                                "TIPO\n              COMPROBANTE\n            "
-                              ),
+                                  ),
                             ]
-                          ),
+                          }),
                           _vm._v(" "),
                           _c(
-                            "th",
+                            "button",
                             {
                               staticClass:
-                                "px-6 py-5 border-r border-slate-200 text-center",
-                              staticStyle: {
-                                "min-width": "220px",
-                                width: "220px",
+                                "px-3 py-1.5 border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 rounded text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed",
+                              attrs: {
+                                disabled: _vm.currentPage === _vm.totalPages,
                               },
+                              on: { click: _vm.siguientePagina },
                             },
-                            [
-                              _vm._v(
-                                "\n              COMPLEMENTO DE PAGO\n            "
-                              ),
-                            ]
-                          ),
-                          _vm._v(" "),
-                          _c(
-                            "th",
-                            {
-                              staticClass:
-                                "px-6 py-5 border-r border-slate-200 text-center",
-                              staticStyle: {
-                                "min-width": "180px",
-                                width: "180px",
-                              },
-                            },
-                            [_vm._v("\n              ESTATUS")]
-                          ),
-                          _vm._v(" "),
-                          _c(
-                            "th",
-                            {
-                              staticClass: "px-6 py-5 text-center",
-                              staticStyle: {
-                                "min-width": "320px",
-                                width: "320px",
-                              },
-                            },
-                            [_vm._v("ACCIÓN")]
+                            [_vm._v("\n            Siguiente »\n          ")]
                           ),
                         ],
                         2
                       ),
                     ]
-                  ),
-                  _vm._v(" "),
-                  _c(
-                    "tbody",
-                    { staticClass: "bg-white text-slate-700 font-semibold" },
-                    [
-                      _vm._l(_vm.ingresosFiltrados, function (item, index) {
-                        return _c(
-                          "tr",
-                          {
-                            key: item.id,
-                            staticClass:
-                              "border-b border-slate-200 hover:bg-slate-50 transition-colors",
-                          },
-                          [
-                            _c(
-                              "td",
-                              {
-                                staticClass:
-                                  "px-6 py-4 text-xl align-middle border-r border-slate-100 whitespace-nowrap",
-                              },
-                              [_vm._v(_vm._s(item.sucursal_origen || "N/A"))]
-                            ),
-                            _vm._v(" "),
-                            _c(
-                              "td",
-                              {
-                                staticClass:
-                                  "px-6 py-4 text-xl align-middle border-r border-slate-100 whitespace-nowrap",
-                              },
-                              [_vm._v(_vm._s(item.banco_receptor || "N/A"))]
-                            ),
-                            _vm._v(" "),
-                            _c(
-                              "td",
-                              {
-                                staticClass:
-                                  "px-6 py-4 text-xl align-middle border-r border-slate-100",
-                              },
-                              [_vm._v(_vm._s(item.fecha))]
-                            ),
-                            _vm._v(" "),
-                            _c(
-                              "td",
-                              {
-                                staticClass:
-                                  "px-6 py-4 text-xl uppercase align-middle border-r border-slate-100 text-slate-800",
-                              },
-                              [_vm._v(_vm._s(item.cliente) + "\n            ")]
-                            ),
-                            _vm._v(" "),
-                            _c(
-                              "td",
-                              {
-                                staticClass:
-                                  "px-6 py-4 text-center font-bold text-indigo-600 text-xl border-r border-slate-100",
-                              },
-                              [
-                                _vm._v(
-                                  _vm._s(item.folio_sc ? item.folio_sc : "--")
-                                ),
-                              ]
-                            ),
-                            _vm._v(" "),
-                            _c(
-                              "td",
-                              {
-                                staticClass:
-                                  "px-6 py-4 text-right text-purple-700 text-xl font-black align-middle border-r border-slate-100 bg-purple-50/30",
-                              },
-                              [
-                                _vm._v(
-                                  "\n              $" +
-                                    _vm._s(
-                                      Number(
-                                        item.monto_deposito || 0
-                                      ).toLocaleString("en-US", {
-                                        minimumFractionDigits: 2,
-                                      })
-                                    ) +
-                                    "\n            "
-                                ),
-                              ]
-                            ),
-                            _vm._v(" "),
-                            _vm.esVistaIntshipperts
-                              ? [
-                                  _c(
-                                    "td",
-                                    {
-                                      staticClass:
-                                        "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
-                                    },
-                                    [
-                                      _vm._v(
-                                        "\n                $" +
-                                          _vm._s(
-                                            Number(
-                                              item.anticipo || 0
-                                            ).toLocaleString("en-US", {
-                                              minimumFractionDigits: 2,
-                                            })
-                                          )
-                                      ),
-                                    ]
-                                  ),
-                                  _vm._v(" "),
-                                  _c(
-                                    "td",
-                                    {
-                                      staticClass:
-                                        "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-black text-gray-700",
-                                    },
-                                    [
-                                      _vm._v(
-                                        "\n                $" +
-                                          _vm._s(
-                                            Number(
-                                              item.flete || 0
-                                            ).toLocaleString("en-US", {
-                                              minimumFractionDigits: 2,
-                                            })
-                                          )
-                                      ),
-                                    ]
-                                  ),
-                                ]
-                              : _vm.esVistaTransportactics
-                              ? [
-                                  _c(
-                                    "td",
-                                    {
-                                      staticClass:
-                                        "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-black text-gray-700",
-                                    },
-                                    [
-                                      _vm._v(
-                                        "\n                $" +
-                                          _vm._s(
-                                            Number(
-                                              item.flete || 0
-                                            ).toLocaleString("en-US", {
-                                              minimumFractionDigits: 2,
-                                            })
-                                          )
-                                      ),
-                                    ]
-                                  ),
-                                  _vm._v(" "),
-                                  _c(
-                                    "td",
-                                    {
-                                      staticClass:
-                                        "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
-                                    },
-                                    [
-                                      _vm._v(
-                                        "\n                $" +
-                                          _vm._s(
-                                            Number(
-                                              item.pago_proveedor || 0
-                                            ).toLocaleString("en-US", {
-                                              minimumFractionDigits: 2,
-                                            })
-                                          )
-                                      ),
-                                    ]
-                                  ),
-                                  _vm._v(" "),
-                                  _c(
-                                    "td",
-                                    {
-                                      staticClass:
-                                        "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-bold text-emerald-600 bg-emerald-50/30",
-                                    },
-                                    [
-                                      _vm._v(
-                                        "\n                $" +
-                                          _vm._s(
-                                            Number(
-                                              item.ganancia || 0
-                                            ).toLocaleString("en-US", {
-                                              minimumFractionDigits: 2,
-                                            })
-                                          )
-                                      ),
-                                    ]
-                                  ),
-                                ]
-                              : [
-                                  !_vm.esVistaManzanillo
-                                    ? [
-                                        _c(
-                                          "td",
-                                          {
-                                            staticClass:
-                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
-                                          },
-                                          [
-                                            _vm._v(
-                                              "\n                  $" +
-                                                _vm._s(
-                                                  Number(
-                                                    item.honorarios || 0
-                                                  ).toLocaleString("en-US", {
-                                                    minimumFractionDigits: 2,
-                                                  })
-                                                )
-                                            ),
-                                          ]
-                                        ),
-                                        _vm._v(" "),
-                                        _c(
-                                          "td",
-                                          {
-                                            staticClass:
-                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-black text-blue-600 bg-blue-50/30",
-                                          },
-                                          [
-                                            _vm._v(
-                                              "\n                  $" +
-                                                _vm._s(
-                                                  Number(
-                                                    item.total_gpc || 0
-                                                  ).toLocaleString("en-US", {
-                                                    minimumFractionDigits: 2,
-                                                  })
-                                                )
-                                            ),
-                                          ]
-                                        ),
-                                        _vm._v(" "),
-                                        _c(
-                                          "td",
-                                          {
-                                            staticClass:
-                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
-                                          },
-                                          [
-                                            _vm._v(
-                                              "\n                  $" +
-                                                _vm._s(
-                                                  Number(
-                                                    item.impuestos || 0
-                                                  ).toLocaleString("en-US", {
-                                                    minimumFractionDigits: 2,
-                                                  })
-                                                )
-                                            ),
-                                          ]
-                                        ),
-                                        _vm._v(" "),
-                                        _c(
-                                          "td",
-                                          {
-                                            staticClass:
-                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
-                                          },
-                                          [
-                                            _vm._v(
-                                              "\n                  $" +
-                                                _vm._s(
-                                                  Number(
-                                                    item.eci || 0
-                                                  ).toLocaleString("en-US", {
-                                                    minimumFractionDigits: 2,
-                                                  })
-                                                )
-                                            ),
-                                          ]
-                                        ),
-                                        _vm._v(" "),
-                                        _c(
-                                          "td",
-                                          {
-                                            staticClass:
-                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
-                                          },
-                                          [
-                                            _vm._v(
-                                              "\n                  $" +
-                                                _vm._s(
-                                                  Number(
-                                                    item.maniobras || 0
-                                                  ).toLocaleString("en-US", {
-                                                    minimumFractionDigits: 2,
-                                                  })
-                                                )
-                                            ),
-                                          ]
-                                        ),
-                                        _vm._v(" "),
-                                        _c(
-                                          "td",
-                                          {
-                                            staticClass:
-                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
-                                          },
-                                          [
-                                            _vm._v(
-                                              "\n                  $" +
-                                                _vm._s(
-                                                  Number(
-                                                    item.flete || 0
-                                                  ).toLocaleString("en-US", {
-                                                    minimumFractionDigits: 2,
-                                                  })
-                                                )
-                                            ),
-                                          ]
-                                        ),
-                                        _vm._v(" "),
-                                        _c(
-                                          "td",
-                                          {
-                                            staticClass:
-                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
-                                          },
-                                          [
-                                            _vm._v(
-                                              "\n                  $" +
-                                                _vm._s(
-                                                  Number(
-                                                    item.muestras || 0
-                                                  ).toLocaleString("en-US", {
-                                                    minimumFractionDigits: 2,
-                                                  })
-                                                )
-                                            ),
-                                          ]
-                                        ),
-                                        _vm._v(" "),
-                                        _c(
-                                          "td",
-                                          {
-                                            staticClass:
-                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
-                                          },
-                                          [
-                                            _vm._v(
-                                              "\n                  $" +
-                                                _vm._s(
-                                                  Number(
-                                                    item.llc || 0
-                                                  ).toLocaleString("en-US", {
-                                                    minimumFractionDigits: 2,
-                                                  })
-                                                ) +
-                                                "\n                "
-                                            ),
-                                          ]
-                                        ),
-                                      ]
-                                    : [
-                                        _c(
-                                          "td",
-                                          {
-                                            staticClass:
-                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
-                                          },
-                                          [
-                                            _vm._v(
-                                              "\n                  $" +
-                                                _vm._s(
-                                                  Number(
-                                                    item.anticipo || 0
-                                                  ).toLocaleString("en-US", {
-                                                    minimumFractionDigits: 2,
-                                                  })
-                                                )
-                                            ),
-                                          ]
-                                        ),
-                                        _vm._v(" "),
-                                        _c(
-                                          "td",
-                                          {
-                                            staticClass:
-                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
-                                          },
-                                          [
-                                            _vm._v(
-                                              "\n                  $" +
-                                                _vm._s(
-                                                  Number(
-                                                    item.garantias || 0
-                                                  ).toLocaleString("en-US", {
-                                                    minimumFractionDigits: 2,
-                                                  })
-                                                )
-                                            ),
-                                          ]
-                                        ),
-                                        _vm._v(" "),
-                                        _c(
-                                          "td",
-                                          {
-                                            staticClass:
-                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
-                                          },
-                                          [
-                                            _vm._v(
-                                              "\n                  $" +
-                                                _vm._s(
-                                                  Number(
-                                                    item.desglose_naviera || 0
-                                                  ).toLocaleString("en-US", {
-                                                    minimumFractionDigits: 2,
-                                                  })
-                                                )
-                                            ),
-                                          ]
-                                        ),
-                                        _vm._v(" "),
-                                        _c(
-                                          "td",
-                                          {
-                                            staticClass:
-                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
-                                          },
-                                          [
-                                            _vm._v(
-                                              "\n                  $" +
-                                                _vm._s(
-                                                  Number(
-                                                    item.impuestos || 0
-                                                  ).toLocaleString("en-US", {
-                                                    minimumFractionDigits: 2,
-                                                  })
-                                                )
-                                            ),
-                                          ]
-                                        ),
-                                        _vm._v(" "),
-                                        _c(
-                                          "td",
-                                          {
-                                            staticClass:
-                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
-                                          },
-                                          [
-                                            _vm._v(
-                                              "\n                  $" +
-                                                _vm._s(
-                                                  Number(
-                                                    item.flete || 0
-                                                  ).toLocaleString("en-US", {
-                                                    minimumFractionDigits: 2,
-                                                  })
-                                                )
-                                            ),
-                                          ]
-                                        ),
-                                        _vm._v(" "),
-                                        _c(
-                                          "td",
-                                          {
-                                            staticClass:
-                                              "px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600",
-                                          },
-                                          [
-                                            _vm._v(
-                                              "\n                  $" +
-                                                _vm._s(
-                                                  Number(
-                                                    item.honorarios || 0
-                                                  ).toLocaleString("en-US", {
-                                                    minimumFractionDigits: 2,
-                                                  })
-                                                )
-                                            ),
-                                          ]
-                                        ),
-                                      ],
-                                ],
-                            _vm._v(" "),
-                            _c(
-                              "td",
-                              {
-                                staticClass:
-                                  "px-6 py-4 text-xl text-right font-black text-slate-800 align-middle border-r border-slate-100 bg-slate-50/50",
-                              },
-                              [
-                                _vm._v(
-                                  "\n              $" +
-                                    _vm._s(
-                                      _vm
-                                        .calcularMontoSC(item)
-                                        .toLocaleString("en-US", {
-                                          minimumFractionDigits: 2,
-                                        })
-                                    ) +
-                                    "\n            "
-                                ),
-                              ]
-                            ),
-                            _vm._v(" "),
-                            _c(
-                              "td",
-                              {
-                                class: [
-                                  "px-6 py-4 text-xl text-right font-black align-middle border-r border-slate-100",
-                                  _vm.calcularDiferencia(item) < 0
-                                    ? "text-red-500 bg-red-50/30"
-                                    : "text-slate-400",
-                                ],
-                              },
-                              [
-                                _vm._v(
-                                  "\n              $" +
-                                    _vm._s(
-                                      _vm
-                                        .calcularDiferencia(item)
-                                        .toLocaleString("en-US", {
-                                          minimumFractionDigits: 2,
-                                        })
-                                    ) +
-                                    "\n            "
-                                ),
-                              ]
-                            ),
-                            _vm._v(" "),
-                            _c(
-                              "td",
-                              {
-                                staticClass:
-                                  "px-8 py-5 whitespace-nowrap text-center border-r border-slate-100 align-middle",
-                              },
-                              [
-                                item.tipo_comprobante === "CFDI"
-                                  ? _c(
-                                      "span",
-                                      {
-                                        staticClass:
-                                          "px-4 py-2 bg-blue-100 text-blue-700 text-lg font-extrabold rounded-lg border border-blue-200",
-                                      },
-                                      [_vm._v("CFDI")]
-                                    )
-                                  : item.tipo_comprobante === "Nota Cargo"
-                                  ? _c(
-                                      "span",
-                                      {
-                                        staticClass:
-                                          "px-4 py-2 bg-purple-100 text-purple-700 text-lg font-extrabold rounded-lg border border-purple-200",
-                                      },
-                                      [_vm._v("NOTA\n                CARGO")]
-                                    )
-                                  : _c(
-                                      "span",
-                                      {
-                                        staticClass:
-                                          "px-4 py-2 bg-gray-100 text-gray-600 text-lg font-extrabold rounded-lg border border-gray-200",
-                                      },
-                                      [
-                                        _vm._v(
-                                          _vm._s(item.tipo_comprobante || "N/A")
-                                        ),
-                                      ]
-                                    ),
-                              ]
-                            ),
-                            _vm._v(" "),
-                            _c(
-                              "td",
-                              {
-                                staticClass:
-                                  "px-6 py-4 align-middle border-r border-slate-100 text-center font-bold text-slate-600 text-xl",
-                              },
-                              [
-                                _vm._v(
-                                  "\n              " +
-                                    _vm._s(
-                                      item.folio_complemento ||
-                                        "SIN COMPLEMENTO"
-                                    ) +
-                                    "\n            "
-                                ),
-                              ]
-                            ),
-                            _vm._v(" "),
-                            _c(
-                              "td",
-                              {
-                                staticClass:
-                                  "px-6 py-4 text-center font-bold align-middle border-r border-slate-100 text-lg",
-                              },
-                              [
-                                _c(
-                                  "span",
-                                  {
-                                    class:
-                                      item.estado_envio === "ENVIADO"
-                                        ? "text-green-600"
-                                        : "text-orange-500",
-                                  },
-                                  [
-                                    _vm._v(
-                                      _vm._s(item.estado_envio || "PENDIENTE")
-                                    ),
-                                  ]
-                                ),
-                              ]
-                            ),
-                            _vm._v(" "),
-                            _c(
-                              "td",
-                              {
-                                staticClass:
-                                  "p-4 align-middle border-r border-slate-100",
-                              },
-                              [
-                                _c(
-                                  "div",
-                                  {
-                                    staticClass:
-                                      "flex items-center justify-center gap-3",
-                                  },
-                                  [
-                                    _c(
-                                      "button",
-                                      {
-                                        staticClass:
-                                          "text-green-600 hover:text-white bg-green-50 hover:bg-green-500 p-3 rounded-lg transition-colors shadow-sm border border-green-200",
-                                        attrs: {
-                                          title: "Generar Complemento de Pago",
-                                        },
-                                        on: {
-                                          click: function ($event) {
-                                            return _vm.generarComplemento(item)
-                                          },
-                                        },
-                                      },
-                                      [
-                                        _c(
-                                          "svg",
-                                          {
-                                            staticClass: "w-6 h-6",
-                                            attrs: {
-                                              fill: "none",
-                                              stroke: "currentColor",
-                                              viewBox: "0 0 24 24",
-                                            },
-                                          },
-                                          [
-                                            _c("path", {
-                                              attrs: {
-                                                "stroke-linecap": "round",
-                                                "stroke-linejoin": "round",
-                                                "stroke-width": "2",
-                                                d: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
-                                              },
-                                            }),
-                                          ]
-                                        ),
-                                      ]
-                                    ),
-                                    _vm._v(" "),
-                                    _c(
-                                      "button",
-                                      {
-                                        staticClass:
-                                          "text-blue-600 hover:text-white bg-blue-50 hover:bg-blue-500 p-3 rounded-lg transition-colors shadow-sm border border-blue-200",
-                                        attrs: {
-                                          title:
-                                            "Visualizar Complemento de Pago",
-                                        },
-                                        on: {
-                                          click: function ($event) {
-                                            return _vm.visualizarComplemento(
-                                              item
-                                            )
-                                          },
-                                        },
-                                      },
-                                      [
-                                        _c(
-                                          "svg",
-                                          {
-                                            staticClass: "w-6 h-6",
-                                            attrs: {
-                                              fill: "none",
-                                              stroke: "currentColor",
-                                              viewBox: "0 0 24 24",
-                                            },
-                                          },
-                                          [
-                                            _c("path", {
-                                              attrs: {
-                                                "stroke-linecap": "round",
-                                                "stroke-linejoin": "round",
-                                                "stroke-width": "2",
-                                                d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z",
-                                              },
-                                            }),
-                                            _vm._v(" "),
-                                            _c("path", {
-                                              attrs: {
-                                                "stroke-linecap": "round",
-                                                "stroke-linejoin": "round",
-                                                "stroke-width": "2",
-                                                d: "M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z",
-                                              },
-                                            }),
-                                          ]
-                                        ),
-                                      ]
-                                    ),
-                                    _vm._v(" "),
-                                    _c(
-                                      "button",
-                                      {
-                                        staticClass:
-                                          "text-purple-600 hover:text-white bg-purple-50 hover:bg-purple-500 p-3 rounded-lg transition-colors shadow-sm border border-purple-200",
-                                        attrs: {
-                                          title: "Enviar Complemento de Pago",
-                                        },
-                                        on: {
-                                          click: function ($event) {
-                                            return _vm.enviarCorreoComplemento(
-                                              item
-                                            )
-                                          },
-                                        },
-                                      },
-                                      [
-                                        _c(
-                                          "svg",
-                                          {
-                                            staticClass: "w-6 h-6",
-                                            attrs: {
-                                              fill: "none",
-                                              stroke: "currentColor",
-                                              viewBox: "0 0 24 24",
-                                            },
-                                          },
-                                          [
-                                            _c("path", {
-                                              attrs: {
-                                                "stroke-linecap": "round",
-                                                "stroke-linejoin": "round",
-                                                "stroke-width": "2",
-                                                d: "M12 19l9 2-9-18-9 18 9-2zm0 0v-8",
-                                              },
-                                            }),
-                                          ]
-                                        ),
-                                      ]
-                                    ),
-                                    _vm._v(" "),
-                                    _c(
-                                      "button",
-                                      {
-                                        staticClass:
-                                          "text-indigo-600 hover:text-white bg-indigo-50 hover:bg-indigo-500 p-3 rounded-lg transition-colors shadow-sm border border-indigo-200",
-                                        attrs: {
-                                          title: "Editar Registro Completo",
-                                        },
-                                        on: {
-                                          click: function ($event) {
-                                            return _vm.abrirModalEditarIngreso(
-                                              item
-                                            )
-                                          },
-                                        },
-                                      },
-                                      [
-                                        _c(
-                                          "svg",
-                                          {
-                                            staticClass: "w-6 h-6",
-                                            attrs: {
-                                              fill: "none",
-                                              stroke: "currentColor",
-                                              viewBox: "0 0 24 24",
-                                            },
-                                          },
-                                          [
-                                            _c("path", {
-                                              attrs: {
-                                                "stroke-linecap": "round",
-                                                "stroke-linejoin": "round",
-                                                "stroke-width": "2",
-                                                d: "M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z",
-                                              },
-                                            }),
-                                          ]
-                                        ),
-                                      ]
-                                    ),
-                                    _vm._v(" "),
-                                    _c(
-                                      "button",
-                                      {
-                                        staticClass:
-                                          "text-red-500 hover:text-white bg-red-50 hover:bg-red-500 p-3 rounded-lg transition-colors shadow-sm border border-red-100",
-                                        attrs: { title: "Eliminar Fila" },
-                                        on: {
-                                          click: function ($event) {
-                                            return _vm.eliminarFila(item.id)
-                                          },
-                                        },
-                                      },
-                                      [
-                                        _c(
-                                          "svg",
-                                          {
-                                            staticClass: "w-6 h-6 mx-auto",
-                                            attrs: {
-                                              fill: "none",
-                                              stroke: "currentColor",
-                                              viewBox: "0 0 24 24",
-                                            },
-                                          },
-                                          [
-                                            _c("path", {
-                                              attrs: {
-                                                "stroke-linecap": "round",
-                                                "stroke-linejoin": "round",
-                                                "stroke-width": "2",
-                                                d: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16",
-                                              },
-                                            }),
-                                          ]
-                                        ),
-                                      ]
-                                    ),
-                                  ]
-                                ),
-                              ]
-                            ),
-                          ],
-                          2
-                        )
-                      }),
-                      _vm._v(" "),
-                      _vm.ingresosFiltrados.length === 0
-                        ? _c("tr", [
-                            _c(
-                              "td",
-                              {
-                                staticClass:
-                                  "text-center py-16 text-2xl text-slate-400 bg-slate-50 font-medium",
-                                attrs: { colspan: "19" },
-                              },
-                              [
-                                _vm._v(
-                                  "\n              No se encontraron registros para la sucursal o filtros seleccionados.\n            "
-                                ),
-                              ]
-                            ),
-                          ])
-                        : _vm._e(),
-                    ],
-                    2
-                  ),
-                ]
-              ),
-            ]
+                  )
+                : _vm._e(),
+            ],
+            2
           ),
         ]
       ),
@@ -94243,7 +95264,7 @@ var render = function () {
             "div",
             {
               staticClass:
-                "bg-white rounded-xl shadow-sm border border-[#2A3A4D] overflow-hidden",
+                "bg-white rounded-xl shadow-sm border border-gray-300 overflow-hidden",
             },
             [
               _c("table", { staticClass: "w-full text-left text-xl" }, [
@@ -94253,213 +95274,193 @@ var render = function () {
                   "tbody",
                   { staticClass: "text-slate-700 font-medium" },
                   [
-                    _vm._l(
-                      _vm.saldosVigentesFiltrados,
-                      function (saldo, index) {
-                        return _c(
-                          "tr",
-                          {
-                            key: saldo.id,
-                            staticClass:
-                              "border-b border-slate-100 hover:bg-slate-50 transition-colors",
-                          },
-                          [
+                    _vm._l(_vm.saldosVigentesFiltrados, function (saldo) {
+                      return _c(
+                        "tr",
+                        {
+                          key: saldo.id,
+                          staticClass:
+                            "border-b border-slate-100 hover:bg-slate-100 transition-colors",
+                        },
+                        [
+                          _c(
+                            "td",
+                            {
+                              staticClass: "px-8 py-5 font-bold text-slate-800",
+                            },
+                            [_vm._v(_vm._s(saldo.cliente))]
+                          ),
+                          _vm._v(" "),
+                          _c(
+                            "td",
+                            { staticClass: "px-8 py-5 text-slate-500" },
+                            [_vm._v(_vm._s(saldo.sucursal_origen))]
+                          ),
+                          _vm._v(" "),
+                          _c(
+                            "td",
+                            {
+                              staticClass:
+                                "px-8 py-5 text-center font-black text-emerald-600",
+                            },
+                            [_vm._v(_vm._s(_vm.formatearDinero(saldo.monto)))]
+                          ),
+                          _vm._v(" "),
+                          _c(
+                            "td",
+                            {
+                              staticClass:
+                                "px-8 py-5 text-center text-slate-500",
+                            },
+                            [_vm._v(_vm._s(saldo.fecha_deteccion))]
+                          ),
+                          _vm._v(" "),
+                          _c(
+                            "td",
+                            { staticClass: "px-8 py-5 text-slate-600" },
+                            [_vm._v(_vm._s(saldo.concepto))]
+                          ),
+                          _vm._v(" "),
+                          _vm._m(4, true),
+                          _vm._v(" "),
+                          _c("td", { staticClass: "px-8 py-5 text-center" }, [
                             _c(
-                              "td",
+                              "div",
                               {
                                 staticClass:
-                                  "px-8 py-5 font-bold text-slate-800",
-                              },
-                              [_vm._v(_vm._s(saldo.cliente))]
-                            ),
-                            _vm._v(" "),
-                            _c(
-                              "td",
-                              { staticClass: "px-8 py-5 text-slate-500" },
-                              [_vm._v(_vm._s(saldo.sucursal_origen))]
-                            ),
-                            _vm._v(" "),
-                            _c(
-                              "td",
-                              {
-                                staticClass:
-                                  "px-8 py-5 text-center font-black text-emerald-600",
+                                  "flex items-center justify-center gap-4",
                               },
                               [
-                                _vm._v(
-                                  "$" +
-                                    _vm._s(
-                                      Number(saldo.monto).toLocaleString(
-                                        "en-US",
-                                        { minimumFractionDigits: 2 }
-                                      )
-                                    )
+                                _c(
+                                  "button",
+                                  {
+                                    staticClass:
+                                      "text-indigo-500 hover:text-white bg-indigo-100 hover:bg-indigo-500 p-3 rounded-lg transition-colors shadow-sm border border-indigo-200",
+                                    attrs: { title: "Editar" },
+                                    on: {
+                                      click: function ($event) {
+                                        return _vm.editarSaldo(saldo)
+                                      },
+                                    },
+                                  },
+                                  [
+                                    _c(
+                                      "svg",
+                                      {
+                                        staticClass: "w-6 h-6",
+                                        attrs: {
+                                          fill: "none",
+                                          stroke: "currentColor",
+                                          viewBox: "0 0 24 24",
+                                        },
+                                      },
+                                      [
+                                        _c("path", {
+                                          attrs: {
+                                            "stroke-linecap": "round",
+                                            "stroke-linejoin": "round",
+                                            "stroke-width": "2",
+                                            d: "M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z",
+                                          },
+                                        }),
+                                      ]
+                                    ),
+                                  ]
+                                ),
+                                _vm._v(" "),
+                                _c(
+                                  "button",
+                                  {
+                                    staticClass:
+                                      "text-red-500 hover:text-white bg-red-100 hover:bg-red-500 p-3 rounded-lg transition-colors shadow-sm border border-red-200",
+                                    attrs: { title: "Eliminar" },
+                                    on: {
+                                      click: function ($event) {
+                                        return _vm.eliminarSaldo(saldo.id)
+                                      },
+                                    },
+                                  },
+                                  [
+                                    _c(
+                                      "svg",
+                                      {
+                                        staticClass: "w-6 h-6",
+                                        attrs: {
+                                          fill: "none",
+                                          stroke: "currentColor",
+                                          viewBox: "0 0 24 24",
+                                        },
+                                      },
+                                      [
+                                        _c("path", {
+                                          attrs: {
+                                            "stroke-linecap": "round",
+                                            "stroke-linejoin": "round",
+                                            "stroke-width": "2",
+                                            d: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16",
+                                          },
+                                        }),
+                                      ]
+                                    ),
+                                  ]
+                                ),
+                                _vm._v(" "),
+                                _c(
+                                  "button",
+                                  {
+                                    staticClass:
+                                      "w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 hover:bg-blue-200 transition-colors shadow-sm",
+                                    attrs: { title: "Notificar" },
+                                    on: {
+                                      click: function ($event) {
+                                        return _vm.notificarCliente(saldo)
+                                      },
+                                    },
+                                  },
+                                  [
+                                    _c(
+                                      "svg",
+                                      {
+                                        staticClass: "w-6 h-6",
+                                        attrs: {
+                                          fill: "none",
+                                          stroke: "currentColor",
+                                          viewBox: "0 0 24 24",
+                                        },
+                                      },
+                                      [
+                                        _c("path", {
+                                          attrs: {
+                                            "stroke-linecap": "round",
+                                            "stroke-linejoin": "round",
+                                            "stroke-width": "2",
+                                            d: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z",
+                                          },
+                                        }),
+                                      ]
+                                    ),
+                                  ]
+                                ),
+                                _vm._v(" "),
+                                _c(
+                                  "button",
+                                  {
+                                    staticClass:
+                                      "bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold text-lg transition-colors shadow-sm ml-2 uppercase tracking-wider",
+                                    on: {
+                                      click: function ($event) {
+                                        return _vm.aplicarSaldo(saldo.id)
+                                      },
+                                    },
+                                  },
+                                  [_vm._v("Aplicar")]
                                 ),
                               ]
                             ),
-                            _vm._v(" "),
-                            _c(
-                              "td",
-                              {
-                                staticClass:
-                                  "px-8 py-5 text-center text-slate-500",
-                              },
-                              [_vm._v(_vm._s(saldo.fecha_deteccion))]
-                            ),
-                            _vm._v(" "),
-                            _c(
-                              "td",
-                              { staticClass: "px-8 py-5 text-slate-600" },
-                              [_vm._v(_vm._s(saldo.concepto))]
-                            ),
-                            _vm._v(" "),
-                            _vm._m(4, true),
-                            _vm._v(" "),
-                            _c("td", { staticClass: "px-8 py-5 text-center" }, [
-                              _c(
-                                "div",
-                                {
-                                  staticClass:
-                                    "flex items-center justify-center gap-4",
-                                },
-                                [
-                                  _c(
-                                    "button",
-                                    {
-                                      staticClass:
-                                        "text-indigo-500 hover:text-white bg-indigo-50 hover:bg-indigo-500 p-3 rounded-lg transition-colors shadow-sm border border-indigo-100",
-                                      attrs: { title: "Editar Registro" },
-                                      on: {
-                                        click: function ($event) {
-                                          return _vm.editarSaldo(saldo)
-                                        },
-                                      },
-                                    },
-                                    [
-                                      _c(
-                                        "svg",
-                                        {
-                                          staticClass: "w-6 h-6",
-                                          attrs: {
-                                            fill: "none",
-                                            stroke: "currentColor",
-                                            viewBox: "0 0 24 24",
-                                          },
-                                        },
-                                        [
-                                          _c("path", {
-                                            attrs: {
-                                              "stroke-linecap": "round",
-                                              "stroke-linejoin": "round",
-                                              "stroke-width": "2",
-                                              d: "M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z",
-                                            },
-                                          }),
-                                        ]
-                                      ),
-                                    ]
-                                  ),
-                                  _vm._v(" "),
-                                  _c(
-                                    "button",
-                                    {
-                                      staticClass:
-                                        "text-red-500 hover:text-white bg-red-50 hover:bg-red-500 p-3 rounded-lg transition-colors shadow-sm border border-red-100",
-                                      attrs: { title: "Eliminar" },
-                                      on: {
-                                        click: function ($event) {
-                                          return _vm.eliminarSaldo(saldo.id)
-                                        },
-                                      },
-                                    },
-                                    [
-                                      _c(
-                                        "svg",
-                                        {
-                                          staticClass: "w-6 h-6",
-                                          attrs: {
-                                            fill: "none",
-                                            stroke: "currentColor",
-                                            viewBox: "0 0 24 24",
-                                          },
-                                        },
-                                        [
-                                          _c("path", {
-                                            attrs: {
-                                              "stroke-linecap": "round",
-                                              "stroke-linejoin": "round",
-                                              "stroke-width": "2",
-                                              d: "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16",
-                                            },
-                                          }),
-                                        ]
-                                      ),
-                                    ]
-                                  ),
-                                  _vm._v(" "),
-                                  _c(
-                                    "button",
-                                    {
-                                      staticClass:
-                                        "w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 hover:bg-blue-200 transition-colors shadow-sm",
-                                      attrs: {
-                                        title: "Notificar saldo al cliente",
-                                      },
-                                      on: {
-                                        click: function ($event) {
-                                          return _vm.notificarCliente(saldo)
-                                        },
-                                      },
-                                    },
-                                    [
-                                      _c(
-                                        "svg",
-                                        {
-                                          staticClass: "w-6 h-6",
-                                          attrs: {
-                                            fill: "none",
-                                            stroke: "currentColor",
-                                            viewBox: "0 0 24 24",
-                                          },
-                                        },
-                                        [
-                                          _c("path", {
-                                            attrs: {
-                                              "stroke-linecap": "round",
-                                              "stroke-linejoin": "round",
-                                              "stroke-width": "2",
-                                              d: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z",
-                                            },
-                                          }),
-                                        ]
-                                      ),
-                                    ]
-                                  ),
-                                  _vm._v(" "),
-                                  _c(
-                                    "button",
-                                    {
-                                      staticClass:
-                                        "bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-bold text-lg transition-colors shadow-sm ml-2 uppercase tracking-wider",
-                                      on: {
-                                        click: function ($event) {
-                                          return _vm.aplicarSaldo(saldo.id)
-                                        },
-                                      },
-                                    },
-                                    [
-                                      _vm._v(
-                                        "\n                  Aplicar\n                "
-                                      ),
-                                    ]
-                                  ),
-                                ]
-                              ),
-                            ]),
-                          ]
-                        )
-                      }
-                    ),
+                          ]),
+                        ]
+                      )
+                    }),
                     _vm._v(" "),
                     _vm.saldosVigentesFiltrados.length === 0
                       ? _c("tr", [
@@ -94467,7 +95468,7 @@ var render = function () {
                             "td",
                             {
                               staticClass:
-                                "text-center py-16 text-xl text-slate-400 bg-slate-50 font-medium",
+                                "text-center py-16 text-xl text-slate-400 bg-slate-100 font-medium",
                               attrs: { colspan: "7" },
                             },
                             [
@@ -94517,83 +95518,65 @@ var render = function () {
                   "tbody",
                   { staticClass: "text-slate-500 font-medium" },
                   [
-                    _vm._l(
-                      _vm.saldosAplicadosFiltrados,
-                      function (saldo, index) {
-                        return _c(
-                          "tr",
-                          {
-                            key: saldo.id,
-                            staticClass:
-                              "border-b border-slate-100 bg-slate-50/50 hover:bg-slate-100 transition-colors",
-                          },
-                          [
+                    _vm._l(_vm.saldosAplicadosFiltrados, function (saldo) {
+                      return _c(
+                        "tr",
+                        {
+                          key: saldo.id,
+                          staticClass:
+                            "border-b border-slate-200 bg-slate-100 hover:bg-slate-200 transition-colors",
+                        },
+                        [
+                          _c(
+                            "td",
+                            {
+                              staticClass: "px-8 py-5 font-bold text-slate-600",
+                            },
+                            [_vm._v(_vm._s(saldo.cliente))]
+                          ),
+                          _vm._v(" "),
+                          _c("td", { staticClass: "px-8 py-5" }, [
+                            _vm._v(_vm._s(saldo.sucursal_origen)),
+                          ]),
+                          _vm._v(" "),
+                          _c(
+                            "td",
+                            { staticClass: "px-8 py-5 text-center font-black" },
+                            [_vm._v(_vm._s(_vm.formatearDinero(saldo.monto)))]
+                          ),
+                          _vm._v(" "),
+                          _c("td", { staticClass: "px-8 py-5 text-center" }, [
+                            _vm._v(_vm._s(saldo.fecha_deteccion)),
+                          ]),
+                          _vm._v(" "),
+                          _c("td", { staticClass: "px-8 py-5" }, [
+                            _vm._v(_vm._s(saldo.concepto)),
+                          ]),
+                          _vm._v(" "),
+                          _vm._m(7, true),
+                          _vm._v(" "),
+                          _c("td", { staticClass: "px-8 py-5 text-center" }, [
                             _c(
-                              "td",
+                              "button",
                               {
                                 staticClass:
-                                  "px-8 py-5 font-bold text-slate-600",
-                              },
-                              [_vm._v(_vm._s(saldo.cliente))]
-                            ),
-                            _vm._v(" "),
-                            _c("td", { staticClass: "px-8 py-5" }, [
-                              _vm._v(_vm._s(saldo.sucursal_origen)),
-                            ]),
-                            _vm._v(" "),
-                            _c(
-                              "td",
-                              {
-                                staticClass: "px-8 py-5 text-center font-black",
+                                  "bg-white hover:bg-blue-100 text-blue-600 hover:text-blue-700 px-6 py-3 rounded-lg font-extrabold text-lg transition-colors border border-blue-200 shadow-sm uppercase tracking-wider",
+                                on: {
+                                  click: function ($event) {
+                                    return _vm.reactivarSaldo(saldo.id)
+                                  },
+                                },
                               },
                               [
                                 _vm._v(
-                                  "$" +
-                                    _vm._s(
-                                      Number(saldo.monto).toLocaleString(
-                                        "en-US",
-                                        {
-                                          minimumFractionDigits: 2,
-                                        }
-                                      )
-                                    )
+                                  "\n                Reactivar\n              "
                                 ),
                               ]
                             ),
-                            _vm._v(" "),
-                            _c("td", { staticClass: "px-8 py-5 text-center" }, [
-                              _vm._v(_vm._s(saldo.fecha_deteccion)),
-                            ]),
-                            _vm._v(" "),
-                            _c("td", { staticClass: "px-8 py-5" }, [
-                              _vm._v(_vm._s(saldo.concepto)),
-                            ]),
-                            _vm._v(" "),
-                            _vm._m(7, true),
-                            _vm._v(" "),
-                            _c("td", { staticClass: "px-8 py-5 text-center" }, [
-                              _c(
-                                "button",
-                                {
-                                  staticClass:
-                                    "bg-white hover:bg-blue-50 text-blue-600 hover:text-blue-700 px-6 py-3 rounded-lg font-extrabold text-lg transition-colors border border-blue-200 shadow-sm uppercase tracking-wider",
-                                  on: {
-                                    click: function ($event) {
-                                      return _vm.reactivarSaldo(saldo.id)
-                                    },
-                                  },
-                                },
-                                [
-                                  _vm._v(
-                                    "\n                Reactivar\n              "
-                                  ),
-                                ]
-                              ),
-                            ]),
-                          ]
-                        )
-                      }
-                    ),
+                          ]),
+                        ]
+                      )
+                    }),
                     _vm._v(" "),
                     _vm.saldosAplicadosFiltrados.length === 0
                       ? _c("tr", [
@@ -94601,7 +95584,7 @@ var render = function () {
                             "td",
                             {
                               staticClass:
-                                "text-center py-16 text-xl text-slate-400 bg-slate-50 font-medium",
+                                "text-center py-16 text-xl text-slate-400 bg-slate-100 font-medium",
                               attrs: { colspan: "7" },
                             },
                             [
@@ -94710,6 +95693,18 @@ var render = function () {
           },
         },
       }),
+      _vm._v(" "),
+      _c("ModalEnviarCorreo", {
+        attrs: {
+          mostrar: _vm.showModalEnviarCorreo,
+          ingreso: _vm.ingresoParaCorreo,
+        },
+        on: {
+          cerrar: function ($event) {
+            _vm.showModalEnviarCorreo = false
+          },
+        },
+      }),
     ],
     1
   )
@@ -94773,7 +95768,7 @@ var staticRenderFns = [
         "h2",
         {
           staticClass:
-            "text-2xl font-black text-[#2A3A4D] uppercase tracking-wide",
+            "text-2xl font-black text-gray-800 uppercase tracking-wide",
         },
         [_vm._v("CARTERA DE SALDOS A FAVOR DE CLIENTES\n          (VIGENTES)")]
       ),
@@ -94898,7 +95893,7 @@ var staticRenderFns = [
       "thead",
       {
         staticClass:
-          "bg-slate-50 text-slate-500 font-extrabold uppercase tracking-wider border-b-4 border-slate-200",
+          "bg-slate-100 text-slate-500 font-extrabold uppercase tracking-wider border-b-4 border-slate-200",
       },
       [
         _c("tr", [
@@ -94966,7 +95961,7 @@ var staticRenderFns = [
         "span",
         {
           staticClass:
-            "px-6 py-3 bg-slate-200 text-slate-500 font-extrabold rounded-full uppercase text-base tracking-widest shadow-inner",
+            "px-6 py-3 bg-slate-300 text-slate-600 font-extrabold rounded-full uppercase text-base tracking-widest shadow-inner",
         },
         [_vm._v("APLICADO")]
       ),
@@ -110647,6 +111642,79 @@ __webpack_require__.r(__webpack_exports__);
 
 /***/ }),
 
+/***/ "./resources/js/components/componentesingresos/IngresoCard.vue":
+/*!*********************************************************************!*\
+  !*** ./resources/js/components/componentesingresos/IngresoCard.vue ***!
+  \*********************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+/* harmony import */ var _IngresoCard_vue_vue_type_template_id_af0196f8___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./IngresoCard.vue?vue&type=template&id=af0196f8& */ "./resources/js/components/componentesingresos/IngresoCard.vue?vue&type=template&id=af0196f8&");
+/* harmony import */ var _IngresoCard_vue_vue_type_script_lang_js___WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./IngresoCard.vue?vue&type=script&lang=js& */ "./resources/js/components/componentesingresos/IngresoCard.vue?vue&type=script&lang=js&");
+/* harmony import */ var _node_modules_vue_loader_lib_runtime_componentNormalizer_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! !../../../../node_modules/vue-loader/lib/runtime/componentNormalizer.js */ "./node_modules/vue-loader/lib/runtime/componentNormalizer.js");
+
+
+
+
+
+/* normalize component */
+;
+var component = (0,_node_modules_vue_loader_lib_runtime_componentNormalizer_js__WEBPACK_IMPORTED_MODULE_2__["default"])(
+  _IngresoCard_vue_vue_type_script_lang_js___WEBPACK_IMPORTED_MODULE_1__["default"],
+  _IngresoCard_vue_vue_type_template_id_af0196f8___WEBPACK_IMPORTED_MODULE_0__.render,
+  _IngresoCard_vue_vue_type_template_id_af0196f8___WEBPACK_IMPORTED_MODULE_0__.staticRenderFns,
+  false,
+  null,
+  null,
+  null
+  
+)
+
+/* hot reload */
+if (false) // removed by dead control flow
+{ var api; }
+component.options.__file = "resources/js/components/componentesingresos/IngresoCard.vue"
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (component.exports);
+
+/***/ }),
+
+/***/ "./resources/js/components/componentesingresos/IngresoCard.vue?vue&type=script&lang=js&":
+/*!**********************************************************************************************!*\
+  !*** ./resources/js/components/componentesingresos/IngresoCard.vue?vue&type=script&lang=js& ***!
+  \**********************************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+/* harmony import */ var _node_modules_babel_loader_lib_index_js_clonedRuleSet_5_0_rules_0_use_0_node_modules_vue_loader_lib_index_js_vue_loader_options_IngresoCard_vue_vue_type_script_lang_js___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! -!../../../../node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!../../../../node_modules/vue-loader/lib/index.js??vue-loader-options!./IngresoCard.vue?vue&type=script&lang=js& */ "./node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/IngresoCard.vue?vue&type=script&lang=js&");
+ /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (_node_modules_babel_loader_lib_index_js_clonedRuleSet_5_0_rules_0_use_0_node_modules_vue_loader_lib_index_js_vue_loader_options_IngresoCard_vue_vue_type_script_lang_js___WEBPACK_IMPORTED_MODULE_0__["default"]); 
+
+/***/ }),
+
+/***/ "./resources/js/components/componentesingresos/IngresoCard.vue?vue&type=template&id=af0196f8&":
+/*!****************************************************************************************************!*\
+  !*** ./resources/js/components/componentesingresos/IngresoCard.vue?vue&type=template&id=af0196f8& ***!
+  \****************************************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   render: () => (/* reexport safe */ _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_IngresoCard_vue_vue_type_template_id_af0196f8___WEBPACK_IMPORTED_MODULE_0__.render),
+/* harmony export */   staticRenderFns: () => (/* reexport safe */ _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_IngresoCard_vue_vue_type_template_id_af0196f8___WEBPACK_IMPORTED_MODULE_0__.staticRenderFns)
+/* harmony export */ });
+/* harmony import */ var _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_IngresoCard_vue_vue_type_template_id_af0196f8___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! -!../../../../node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!../../../../node_modules/vue-loader/lib/index.js??vue-loader-options!./IngresoCard.vue?vue&type=template&id=af0196f8& */ "./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/IngresoCard.vue?vue&type=template&id=af0196f8&");
+
+
+/***/ }),
+
 /***/ "./resources/js/components/componentesingresos/ModalComplementoPago.vue":
 /*!******************************************************************************!*\
   !*** ./resources/js/components/componentesingresos/ModalComplementoPago.vue ***!
@@ -110907,6 +111975,94 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   staticRenderFns: () => (/* reexport safe */ _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_ModalEditarSaldoFavor_vue_vue_type_template_id_02d815c0_scoped_true___WEBPACK_IMPORTED_MODULE_0__.staticRenderFns)
 /* harmony export */ });
 /* harmony import */ var _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_ModalEditarSaldoFavor_vue_vue_type_template_id_02d815c0_scoped_true___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! -!../../../../node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!../../../../node_modules/vue-loader/lib/index.js??vue-loader-options!./ModalEditarSaldoFavor.vue?vue&type=template&id=02d815c0&scoped=true& */ "./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalEditarSaldoFavor.vue?vue&type=template&id=02d815c0&scoped=true&");
+
+
+/***/ }),
+
+/***/ "./resources/js/components/componentesingresos/ModalEnviarCorreo.vue":
+/*!***************************************************************************!*\
+  !*** ./resources/js/components/componentesingresos/ModalEnviarCorreo.vue ***!
+  \***************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+/* harmony import */ var _ModalEnviarCorreo_vue_vue_type_template_id_49a74cb3_scoped_true___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./ModalEnviarCorreo.vue?vue&type=template&id=49a74cb3&scoped=true& */ "./resources/js/components/componentesingresos/ModalEnviarCorreo.vue?vue&type=template&id=49a74cb3&scoped=true&");
+/* harmony import */ var _ModalEnviarCorreo_vue_vue_type_script_lang_js___WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./ModalEnviarCorreo.vue?vue&type=script&lang=js& */ "./resources/js/components/componentesingresos/ModalEnviarCorreo.vue?vue&type=script&lang=js&");
+/* harmony import */ var _ModalEnviarCorreo_vue_vue_type_style_index_0_id_49a74cb3_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./ModalEnviarCorreo.vue?vue&type=style&index=0&id=49a74cb3&scoped=true&lang=css& */ "./resources/js/components/componentesingresos/ModalEnviarCorreo.vue?vue&type=style&index=0&id=49a74cb3&scoped=true&lang=css&");
+/* harmony import */ var _node_modules_vue_loader_lib_runtime_componentNormalizer_js__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! !../../../../node_modules/vue-loader/lib/runtime/componentNormalizer.js */ "./node_modules/vue-loader/lib/runtime/componentNormalizer.js");
+
+
+
+;
+
+
+/* normalize component */
+
+var component = (0,_node_modules_vue_loader_lib_runtime_componentNormalizer_js__WEBPACK_IMPORTED_MODULE_3__["default"])(
+  _ModalEnviarCorreo_vue_vue_type_script_lang_js___WEBPACK_IMPORTED_MODULE_1__["default"],
+  _ModalEnviarCorreo_vue_vue_type_template_id_49a74cb3_scoped_true___WEBPACK_IMPORTED_MODULE_0__.render,
+  _ModalEnviarCorreo_vue_vue_type_template_id_49a74cb3_scoped_true___WEBPACK_IMPORTED_MODULE_0__.staticRenderFns,
+  false,
+  null,
+  "49a74cb3",
+  null
+  
+)
+
+/* hot reload */
+if (false) // removed by dead control flow
+{ var api; }
+component.options.__file = "resources/js/components/componentesingresos/ModalEnviarCorreo.vue"
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (component.exports);
+
+/***/ }),
+
+/***/ "./resources/js/components/componentesingresos/ModalEnviarCorreo.vue?vue&type=script&lang=js&":
+/*!****************************************************************************************************!*\
+  !*** ./resources/js/components/componentesingresos/ModalEnviarCorreo.vue?vue&type=script&lang=js& ***!
+  \****************************************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+/* harmony import */ var _node_modules_babel_loader_lib_index_js_clonedRuleSet_5_0_rules_0_use_0_node_modules_vue_loader_lib_index_js_vue_loader_options_ModalEnviarCorreo_vue_vue_type_script_lang_js___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! -!../../../../node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!../../../../node_modules/vue-loader/lib/index.js??vue-loader-options!./ModalEnviarCorreo.vue?vue&type=script&lang=js& */ "./node_modules/babel-loader/lib/index.js??clonedRuleSet-5[0].rules[0].use[0]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalEnviarCorreo.vue?vue&type=script&lang=js&");
+ /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (_node_modules_babel_loader_lib_index_js_clonedRuleSet_5_0_rules_0_use_0_node_modules_vue_loader_lib_index_js_vue_loader_options_ModalEnviarCorreo_vue_vue_type_script_lang_js___WEBPACK_IMPORTED_MODULE_0__["default"]); 
+
+/***/ }),
+
+/***/ "./resources/js/components/componentesingresos/ModalEnviarCorreo.vue?vue&type=style&index=0&id=49a74cb3&scoped=true&lang=css&":
+/*!************************************************************************************************************************************!*\
+  !*** ./resources/js/components/componentesingresos/ModalEnviarCorreo.vue?vue&type=style&index=0&id=49a74cb3&scoped=true&lang=css& ***!
+  \************************************************************************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony import */ var _node_modules_style_loader_dist_cjs_js_node_modules_css_loader_dist_cjs_js_clonedRuleSet_9_0_rules_0_use_1_node_modules_vue_loader_lib_loaders_stylePostLoader_js_node_modules_postcss_loader_dist_cjs_js_clonedRuleSet_9_0_rules_0_use_2_node_modules_vue_loader_lib_index_js_vue_loader_options_ModalEnviarCorreo_vue_vue_type_style_index_0_id_49a74cb3_scoped_true_lang_css___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! -!../../../../node_modules/style-loader/dist/cjs.js!../../../../node_modules/css-loader/dist/cjs.js??clonedRuleSet-9[0].rules[0].use[1]!../../../../node_modules/vue-loader/lib/loaders/stylePostLoader.js!../../../../node_modules/postcss-loader/dist/cjs.js??clonedRuleSet-9[0].rules[0].use[2]!../../../../node_modules/vue-loader/lib/index.js??vue-loader-options!./ModalEnviarCorreo.vue?vue&type=style&index=0&id=49a74cb3&scoped=true&lang=css& */ "./node_modules/style-loader/dist/cjs.js!./node_modules/css-loader/dist/cjs.js??clonedRuleSet-9[0].rules[0].use[1]!./node_modules/vue-loader/lib/loaders/stylePostLoader.js!./node_modules/postcss-loader/dist/cjs.js??clonedRuleSet-9[0].rules[0].use[2]!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalEnviarCorreo.vue?vue&type=style&index=0&id=49a74cb3&scoped=true&lang=css&");
+
+
+/***/ }),
+
+/***/ "./resources/js/components/componentesingresos/ModalEnviarCorreo.vue?vue&type=template&id=49a74cb3&scoped=true&":
+/*!**********************************************************************************************************************!*\
+  !*** ./resources/js/components/componentesingresos/ModalEnviarCorreo.vue?vue&type=template&id=49a74cb3&scoped=true& ***!
+  \**********************************************************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   render: () => (/* reexport safe */ _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_ModalEnviarCorreo_vue_vue_type_template_id_49a74cb3_scoped_true___WEBPACK_IMPORTED_MODULE_0__.render),
+/* harmony export */   staticRenderFns: () => (/* reexport safe */ _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_ModalEnviarCorreo_vue_vue_type_template_id_49a74cb3_scoped_true___WEBPACK_IMPORTED_MODULE_0__.staticRenderFns)
+/* harmony export */ });
+/* harmony import */ var _node_modules_vue_loader_lib_loaders_templateLoader_js_vue_loader_options_node_modules_vue_loader_lib_index_js_vue_loader_options_ModalEnviarCorreo_vue_vue_type_template_id_49a74cb3_scoped_true___WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! -!../../../../node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!../../../../node_modules/vue-loader/lib/index.js??vue-loader-options!./ModalEnviarCorreo.vue?vue&type=template&id=49a74cb3&scoped=true& */ "./node_modules/vue-loader/lib/loaders/templateLoader.js??vue-loader-options!./node_modules/vue-loader/lib/index.js??vue-loader-options!./resources/js/components/componentesingresos/ModalEnviarCorreo.vue?vue&type=template&id=49a74cb3&scoped=true&");
 
 
 /***/ }),

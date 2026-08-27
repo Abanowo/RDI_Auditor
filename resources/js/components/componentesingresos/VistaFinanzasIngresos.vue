@@ -124,7 +124,7 @@
           Ingresos
         </button>
         <button @click="activeTab = 'saldos'"
-          :class="['px-8 py-4 rounded-lg text-xl font-bold shadow-sm whitespace-nowrap transition-colors', activeTab === 'saldos' ? 'bg-blue-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100']">
+          :class="['px-6 py-3 rounded-lg text-base font-bold shadow-sm whitespace-nowrap transition-colors', activeTab === 'saldos' ? 'bg-blue-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100']">
           Saldos a Favor (Vigentes)
         </button>
         <button @click="activeTab = 'saldos_aplicados'"
@@ -135,7 +135,7 @@
     </div>
 
     <!-- ============================================== -->
-    <!-- TAB 1: CONTENEDOR PRINCIPAL TABLA EXCEL        -->
+    <!-- TAB 1: CONTENEDOR PRINCIPAL INGRESOS (CARDS)   -->
     <!-- ============================================== -->
     <div v-show="activeTab === 'ingresos'"
       class="bg-white rounded-xl shadow-sm border border-gray-200 flex-1 flex flex-col overflow-visible">
@@ -180,20 +180,16 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Cliente:</label>
             <multiselect v-model="filtros.cliente" :options="opcionesFiltroCliente" placeholder="Todos"
-              :searchable="true" :show-labels="false" @input="cargarIngresos"><template slot="noResult">No se
-                encontraron clientes</template>
-            </multiselect>
+              :searchable="true" :show-labels="false"></multiselect>
           </div>
           <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Servicio:</label>
             <multiselect v-model="filtros.tipoServicio" :options="opcionesTipoServicio" placeholder="Todos"
-              :searchable="true" :show-labels="false" @input="cargarIngresos"><template slot="noResult">No se
-                encontraron servicios</template>
-            </multiselect>
+              :searchable="true" :show-labels="false"></multiselect>
           </div>
           <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Tipo
               Operación:</label>
             <multiselect v-model="filtros.tipoOperacion" :options="opcionesTipoOperacion" track-by="id" label="label"
-              placeholder="Ambos" :searchable="false" :show-labels="false" @input="cargarIngresos"></multiselect>
+              placeholder="Ambos" :searchable="false" :show-labels="false"></multiselect>
           </div>
           <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Tipo
               Comprobante:</label>
@@ -202,8 +198,7 @@
           </div>
           <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Fechas:</label>
             <VueCtkDateTimePicker v-model="filtros.rangoFechas" format="YYYY-MM-DD" formatted="YYYY-MM-DD"
-              color="#1d4ed8" button-color="#1d4ed8" :range="true" label="Select date & time"
-              @validate="cargarIngresos"></VueCtkDateTimePicker>
+              color="#1d4ed8" button-color="#1d4ed8" :range="true" label="Select date & time"></VueCtkDateTimePicker>
           </div>
           <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Envío de
               Comp.:</label>
@@ -213,271 +208,44 @@
         </div>
       </div>
 
-      <div class="overflow-x-auto flex-1 custom-scrollbar" style="padding-bottom: 200px;">
-        <table class="w-full text-left text-lg border-collapse whitespace-nowrap" style="min-width: 4200px;">
-          <thead
-            class="bg-slate-100 text-slate-600 font-extrabold uppercase tracking-wider border-b-4 border-slate-300">
-            <tr>
-              <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">SUCURSAL</th>
-              <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">BANCO</th>
-              <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">FECHA</th>
-              <th class="px-6 py-5 border-r border-slate-200" style="min-width: 220px; width: 220px;">CLIENTE</th>
-              <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">REFERENCIA</th>
-              <th class="px-6 py-5 border-r border-slate-200 text-purple-700" style="min-width: 180px; width: 180px;">
-                MONTO DEPOSITO</th>
+      <!-- CONTENEDOR DE TARJETAS -->
+      <div class="flex-1 overflow-y-auto custom-scrollbar px-6 pb-6 bg-gray-50 pt-4 rounded-b-xl flex flex-col">
 
-              <!-- ========================================== -->
-              <!-- ENCABEZADOS DINÁMICOS SEGÚN VISTA          -->
-              <!-- ========================================== -->
-              <template v-if="esVistaIntshipperts">
-                <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">ANTICIPO</th>
-                <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">ALMAN / FLETE
-                </th>
-              </template>
+        <IngresoCard v-for="item in paginatedIngresos" :key="item.id" :item="item"
+          :es-vista-intshipperts="esVistaIntshipperts" :es-vista-transportactics="esVistaTransportactics"
+          :es-vista-manzanillo="esVistaManzanillo" @generar="generarComplemento" @visualizar="visualizarComplemento"
+          @enviar="enviarCorreoComplemento" @editar="abrirModalEditarIngreso" @eliminar="eliminarFila" />
 
-              <template v-else-if="esVistaTransportactics">
-                <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">FLETE (XML)</th>
-                <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">PAGO PROVEEDOR
-                </th>
-                <th class="px-6 py-5 border-r border-slate-200 text-emerald-600"
-                  style="min-width: 180px; width: 180px;">GANANCIA</th>
-              </template>
+        <div v-if="ingresosFiltrados.length === 0"
+          class="text-center py-16 text-lg text-gray-500 bg-white rounded-xl shadow-sm border border-gray-200 font-bold mt-4">
+          No se encontraron registros de ingresos para estos filtros.
+        </div>
 
-              <template v-else>
-                <template v-if="!esVistaManzanillo">
-                  <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">HONORARIOS
-                  </th>
-                  <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">Total GPC</th>
-                  <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">IMPUESTOS</th>
-                  <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">ECI</th>
-                  <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">MANIOBRAS</th>
-                  <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">FLETE</th>
-                  <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">MUESTRAS</th>
-                  <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">LLC</th>
-                </template>
+        <div v-if="totalPages > 1" class="mt-auto pt-8 pb-4 flex justify-center">
+          <div class="flex items-center gap-1 bg-white p-2 rounded-md shadow-sm border border-gray-200">
 
-                <template v-else>
-                  <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">ANTICIPO</th>
-                  <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">GARANTÍAS</th>
-                  <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">DESGLOSE
-                    NAVIERA</th>
-                  <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">IMPUESTOS</th>
-                  <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">ALMAN / FLETE
-                  </th>
-                  <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">HONORARIOS
-                  </th>
-                </template>
-              </template>
+            <button @click="paginaAnterior" :disabled="currentPage === 1"
+              class="px-3 py-1.5 border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 rounded text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+              « Anterior
+            </button>
 
-              <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">MONTO SC</th>
-              <th class="px-6 py-5 border-r border-slate-200" style="min-width: 180px; width: 180px;">DIFERENCIA</th>
-              <th class="px-6 py-5 border-r border-slate-200 text-center" style="min-width: 220px; width: 220px;">TIPO
-                COMPROBANTE</th>
-              <th class="px-6 py-5 border-r border-slate-200 text-center" style="min-width: 220px; width: 220px;">
-                COMPLEMENTO DE PAGO
-              </th>
-              <th class="px-6 py-5 border-r border-slate-200 text-center" style="min-width: 180px; width: 180px;">
-                ESTATUS</th>
-              <th class="px-6 py-5 text-center" style="min-width: 320px; width: 320px;">ACCIÓN</th>
-            </tr>
-          </thead>
-          <tbody class="bg-white text-slate-700 font-semibold">
-            <tr v-for="item in ingresosFiltrados" :key="item.id"
-              class="border-b border-slate-200 hover:bg-slate-100 transition-colors">
+            <template v-for="(page, index) in visiblePages">
+              <span v-if="page === '...'" :key="'dots-' + index" class="px-3 py-1.5 text-gray-400 font-medium text-sm">...</span>
+              <button v-else :key="'page-' + index" @click="gotoPage(page)" 
+                      :class="['px-3 py-1.5 border rounded text-sm font-medium transition-colors min-w-[36px] text-center', 
+                               currentPage === page ? 'bg-blue-50 border-blue-200 text-blue-700 font-bold' : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50']">
+                {{ page }}
+              </button>
+            </template>
 
-              <td class="px-6 py-4 text-xl align-middle border-r border-slate-100 whitespace-nowrap">{{
-                item.sucursal_origen ||
-                'N/A' }}</td>
-              <td class="px-6 py-4 text-xl align-middle border-r border-slate-100 whitespace-nowrap">{{
-                item.banco_receptor ||
-                'N/A' }}</td>
-              <td class="px-6 py-4 text-xl align-middle border-r border-slate-100">{{ item.fecha }}</td>
-              <td class="px-6 py-4 text-xl uppercase align-middle border-r border-slate-100 text-slate-800">{{
-                item.cliente }}
-              </td>
-              <td class="px-6 py-4 text-center font-bold text-indigo-600 text-xl border-r border-slate-100">{{
-                item.folio_sc
-                || '--' }}</td>
+            <button @click="siguientePagina" :disabled="currentPage === totalPages"
+              class="px-3 py-1.5 border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 rounded text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+              Siguiente »
+            </button>
 
-              <!-- MONTO TOTAL -->
-              <td
-                class="px-6 py-4 text-right text-purple-700 text-xl font-black align-middle border-r border-slate-100 bg-purple-100">
-                {{ formatearDinero(item.monto_deposito) }}
-              </td>
+          </div>
+        </div>
 
-              <!-- ========================================== -->
-              <!-- CELDAS DINÁMICAS SEGÚN VISTA               -->
-              <!-- ========================================== -->
-              <template v-if="esVistaIntshipperts">
-                <td
-                  class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                  {{ formatearDinero(item.anticipo) }}</td>
-                <td
-                  class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-black text-gray-700">
-                  {{ formatearDinero(item.flete) }}</td>
-              </template>
-
-              <template v-else-if="esVistaTransportactics">
-                <td
-                  class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-black text-gray-700">
-                  {{ formatearDinero(item.flete) }}</td>
-                <td
-                  class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                  {{ formatearDinero(item.pago_proveedor) }}</td>
-                <td
-                  class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-bold text-emerald-600 bg-emerald-100">
-                  {{ formatearDinero(item.ganancia) }}</td>
-              </template>
-              <template v-else>
-                <template v-if="!esVistaManzanillo">
-                  <td
-                    class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    {{ formatearDinero(item.honorarios) }}</td>
-                  <td
-                    class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-black text-blue-600 bg-blue-100">
-                    {{ formatearDinero(item.total_gpc) }}</td>
-                  <td
-                    class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    {{ formatearDinero(item.impuestos) }}</td>
-                  <td
-                    class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    {{ formatearDinero(item.eci) }}</td>
-                  <td
-                    class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    {{ formatearDinero(item.maniobras) }}</td>
-                  <td
-                    class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    {{ formatearDinero(item.flete) }}</td>
-                  <td
-                    class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    {{ formatearDinero(item.muestras) }}</td>
-                  <td
-                    class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    {{ formatearDinero(item.llc) }}</td>
-                </template>
-
-                <template v-else>
-                  <td
-                    class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    {{ formatearDinero(item.anticipo) }}</td>
-                  <td
-                    class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    {{ formatearDinero(item.garantias) }}</td>
-                  <td
-                    class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    {{ formatearDinero(item.desglose_naviera) }}</td>
-                  <td
-                    class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    {{ formatearDinero(item.impuestos) }}</td>
-                  <td
-                    class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    {{ formatearDinero(item.flete) }}</td>
-                  <td
-                    class="px-6 py-4 text-xl text-right align-middle border-r border-slate-100 font-medium text-gray-600">
-                    {{ formatearDinero(item.honorarios) }}</td>
-                </template>
-              </template>
-
-              <!-- CÁLCULOS Y ESTATUS -->
-              <td
-                class="px-6 py-4 text-xl text-right font-black text-slate-800 align-middle border-r border-slate-100 bg-slate-100">
-                {{ formatearDinero(calcularMontoSC(item)) }}
-              </td>
-              <td
-                :class="['px-6 py-4 text-xl text-right font-black align-middle border-r border-slate-100', calcularDiferencia(item) < 0 ? 'text-red-500 bg-red-100' : 'text-slate-400']">
-                {{ formatearDinero(calcularDiferencia(item)) }}
-              </td>
-
-              <td class="px-8 py-5 whitespace-nowrap text-center border-r border-slate-100 align-middle">
-                <span v-if="item.tipo_comprobante === 'CFDI'"
-                  class="px-4 py-2 bg-blue-100 text-blue-700 text-lg font-extrabold rounded-lg border border-blue-200">CFDI</span>
-                <span v-else-if="item.tipo_comprobante === 'Nota Cargo'"
-                  class="px-4 py-2 bg-purple-100 text-purple-700 text-lg font-extrabold rounded-lg border border-purple-200">NOTA
-                  CARGO</span>
-                <span v-else
-                  class="px-4 py-2 bg-gray-100 text-gray-600 text-lg font-extrabold rounded-lg border border-gray-200">{{
-                    item.tipo_comprobante || 'N/A' }}</span>
-              </td>
-              <td class="px-6 py-4 align-middle border-r border-slate-100 text-center font-bold text-slate-600 text-xl">
-                {{ item.folio_complemento || 'SIN COMPLEMENTO' }}</td>
-              <td class="px-6 py-4 text-center font-bold align-middle border-r border-slate-100 text-lg">
-                <span :class="item.estado_envio === 'ENVIADO' ? 'text-green-600' : 'text-orange-500'">{{
-                  item.estado_envio ||
-                  'PENDIENTE' }}</span>
-              </td>
-
-              <!-- ============================================== -->
-              <!-- NUEVOS BOTONES DE ACCIÓN (5 en total)          -->
-              <!-- ============================================== -->
-              <td class="p-4 align-middle border-r border-slate-100">
-                <div class="flex items-center justify-center gap-3">
-
-                  <!-- 1. Generar Complemento -->
-                  <button @click="generarComplemento(item)"
-                    class="text-green-600 hover:text-white bg-green-100 hover:bg-green-500 p-3 rounded-lg transition-colors shadow-sm border border-green-300"
-                    title="Generar Complemento">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
-                      </path>
-                    </svg>
-                  </button>
-
-                  <!-- 2. Visualizar Complemento -->
-                  <button @click="visualizarComplemento(item)"
-                    class="text-blue-600 hover:text-white bg-blue-100 hover:bg-blue-500 p-3 rounded-lg transition-colors shadow-sm border border-blue-300"
-                    title="Visualizar Complemento">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
-                      </path>
-                    </svg>
-                  </button>
-
-                  <!-- 3. Enviar Complemento -->
-                  <button @click="enviarCorreoComplemento(item)"
-                    class="text-purple-600 hover:text-white bg-purple-100 hover:bg-purple-500 p-3 rounded-lg transition-colors shadow-sm border border-purple-300"
-                    title="Enviar Complemento">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-                    </svg>
-                  </button>
-
-                  <!-- 4. Editar Fila -->
-                  <button @click="abrirModalEditarIngreso(item)"
-                    class="text-indigo-600 hover:text-white bg-indigo-100 hover:bg-indigo-500 p-3 rounded-lg transition-colors shadow-sm border border-indigo-300"
-                    title="Editar Fila">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z">
-                      </path>
-                    </svg>
-                  </button>
-
-                  <!-- 5. Eliminar Fila -->
-                  <button @click="eliminarFila(item.id)"
-                    class="text-red-500 hover:text-white bg-red-100 hover:bg-red-500 p-3 rounded-lg transition-colors shadow-sm border border-red-300"
-                    title="Eliminar Fila">
-                    <svg class="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
-                      </path>
-                    </svg>
-                  </button>
-
-                </div>
-              </td>
-            </tr>
-            <tr v-if="ingresosFiltrados.length === 0">
-              <td colspan="19" class="text-center py-16 text-2xl text-slate-400 bg-slate-100 font-medium">
-                No se encontraron registros para la sucursal o filtros seleccionados.
-              </td>
-            </tr>
-          </tbody>
-        </table>
       </div>
     </div>
 
@@ -657,7 +425,7 @@ import Multiselect from 'vue-multiselect';
 import 'vue-multiselect/dist/vue-multiselect.min.css';
 import VueCtkDateTimePicker from 'vue-ctk-date-time-picker';
 import 'vue-ctk-date-time-picker/dist/vue-ctk-date-time-picker.css';
-
+import IngresoCard from './IngresoCard.vue';
 import ModalNuevoIngreso from './ModalNuevoIngreso.vue';
 import ModalNuevoSaldoFavor from './ModalNuevoSaldoFavor.vue';
 import ModalEditarSaldoFavor from './ModalEditarSaldoFavor.vue';
@@ -669,6 +437,7 @@ import ModalEnviarCorreo from './ModalEnviarCorreo.vue';
 export default {
   name: 'VistaFinanzasIngresos',
   components: {
+    IngresoCard,
     ModalNuevoIngreso,
     ModalNuevoSaldoFavor,
     ModalEditarSaldoFavor,
@@ -732,7 +501,10 @@ export default {
         tipo_comprobante: 'Todos',
         tipoServicio: 'Todos',
         estado_envio: { id: '', label: 'Todos' }
-      }
+      },
+
+      currentPage: 1,
+      itemsPerPage: 10,
     }
   },
   mounted() {
@@ -819,6 +591,36 @@ export default {
 
       return data;
     },
+    totalPages() {
+      return Math.ceil(this.ingresosFiltrados.length / this.itemsPerPage) || 1;
+    },
+    startIndex() {
+      return (this.currentPage - 1) * this.itemsPerPage;
+    },
+    endIndex() {
+      return Math.min(this.startIndex + this.itemsPerPage, this.ingresosFiltrados.length);
+    },
+    paginatedIngresos() {
+      return this.ingresosFiltrados.slice(this.startIndex, this.endIndex);
+    },
+    visiblePages() {
+      const total = this.totalPages;
+      const current = this.currentPage;
+
+      if (total <= 12) {
+        return Array.from({ length: total }, (_, i) => i + 1);
+      }
+
+      if (current <= 6) {
+        return [1, 2, 3, 4, 5, 6, 7, 8, '...', total - 1, total];
+      }
+
+      if (current >= total - 5) {
+        return [1, 2, '...', total - 7, total - 6, total - 5, total - 4, total - 3, total - 2, total - 1, total];
+      }
+
+      return [1, 2, '...', current - 2, current - 1, current, current + 1, current + 2, '...', total - 1, total];
+    },
     saldosVigentesFiltrados() {
       return this.saldosData.filter(s => {
         if (s.estatus !== 'VIGENTE') {
@@ -870,7 +672,25 @@ export default {
       return this.saldosAplicadosFiltrados.reduce((acc, item) => acc + (Number(item.monto) || 0), 0);
     }
   },
+  watch: {
+    ingresosFiltrados() {
+      this.currentPage = 1;
+    }
+  },
   methods: {
+    paginaAnterior() {
+      if (this.currentPage > 1) {
+        this.currentPage--;
+      }
+    },
+    siguientePagina() {
+      if (this.currentPage < this.totalPages) {
+        this.currentPage++;
+      }
+    },
+    gotoPage(page) {
+      this.currentPage = page;
+    },
     generarComplemento(item) {
       this.ingresoParaComplemento = item;
       this.showModalComplemento = true;
@@ -1085,40 +905,8 @@ export default {
         tipoServicio: 'Todos',
         estado_envio: { id: '', label: 'Todos' }
       };
+      this.currentPage = 1;
       this.cargarIngresos();
-
-    },
-    calcularMontoSC(item) {
-      const nombreCliente = String(item.cliente || '').toUpperCase();
-      const sucursalOrigen = String(item.sucursal_origen || '').toUpperCase();
-
-      const isTransportactics = nombreCliente.includes('TRANSPORTACTICS') || sucursalOrigen.includes('TRANSPORTACTIC');
-
-      if (isTransportactics) {
-        return Number(item.flete) || 0;
-      }
-
-      const esManzanilloRow = sucursalOrigen.includes('MANZANILLO') || sucursalOrigen.includes('INTSHIPPERT');
-
-      if (esManzanilloRow) {
-        return (Number(item.anticipo) || 0) +
-          (Number(item.garantias) || 0) +
-          (Number(item.desglose_naviera) || 0) +
-          (Number(item.impuestos) || 0) +
-          (Number(item.flete) || 0) +
-          (Number(item.honorarios) || 0);
-      }
-
-      return (Number(item.honorarios) || 0) +
-        (Number(item.impuestos) || 0) +
-        (Number(item.eci) || 0) +
-        (Number(item.maniobras) || 0) +
-        (Number(item.flete) || 0) +
-        (Number(item.muestras) || 0) +
-        (Number(item.llc) || 0);
-    },
-    calcularDiferencia(item) {
-      return (Number(item.monto_deposito) || 0) - this.calcularMontoSC(item);
     },
     async procesarComplementoBackend(payloadLimpio) {
       try {
