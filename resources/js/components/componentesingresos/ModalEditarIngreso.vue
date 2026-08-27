@@ -553,10 +553,6 @@ export default {
                 return Swal.fire('Atención', 'Selecciona o escribe al menos una referencia/pedimento.', 'warning');
             }
 
-            if (this.form.referenciasObj.length > 0 && (!this.form.operaciones || this.form.operaciones.length === 0)) {
-                return Swal.fire('Faltan Datos', 'Por favor presiona el botón azul de "Recalcular" para extraer los montos exactos antes de guardar.', 'warning');
-            }
-
             const confirmacion = await Swal.fire({
                 title: '¿Guardar cambios?',
                 text: "¿Estás seguro de que deseas actualizar este ingreso? Esta acción modificará los montos registrados.",

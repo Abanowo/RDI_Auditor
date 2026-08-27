@@ -27,9 +27,8 @@ class NotificacionSaldoFavorMail extends Mailable
                     ->view('cuerpo_correo_saldo_favor') // Verifica que el nombre de tu vista Blade sea este
                     ->with([
                         'nombreEmpresaEmisora' => 'InTactics',
-                        'urlFirma'             => $this->datosFirma['urlFirma'],
-                        'nombreUsuarioDebug'   => $this->datosFirma['nombreUsuarioDebug'],
-                        'esEntornoLocal'       => $this->datosFirma['esEntornoLocal']
+                        'urlFirma'             => $this->datosFirma['urlFirma'] ?? '',
+                        'nombreUsuarioDebug'   => $this->datosFirma['nombreUsuarioDebug'] ?? 'Usuario No Identificado'
                     ]);
     }
 }

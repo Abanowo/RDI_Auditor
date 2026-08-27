@@ -10893,13 +10893,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               }
               return _context3.a(2, sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Atención', 'Selecciona o escribe al menos una referencia/pedimento.', 'warning'));
             case 2:
-              if (!(_this3.form.referenciasObj.length > 0 && (!_this3.form.operaciones || _this3.form.operaciones.length === 0))) {
-                _context3.n = 3;
-                break;
-              }
-              return _context3.a(2, sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Faltan Datos', 'Por favor presiona el botón azul de "Recalcular" para extraer los montos exactos antes de guardar.', 'warning'));
-            case 3:
-              _context3.n = 4;
+              _context3.n = 3;
               return sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
                 title: '¿Guardar cambios?',
                 text: "¿Estás seguro de que deseas actualizar este ingreso? Esta acción modificará los montos registrados.",
@@ -10911,14 +10905,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
                 cancelButtonText: 'Cancelar',
                 reverseButtons: true
               });
-            case 4:
+            case 3:
               confirmacion = _context3.v;
               if (confirmacion.isConfirmed) {
-                _context3.n = 5;
+                _context3.n = 4;
                 break;
               }
               return _context3.a(2);
-            case 5:
+            case 4:
               _this3.isSubmitting = true;
               payload = _objectSpread({}, _this3.form);
               payload.cliente_id = payload.cliente.id || null;
@@ -10939,10 +10933,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
                 payload.referencia = payload.pedimento_detectado;
               }
               delete payload.pedimento_detectado;
-              _context3.p = 6;
-              _context3.n = 7;
+              _context3.p = 5;
+              _context3.n = 6;
               return axios__WEBPACK_IMPORTED_MODULE_5__["default"].put("/ingresos-conciliados/".concat(_this3.form.id), payload);
-            case 7:
+            case 6:
               response = _context3.v;
               if (response.status === 200 || response.data) {
                 sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
@@ -10956,10 +10950,10 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
                 });
                 _this3.$emit('ingreso-actualizado');
               }
-              _context3.n = 9;
+              _context3.n = 8;
               break;
-            case 8:
-              _context3.p = 8;
+            case 7:
+              _context3.p = 7;
               _t3 = _context3.v;
               console.error("🔍 ERROR CRUDO:", _t3);
               mensajeReal = 'Problema al guardar los cambios';
@@ -10967,14 +10961,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
                 mensajeReal = _t3.response.data.error;
               }
               sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Error', mensajeReal, 'error');
-            case 9:
-              _context3.p = 9;
+            case 8:
+              _context3.p = 8;
               _this3.isSubmitting = false;
-              return _context3.f(9);
-            case 10:
+              return _context3.f(8);
+            case 9:
               return _context3.a(2);
           }
-        }, _callee3, null, [[6, 8, 9, 10]]);
+        }, _callee3, null, [[5, 7, 8, 9]]);
       }))();
     }
   }

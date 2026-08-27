@@ -2686,14 +2686,8 @@ class IngresoConciliadoController extends Controller
         // 1. Buscamos el saldo con su cliente
         $saldo = SaldoFavor::with('cliente')->findOrFail($id);
 
-        if (app()->environment('production')) {
-            // En producción tomamos al usuario logueado de forma normal
-            $remitente = auth()->user();
-        } else {
-            // En local, buscamos directamente el registro del usuario 5
-            // Así evitamos cualquier problema con las sesiones de Axios/Vue
-            $remitente = \App\Models\User::find(3);
-        }
+        // Tomamos siempre al usuario logueado en el sistema
+        $remitente = auth()->user();
 
         // Hacemos un pequeño truco por si tu base de datos usa "name" en lugar de "nombre"
         $nombreRemitente = $remitente->nombre ?? $remitente->name ?? '';
