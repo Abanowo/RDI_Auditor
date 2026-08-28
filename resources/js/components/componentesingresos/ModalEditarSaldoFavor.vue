@@ -2,8 +2,17 @@
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-6">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl flex flex-col mx-4">
 
-            <div class="bg-blue-600 px-8 py-6 flex justify-between items-center rounded-t-xl">
-                <h3 class="text-white text-xl font-bold uppercase tracking-wider">EDITAR SALDO A FAVOR</h3>
+            <div class="px-8 py-6 flex justify-between items-center rounded-t-xl shrink-0"
+                style="background-color: #2A3A4D;">
+                <h3 class="text-white text-xl font-bold uppercase tracking-wider flex items-center gap-3">
+                    <!-- Ícono de Editar (Lápiz) SVG -->
+                    <svg class="w-7 h-7 shrink-0 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z">
+                        </path>
+                    </svg>
+                    EDITAR SALDO A FAVOR
+                </h3>
                 <button @click="$emit('close')" class="text-blue-200 hover:text-white transition-colors">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">

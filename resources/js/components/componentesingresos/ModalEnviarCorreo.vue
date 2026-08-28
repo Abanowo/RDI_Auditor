@@ -4,8 +4,17 @@
             style="height: 90vh;">
 
             <!-- Encabezado -->
-            <div class="px-8 py-5 flex justify-between items-center rounded-t-xl shrink-0" style="background-color: #2A3A4D;">
-                <h3 class="text-white font-bold text-xl tracking-wide">✉️ Configurar y Enviar Correo</h3>
+            <div class="px-8 py-5 flex justify-between items-center rounded-t-xl shrink-0"
+                style="background-color: #2A3A4D;">
+                <h3 class="text-white font-bold text-xl tracking-wide flex items-center">
+                    <!-- Ícono de Correo / Sobre SVG -->
+                    <svg class="w-6 h-6 mr-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
+                        </path>
+                    </svg>
+                    Configurar y Enviar Correo
+                </h3>
                 <button @click="cerrar"
                     class="text-gray-400 hover:text-white transition-colors bg-gray-700 hover:bg-gray-600 rounded-full p-2">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

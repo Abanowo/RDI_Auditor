@@ -3,14 +3,25 @@
 
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
 
-      <div class="px-8 py-6 flex justify-between items-center shrink-0" style="background-color: #2A3A4D;">
-        <h3 class="text-white text-2xl font-bold uppercase tracking-wider">EDITAR INGRESO CONCILIADO</h3>
-        <button @click="$emit('close')" class="text-blue-200 hover:text-white transition-colors">
-          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-          </svg>
-        </button>
-      </div>
+          <div class="px-8 py-6 flex justify-between items-center shrink-0" style="background-color: #2A3A4D;">
+                <h3 class="text-white text-2xl font-bold uppercase tracking-wider flex items-center gap-3">
+                    <!-- Ícono de Editar (Lápiz) SVG -->
+                    <svg class="w-7 h-7 shrink-0 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z">
+                        </path>
+                    </svg>
+                    EDITAR INGRESO CONCILIADO
+                </h3>
+                <button @click="$emit('close')" class="text-blue-200 hover:text-white transition-colors">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+
+  
 
       <div class="p-8 overflow-y-auto flex-1 grid grid-cols-2 gap-8">
 

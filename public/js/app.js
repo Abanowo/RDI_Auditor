@@ -9755,23 +9755,25 @@ __webpack_require__.r(__webpack_exports__);
     item: {
       type: Object,
       required: true
-    },
-    esVistaManzanillo: {
-      type: Boolean,
-      "default": false
-    },
-    esVistaIntshipperts: {
-      type: Boolean,
-      "default": false
-    },
-    esVistaTransportactics: {
-      type: Boolean,
-      "default": false
     }
   },
   computed: {
+    esRegistroIntshipperts: function esRegistroIntshipperts() {
+      var nombreCliente = String(this.item.cliente || '').toUpperCase();
+      var sucursalOrigen = String(this.item.sucursal_origen || '').toUpperCase();
+      return nombreCliente.includes('INTSHIPPERTS') || sucursalOrigen.includes('INTSHIPPERT');
+    },
+    esRegistroTransportactics: function esRegistroTransportactics() {
+      var nombreCliente = String(this.item.cliente || '').toUpperCase();
+      var sucursalOrigen = String(this.item.sucursal_origen || '').toUpperCase();
+      return nombreCliente.includes('TRANSPORTACTICS') || sucursalOrigen.includes('TRANSPORTACTIC');
+    },
+    esRegistroManzanillo: function esRegistroManzanillo() {
+      var sucursalOrigen = String(this.item.sucursal_origen || '').toUpperCase();
+      return sucursalOrigen.includes('MANZANILLO');
+    },
     desgloseActivo: function desgloseActivo() {
-      if (this.esVistaIntshipperts) {
+      if (this.esRegistroIntshipperts) {
         return [{
           label: 'Anticipo',
           monto: this.item.anticipo
@@ -9779,7 +9781,7 @@ __webpack_require__.r(__webpack_exports__);
           label: 'Alman / Flete',
           monto: this.item.flete
         }];
-      } else if (this.esVistaTransportactics) {
+      } else if (this.esRegistroTransportactics) {
         return [{
           label: 'Flete (XML)',
           monto: this.item.flete
@@ -9790,7 +9792,7 @@ __webpack_require__.r(__webpack_exports__);
           label: 'Ganancia',
           monto: this.item.ganancia
         }];
-      } else if (this.esVistaManzanillo) {
+      } else if (this.esRegistroManzanillo) {
         return [{
           label: 'Anticipo',
           monto: this.item.anticipo
@@ -9839,18 +9841,13 @@ __webpack_require__.r(__webpack_exports__);
       }
     },
     montoSC: function montoSC() {
-      var nombreCliente = String(this.item.cliente || '').toUpperCase();
-      var sucursalOrigen = String(this.item.sucursal_origen || '').toUpperCase();
-      var isTransportactics = nombreCliente.includes('TRANSPORTACTICS') || sucursalOrigen.includes('TRANSPORTACTIC');
-      if (isTransportactics) return Number(this.item.flete) || 0;
-      var esManzanilloRow = sucursalOrigen.includes('MANZANILLO') || sucursalOrigen.includes('INTSHIPPERT');
-      if (esManzanilloRow) {
+      if (this.esRegistroTransportactics) return Number(this.item.flete) || 0;
+      if (this.esRegistroManzanillo || this.esRegistroIntshipperts) {
         return (Number(this.item.anticipo) || 0) + (Number(this.item.garantias) || 0) + (Number(this.item.desglose_naviera) || 0) + (Number(this.item.impuestos) || 0) + (Number(this.item.flete) || 0) + (Number(this.item.honorarios) || 0);
       }
       return (Number(this.item.honorarios) || 0) + (Number(this.item.impuestos) || 0) + (Number(this.item.eci) || 0) + (Number(this.item.maniobras) || 0) + (Number(this.item.flete) || 0) + (Number(this.item.muestras) || 0) + (Number(this.item.llc) || 0);
     },
     diferencia: function diferencia() {
-      // Utilizamos toFixed para evitar errores matemáticos de JS con decimales largos
       var calc = (Number(this.item.monto_deposito) || 0) - this.montoSC;
       return Number(calc.toFixed(2));
     }
@@ -9889,6 +9886,16 @@ function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present,
 function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { if (r) i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n;else { var o = function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); }; o("next", 0), o("throw", 1), o("return", 2); } }, _regeneratorDefine2(e, r, n, t); }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 //
 //
 //
@@ -10303,6 +10310,17 @@ function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Sym
 function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 //
 //
 //
@@ -11061,6 +11079,15 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
 //
 //
 //
+//
+//
+//
+//
+//
+//
+//
+//
+//
 
 
 
@@ -11201,6 +11228,15 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+//
+//
+//
+//
+//
+//
+//
+//
+//
 //
 //
 //
@@ -12062,6 +12098,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 //
 //
 //
+//
+//
+//
+//
+//
+//
+//
+//
 
 
 
@@ -12560,6 +12604,13 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
 //
 //
 //
+//
+//
+//
+//
+//
+//
+//
 
 
 
@@ -12657,6 +12708,15 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
+//
+//
+//
+//
+//
+//
+//
+//
+//
 //
 //
 //
@@ -88540,11 +88600,11 @@ var render = function () {
     "div",
     {
       staticClass:
-        "bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200 flex flex-col relative mb-3",
+        "bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-all duration-200 flex flex-col relative mb-5",
     },
     [
       _c("div", {
-        staticClass: "absolute left-0 top-0 bottom-0 w-1.5",
+        staticClass: "absolute left-0 top-0 bottom-0 w-2",
         class:
           _vm.diferencia < 0
             ? "bg-red-500"
@@ -88557,19 +88617,16 @@ var render = function () {
         "div",
         {
           staticClass:
-            "px-4 py-2 border-b border-gray-200 flex justify-between items-center bg-gray-100 ml-1.5",
+            "px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50 ml-2",
         },
         [
-          _c("div", { staticClass: "flex items-center gap-3" }, [
+          _c("div", { staticClass: "flex items-center gap-4" }, [
             _c(
               "span",
               {
                 staticClass:
-                  "px-2 py-0.5 text-white font-black rounded uppercase shadow-sm",
-                staticStyle: {
-                  "font-size": "10px",
-                  "background-color": "#2A3A4D",
-                },
+                  "px-3 py-1 text-white font-black rounded uppercase shadow-sm text-sm",
+                staticStyle: { "background-color": "#2A3A4D" },
               },
               [
                 _vm._v(
@@ -88580,7 +88637,7 @@ var render = function () {
               ]
             ),
             _vm._v(" "),
-            _c("span", { staticClass: "text-xs font-bold text-gray-500" }, [
+            _c("span", { staticClass: "text-base font-bold text-gray-500" }, [
               _vm._v(_vm._s(_vm.item.fecha)),
             ]),
             _vm._v(" "),
@@ -88588,7 +88645,7 @@ var render = function () {
               "span",
               {
                 staticClass:
-                  "text-[10px] font-bold text-indigo-700 bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded uppercase hidden sm:block",
+                  "text-sm font-bold text-indigo-700 bg-indigo-100 border border-indigo-200 px-3 py-1 rounded uppercase hidden sm:block",
               },
               [
                 _vm._v(
@@ -88600,47 +88657,47 @@ var render = function () {
             ),
           ]),
           _vm._v(" "),
-          _c("div", { staticClass: "flex items-center gap-2" }, [
+          _c("div", { staticClass: "flex items-center gap-3" }, [
             _c(
               "span",
               {
                 staticClass:
-                  "font-bold text-gray-400 uppercase text-[10px] hidden md:block",
+                  "font-bold text-gray-400 uppercase text-sm hidden md:block",
               },
               [_vm._v("Banco:")]
             ),
             _vm._v(" "),
-            _c("span", { staticClass: "text-xs font-bold text-gray-700" }, [
+            _c("span", { staticClass: "text-base font-bold text-gray-700" }, [
               _vm._v(_vm._s(_vm.item.banco_receptor || "N/E")),
             ]),
           ]),
         ]
       ),
       _vm._v(" "),
-      _c("div", { staticClass: "p-3 ml-1.5 flex flex-col gap-3" }, [
+      _c("div", { staticClass: "p-6 ml-2 flex flex-col gap-5" }, [
         _c(
           "h3",
           {
             staticClass:
-              "text-base font-black text-gray-800 uppercase tracking-tight leading-none truncate",
+              "text-2xl font-black text-gray-800 uppercase tracking-tight leading-none truncate",
           },
           [_vm._v("\n            " + _vm._s(_vm.item.cliente) + "\n        ")]
         ),
         _vm._v(" "),
-        _c("div", { staticClass: "flex flex-col xl:flex-row gap-4 w-full" }, [
-          _c("div", { staticClass: "flex gap-2 w-full xl:w-auto shrink-0" }, [
+        _c("div", { staticClass: "flex flex-col xl:flex-row gap-6 w-full" }, [
+          _c("div", { staticClass: "flex gap-4 w-full xl:w-auto shrink-0" }, [
             _c(
               "div",
               {
                 staticClass:
-                  "flex flex-col justify-center px-3 py-1.5 bg-blue-100 border border-blue-200 rounded shrink-0 min-w-[110px]",
+                  "flex flex-col justify-center px-5 py-3 bg-blue-100 border border-blue-200 rounded-lg shrink-0 min-w-[150px]",
               },
               [
                 _c(
                   "span",
                   {
                     staticClass:
-                      "font-bold text-blue-700 uppercase text-[9px] mb-0.5",
+                      "font-bold text-blue-700 uppercase text-sm mb-1",
                   },
                   [_vm._v("Depósito")]
                 ),
@@ -88649,7 +88706,7 @@ var render = function () {
                   "span",
                   {
                     staticClass:
-                      "text-sm font-black text-blue-700 leading-none",
+                      "text-xl font-black text-blue-700 leading-none",
                   },
                   [_vm._v(_vm._s(_vm.formatearDinero(_vm.item.monto_deposito)))]
                 ),
@@ -88660,23 +88717,23 @@ var render = function () {
               "div",
               {
                 staticClass:
-                  "flex flex-col justify-center px-3 py-1.5 bg-gray-100 border border-gray-200 rounded shrink-0 min-w-[110px]",
+                  "flex flex-col justify-center px-5 py-3 bg-gray-100 border border-gray-200 rounded-lg shrink-0 min-w-[150px]",
               },
               [
                 _c(
                   "span",
                   {
                     staticClass:
-                      "font-bold text-gray-500 uppercase text-[9px] mb-0.5",
+                      "font-bold text-gray-500 uppercase text-sm mb-1",
                   },
-                  [_vm._v("SC")]
+                  [_vm._v("SC (Calc)")]
                 ),
                 _vm._v(" "),
                 _c(
                   "span",
                   {
                     staticClass:
-                      "text-sm font-black text-gray-800 leading-none",
+                      "text-xl font-black text-gray-800 leading-none",
                   },
                   [_vm._v(_vm._s(_vm.formatearDinero(_vm.montoSC)))]
                 ),
@@ -88687,7 +88744,7 @@ var render = function () {
               "div",
               {
                 staticClass:
-                  "flex flex-col justify-center px-3 py-1.5 border rounded shrink-0 min-w-[110px]",
+                  "flex flex-col justify-center px-5 py-3 border rounded-lg shrink-0 min-w-[150px]",
                 class:
                   _vm.diferencia < 0
                     ? "bg-red-100 border-red-200"
@@ -88699,7 +88756,7 @@ var render = function () {
                 _c(
                   "span",
                   {
-                    staticClass: "font-bold uppercase text-[9px] mb-0.5",
+                    staticClass: "font-bold uppercase text-sm mb-1",
                     class:
                       _vm.diferencia < 0
                         ? "text-red-600"
@@ -88713,7 +88770,7 @@ var render = function () {
                 _c(
                   "span",
                   {
-                    staticClass: "text-sm font-black leading-none",
+                    staticClass: "text-xl font-black leading-none",
                     class:
                       _vm.diferencia < 0
                         ? "text-red-700"
@@ -88728,14 +88785,14 @@ var render = function () {
           ]),
           _vm._v(" "),
           _c("div", {
-            staticClass: "hidden xl:block w-px bg-gray-200 shrink-0 my-1",
+            staticClass: "hidden xl:block w-px bg-gray-200 shrink-0 my-2",
           }),
           _vm._v(" "),
           _c(
             "div",
             {
               staticClass:
-                "grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2 w-full",
+                "grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3 w-full",
             },
             _vm._l(_vm.desgloseActivo, function (concepto, index) {
               return _c(
@@ -88743,22 +88800,22 @@ var render = function () {
                 {
                   key: index,
                   staticClass:
-                    "border rounded px-2 py-1.5 flex flex-col justify-center items-start relative overflow-hidden transition-colors",
+                    "border rounded-lg px-4 py-3 flex flex-col justify-center items-start relative overflow-hidden transition-colors",
                   class:
                     Number(concepto.monto) > 0
                       ? "border-green-300 bg-green-100"
-                      : "bg-white border-gray-200",
+                      : "bg-gray-100 border-gray-200",
                 },
                 [
                   _c(
                     "span",
                     {
                       staticClass:
-                        "font-bold uppercase tracking-wider text-[9px] truncate w-full mb-0.5",
+                        "font-bold uppercase tracking-wider text-sm truncate w-full mb-1.5",
                       class:
                         Number(concepto.monto) > 0
                           ? "text-gray-700"
-                          : "text-gray-400",
+                          : "text-gray-700",
                     },
                     [
                       _vm._v(
@@ -88773,11 +88830,11 @@ var render = function () {
                     "span",
                     {
                       staticClass:
-                        "text-xs font-black truncate w-full leading-none",
+                        "text-base font-black truncate w-full leading-none",
                       class:
                         Number(concepto.monto) > 0
                           ? "text-green-600"
-                          : "text-gray-300",
+                          : "text-gray-700",
                     },
                     [
                       _vm._v(
@@ -88799,16 +88856,16 @@ var render = function () {
         "div",
         {
           staticClass:
-            "px-4 py-2 bg-gray-100 border-t border-gray-200 flex justify-between items-center ml-1.5",
+            "px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center ml-2",
         },
         [
-          _c("div", { staticClass: "flex items-center gap-3" }, [
+          _c("div", { staticClass: "flex items-center gap-5" }, [
             _vm.item.tipo_comprobante === "CFDI"
               ? _c(
                   "span",
                   {
                     staticClass:
-                      "px-2 py-0.5 bg-blue-100 text-blue-700 font-bold rounded border border-blue-200 text-[10px]",
+                      "px-4 py-1.5 bg-blue-100 text-blue-700 font-bold rounded border border-blue-200 text-sm",
                   },
                   [_vm._v("CFDI")]
                 )
@@ -88817,7 +88874,7 @@ var render = function () {
                   "span",
                   {
                     staticClass:
-                      "px-2 py-0.5 bg-purple-100 text-purple-700 font-bold rounded border border-purple-200 text-[10px]",
+                      "px-4 py-1.5 bg-purple-100 text-purple-700 font-bold rounded border border-purple-200 text-sm",
                   },
                   [_vm._v("NOTA\n                CARGO")]
                 )
@@ -88825,27 +88882,27 @@ var render = function () {
                   "span",
                   {
                     staticClass:
-                      "px-2 py-0.5 bg-gray-200 text-gray-600 font-bold rounded border border-gray-300 text-[10px]",
+                      "px-4 py-1.5 bg-gray-200 text-gray-600 font-bold rounded border border-gray-300 text-sm",
                   },
                   [_vm._v(_vm._s(_vm.item.tipo_comprobante || "N/A"))]
                 ),
             _vm._v(" "),
-            _c("div", { staticClass: "h-3 w-px bg-gray-300" }),
+            _c("div", { staticClass: "h-5 w-px bg-gray-300" }),
             _vm._v(" "),
-            _c("span", { staticClass: "text-[11px] font-bold text-gray-500" }, [
+            _c("span", { staticClass: "text-base font-bold text-gray-500" }, [
               _vm._v("Comp: "),
               _c("span", { staticClass: "text-gray-800" }, [
                 _vm._v(_vm._s(_vm.item.folio_complemento || "SIN COMPLEMENTO")),
               ]),
             ]),
             _vm._v(" "),
-            _c("div", { staticClass: "h-3 w-px bg-gray-300" }),
+            _c("div", { staticClass: "h-5 w-px bg-gray-300" }),
             _vm._v(" "),
             _c(
               "span",
               {
                 staticClass:
-                  "font-bold px-2 py-0.5 rounded uppercase border text-[10px]",
+                  "font-bold px-4 py-1.5 rounded uppercase border text-sm",
                 class:
                   _vm.item.estado_envio === "ENVIADO"
                     ? "bg-green-100 text-green-700 border-green-200"
@@ -88861,12 +88918,12 @@ var render = function () {
             ),
           ]),
           _vm._v(" "),
-          _c("div", { staticClass: "flex items-center gap-1.5" }, [
+          _c("div", { staticClass: "flex items-center gap-2.5" }, [
             _c(
               "button",
               {
                 staticClass:
-                  "text-green-600 hover:text-white bg-green-100 hover:bg-green-500 p-1.5 rounded transition-colors",
+                  "text-green-600 hover:text-white bg-green-100 hover:bg-green-500 p-2.5 rounded-lg transition-colors",
                 attrs: { title: "Generar Complemento" },
                 on: {
                   click: function ($event) {
@@ -88878,7 +88935,7 @@ var render = function () {
                 _c(
                   "svg",
                   {
-                    staticClass: "w-4 h-4",
+                    staticClass: "w-6 h-6",
                     attrs: {
                       fill: "none",
                       stroke: "currentColor",
@@ -88903,7 +88960,7 @@ var render = function () {
               "button",
               {
                 staticClass:
-                  "text-blue-600 hover:text-white bg-blue-100 hover:bg-blue-500 p-1.5 rounded transition-colors",
+                  "text-blue-600 hover:text-white bg-blue-100 hover:bg-blue-500 p-2.5 rounded-lg transition-colors",
                 attrs: { title: "Visualizar Complemento" },
                 on: {
                   click: function ($event) {
@@ -88915,7 +88972,7 @@ var render = function () {
                 _c(
                   "svg",
                   {
-                    staticClass: "w-4 h-4",
+                    staticClass: "w-6 h-6",
                     attrs: {
                       fill: "none",
                       stroke: "currentColor",
@@ -88949,7 +89006,7 @@ var render = function () {
               "button",
               {
                 staticClass:
-                  "text-purple-600 hover:text-white bg-purple-100 hover:bg-purple-500 p-1.5 rounded transition-colors",
+                  "text-purple-600 hover:text-white bg-purple-100 hover:bg-purple-500 p-2.5 rounded-lg transition-colors",
                 attrs: { title: "Enviar Complemento" },
                 on: {
                   click: function ($event) {
@@ -88961,7 +89018,7 @@ var render = function () {
                 _c(
                   "svg",
                   {
-                    staticClass: "w-4 h-4",
+                    staticClass: "w-6 h-6",
                     attrs: {
                       fill: "none",
                       stroke: "currentColor",
@@ -88986,7 +89043,7 @@ var render = function () {
               "button",
               {
                 staticClass:
-                  "text-indigo-600 hover:text-white bg-indigo-100 hover:bg-indigo-500 p-1.5 rounded transition-colors",
+                  "text-indigo-600 hover:text-white bg-indigo-100 hover:bg-indigo-500 p-2.5 rounded-lg transition-colors",
                 attrs: { title: "Editar Fila" },
                 on: {
                   click: function ($event) {
@@ -88998,7 +89055,7 @@ var render = function () {
                 _c(
                   "svg",
                   {
-                    staticClass: "w-4 h-4",
+                    staticClass: "w-6 h-6",
                     attrs: {
                       fill: "none",
                       stroke: "currentColor",
@@ -89023,7 +89080,7 @@ var render = function () {
               "button",
               {
                 staticClass:
-                  "text-red-500 hover:text-white bg-red-100 hover:bg-red-500 p-1.5 rounded transition-colors",
+                  "text-red-500 hover:text-white bg-red-100 hover:bg-red-500 p-2.5 rounded-lg transition-colors",
                 attrs: { title: "Eliminar Fila" },
                 on: {
                   click: function ($event) {
@@ -89035,7 +89092,7 @@ var render = function () {
                 _c(
                   "svg",
                   {
-                    staticClass: "w-4 h-4",
+                    staticClass: "w-6 h-6",
                     attrs: {
                       fill: "none",
                       stroke: "currentColor",
@@ -89110,9 +89167,43 @@ var render = function () {
                     "h3",
                     {
                       staticClass:
-                        "text-white font-bold text-2xl tracking-wide",
+                        "text-white font-bold text-2xl tracking-wide flex items-center gap-3",
                     },
-                    [_vm._v("Generar Complemento de Pago (Contpaqi)")]
+                    [
+                      _c(
+                        "svg",
+                        {
+                          staticClass: "w-7 h-7 shrink-0 text-white",
+                          attrs: {
+                            fill: "none",
+                            stroke: "currentColor",
+                            viewBox: "0 0 24 24",
+                          },
+                        },
+                        [
+                          _c("path", {
+                            attrs: {
+                              "stroke-linecap": "round",
+                              "stroke-linejoin": "round",
+                              "stroke-width": "2",
+                              d: "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z",
+                            },
+                          }),
+                          _vm._v(" "),
+                          _c("path", {
+                            attrs: {
+                              "stroke-linecap": "round",
+                              "stroke-linejoin": "round",
+                              "stroke-width": "2",
+                              d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z",
+                            },
+                          }),
+                        ]
+                      ),
+                      _vm._v(
+                        "\n        Generar Complemento de Pago (Contpaqi)\n      "
+                      ),
+                    ]
                   ),
                   _vm._v(" "),
                   _c(
@@ -89682,9 +89773,34 @@ var render = function () {
                 "h3",
                 {
                   staticClass:
-                    "text-white text-2xl font-bold uppercase tracking-wider",
+                    "text-white text-2xl font-bold uppercase tracking-wider flex items-center gap-3",
                 },
-                [_vm._v("EDITAR INGRESO CONCILIADO")]
+                [
+                  _c(
+                    "svg",
+                    {
+                      staticClass: "w-7 h-7 shrink-0 text-white",
+                      attrs: {
+                        fill: "none",
+                        stroke: "currentColor",
+                        viewBox: "0 0 24 24",
+                      },
+                    },
+                    [
+                      _c("path", {
+                        attrs: {
+                          "stroke-linecap": "round",
+                          "stroke-linejoin": "round",
+                          "stroke-width": "2",
+                          d: "M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z",
+                        },
+                      }),
+                    ]
+                  ),
+                  _vm._v(
+                    "\n                  EDITAR INGRESO CONCILIADO\n              "
+                  ),
+                ]
               ),
               _vm._v(" "),
               _c(
@@ -91172,16 +91288,42 @@ var render = function () {
             "div",
             {
               staticClass:
-                "bg-blue-600 px-8 py-6 flex justify-between items-center rounded-t-xl",
+                "px-8 py-6 flex justify-between items-center rounded-t-xl shrink-0",
+              staticStyle: { "background-color": "#2A3A4D" },
             },
             [
               _c(
                 "h3",
                 {
                   staticClass:
-                    "text-white text-xl font-bold uppercase tracking-wider",
+                    "text-white text-xl font-bold uppercase tracking-wider flex items-center gap-3",
                 },
-                [_vm._v("EDITAR SALDO A FAVOR")]
+                [
+                  _c(
+                    "svg",
+                    {
+                      staticClass: "w-7 h-7 shrink-0 text-white",
+                      attrs: {
+                        fill: "none",
+                        stroke: "currentColor",
+                        viewBox: "0 0 24 24",
+                      },
+                    },
+                    [
+                      _c("path", {
+                        attrs: {
+                          "stroke-linecap": "round",
+                          "stroke-linejoin": "round",
+                          "stroke-width": "2",
+                          d: "M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z",
+                        },
+                      }),
+                    ]
+                  ),
+                  _vm._v(
+                    "\n                EDITAR SALDO A FAVOR\n            "
+                  ),
+                ]
               ),
               _vm._v(" "),
               _c(
@@ -91491,9 +91633,35 @@ var render = function () {
                   _c(
                     "h3",
                     {
-                      staticClass: "text-white font-bold text-xl tracking-wide",
+                      staticClass:
+                        "text-white font-bold text-xl tracking-wide flex items-center",
                     },
-                    [_vm._v("✉️ Configurar y Enviar Correo")]
+                    [
+                      _c(
+                        "svg",
+                        {
+                          staticClass: "w-6 h-6 mr-3 shrink-0",
+                          attrs: {
+                            fill: "none",
+                            stroke: "currentColor",
+                            viewBox: "0 0 24 24",
+                          },
+                        },
+                        [
+                          _c("path", {
+                            attrs: {
+                              "stroke-linecap": "round",
+                              "stroke-linejoin": "round",
+                              "stroke-width": "2",
+                              d: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z",
+                            },
+                          }),
+                        ]
+                      ),
+                      _vm._v(
+                        "\n                Configurar y Enviar Correo\n            "
+                      ),
+                    ]
                   ),
                   _vm._v(" "),
                   _c(
@@ -92217,9 +92385,32 @@ var render = function () {
                 "h3",
                 {
                   staticClass:
-                    "text-white text-2xl font-bold uppercase tracking-wider",
+                    "text-white text-2xl font-bold uppercase tracking-wider flex items-center gap-3",
                 },
-                [_vm._v("NUEVO INGRESO CONCILIADO")]
+                [
+                  _c(
+                    "svg",
+                    {
+                      staticClass: "w-7 h-7 shrink-0 text-white",
+                      attrs: {
+                        fill: "none",
+                        stroke: "currentColor",
+                        viewBox: "0 0 24 24",
+                      },
+                    },
+                    [
+                      _c("path", {
+                        attrs: {
+                          "stroke-linecap": "round",
+                          "stroke-linejoin": "round",
+                          "stroke-width": "2",
+                          d: "M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+                        },
+                      }),
+                    ]
+                  ),
+                  _vm._v("\n        NUEVO INGRESO CONCILIADO\n      "),
+                ]
               ),
               _vm._v(" "),
               _c(
@@ -93719,7 +93910,7 @@ var render = function () {
             "div",
             {
               staticClass:
-                "rounded-t-xl px-8 py-6 flex justify-between items-center",
+                "px-8 py-6 flex justify-between items-center rounded-t-xl shrink-0",
               staticStyle: { "background-color": "#2A3A4D" },
             },
             [
@@ -93727,9 +93918,32 @@ var render = function () {
                 "h3",
                 {
                   staticClass:
-                    "text-white text-xl font-bold uppercase tracking-wider",
+                    "text-white text-xl font-bold uppercase tracking-wider flex items-center gap-3",
                 },
-                [_vm._v("REGISTRAR SALDO A FAVOR")]
+                [
+                  _c(
+                    "svg",
+                    {
+                      staticClass: "w-7 h-7 shrink-0 text-white",
+                      attrs: {
+                        fill: "none",
+                        stroke: "currentColor",
+                        viewBox: "0 0 24 24",
+                      },
+                    },
+                    [
+                      _c("path", {
+                        attrs: {
+                          "stroke-linecap": "round",
+                          "stroke-linejoin": "round",
+                          "stroke-width": "2",
+                          d: "M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z",
+                        },
+                      }),
+                    ]
+                  ),
+                  _vm._v("\n        REGISTRAR SALDO A FAVOR\n      "),
+                ]
               ),
               _vm._v(" "),
               _c(
@@ -94040,11 +94254,43 @@ var render = function () {
                   _c(
                     "h3",
                     {
-                      staticClass: "text-white font-bold text-xl tracking-wide",
+                      staticClass:
+                        "text-white font-bold text-xl tracking-wide flex items-center",
                     },
                     [
+                      _c(
+                        "svg",
+                        {
+                          staticClass: "w-6 h-6 text-gray-300 mr-2 shrink-0",
+                          attrs: {
+                            fill: "none",
+                            stroke: "currentColor",
+                            viewBox: "0 0 24 24",
+                          },
+                        },
+                        [
+                          _c("path", {
+                            attrs: {
+                              "stroke-linecap": "round",
+                              "stroke-linejoin": "round",
+                              "stroke-width": "2",
+                              d: "M15 12a3 3 0 11-6 0 3 3 0 016 0z",
+                            },
+                          }),
+                          _vm._v(" "),
+                          _c("path", {
+                            attrs: {
+                              "stroke-linecap": "round",
+                              "stroke-linejoin": "round",
+                              "stroke-width": "2",
+                              d: "M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z",
+                            },
+                          }),
+                        ]
+                      ),
+                      _vm._v(" "),
                       _c("span", { staticClass: "text-gray-400 mr-2" }, [
-                        _vm._v("📄 Visualizando:"),
+                        _vm._v("Visualizando:"),
                       ]),
                       _vm._v(" " + _vm._s(_vm.titulo) + "\n      "),
                     ]

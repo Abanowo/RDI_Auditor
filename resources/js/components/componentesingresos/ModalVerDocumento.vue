@@ -4,9 +4,18 @@
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl flex flex-col overflow-hidden" style="height: 90vh;">
 
       <!-- Header -->
-      <div class="px-6 py-4 flex justify-between items-center shrink-0 shadow-md z-10" style="background-color: #2A3A4D;">
-        <h3 class="text-white font-bold text-xl tracking-wide">
-          <span class="text-gray-400 mr-2">📄 Visualizando:</span> {{ titulo }}
+     <div class="px-6 py-4 flex justify-between items-center shrink-0 shadow-md z-10"
+        style="background-color: #2A3A4D;">
+        <h3 class="text-white font-bold text-xl tracking-wide flex items-center">
+          <!-- Ícono de Ojo / Visualizar SVG -->
+          <svg class="w-6 h-6 text-gray-300 mr-2 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z">
+            </path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
+            </path>
+          </svg>
+          <span class="text-gray-400 mr-2">Visualizando:</span> {{ titulo }}
         </h3>
         <button @click="cerrar"
           class="text-gray-400 hover:text-white transition-colors bg-gray-700 hover:bg-gray-600 rounded-full p-2">

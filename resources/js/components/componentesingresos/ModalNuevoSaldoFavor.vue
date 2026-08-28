@@ -2,8 +2,15 @@
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-6">
 
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl flex flex-col mx-4">
-      <div class="rounded-t-xl px-8 py-6 flex justify-between items-center"style="background-color: #2A3A4D;">
-        <h3 class="text-white text-xl font-bold uppercase tracking-wider">REGISTRAR SALDO A FAVOR</h3>
+      <div class="px-8 py-6 flex justify-between items-center rounded-t-xl shrink-0" style="background-color: #2A3A4D;">
+        <h3 class="text-white text-xl font-bold uppercase tracking-wider flex items-center gap-3">
+          <!-- Ícono de Registrar / Agregar (Círculo con +) SVG -->
+          <svg class="w-7 h-7 shrink-0 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          REGISTRAR SALDO A FAVOR
+        </h3>
         <button @click="$emit('close')" class="text-gray-300 hover:text-white transition-colors">
           <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
