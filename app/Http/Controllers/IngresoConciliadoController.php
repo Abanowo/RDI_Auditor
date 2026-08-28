@@ -2717,17 +2717,45 @@ class IngresoConciliadoController extends Controller
         $destinatarios = array_filter($destinatarios); // Quitamos espacios en blanco accidentales
 
         if (empty($destinatarios)) {
+            Log::warning("Intento de envío fallido: No hay destinatarios válidos para el Saldo a Favor ID {$id}.");
             return response()->json(['error' => 'No hay correos válidos para enviar'], 400);
         }
 
-        Log::info('DATOS QUE SE VAN AL CORREO:', $datosFirma);
-        // 4. Enviamos el correo a la lista de destinatarios
-        Mail::to($destinatarios)->send(new NotificacionSaldoFavorMail($saldo, $datosFirma));
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Correo enviado correctamente'
+        // ==========================================
+        // 4. INICIO DE LOGS Y ENVÍO DE CORREO
+        // ==========================================
+        
+        Log::info("Iniciando envío de correo de saldo a favor (ID: {$id}).", [
+            'cliente' => $saldo->cliente->nombre ?? 'Desconocido',
+            'destinatarios' => $destinatarios
         ]);
+        Log::info('Datos empaquetados para la vista del correo:', $datosFirma);
+
+        try {
+            // Intentamos enviar el correo a la lista de destinatarios
+            Mail::to($destinatarios)->send(new NotificacionSaldoFavorMail($saldo, $datosFirma));
+            
+            // Si llega a esta línea, significa que Laravel entregó el correo al servidor SMTP con éxito
+            Log::info("EXITO: El correo de saldo a favor (ID: {$id}) fue procesado y enviado a los destinatarios correctamente.");
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Correo enviado correctamente'
+            ]);
+
+        } catch (\Exception $e) {
+            // Si el servidor de correos falla (credenciales inválidas, rechazo de spam, etc.), lo atrapamos aquí
+            Log::error("ERROR CRÍTICO al enviar correo de saldo a favor (ID: {$id}): " . $e->getMessage(), [
+                'destinatarios' => $destinatarios,
+                'archivo_error' => $e->getFile(),
+                'linea_error' => $e->getLine()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'El servidor de correos rechazó el envío. Revisa los logs de Laravel para más detalles.'
+            ], 500);
+        }
     }
     public function destroySaldo($id)
     {
