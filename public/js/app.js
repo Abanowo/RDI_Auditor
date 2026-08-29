@@ -13275,6 +13275,18 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
 //
 //
 //
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 
 
 
@@ -13363,7 +13375,9 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         estado_envio: {
           id: '',
           label: 'Todos'
-        }
+        },
+        folio_factura: '',
+        folio_complemento: ''
       },
       // Datos de Paginación del Backend
       currentPage: 1,
@@ -13383,16 +13397,6 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     this.cargarSaldos();
   },
   computed: {
-    esVistaManzanillo: function esVistaManzanillo() {
-      var sucursal = this.filtroSucursalActiva ? this.filtroSucursalActiva.toUpperCase() : '';
-      return sucursal.includes('MANZANILLO') || sucursal.includes('INTSHIPPERT');
-    },
-    esVistaIntshipperts: function esVistaIntshipperts() {
-      return this.filtros.tipoServicio === 'INTSHIPPERTS';
-    },
-    esVistaTransportactics: function esVistaTransportactics() {
-      return this.filtros.tipoServicio === 'Transportactics';
-    },
     // Paginación Matemáticas
     totalPages: function totalPages() {
       return Math.ceil(this.totalRegistros / this.itemsPerPage) || 1;
@@ -13515,7 +13519,9 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                 tipo_comprobante: _this3.filtros.tipo_comprobante,
                 estado_envio: _this3.filtros.estado_envio.id,
                 fecha_inicio: _this3.filtros.rangoFechas ? _this3.filtros.rangoFechas.start : null,
-                fecha_fin: _this3.filtros.rangoFechas ? _this3.filtros.rangoFechas.end : null
+                fecha_fin: _this3.filtros.rangoFechas ? _this3.filtros.rangoFechas.end : null,
+                folio_factura: _this3.filtros.folio_factura,
+                folio_complemento: _this3.filtros.folio_complemento
               };
               _context.n = 2;
               return axios__WEBPACK_IMPORTED_MODULE_13__["default"].get('/ingresos-conciliados', {
@@ -13571,7 +13577,9 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         estado_envio: {
           id: '',
           label: 'Todos'
-        }
+        },
+        folio_factura: '',
+        folio_complemento: ''
       };
       this.currentPage = 1;
       this.cargarIngresos();
@@ -95061,7 +95069,7 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4",
+                    "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4",
                 },
                 [
                   _c(
@@ -95267,6 +95275,128 @@ var render = function () {
                     ],
                     1
                   ),
+                  _vm._v(" "),
+                  _c("div", { staticClass: "flex flex-col" }, [
+                    _c(
+                      "label",
+                      {
+                        staticClass:
+                          "text-xs font-bold text-gray-500 uppercase mb-1",
+                      },
+                      [_vm._v("Folio SC / Factura:")]
+                    ),
+                    _vm._v(" "),
+                    _c("input", {
+                      directives: [
+                        {
+                          name: "model",
+                          rawName: "v-model",
+                          value: _vm.filtros.folio_factura,
+                          expression: "filtros.folio_factura",
+                        },
+                      ],
+                      staticClass:
+                        "w-full border border-gray-300 rounded-lg px-4 text-base text-gray-700 focus:outline-none focus:border-gray-400 transition-colors",
+                      staticStyle: {
+                        "min-height": "48px",
+                        "background-color": "#ffffff",
+                      },
+                      attrs: {
+                        type: "text",
+                        placeholder: "Escriba y presione Enter...",
+                      },
+                      domProps: { value: _vm.filtros.folio_factura },
+                      on: {
+                        keyup: function ($event) {
+                          if (
+                            !$event.type.indexOf("key") &&
+                            _vm._k(
+                              $event.keyCode,
+                              "enter",
+                              13,
+                              $event.key,
+                              "Enter"
+                            )
+                          ) {
+                            return null
+                          }
+                          return _vm.aplicarFiltrosYBuscar($event)
+                        },
+                        change: _vm.aplicarFiltrosYBuscar,
+                        input: function ($event) {
+                          if ($event.target.composing) {
+                            return
+                          }
+                          _vm.$set(
+                            _vm.filtros,
+                            "folio_factura",
+                            $event.target.value
+                          )
+                        },
+                      },
+                    }),
+                  ]),
+                  _vm._v(" "),
+                  _c("div", { staticClass: "flex flex-col" }, [
+                    _c(
+                      "label",
+                      {
+                        staticClass:
+                          "text-xs font-bold text-gray-500 uppercase mb-1",
+                      },
+                      [_vm._v("Folio Complemento:")]
+                    ),
+                    _vm._v(" "),
+                    _c("input", {
+                      directives: [
+                        {
+                          name: "model",
+                          rawName: "v-model",
+                          value: _vm.filtros.folio_complemento,
+                          expression: "filtros.folio_complemento",
+                        },
+                      ],
+                      staticClass:
+                        "w-full border border-gray-300 rounded-lg px-4 text-base text-gray-700 focus:outline-none focus:border-gray-400 transition-colors",
+                      staticStyle: {
+                        "min-height": "48px",
+                        "background-color": "#ffffff",
+                      },
+                      attrs: {
+                        type: "text",
+                        placeholder: "Escriba y presione Enter...",
+                      },
+                      domProps: { value: _vm.filtros.folio_complemento },
+                      on: {
+                        keyup: function ($event) {
+                          if (
+                            !$event.type.indexOf("key") &&
+                            _vm._k(
+                              $event.keyCode,
+                              "enter",
+                              13,
+                              $event.key,
+                              "Enter"
+                            )
+                          ) {
+                            return null
+                          }
+                          return _vm.aplicarFiltrosYBuscar($event)
+                        },
+                        change: _vm.aplicarFiltrosYBuscar,
+                        input: function ($event) {
+                          if ($event.target.composing) {
+                            return
+                          }
+                          _vm.$set(
+                            _vm.filtros,
+                            "folio_complemento",
+                            $event.target.value
+                          )
+                        },
+                      },
+                    }),
+                  ]),
                 ]
               ),
             ]
@@ -95332,12 +95462,7 @@ var render = function () {
               _vm._l(_vm.ingresosData, function (item) {
                 return _c("IngresoCard", {
                   key: item.id,
-                  attrs: {
-                    item: item,
-                    "es-vista-intshipperts": _vm.esVistaIntshipperts,
-                    "es-vista-transportactics": _vm.esVistaTransportactics,
-                    "es-vista-manzanillo": _vm.esVistaManzanillo,
-                  },
+                  attrs: { item: item },
                   on: {
                     generar: _vm.generarComplemento,
                     visualizar: _vm.visualizarComplemento,

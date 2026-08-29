@@ -177,7 +177,7 @@
           </button>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Cliente:</label>
             <multiselect v-model="filtros.cliente" :options="opcionesFiltroCliente" placeholder="Todos"
               :searchable="true" :show-labels="false" @input="aplicarFiltrosYBuscar"></multiselect>
@@ -206,6 +206,20 @@
             <multiselect v-model="filtros.estado_envio" :options="opcionesEstadoEnvio" track-by="id" label="label"
               placeholder="Todos" :searchable="false" :show-labels="false" @input="aplicarFiltrosYBuscar"></multiselect>
           </div>
+          <div class="flex flex-col">
+            <label class="text-xs font-bold text-gray-500 uppercase mb-1">Folio SC / Factura:</label>
+            <input v-model="filtros.folio_factura" type="text" placeholder="Escriba y presione Enter..."
+              @keyup.enter="aplicarFiltrosYBuscar" @change="aplicarFiltrosYBuscar"
+              class="w-full border border-gray-300 rounded-lg px-4 text-base text-gray-700 focus:outline-none focus:border-gray-400 transition-colors"
+              style="min-height: 48px; background-color: #ffffff;">
+          </div>
+          <div class="flex flex-col">
+            <label class="text-xs font-bold text-gray-500 uppercase mb-1">Folio Complemento:</label>
+            <input v-model="filtros.folio_complemento" type="text" placeholder="Escriba y presione Enter..."
+              @keyup.enter="aplicarFiltrosYBuscar" @change="aplicarFiltrosYBuscar"
+              class="w-full border border-gray-300 rounded-lg px-4 text-base text-gray-700 focus:outline-none focus:border-gray-400 transition-colors"
+              style="min-height: 48px; background-color: #ffffff;">
+          </div>
         </div>
       </div>
 
@@ -226,9 +240,7 @@
           <span class="text-sm font-bold text-gray-500">Cargando registros...</span>
         </div>
 
-        <IngresoCard v-for="item in ingresosData" :key="item.id" :item="item"
-          :es-vista-intshipperts="esVistaIntshipperts" :es-vista-transportactics="esVistaTransportactics"
-          :es-vista-manzanillo="esVistaManzanillo" @generar="generarComplemento" @visualizar="visualizarComplemento"
+        <IngresoCard v-for="item in ingresosData" :key="item.id" :item="item" @generar="generarComplemento" @visualizar="visualizarComplemento"
           @enviar="enviarCorreoComplemento" @editar="abrirModalEditarIngreso" @eliminar="eliminarFila" />
 
         <div v-if="!cargandoRegistros && ingresosData.length === 0"
@@ -518,7 +530,9 @@ export default {
         tipoOperacion: { id: 'Ambos', label: 'Ambos' },
         tipo_comprobante: 'Todos',
         tipoServicio: 'Todos',
-        estado_envio: { id: '', label: 'Todos' }
+        estado_envio: { id: '', label: 'Todos' },
+        folio_factura: '',
+        folio_complemento: ''
       },
 
       // Datos de Paginación del Backend
@@ -540,17 +554,6 @@ export default {
     this.cargarSaldos();
   },
   computed: {
-    esVistaManzanillo() {
-      const sucursal = this.filtroSucursalActiva ? this.filtroSucursalActiva.toUpperCase() : '';
-      return sucursal.includes('MANZANILLO') || sucursal.includes('INTSHIPPERT');
-    },
-    esVistaIntshipperts() {
-      return this.filtros.tipoServicio === 'INTSHIPPERTS';
-    },
-    esVistaTransportactics() {
-      return this.filtros.tipoServicio === 'Transportactics';
-    },
-
     // Paginación Matemáticas
     totalPages() {
       return Math.ceil(this.totalRegistros / this.itemsPerPage) || 1;
@@ -664,7 +667,9 @@ export default {
           tipo_comprobante: this.filtros.tipo_comprobante,
           estado_envio: this.filtros.estado_envio.id,
           fecha_inicio: this.filtros.rangoFechas ? this.filtros.rangoFechas.start : null,
-          fecha_fin: this.filtros.rangoFechas ? this.filtros.rangoFechas.end : null
+          fecha_fin: this.filtros.rangoFechas ? this.filtros.rangoFechas.end : null,
+          folio_factura: this.filtros.folio_factura,
+          folio_complemento: this.filtros.folio_complemento
         };
 
         const response = await axios.get('/ingresos-conciliados', { params });
@@ -702,7 +707,9 @@ export default {
         tipoOperacion: { id: 'Ambos', label: 'Ambos' },
         tipo_comprobante: 'Todos',
         tipoServicio: 'Todos',
-        estado_envio: { id: '', label: 'Todos' }
+        estado_envio: { id: '', label: 'Todos' },
+        folio_factura: '',
+        folio_complemento: ''
       };
       this.currentPage = 1;
       this.cargarIngresos();

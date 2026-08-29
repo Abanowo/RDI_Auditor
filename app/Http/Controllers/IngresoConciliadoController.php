@@ -8,6 +8,7 @@ use App\Models\Empresas;
 use App\Models\Sucursales;
 use App\Models\SaldoFavor;
 use App\Models\ComplementoPago;
+use App\Models\User;
 use App\Mail\NotificacionSaldoFavorMail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
@@ -110,6 +111,20 @@ class IngresoConciliadoController extends Controller
 
         if ($request->filled('fecha_inicio') && $request->filled('fecha_fin')) {
             $query->whereBetween('ingresos_conciliados.fecha', [$request->fecha_inicio, $request->fecha_fin]);
+        }
+
+        // Filtro por Folio SC / Factura
+        if ($request->filled('folio_factura')) {
+            $query->where('ingresos_conciliados.folio_sc', 'LIKE', '%' . $request->folio_factura . '%');
+        }
+
+        // Filtro por Folio Complemento
+        if ($request->filled('folio_complemento')) {
+            $query->whereIn('ingresos_conciliados.id', function ($subquery) use ($request) {
+                $subquery->select('ingreso_conciliado_id') // La llave foránea
+                    ->from('complemento_pago')        // El nombre exacto de tu tabla
+                    ->where('folio', 'LIKE', '%' . $request->folio_complemento . '%');
+            });
         }
 
         if ($request->filled('estado_envio')) {
@@ -2273,6 +2288,7 @@ class IngresoConciliadoController extends Controller
                 ->post('https://sistema.intactics.com/v3/contpaqi/api/requests', $payloadXml);
 
             if (!$responsePdf->successful() || !$responseXml->successful()) {
+                Log::error("Fallo API Contpaqi al obtener archivos para Complemento ID: {$id}");
                 return response()->json(['error' => 'Error al comunicarse con Contpaqi para obtener los documentos.'], 500);
             }
 
@@ -2291,11 +2307,8 @@ class IngresoConciliadoController extends Controller
             $pdfDecoded = base64_decode($pdfBase64);
             $xmlDecoded = base64_decode($xmlBase64);
 
-            $nombreArchivoPdf = "Complemento_CP_{$folio}.pdf";
-            $nombreArchivoXml = "Complemento_CP_{$folio}.xml";
-
             // ==========================================
-            // 4. ARMAMOS VARIABLES PARA LA VISTA BLADE
+            // 4. ARMAMOS VARIABLES PARA LA VISTA BLADE Y MAIL
             // ==========================================
             $variableEmpresa = $request->input('sucursal', '');
 
@@ -2311,47 +2324,37 @@ class IngresoConciliadoController extends Controller
                 $nombreEmpresaEmisora = 'INTSHIPPERTS';
             }
 
-            if (app()->environment('production')) {
+            if (app()->environment('production')){
                 $remitente = auth()->user();
             } else {
-                Auth::onceUsingId(5);
-                $remitente = auth()->user();
+                $remitente = User::find(3);
             }
 
-            // A partir de aquí tu código ya funcionará perfecto:
+            $nombreRemitente = $remitente->nombre ?? $remitente->name ?? 'Usuario No Identificado';
+            $apellidosRemitente = $remitente->apellidos ?? $remitente->last_name ?? '';
+            $nombreCompletoRemitente = trim($nombreRemitente . ' ' . $apellidosRemitente);
+
             $nombreArchivoFirma = ($remitente && $remitente->signature_image) ? $remitente->signature_image : 'firma_generica.png';
             $urlFirmaLista = "https://sistema.intactics.com/v3/storage/firmas_usuarios/{$nombreArchivoFirma}?v=" . time();
 
             $datosCorreo = [
-                'folioDocumento' => 'CP' . '-' . $folio,
-                'fechaDocumento' => $complemento->fecha ? Carbon::parse($complemento->fecha)->format('d-m-Y') : date('d-m-Y'),
-                'nombreCliente'  => ($ingreso && $ingreso->cliente) ? $ingreso->cliente->nombre : 'Estimado Cliente',
-                'referencia'     => $ingreso ? ($ingreso->folio_sc ?? 'N/A') : 'N/A',
-                'empresaEmisora' => $nombreEmpresaEmisora,
-                'sucursalPura'   => $variableEmpresa,
-                'urlFirma'       => $urlFirmaLista,
+                'folioDocumento'     => 'CP' . '-' . $folio,
+                'fechaDocumento'     => $complemento->fecha ? Carbon::parse($complemento->fecha)->format('d-m-Y') : date('d-m-Y'),
+                'nombreCliente'      => ($ingreso && $ingreso->cliente) ? $ingreso->cliente->nombre : 'Estimado Cliente',
+                'referencia'         => $ingreso ? ($ingreso->folio_sc ?? 'N/A') : 'N/A',
+                'empresaEmisora'     => $nombreEmpresaEmisora,
+                'sucursalPura'       => $variableEmpresa,
+                'urlFirma'           => $urlFirmaLista,
+                'nombreUsuarioDebug' => $nombreCompletoRemitente
             ];
 
             // ==========================================
-            // 5. ENVIAMOS EL CORREO CON LOS ADJUNTOS
+            // 5. ENVIAMOS EL CORREO A TRAVÉS DE LA CLASE
             // ==========================================
-            // Se inyectan las variables decodificadas y el arreglo de correos al "use"
-            Mail::send('cuerpo_correo_complemento_pago', $datosCorreo, function ($message) use ($correosDestino, $datosCorreo, $pdfDecoded, $nombreArchivoPdf, $xmlDecoded, $nombreArchivoXml) {
+            Log::info("Enviando Complemento de Pago (ID: {$id}) a destinatarios.", ['correos' => $correosDestino]);
 
-                // Le pasamos el arreglo completo a $message->to()
-                $message->to($correosDestino)
-                    ->subject("Complemento de Pago - {$datosCorreo['nombreCliente']}");
-
-                // Adjuntamos el PDF "al vuelo"
-                $message->attachData($pdfDecoded, $nombreArchivoPdf, [
-                    'mime' => 'application/pdf',
-                ]);
-
-                // Adjuntamos el XML "al vuelo"
-                $message->attachData($xmlDecoded, $nombreArchivoXml, [
-                    'mime' => 'application/xml',
-                ]);
-            });
+            // Llamamos a nuestra nueva clase Mailable
+            Mail::to($correosDestino)->send(new \App\Mail\ComplementoPagoMail($ingreso, $datosCorreo, $pdfDecoded, $xmlDecoded));
 
             if ($ingreso) {
                 $ingreso->estado_envio = 'ENVIADO';
@@ -2363,7 +2366,11 @@ class IngresoConciliadoController extends Controller
                 'message' => "El correo con los archivos PDF y XML ha sido enviado exitosamente a todos los destinatarios."
             ]);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Ocurrió un error al enviar el correo: ' . $e->getMessage()], 500);
+            Log::error("ERROR al enviar complemento (ID: {$id}): " . $e->getMessage(), [
+                'archivo' => $e->getFile(),
+                'linea' => $e->getLine()
+            ]);
+            return response()->json(['error' => 'Ocurrió un error al enviar el correo. Revisa los logs para más detalles.'], 500);
         }
     }
     public function store(Request $request)
@@ -2687,7 +2694,11 @@ class IngresoConciliadoController extends Controller
         $saldo = SaldoFavor::with('cliente')->findOrFail($id);
 
         // Tomamos siempre al usuario logueado en el sistema
-        $remitente = auth()->user();
+        if (app()->environment('production')){
+            $remitente = auth()->user();
+        } else {
+            $remitente = User::find(3);
+        }
 
         // Hacemos un pequeño truco por si tu base de datos usa "name" en lugar de "nombre"
         $nombreRemitente = $remitente->nombre ?? $remitente->name ?? '';

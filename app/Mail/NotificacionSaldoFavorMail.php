@@ -22,9 +22,11 @@ class NotificacionSaldoFavorMail extends Mailable
 
     public function build()
     {
-        // Aquí es donde desempaquetamos el arreglo y se lo enviamos a Blade
+        $nombreRemitente = $this->datosFirma['nombreUsuarioDebug'] ?? 'InTactics';
+
         return $this->subject('Notificación de Saldo a Favor - InTactics')
-                    ->view('cuerpo_correo_saldo_favor') // Verifica que el nombre de tu vista Blade sea este
+                    ->from('no-reply@intactics.com', $nombreRemitente)
+                    ->view('cuerpo_correo_saldo_favor')
                     ->with([
                         'nombreEmpresaEmisora' => 'InTactics',
                         'urlFirma'             => $this->datosFirma['urlFirma'] ?? '',
