@@ -2345,7 +2345,8 @@ class IngresoConciliadoController extends Controller
                 'empresaEmisora'     => $nombreEmpresaEmisora,
                 'sucursalPura'       => $variableEmpresa,
                 'urlFirma'           => $urlFirmaLista,
-                'nombreUsuarioDebug' => $nombreCompletoRemitente
+                'nombreUsuarioDebug' => $nombreCompletoRemitente,
+                'emailUsuario'       => $remitente->email ?? 'no-reply@intactics.com'
             ];
 
             // ==========================================
@@ -2737,8 +2738,9 @@ class IngresoConciliadoController extends Controller
         // ==========================================
         
         Log::info("Iniciando envío de correo de saldo a favor (ID: {$id}).", [
-            'cliente' => $saldo->cliente->nombre ?? 'Desconocido',
-            'destinatarios' => $destinatarios
+            'cliente'       => $saldo->cliente->nombre ?? 'Desconocido',
+            'destinatarios' => $destinatarios,
+            'emailUsuario'  => $remitente->email ?? 'no-reply@intactics.com'
         ]);
         Log::info('Datos empaquetados para la vista del correo:', $datosFirma);
 

@@ -15,7 +15,6 @@ class ComplementoPagoMail extends Mailable
     public $pdfData;
     public $xmlData;
 
-    // Recibimos los datos y los archivos en formato binario (decodificados)
     public function __construct($ingreso, $datosCorreo, $pdfData = null, $xmlData = null)
     {
         $this->ingreso = $ingreso;
@@ -26,25 +25,24 @@ class ComplementoPagoMail extends Mailable
 
     public function build()
     {
-        // Tomamos el nombre del remitente si está disponible
+        // Tomamos el nombre y el correo real del remitente
         $nombreRemitente = $this->datosCorreo['nombreUsuarioDebug'] ?? 'InTactics';
+        $emailRemitente  = $this->datosCorreo['emailUsuario'] ?? 'no-reply@intactics.com';
 
-        // Iniciamos el correo
-        $correo = $this->from('no-reply@intactics.com', $nombreRemitente)
+        // Iniciamos el correo dinámico
+        $correo = $this->from($emailRemitente, $nombreRemitente)
                        ->subject("Complemento de Pago - {$this->datosCorreo['nombreCliente']}")
-                       ->view('cuerpo_correo_complemento_pago') // Tu vista actual
+                       ->view('cuerpo_correo_complemento_pago')
                        ->with($this->datosCorreo);
 
         $folioStr = $this->datosCorreo['folioDocumento'] ?? 'CFDI';
 
-        // Adjuntamos el PDF desde memoria
         if ($this->pdfData) {
             $correo->attachData($this->pdfData, "Complemento_{$folioStr}.pdf", [
                 'mime' => 'application/pdf',
             ]);
         }
 
-        // Adjuntamos el XML desde memoria
         if ($this->xmlData) {
             $correo->attachData($this->xmlData, "Complemento_{$folioStr}.xml", [
                 'mime' => 'application/xml',

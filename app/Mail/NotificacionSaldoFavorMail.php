@@ -23,9 +23,10 @@ class NotificacionSaldoFavorMail extends Mailable
     public function build()
     {
         $nombreRemitente = $this->datosFirma['nombreUsuarioDebug'] ?? 'InTactics';
+        $emailRemitente  = $this->datosFirma['emailUsuario'] ?? 'no-reply@intactics.com';
 
-        return $this->subject('Notificación de Saldo a Favor - InTactics')
-                    ->from('no-reply@intactics.com', $nombreRemitente)
+        return $this->from($emailRemitente, $nombreRemitente)
+                    ->subject('Notificación de Saldo a Favor - InTactics')
                     ->view('cuerpo_correo_saldo_favor')
                     ->with([
                         'nombreEmpresaEmisora' => 'InTactics',
