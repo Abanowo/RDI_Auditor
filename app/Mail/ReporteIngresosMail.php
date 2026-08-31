@@ -27,6 +27,7 @@ class ReporteIngresosMail extends Mailable
     {
         // 3. Retornamos la vista correcta
         return $this->subject('Reporte Diario de Ingresos por Sucursal - ' . $this->fecha)
+                    ->from('info@intactics.com', 'Intactics')
                     ->view('cuerpo_correo_reporte_ingresos'); 
     }
 }
