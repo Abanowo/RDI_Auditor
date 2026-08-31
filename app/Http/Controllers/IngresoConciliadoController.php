@@ -2714,6 +2714,7 @@ class IngresoConciliadoController extends Controller
         $datosFirma = [
             'urlFirma'           => $urlFirmaLista,
             'nombreUsuarioDebug' => $nombreUsuarioLogueado,
+            'emailUsuario'       => $remitente->email ?? 'no-reply@intactics.com'
         ];
 
         // 2. Recibimos los correos desde el SweetAlert (frontend)
