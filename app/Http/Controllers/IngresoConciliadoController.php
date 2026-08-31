@@ -68,11 +68,25 @@ class IngresoConciliadoController extends Controller
             'Santander Rec Transpo 1347'
         ];
 
+        $foliosFactura = IngresoConciliado::whereNotNull('folio_sc')
+                    ->pluck('folio_sc')
+                    ->unique()
+                    ->values()
+                    ->toArray();
+
+        $foliosComplemento = ComplementoPago::whereNotNull('folio')
+                    ->pluck('folio')
+                    ->unique()
+                    ->values()
+                    ->toArray();
+
         return response()->json([
             'clientes'       => $clientes,
             'sucursales'     => $sucursales,
             'sucursalesBase' => $sucursalesBase,
             'bancos'         => $bancos,
+            'foliosFactura' => $foliosFactura,
+            'foliosComplemento' => $foliosComplemento
         ]);
     }
 
@@ -114,15 +128,15 @@ class IngresoConciliadoController extends Controller
         }
 
         // Filtro por Folio SC / Factura
-        if ($request->filled('folio_factura')) {
+        if ($request->filled('folio_factura') && $request->folio_factura !== 'Todos') {
             $query->where('ingresos_conciliados.folio_sc', 'LIKE', '%' . $request->folio_factura . '%');
         }
 
         // Filtro por Folio Complemento
-        if ($request->filled('folio_complemento')) {
+        if ($request->filled('folio_complemento') && $request->folio_complemento !== 'Todos') {
             $query->whereIn('ingresos_conciliados.id', function ($subquery) use ($request) {
-                $subquery->select('ingreso_conciliado_id') // La llave foránea
-                    ->from('complemento_pago')        // El nombre exacto de tu tabla
+                $subquery->select('ingreso_conciliado_id') 
+                    ->from('complemento_pago')        
                     ->where('folio', 'LIKE', '%' . $request->folio_complemento . '%');
             });
         }

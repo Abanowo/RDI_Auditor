@@ -177,48 +177,44 @@
           </button>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Cliente:</label>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4 pt-1">
+          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap">Cliente:</label>
             <multiselect v-model="filtros.cliente" :options="opcionesFiltroCliente" placeholder="Todos"
-              :searchable="true" :show-labels="false" @input="aplicarFiltrosYBuscar"></multiselect>
+              :searchable="true" :show-labels="false" @input="aplicarFiltrosYBuscar" class="custom-filter-multiselect"></multiselect>
           </div>
-          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Servicio:</label>
+          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap">Servicio:</label>
             <multiselect v-model="filtros.tipoServicio" :options="opcionesTipoServicio" placeholder="Todos"
-              :searchable="true" :show-labels="false" @input="aplicarFiltrosYBuscar"></multiselect>
+              :searchable="true" :show-labels="false" @input="aplicarFiltrosYBuscar" class="custom-filter-multiselect"></multiselect>
           </div>
-          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Tipo
+          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap">Tipo
               Operación:</label>
             <multiselect v-model="filtros.tipoOperacion" :options="opcionesTipoOperacion" track-by="id" label="label"
-              placeholder="Ambos" :searchable="false" :show-labels="false" @input="aplicarFiltrosYBuscar"></multiselect>
+              placeholder="Ambos" :searchable="false" :show-labels="false" @input="aplicarFiltrosYBuscar" class="custom-filter-multiselect"></multiselect>
           </div>
-          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Tipo
+          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap">Tipo
               Comprobante:</label>
             <multiselect v-model="filtros.tipo_comprobante" :options="opcionesComprobante" placeholder="Todos"
-              :searchable="false" :show-labels="false" @input="aplicarFiltrosYBuscar"></multiselect>
+              :searchable="false" :show-labels="false" @input="aplicarFiltrosYBuscar" class="custom-filter-multiselect"></multiselect>
           </div>
-          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Fechas:</label>
+          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap">Fechas:</label>
             <VueCtkDateTimePicker v-model="filtros.rangoFechas" format="YYYY-MM-DD" formatted="YYYY-MM-DD"
               color="#1d4ed8" button-color="#1d4ed8" :range="true" label="Select date & time"
-              @validate="aplicarFiltrosYBuscar"></VueCtkDateTimePicker>
+              @validate="aplicarFiltrosYBuscar" class="custom-filter-datepicker"></VueCtkDateTimePicker>
           </div>
-          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1">Envío de
+          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap">Envío de
               Comp.:</label>
             <multiselect v-model="filtros.estado_envio" :options="opcionesEstadoEnvio" track-by="id" label="label"
-              placeholder="Todos" :searchable="false" :show-labels="false" @input="aplicarFiltrosYBuscar"></multiselect>
+              placeholder="Todos" :searchable="false" :show-labels="false" @input="aplicarFiltrosYBuscar" class="custom-filter-multiselect"></multiselect>
           </div>
           <div class="flex flex-col">
-            <label class="text-xs font-bold text-gray-500 uppercase mb-1">Folio SC / Factura:</label>
-            <input v-model="filtros.folio_factura" type="text" placeholder="Escriba y presione Enter..."
-              @keyup.enter="aplicarFiltrosYBuscar" @change="aplicarFiltrosYBuscar"
-              class="w-full border border-gray-300 rounded-lg px-4 text-base text-gray-700 focus:outline-none focus:border-gray-400 transition-colors"
-              style="min-height: 48px; background-color: #ffffff;">
+            <label class="text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap">Folio SC / Factura:</label>
+            <multiselect v-model="filtros.folio_factura" :options="opcionesFolioFactura" placeholder="Todos"
+              :searchable="true" :show-labels="false" @input="aplicarFiltrosYBuscar" class="custom-filter-multiselect"></multiselect>
           </div>
           <div class="flex flex-col">
-            <label class="text-xs font-bold text-gray-500 uppercase mb-1">Folio Complemento:</label>
-            <input v-model="filtros.folio_complemento" type="text" placeholder="Escriba y presione Enter..."
-              @keyup.enter="aplicarFiltrosYBuscar" @change="aplicarFiltrosYBuscar"
-              class="w-full border border-gray-300 rounded-lg px-4 text-base text-gray-700 focus:outline-none focus:border-gray-400 transition-colors"
-              style="min-height: 48px; background-color: #ffffff;">
+            <label class="text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap">Folio Complemento:</label>
+            <multiselect v-model="filtros.folio_complemento" :options="opcionesFolioComplemento" placeholder="Todos"
+              :searchable="true" :show-labels="false" @input="aplicarFiltrosYBuscar" class="custom-filter-multiselect"></multiselect>
           </div>
         </div>
       </div>
@@ -240,8 +236,9 @@
           <span class="text-sm font-bold text-gray-500">Cargando registros...</span>
         </div>
 
-        <IngresoCard v-for="item in ingresosData" :key="item.id" :item="item" @generar="generarComplemento" @visualizar="visualizarComplemento"
-          @enviar="enviarCorreoComplemento" @editar="abrirModalEditarIngreso" @eliminar="eliminarFila" />
+        <IngresoCard v-for="item in ingresosData" :key="item.id" :item="item" @generar="generarComplemento"
+          @visualizar="visualizarComplemento" @enviar="enviarCorreoComplemento" @editar="abrirModalEditarIngreso"
+          @eliminar="eliminarFila" />
 
         <div v-if="!cargandoRegistros && ingresosData.length === 0"
           class="text-center py-16 text-lg text-gray-500 bg-white rounded-xl shadow-sm border border-gray-200 font-bold mt-4">
@@ -524,6 +521,9 @@ export default {
         { id: 'PENDIENTE', label: 'Pendientes' }
       ],
 
+      opcionesFolioFactura: [],
+      opcionesFolioComplemento: [],
+
       filtros: {
         cliente: 'Todos',
         rangoFechas: null,
@@ -531,8 +531,8 @@ export default {
         tipo_comprobante: 'Todos',
         tipoServicio: 'Todos',
         estado_envio: { id: '', label: 'Todos' },
-        folio_factura: '',
-        folio_complemento: ''
+        folio_factura: 'Todos',
+        folio_complemento: 'Todos'
       },
 
       // Datos de Paginación del Backend
@@ -708,8 +708,8 @@ export default {
         tipo_comprobante: 'Todos',
         tipoServicio: 'Todos',
         estado_envio: { id: '', label: 'Todos' },
-        folio_factura: '',
-        folio_complemento: ''
+        folio_factura: 'Todos',
+        folio_complemento: 'Todos'
       };
       this.currentPage = 1;
       this.cargarIngresos();
@@ -763,6 +763,8 @@ export default {
         this.opcionesClienteObj = response.data.clientes;
         const nombresClientes = response.data.clientes.map(c => c.nombre);
         this.opcionesFiltroCliente = ['Todos', ...nombresClientes];
+        this.opcionesFolioFactura = ['Todos', ...(response.data.foliosFactura || [])];
+        this.opcionesFolioComplemento = ['Todos', ...(response.data.foliosComplemento || [])];
       } catch (error) {
         console.error("Error cargando catálogos", error);
       }

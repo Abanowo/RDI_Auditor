@@ -13284,9 +13284,6 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
 //
 //
 //
-//
-//
-//
 
 
 
@@ -13363,6 +13360,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         id: 'PENDIENTE',
         label: 'Pendientes'
       }],
+      opcionesFolioFactura: [],
+      opcionesFolioComplemento: [],
       filtros: {
         cliente: 'Todos',
         rangoFechas: null,
@@ -13376,8 +13375,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
           id: '',
           label: 'Todos'
         },
-        folio_factura: '',
-        folio_complemento: ''
+        folio_factura: 'Todos',
+        folio_complemento: 'Todos'
       },
       // Datos de Paginación del Backend
       currentPage: 1,
@@ -13578,8 +13577,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
           id: '',
           label: 'Todos'
         },
-        folio_factura: '',
-        folio_complemento: ''
+        folio_factura: 'Todos',
+        folio_complemento: 'Todos'
       };
       this.currentPage = 1;
       this.cargarIngresos();
@@ -13640,6 +13639,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                 return c.nombre;
               });
               _this4.opcionesFiltroCliente = ['Todos'].concat(_toConsumableArray(nombresClientes));
+              _this4.opcionesFolioFactura = ['Todos'].concat(_toConsumableArray(response.data.foliosFactura || []));
+              _this4.opcionesFolioComplemento = ['Todos'].concat(_toConsumableArray(response.data.foliosComplemento || []));
               _context2.n = 3;
               break;
             case 2:
@@ -95069,7 +95070,7 @@ var render = function () {
                 "div",
                 {
                   staticClass:
-                    "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4",
+                    "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4 pt-1",
                 },
                 [
                   _c(
@@ -95080,12 +95081,13 @@ var render = function () {
                         "label",
                         {
                           staticClass:
-                            "text-xs font-bold text-gray-500 uppercase mb-1",
+                            "text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap",
                         },
                         [_vm._v("Cliente:")]
                       ),
                       _vm._v(" "),
                       _c("multiselect", {
+                        staticClass: "custom-filter-multiselect",
                         attrs: {
                           options: _vm.opcionesFiltroCliente,
                           placeholder: "Todos",
@@ -95113,12 +95115,13 @@ var render = function () {
                         "label",
                         {
                           staticClass:
-                            "text-xs font-bold text-gray-500 uppercase mb-1",
+                            "text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap",
                         },
                         [_vm._v("Servicio:")]
                       ),
                       _vm._v(" "),
                       _c("multiselect", {
+                        staticClass: "custom-filter-multiselect",
                         attrs: {
                           options: _vm.opcionesTipoServicio,
                           placeholder: "Todos",
@@ -95146,12 +95149,13 @@ var render = function () {
                         "label",
                         {
                           staticClass:
-                            "text-xs font-bold text-gray-500 uppercase mb-1",
+                            "text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap",
                         },
                         [_vm._v("Tipo\n            Operación:")]
                       ),
                       _vm._v(" "),
                       _c("multiselect", {
+                        staticClass: "custom-filter-multiselect",
                         attrs: {
                           options: _vm.opcionesTipoOperacion,
                           "track-by": "id",
@@ -95181,12 +95185,13 @@ var render = function () {
                         "label",
                         {
                           staticClass:
-                            "text-xs font-bold text-gray-500 uppercase mb-1",
+                            "text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap",
                         },
                         [_vm._v("Tipo\n            Comprobante:")]
                       ),
                       _vm._v(" "),
                       _c("multiselect", {
+                        staticClass: "custom-filter-multiselect",
                         attrs: {
                           options: _vm.opcionesComprobante,
                           placeholder: "Todos",
@@ -95214,12 +95219,13 @@ var render = function () {
                         "label",
                         {
                           staticClass:
-                            "text-xs font-bold text-gray-500 uppercase mb-1",
+                            "text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap",
                         },
                         [_vm._v("Fechas:")]
                       ),
                       _vm._v(" "),
                       _c("VueCtkDateTimePicker", {
+                        staticClass: "custom-filter-datepicker",
                         attrs: {
                           format: "YYYY-MM-DD",
                           formatted: "YYYY-MM-DD",
@@ -95249,12 +95255,13 @@ var render = function () {
                         "label",
                         {
                           staticClass:
-                            "text-xs font-bold text-gray-500 uppercase mb-1",
+                            "text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap",
                         },
                         [_vm._v("Envío de\n            Comp.:")]
                       ),
                       _vm._v(" "),
                       _c("multiselect", {
+                        staticClass: "custom-filter-multiselect",
                         attrs: {
                           options: _vm.opcionesEstadoEnvio,
                           "track-by": "id",
@@ -95276,127 +95283,73 @@ var render = function () {
                     1
                   ),
                   _vm._v(" "),
-                  _c("div", { staticClass: "flex flex-col" }, [
-                    _c(
-                      "label",
-                      {
-                        staticClass:
-                          "text-xs font-bold text-gray-500 uppercase mb-1",
-                      },
-                      [_vm._v("Folio SC / Factura:")]
-                    ),
-                    _vm._v(" "),
-                    _c("input", {
-                      directives: [
+                  _c(
+                    "div",
+                    { staticClass: "flex flex-col" },
+                    [
+                      _c(
+                        "label",
                         {
-                          name: "model",
-                          rawName: "v-model",
+                          staticClass:
+                            "text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap",
+                        },
+                        [_vm._v("Folio SC / Factura:")]
+                      ),
+                      _vm._v(" "),
+                      _c("multiselect", {
+                        staticClass: "custom-filter-multiselect",
+                        attrs: {
+                          options: _vm.opcionesFolioFactura,
+                          placeholder: "Todos",
+                          searchable: true,
+                          "show-labels": false,
+                        },
+                        on: { input: _vm.aplicarFiltrosYBuscar },
+                        model: {
                           value: _vm.filtros.folio_factura,
+                          callback: function ($$v) {
+                            _vm.$set(_vm.filtros, "folio_factura", $$v)
+                          },
                           expression: "filtros.folio_factura",
                         },
-                      ],
-                      staticClass:
-                        "w-full border border-gray-300 rounded-lg px-4 text-base text-gray-700 focus:outline-none focus:border-gray-400 transition-colors",
-                      staticStyle: {
-                        "min-height": "48px",
-                        "background-color": "#ffffff",
-                      },
-                      attrs: {
-                        type: "text",
-                        placeholder: "Escriba y presione Enter...",
-                      },
-                      domProps: { value: _vm.filtros.folio_factura },
-                      on: {
-                        keyup: function ($event) {
-                          if (
-                            !$event.type.indexOf("key") &&
-                            _vm._k(
-                              $event.keyCode,
-                              "enter",
-                              13,
-                              $event.key,
-                              "Enter"
-                            )
-                          ) {
-                            return null
-                          }
-                          return _vm.aplicarFiltrosYBuscar($event)
-                        },
-                        change: _vm.aplicarFiltrosYBuscar,
-                        input: function ($event) {
-                          if ($event.target.composing) {
-                            return
-                          }
-                          _vm.$set(
-                            _vm.filtros,
-                            "folio_factura",
-                            $event.target.value
-                          )
-                        },
-                      },
-                    }),
-                  ]),
+                      }),
+                    ],
+                    1
+                  ),
                   _vm._v(" "),
-                  _c("div", { staticClass: "flex flex-col" }, [
-                    _c(
-                      "label",
-                      {
-                        staticClass:
-                          "text-xs font-bold text-gray-500 uppercase mb-1",
-                      },
-                      [_vm._v("Folio Complemento:")]
-                    ),
-                    _vm._v(" "),
-                    _c("input", {
-                      directives: [
+                  _c(
+                    "div",
+                    { staticClass: "flex flex-col" },
+                    [
+                      _c(
+                        "label",
                         {
-                          name: "model",
-                          rawName: "v-model",
+                          staticClass:
+                            "text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap",
+                        },
+                        [_vm._v("Folio Complemento:")]
+                      ),
+                      _vm._v(" "),
+                      _c("multiselect", {
+                        staticClass: "custom-filter-multiselect",
+                        attrs: {
+                          options: _vm.opcionesFolioComplemento,
+                          placeholder: "Todos",
+                          searchable: true,
+                          "show-labels": false,
+                        },
+                        on: { input: _vm.aplicarFiltrosYBuscar },
+                        model: {
                           value: _vm.filtros.folio_complemento,
+                          callback: function ($$v) {
+                            _vm.$set(_vm.filtros, "folio_complemento", $$v)
+                          },
                           expression: "filtros.folio_complemento",
                         },
-                      ],
-                      staticClass:
-                        "w-full border border-gray-300 rounded-lg px-4 text-base text-gray-700 focus:outline-none focus:border-gray-400 transition-colors",
-                      staticStyle: {
-                        "min-height": "48px",
-                        "background-color": "#ffffff",
-                      },
-                      attrs: {
-                        type: "text",
-                        placeholder: "Escriba y presione Enter...",
-                      },
-                      domProps: { value: _vm.filtros.folio_complemento },
-                      on: {
-                        keyup: function ($event) {
-                          if (
-                            !$event.type.indexOf("key") &&
-                            _vm._k(
-                              $event.keyCode,
-                              "enter",
-                              13,
-                              $event.key,
-                              "Enter"
-                            )
-                          ) {
-                            return null
-                          }
-                          return _vm.aplicarFiltrosYBuscar($event)
-                        },
-                        change: _vm.aplicarFiltrosYBuscar,
-                        input: function ($event) {
-                          if ($event.target.composing) {
-                            return
-                          }
-                          _vm.$set(
-                            _vm.filtros,
-                            "folio_complemento",
-                            $event.target.value
-                          )
-                        },
-                      },
-                    }),
-                  ]),
+                      }),
+                    ],
+                    1
+                  ),
                 ]
               ),
             ]
