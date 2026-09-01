@@ -10467,6 +10467,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 //
 //
 //
+//
+//
 
 
 
@@ -10491,6 +10493,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   },
   data: function data() {
     return {
+      clientesLocales: [],
       isSubmitting: false,
       cargandoSheet: false,
       pedimentosSheet: [],
@@ -10622,6 +10625,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     opcionesCliente: {
       immediate: true,
       handler: function handler(newVal) {
+        if (newVal) {
+          this.clientesLocales = _toConsumableArray(newVal);
+        }
         if (newVal && newVal.length > 0 && this.form.cliente && typeof this.form.cliente === 'string') {
           var clienteUpper = this.form.cliente.toUpperCase().trim();
           var encontrado = newVal.find(function (c) {
@@ -10726,6 +10732,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
   },
   methods: {
+    agregarClienteManual: function agregarClienteManual(nuevoNombre) {
+      var nuevoCliente = {
+        id: 'nuevo_' + Date.now(),
+        nombre: nuevoNombre.toUpperCase().trim()
+      };
+      this.clientesLocales.push(nuevoCliente);
+      this.form.cliente = nuevoCliente;
+    },
     formatearDinero: function formatearDinero(monto) {
       return new Intl.NumberFormat('en-US', {
         style: 'currency',
@@ -10933,7 +10947,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             case 4:
               _this3.isSubmitting = true;
               payload = _objectSpread({}, _this3.form);
-              payload.cliente_id = payload.cliente.id || null;
+              if (payload.cliente && String(payload.cliente.id).startsWith('nuevo_')) {
+                payload.cliente_id = null;
+                payload.nuevo_cliente_nombre = payload.cliente.nombre;
+              } else if (payload.cliente) {
+                payload.cliente_id = payload.cliente.id;
+              } else {
+                payload.cliente_id = null;
+              }
               payload.sucursal_origen = _this3.sucursalReal;
               delete payload.cliente;
               delete payload._original;
@@ -11899,7 +11920,15 @@ function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present,
 function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { if (r) i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n;else { var o = function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); }; o("next", 0), o("throw", 1), o("return", 2); } }, _regeneratorDefine2(e, r, n, t); }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
+function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
+//
+//
 //
 //
 //
@@ -12126,6 +12155,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
   },
   data: function data() {
     return {
+      clientesLocales: [],
       isSubmitting: false,
       cargandoSheet: false,
       pedimentosSheet: [],
@@ -12230,6 +12260,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
   },
   watch: {
+    opcionesCliente: {
+      immediate: true,
+      handler: function handler(newVal) {
+        if (newVal) {
+          this.clientesLocales = _toConsumableArray(newVal);
+        }
+      }
+    },
     'form.sucursal_origen': function formSucursal_origen(newVal, oldVal) {
       this.checkTransportactics = false;
       this.checkIntshipperts = false;
@@ -12267,6 +12305,14 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     }
   },
   methods: {
+    agregarClienteManual: function agregarClienteManual(nuevoNombre) {
+      var nuevoCliente = {
+        id: 'nuevo_' + Date.now(),
+        nombre: nuevoNombre.toUpperCase().trim()
+      };
+      this.clientesLocales.push(nuevoCliente);
+      this.form.cliente = nuevoCliente;
+    },
     formatearDinero: function formatearDinero(monto) {
       return new Intl.NumberFormat('en-US', {
         style: 'currency',
@@ -12437,7 +12483,12 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             case 1:
               _this3.isSubmitting = true;
               payload = _objectSpread({}, _this3.form);
-              payload.cliente_id = payload.cliente.id;
+              if (String(payload.cliente.id).startsWith('nuevo_')) {
+                payload.cliente_id = null;
+                payload.nuevo_cliente_nombre = payload.cliente.nombre;
+              } else {
+                payload.cliente_id = payload.cliente.id;
+              }
               delete payload.cliente;
               payload.total_gpc = _this3.totalGPC;
               if (_this3.form.referenciasObj && Array.isArray(_this3.form.referenciasObj)) {
@@ -90108,23 +90159,37 @@ var render = function () {
                     [_vm._v("RAZÓN SOCIAL CLIENTE (Filtra los folios) *")]
                   ),
                   _vm._v(" "),
-                  _c("multiselect", {
-                    staticClass: "text-xl",
-                    attrs: {
-                      options: _vm.opcionesCliente,
-                      "track-by": "id",
-                      label: "nombre",
-                      placeholder: "Seleccione un cliente...",
-                      "show-labels": false,
-                    },
-                    model: {
-                      value: _vm.form.cliente,
-                      callback: function ($$v) {
-                        _vm.$set(_vm.form, "cliente", $$v)
+                  _c(
+                    "multiselect",
+                    {
+                      staticClass: "text-xl",
+                      attrs: {
+                        options: _vm.clientesLocales,
+                        "track-by": "id",
+                        label: "nombre",
+                        placeholder:
+                          "Seleccione o escriba un nuevo cliente y presione Enter...",
+                        "show-labels": false,
+                        taggable: true,
                       },
-                      expression: "form.cliente",
+                      on: { tag: _vm.agregarClienteManual },
+                      model: {
+                        value: _vm.form.cliente,
+                        callback: function ($$v) {
+                          _vm.$set(_vm.form, "cliente", $$v)
+                        },
+                        expression: "form.cliente",
+                      },
                     },
-                  }),
+                    [
+                      _c("template", { slot: "noResult" }, [
+                        _vm._v(
+                          "Presione Enter para agregar como nuevo cliente"
+                        ),
+                      ]),
+                    ],
+                    2
+                  ),
                 ],
                 1
               ),
@@ -92718,23 +92783,37 @@ var render = function () {
                     [_vm._v("RAZÓN SOCIAL CLIENTE (Filtra los folios) *")]
                   ),
                   _vm._v(" "),
-                  _c("multiselect", {
-                    staticClass: "text-xl",
-                    attrs: {
-                      options: _vm.opcionesCliente,
-                      "track-by": "id",
-                      label: "nombre",
-                      placeholder: "Seleccione un cliente...",
-                      "show-labels": false,
-                    },
-                    model: {
-                      value: _vm.form.cliente,
-                      callback: function ($$v) {
-                        _vm.$set(_vm.form, "cliente", $$v)
+                  _c(
+                    "multiselect",
+                    {
+                      staticClass: "text-xl",
+                      attrs: {
+                        options: _vm.clientesLocales,
+                        "track-by": "id",
+                        label: "nombre",
+                        placeholder:
+                          "Seleccione o escriba un nuevo cliente y presione Enter...",
+                        "show-labels": false,
+                        taggable: true,
                       },
-                      expression: "form.cliente",
+                      on: { tag: _vm.agregarClienteManual },
+                      model: {
+                        value: _vm.form.cliente,
+                        callback: function ($$v) {
+                          _vm.$set(_vm.form, "cliente", $$v)
+                        },
+                        expression: "form.cliente",
+                      },
                     },
-                  }),
+                    [
+                      _c("template", { slot: "noResult" }, [
+                        _vm._v(
+                          "Presione Enter para agregar como nuevo cliente"
+                        ),
+                      ]),
+                    ],
+                    2
+                  ),
                 ],
                 1
               ),

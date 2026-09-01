@@ -61,8 +61,10 @@
 
         <div class="col-span-2">
           <label class="block text-base font-bold text-gray-500 uppercase mb-2">RAZÓN SOCIAL CLIENTE (Filtra los folios) *</label>
-          <multiselect v-model="form.cliente" :options="opcionesCliente" track-by="id" label="nombre"
-            placeholder="Seleccione un cliente..." :show-labels="false" class="text-xl">
+          <multiselect v-model="form.cliente" :options="clientesLocales" track-by="id" label="nombre"
+            placeholder="Seleccione o escriba un nuevo cliente y presione Enter..." :show-labels="false"
+            :taggable="true" @tag="agregarClienteManual" class="text-xl">
+            <template slot="noResult">Presione Enter para agregar como nuevo cliente</template>
           </multiselect>
         </div>
 
@@ -222,6 +224,7 @@ export default {
   },
   data() {
     return {
+      clientesLocales: [],
       isSubmitting: false,
       cargandoSheet: false,
       pedimentosSheet: [],
@@ -341,6 +344,14 @@ export default {
     }
   },
   watch: {
+    opcionesCliente: {
+      immediate: true,
+      handler(newVal) {
+        if (newVal) {
+          this.clientesLocales = [...newVal];
+        }
+      }
+    },
     'form.sucursal_origen': function (newVal, oldVal) {
       this.checkTransportactics = false;
       this.checkIntshipperts = false;
@@ -379,6 +390,14 @@ export default {
     }
   },
   methods: {
+    agregarClienteManual(nuevoNombre) {
+      const nuevoCliente = {
+        id: 'nuevo_' + Date.now(),
+        nombre: nuevoNombre.toUpperCase().trim()
+      };
+      this.clientesLocales.push(nuevoCliente);
+      this.form.cliente = nuevoCliente;
+    },
     formatearDinero(monto) {
       return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(parseFloat(monto) || 0);
     },
@@ -499,7 +518,12 @@ export default {
       this.isSubmitting = true;
       const payload = { ...this.form };
 
-      payload.cliente_id = payload.cliente.id;
+      if (String(payload.cliente.id).startsWith('nuevo_')) {
+        payload.cliente_id = null;
+        payload.nuevo_cliente_nombre = payload.cliente.nombre;
+      } else {
+        payload.cliente_id = payload.cliente.id;
+      }
       delete payload.cliente;
 
       payload.total_gpc = this.totalGPC;

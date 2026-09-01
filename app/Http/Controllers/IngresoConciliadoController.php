@@ -94,8 +94,12 @@ class IngresoConciliadoController extends Controller
     public function index(Request $request)
     {
         // 1. Iniciamos la consulta base con los Joins y Subconsultas
-        $query = IngresoConciliado::select('ingresos_conciliados.*', 'empresas.nombre as cliente')
-            ->join('empresas', 'ingresos_conciliados.cliente_id', '=', 'empresas.id')
+        $query = IngresoConciliado::select(
+            'ingresos_conciliados.*',
+            // Toma empresas.nombre, si es nulo, toma ingresos_conciliados.cliente
+            DB::raw('COALESCE(empresas.nombre, ingresos_conciliados.cliente) as cliente')
+        )
+            ->leftJoin('empresas', 'ingresos_conciliados.cliente_id', '=', 'empresas.id')
             ->addSelect([
                 'folio_complemento' => ComplementoPago::select('folio')
                     ->whereColumn('ingreso_conciliado_id', 'ingresos_conciliados.id')
@@ -2394,10 +2398,18 @@ class IngresoConciliadoController extends Controller
         try {
             $sucursal = strtoupper($request->sucursal_origen ?? '');
             $clienteId = $request->cliente_id;
+            $clienteManual = null;
+            $clienteNombre = '';
 
-            // Buscamos el nombre para saber si es Transportactics
-            $empresa = Empresas::find($clienteId);
-            $clienteNombre = $empresa ? strtoupper($empresa->nombre) : '';
+            if (empty($clienteId) && $request->filled('nuevo_cliente_nombre')) {
+                // Es un cliente escrito manualmente (no existe en la tabla empresas)
+                $clienteManual = strtoupper(trim($request->nuevo_cliente_nombre));
+                $clienteNombre = $clienteManual; // Lo usamos para validar Transportactics abajo
+            } else {
+                // Es un cliente del catálogo normal
+                $empresa = Empresas::find($clienteId);
+                $clienteNombre = $empresa ? strtoupper($empresa->nombre) : '';
+            }
 
             // Validaciones de negocio
             $isTransportactics = str_contains($clienteNombre, 'TRANSPORTACTICS') || str_contains($sucursal, 'TRANSPORTACTIC');
@@ -2428,7 +2440,10 @@ class IngresoConciliadoController extends Controller
             $ingreso->sucursal_origen = $request->sucursal_origen;
             $ingreso->banco_receptor = $request->banco_receptor;
             $ingreso->fecha = $request->fecha;
-            $ingreso->cliente_id = $clienteId;
+            
+            $ingreso->cliente_id = $clienteId; // Puede ser un número o quedar como null
+            $ingreso->cliente = $clienteManual; // Se guarda el texto si fue manual, o null si fue de catálogo
+
             $ingreso->monto_deposito = (float) str_replace(['$', ','], '', $request->monto_deposito ?? 0);
             $ingreso->total_gpc = $monto_gpc;
 
@@ -2520,14 +2535,32 @@ class IngresoConciliadoController extends Controller
             $ingreso->banco_receptor = $request->banco_receptor ?? $ingreso->banco_receptor;
             $ingreso->fecha = $request->fecha ?? $ingreso->fecha;
 
-            // Si mandan cliente_id nuevo, lo actualizamos
-            if ($request->has('cliente_id')) {
+            $clienteNombre = '';
+
+            if (empty($request->cliente_id) && $request->filled('nuevo_cliente_nombre')) {
+                // A. Es un cliente escrito manualmente
+                $ingreso->cliente_id = null;
+                $ingreso->cliente = strtoupper(trim($request->nuevo_cliente_nombre));
+                
+                $clienteNombre = $ingreso->cliente; // Usado para validar Transportactics
+            } elseif ($request->has('cliente_id') && !empty($request->cliente_id)) {
+                // B. Es un cliente válido del catálogo
                 $ingreso->cliente_id = $request->cliente_id;
+                $ingreso->cliente = null; // Limpiamos la columna manual por si antes lo era
+                
+                $empresa = Empresas::find($ingreso->cliente_id);
+                $clienteNombre = $empresa ? strtoupper($empresa->nombre) : '';
+            } else {
+                // C. Si no mandaron cambios de cliente, usamos lo que ya tiene la BD para validar
+                if ($ingreso->cliente_id) {
+                    $empresa = Empresas::find($ingreso->cliente_id);
+                    $clienteNombre = $empresa ? strtoupper($empresa->nombre) : '';
+                } else {
+                    $clienteNombre = $ingreso->cliente ?? '';
+                }
             }
 
             // Identificar si es Transportactics
-            $empresa = Empresas::find($ingreso->cliente_id);
-            $clienteNombre = $empresa ? strtoupper($empresa->nombre) : '';
             $isTransportactics = str_contains($clienteNombre, 'TRANSPORTACTICS') || str_contains(strtoupper($ingreso->sucursal_origen), 'TRANSPORTACTIC');
 
             // BLINDAJE: Limpiamos y forzamos a que sean números reales
