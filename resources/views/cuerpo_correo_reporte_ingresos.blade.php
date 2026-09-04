@@ -75,12 +75,28 @@
                     // Guardamos el nombre del banco dentro del ingreso para mostrarlo en la tabla
                     $ingreso->nombre_banco = $banco ?: 'SIN ASIGNAR';
 
-                    $nombreCliente = strtoupper($ingreso->cliente ? $ingreso->cliente->nombre : '');
+                    $nombreClienteStr = 'SIN CLIENTE';
                     $sucursalOrigen = strtoupper($ingreso->sucursal_origen ?? '');
                     
-                    if (str_contains($grupoSucursalStr, 'INTSHIPPERT') || str_contains($nombreCliente, 'INTSHIPPERTS') || str_contains($sucursalOrigen, 'INTSHIPPERT')) {
+                    // 1. Verificamos si tiene un cliente_id válido
+                    if (!empty($ingreso->cliente_id)) {
+                        $modeloCliente = $ingreso->relationLoaded('cliente') ? $ingreso->getRelation('cliente') : null;
+                        if ($modeloCliente && isset($modeloCliente->nombre)) {
+                            $nombreClienteStr = $modeloCliente->nombre;
+                        }
+                    } else {
+                        // 2. Si cliente_id está vacío
+                        $textoColumna = $ingreso->getRawOriginal('cliente');
+                        if (!empty($textoColumna)) {
+                            $nombreClienteStr = $textoColumna;
+                        }
+                    }
+
+                    $ingreso->nombre_cliente_calculado = strtoupper($nombreClienteStr);
+                    
+                    if (str_contains($grupoSucursalStr, 'INTSHIPPERT') || str_contains($ingreso->nombre_cliente_calculado, 'INTSHIPPERTS') || str_contains($sucursalOrigen, 'INTSHIPPERT')) {
                         $ingresosIntshipperts->push($ingreso);
-                    } elseif (str_contains($grupoSucursalStr, 'TRANSPORTACTIC') || str_contains($nombreCliente, 'TRANSPORTACTICS') || str_contains($sucursalOrigen, 'TRANSPORTACTIC')) {
+                    } elseif (str_contains($grupoSucursalStr, 'TRANSPORTACTIC') || str_contains($ingreso->nombre_cliente_calculado, 'TRANSPORTACTICS') || str_contains($sucursalOrigen, 'TRANSPORTACTIC')) {
                         $ingresosTransportactics->push($ingreso);
                     } else {
                         $ingresosInTactics->push($ingreso); 
@@ -186,7 +202,7 @@
                                 </td>
                                 
                                 <td style="font-weight: bold; color: #333;">$ {{ number_format($ingreso->monto_deposito, 2) }}</td>
-                                <td style="text-align: left; color: #555;">{{ $ingreso->cliente ? $ingreso->cliente->nombre : '--' }}</td>
+                                <td style="text-align: left; color: #555;">{{ $ingreso->nombre_cliente_calculado }}</td>
                                 <td style="text-align: left; color: #555;">{{ $ingreso->folio_sc ?: '--' }}</td>
                                 
                                 <!-- ========================================== -->

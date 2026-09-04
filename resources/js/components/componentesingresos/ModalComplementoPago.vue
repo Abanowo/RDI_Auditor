@@ -2,10 +2,10 @@
   <div v-if="mostrar" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-6 md:p-10">
 
     <div
-      class="bg-white rounded-xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[calc(100vh-4rem)] mx-4">
+      class="bg-white rounded-xl shadow-2xl w-full max-w-7xl overflow-hidden flex flex-col max-h-[calc(100vh-4rem)] mx-4">
 
       <!-- Header -->
-      <div class="bg-indigo-700 px-8 py-6 flex justify-between items-center shrink-0">
+      <div class="px-8 py-6 flex justify-between items-center shrink-0"style="background-color: #2A3A4D;">
         <h3 class="text-white font-bold text-2xl tracking-wide flex items-center gap-3">
           <!-- Ícono de Engranaje / Procesamiento SVG -->
           <svg class="w-7 h-7 shrink-0 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -92,10 +92,8 @@
         <!-- Configuraciones del Complemento -->
         <div class="col-span-1">
           <label class="block text-lg font-bold text-gray-700 mb-2">Método de Pago</label>
-          <multiselect v-model="form.metodoPagoObj" :options="opcionesMetodoPago" label="label" track-by="value"
-            :searchable="false" :show-labels="false" :allow-empty="false" placeholder="Seleccione..."
-            class="custom-multiselect text-xl">
-          </multiselect>
+          <input type="text" value="PPD - Pago en parcialidades o diferido" disabled
+            class="w-full border-gray-300 bg-gray-100 rounded-lg shadow-sm px-3 py-4 text-lg text-gray-700 font-semibold cursor-not-allowed">
         </div>
 
         <div class="col-span-1">
@@ -139,14 +137,26 @@
         </button>
 
         <button @click="enviarComplemento" :disabled="!!ingreso.folio_complemento"
-          :class="['px-6 py-4 rounded-lg font-bold transition-colors flex items-center text-xl shadow-sm',
-            !!ingreso.folio_complemento ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700']">
+          :class="[
+            'px-6 py-4 rounded-lg font-bold transition-colors flex items-center text-xl shadow-sm',
+            !!ingreso.folio_complemento 
+              ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+              : 'bg-indigo-600 text-white hover:bg-indigo-700'
+          ]"
+          :title="!!ingreso.folio_complemento ? 'El complemento ya fue generado' : 'Generar Complemento'">
           Generar Complemento
         </button>
 
-        <button @click="timbrarComplemento" :disabled="!ingreso.folio_complemento"
-          :class="['px-6 py-4 rounded-lg font-bold transition-colors flex items-center text-xl shadow-sm',
-            !ingreso.folio_complemento ? 'bg-gray-400 text-gray-200 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700']">
+        <!-- BOTÓN TIMBRAR ACTUALIZADO CON PROTECCIÓN -->
+        <button @click="timbrarComplemento" 
+          :disabled="!ingreso.folio_complemento || ingreso.timbrado || ingreso.estado_envio === 'ENVIADO'"
+          :class="[
+            'px-6 py-4 rounded-lg font-bold transition-colors flex items-center text-xl shadow-sm',
+            !ingreso.folio_complemento || ingreso.timbrado || ingreso.estado_envio === 'ENVIADO'
+              ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+              : 'bg-green-600 text-white hover:bg-green-700'
+          ]"
+          :title="!ingreso.folio_complemento ? 'Primero debes generar el complemento' : (ingreso.timbrado || ingreso.estado_envio === 'ENVIADO' ? 'El complemento ya fue timbrado' : 'Timbrar ante el SAT')">
           Timbrar
         </button>
       </div>
@@ -187,10 +197,6 @@ export default {
         referencia: '',
         observaciones: ''
       },
-      opcionesMetodoPago: [
-        { value: 'PPD', label: 'PPD - Pago en parcialidades o diferido' },
-        { value: 'PUE', label: 'PUE - Pago en una sola exhibición' }
-      ],
       opcionesMoneda: [
         { value: 'MXN', label: 'MXN - Peso Mexicano' },
         { value: 'USD', label: 'USD - Dólar Estadounidense' }
@@ -279,7 +285,7 @@ export default {
         observaciones: this.form.observaciones,
         total: this.sumaTotal,
         forma_pago: this.form.formaPagoObj ? this.form.formaPagoObj.value : '',
-        metodo_pago: this.form.metodoPagoObj ? this.form.metodoPagoObj.value : 'PPD',
+        metodo_pago: 'PPD',
       };
 
       this.$emit('generar', payloadLimpio);

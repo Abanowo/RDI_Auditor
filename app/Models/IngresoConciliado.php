@@ -18,8 +18,6 @@ class IngresoConciliado extends Model
         'cliente_id', 
         'referencia',
         'folio_sc',
-        /* 'operacion_id',
-        'operation_type', */
         'tipo_comprobante',
         'enviado_en_reporte', 
         'monto_deposito', 
@@ -30,6 +28,9 @@ class IngresoConciliado extends Model
         'flete', 
         'muestras', 
         'llc', 
+        'anticipo',
+        'garantias',
+        'desglose_naviera',
         'estado_envio',
         'proveedor_maniobras', 
         'factura_maniobras',
@@ -48,5 +49,9 @@ class IngresoConciliado extends Model
     public function cliente()
     {
         return $this->belongsTo(Empresas::class, 'cliente_id');
+    }
+    public function operaciones()
+    {
+        return $this->hasMany(IngresoOperacion::class, 'ingreso_id');
     }
 }

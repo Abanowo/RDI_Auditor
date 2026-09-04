@@ -1,11 +1,11 @@
 <template>
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-6 md:p-10">
+    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-6 md:p-10">
 
-    <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl flex flex-col overflow-hidden"
+            style="max-height: 90vh;">
 
-          <div class="px-8 py-6 flex justify-between items-center shrink-0" style="background-color: #2A3A4D;">
+            <div class="px-8 py-5 flex-none flex justify-between items-center z-10" style="background-color: #2A3A4D;">
                 <h3 class="text-white text-2xl font-bold uppercase tracking-wider flex items-center gap-3">
-                    <!-- Ícono de Editar (Lápiz) SVG -->
                     <svg class="w-7 h-7 shrink-0 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z">
@@ -23,7 +23,7 @@
 
   
 
-      <div class="p-8 overflow-y-auto flex-1 grid grid-cols-2 gap-8">
+            <div class="p-8 overflow-y-auto flex-1 grid grid-cols-2 gap-8" style="min-height: 0;">
 
         <!-- Igual al modal de nuevo ingreso -->
         <div class="col-span-1">
@@ -62,18 +62,32 @@
           </multiselect>
         </div>
 
-        <div class="col-span-1">
-          <label class="block text-base font-bold text-gray-500 uppercase mb-2">PEDIMENTOS / FOLIOS DISPONIBLES *</label>
-          <div class="flex w-full min-w-0">
-            <multiselect v-model="form.referenciasObj" :options="opcionesPedimentos" :multiple="true" :taggable="true" @tag="agregarReferencia" track-by="label" label="label" :loading="cargandoSheet" :disabled="!form.sucursal_origen" placeholder="Seleccione folios o escriba..." class="w-full min-w-0 flex-1 text-xl">
-              <template slot="noResult">No se encontraron folios para este cliente</template>
-            </multiselect>
-            <button @click="buscarYRecalcularPedimento" type="button" title="Calcular montos desde XML/Sheet" :disabled="cargandoSheet" class="bg-blue-500 hover:bg-blue-600 text-white px-5 py-4 rounded-r transition-colors flex items-center justify-center -ml-1 z-10 shrink-0 disabled:opacity-50">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-            </button>
-          </div>
-          <span v-if="!form.sucursal_origen" class="text-sm text-red-500 font-bold mt-2 inline-block">⚠️ Selecciona una sucursal para cargar la lista.</span>
-        </div>
+                <div class="col-span-1">
+                    <label class="block text-base font-bold text-gray-500 uppercase mb-2">PEDIMENTOS / FOLIOS
+                        DISPONIBLES *</label>
+                    <div class="flex w-full min-w-0">
+                        <multiselect v-model="form.referenciasObj" :options="opcionesReferenciasCombinadas"
+                            :multiple="true" :taggable="true" @tag="agregarReferenciaManual" track-by="label"
+                            label="label" :loading="cargandoSheet" :disabled="!form.sucursal_origen"
+                            placeholder="Seleccione folios o escriba..." select-label="Presiona Enter para seleccionar"
+                            tag-placeholder="Presiona Enter para agregar este texto libre"
+                            class="w-full min-w-0 flex-1 text-xl custom-multiselect">
+                            <template slot="noResult">No se encontraron folios ni referencias para este
+                                cliente</template>
+                        </multiselect>
+
+                        <button @click="buscarYRecalcularPedimento" type="button"
+                            title="Calcular montos desde XML/Sheet" :disabled="cargandoSheet"
+                            class="bg-blue-500 hover:bg-blue-600 text-white px-5 py-4 rounded-r transition-colors flex items-center justify-center -ml-1 z-10 shrink-0 disabled:opacity-50">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <span v-if="!form.sucursal_origen" class="text-sm text-red-500 font-bold mt-2 inline-block">⚠️
+                        Selecciona una sucursal para cargar la lista.</span>
+                </div>
 
         <div class="col-span-1">
           <label class="block text-base font-bold text-gray-500 uppercase mb-2">MONTO DEPÓSITO ($) *</label>
@@ -215,37 +229,50 @@ export default {
                 factura_muestras: null,
                 proveedor_llc: null,
                 factura_llc: null,
-            }
+            },
+            opcionesReferenciasPredefinidas: [
+                'Depósito de garantías',
+                'Devolución de garantías',
+                'Compensación SPEI',
+                'Anticipo por error',
+                'Abono préstamo colaborador',
+                'Transferencia interna',
+                'Préstamos intersucursales',
+                'Anticipo cliente',
+                'Pendiente desglose',
+                'Saldos a favor',
+                'Pago devuelto / Pago rechazado'
+            ],
         }
     },
     computed: {
         sucursalSeleccionada() {
-          const s = this.form.sucursal_origen;
-          return typeof s === 'object' && s !== null ? (s.nombre || s.id) : (s || '');
+            const s = this.form.sucursal_origen;
+            return typeof s === 'object' && s !== null ? (s.nombre || s.id) : (s || '');
         },
         esSucursalManzanilloBase() {
-          return String(this.sucursalSeleccionada).toUpperCase().includes('MANZANILLO');
+            return String(this.sucursalSeleccionada).toUpperCase().includes('MANZANILLO');
         },
         esSucursalOtraBase() {
-          return this.sucursalSeleccionada && !this.esSucursalManzanilloBase;
+            return this.sucursalSeleccionada && !this.esSucursalManzanilloBase;
         },
         sucursalReal() {
-          let s = String(this.sucursalSeleccionada).toUpperCase();
-          
-          if (this.checkTransportactics && !s.includes('TRANSPORTACTIC')) {
-            s = s.replace(' IMPO', '').replace(' EXPO', '').trim() + ' TRANSPORTACTICS';
-          } else if (this.checkIntshipperts && !s.includes('INTSHIPPERT')) {
-            s = s.replace(' IMPO', '').replace(' EXPO', '').trim() + ' INTSHIPPERTS';
-          }
-          
-          return s;
+            let s = String(this.sucursalSeleccionada).toUpperCase();
+
+            if (this.checkTransportactics && !s.includes('TRANSPORTACTIC')) {
+                s = s.replace(' IMPO', '').replace(' EXPO', '').trim() + ' TRANSPORTACTICS';
+            } else if (this.checkIntshipperts && !s.includes('INTSHIPPERT')) {
+                s = s.replace(' IMPO', '').replace(' EXPO', '').trim() + ' INTSHIPPERTS';
+            }
+
+            return s;
         },
         esIntshipperts() {
-          const sucursalUpper = String(this.sucursalSeleccionada).toUpperCase();
-          const cliente = typeof this.form.cliente === 'object' && this.form.cliente !== null ? this.form.cliente.nombre : this.form.cliente;
-          const clienteUpper = String(cliente || '').toUpperCase();
+            const sucursalUpper = String(this.sucursalSeleccionada).toUpperCase();
+            const cliente = typeof this.form.cliente === 'object' && this.form.cliente !== null ? this.form.cliente.nombre : this.form.cliente;
+            const clienteUpper = String(cliente || '').toUpperCase();
 
-          return sucursalUpper.includes('INTSHIPPERT') || clienteUpper.includes('INTSHIPPERT') || this.checkIntshipperts;
+            return sucursalUpper.includes('INTSHIPPERT') || clienteUpper.includes('INTSHIPPERT') || this.checkIntshipperts;
         },
         esTransportactics() {
             const sucursalUpper = String(this.sucursalSeleccionada).toUpperCase();
@@ -299,7 +326,7 @@ export default {
                 return parseFloat(this.form.flete) || 0;
             }
             if (this.esIntshipperts) {
-              return (parseFloat(this.form.anticipo) || 0) + (parseFloat(this.form.flete) || 0);
+                return (parseFloat(this.form.anticipo) || 0) + (parseFloat(this.form.flete) || 0);
             }
             if (this.esManzanillo) {
                 return (parseFloat(this.form.impuestos) || 0) +
@@ -314,6 +341,54 @@ export default {
         },
         sumaTotal() {
             return this.totalGPC + (parseFloat(this.form.honorarios) || 0);
+        },
+        opcionesReferenciasCombinadas() {
+            let mapa = new Map();
+
+            // 1. Agregar opciones predefinidas como objetos estructurados
+            this.opcionesReferenciasPredefinidas.forEach(ref => {
+                let texto = typeof ref === 'object' ? (ref.label || ref.folio) : String(ref);
+                if (texto && !mapa.has(texto)) {
+                    mapa.set(texto, { label: texto, folio: texto });
+                }
+            });
+
+            // 2. Extraer fragmentos si vienen de folio_sc o pedimento_detectado
+            const extraerYAgregar = (texto) => {
+                if (texto && typeof texto === 'string') {
+                    let fragmentos = texto.split(',').map(item => item.trim()).filter(Boolean);
+                    fragmentos.forEach(fragmento => {
+                        if (!mapa.has(fragmento)) {
+                            mapa.set(fragmento, { label: fragmento, folio: fragmento });
+                        }
+                    });
+                }
+            };
+
+            extraerYAgregar(this.form.folio_sc);
+            extraerYAgregar(this.form.pedimento_detectado);
+
+            // 3. Agregar pedimentos obtenidos del Sheet
+            if (this.opcionesPedimentos && Array.isArray(this.opcionesPedimentos)) {
+                this.opcionesPedimentos.forEach(objeto => {
+                    let texto = typeof objeto === 'object' ? (objeto.label || objeto.folio || objeto.pedimento) : String(objeto);
+                    if (texto && !mapa.has(texto)) {
+                        mapa.set(texto, { label: texto, folio: texto, cliente: objeto.cliente || '' });
+                    }
+                });
+            }
+
+            // 4. Garantizar que las referencias ya seleccionadas por el usuario no desaparezcan
+            if (Array.isArray(this.form.referenciasObj)) {
+                this.form.referenciasObj.forEach(ref => {
+                    let textoRef = typeof ref === 'object' ? (ref.label || ref.folio || ref.referencia) : String(ref);
+                    if (textoRef && !mapa.has(textoRef)) {
+                        mapa.set(textoRef, { label: textoRef, folio: textoRef });
+                    }
+                });
+            }
+
+            return Array.from(mapa.values());
         }
     },
     watch: {
@@ -333,7 +408,6 @@ export default {
             }
         },
         'form.sucursal_origen': function (newVal, oldVal) {
-            // Reiniciar checkboxes si cambia la sucursal manual
             this.checkTransportactics = false;
             this.checkIntshipperts = false;
 
@@ -353,14 +427,23 @@ export default {
         },
         'form.referenciasObj': function (newVal) {
             if (!this.form.cliente && newVal && newVal.length > 0) {
-                const refSeleccionada = newVal[0];
+                // Tomamos la última referencia seleccionada
+                const refSeleccionada = newVal[newVal.length - 1];
+                if (!refSeleccionada) {
+                    return;
+                }
+
+                const refTexto = typeof refSeleccionada === 'object'
+                    ? (refSeleccionada.label || refSeleccionada.folio || refSeleccionada.cliente || '')
+                    : String(refSeleccionada);
+
+                const refUpper = refTexto.toUpperCase().trim();
                 const sheetArray = Array.isArray(this.pedimentosSheet) ? this.pedimentosSheet : [];
 
-                const refNombre = String(refSeleccionada.label || refSeleccionada.folio || '').trim();
-
+                // 1. Buscar en el listado de pedimentos del Sheet (por coincidencia parcial)
                 const dataPedimento = sheetArray.find(p => {
-                    const pLabel = String(p.label || p.folio || p.pedimento || '').trim();
-                    return pLabel === refNombre;
+                    const pLabel = String(p.label || p.folio || p.pedimento || '').toUpperCase().trim();
+                    return pLabel !== '' && (pLabel === refUpper || refUpper.includes(pLabel) || pLabel.includes(refUpper));
                 });
 
                 if (dataPedimento && dataPedimento.cliente) {
@@ -372,7 +455,18 @@ export default {
 
                     if (clienteEncontrado) {
                         this.form.cliente = clienteEncontrado;
+                        return;
                     }
+                }
+
+                // 2. Si no matchó con el Sheet, busca si el nombre de algún cliente está dentro del texto del tag
+                const clienteDirecto = this.opcionesCliente.find(c => {
+                    const nombreOpcion = String(c.nombre).toUpperCase().trim();
+                    return nombreOpcion.length > 3 && refUpper.includes(nombreOpcion);
+                });
+
+                if (clienteDirecto) {
+                    this.form.cliente = clienteDirecto;
                 }
             }
         }
@@ -380,7 +474,6 @@ export default {
     mounted() {
         this.form = { ...this.form, ...this.ingresoBase };
 
-        // Autoseleccionar los checkboxes al abrir si la sucursal de la BD los contenía
         const sucursalBaseStr = String(this.form.sucursal_origen || '').toUpperCase();
         if (sucursalBaseStr.includes('TRANSPORTACTIC')) {
             this.checkTransportactics = true;
@@ -405,9 +498,15 @@ export default {
             ? String(this.form.cliente.nombre).toUpperCase()
             : '';
 
-        if (this.form.referencia) {
+        if (this.form.referencia && String(this.form.referencia).trim() !== '') {
             this.form.referenciasObj = String(this.form.referencia).split(',').map(r => {
                 let val = r.trim();
+                return { folio: val, pedimento: val, label: val, cliente: clienteActual };
+            }).filter(r => r.folio !== '');
+        } else if (Array.isArray(this.form.operaciones) && this.form.operaciones.length > 0) {
+            // Fallback: Si 'referencia' en la tabla principal estaba vacío, leemos desde la pivote 'operaciones'
+            this.form.referenciasObj = this.form.operaciones.map(op => {
+                let val = String(op.referencia || op.folio_asignado || op.folio || '').trim();
                 return { folio: val, pedimento: val, label: val, cliente: clienteActual };
             }).filter(r => r.folio !== '');
         } else {
@@ -447,17 +546,38 @@ export default {
             const nuevoFolio = { label: newTag, folio: newTag, pedimento: newTag, cliente: String(clienteActual).toUpperCase() };
             this.form.referenciasObj.push(nuevoFolio);
         },
+        agregarReferenciaManual(nuevaReferencia) {
+            const texto = String(nuevaReferencia).trim();
+            if (!texto) {
+                return;
+            }
+
+            // 1. Lo agregamos al arreglo base si no existe
+            if (!this.opcionesReferenciasPredefinidas.includes(texto)) {
+                this.opcionesReferenciasPredefinidas.push(texto);
+            }
+
+            // 2. Lo agregamos al formulario formateado como objeto
+            if (!this.form.referenciasObj) {
+                this.form.referenciasObj = [];
+            }
+
+            const nuevoObj = { label: texto, folio: texto };
+            this.form.referenciasObj.push(nuevoObj);
+        },
 
         async cargarListaPedimentos() {
-            if (this.cargandoSheet) return;
+            if (this.cargandoSheet) {
+                return;
+            }
 
             this.cargandoSheet = true;
             try {
                 const response = await axios.get('/ingresos-conciliados/listar-pedimentos', {
-                    params: { 
-                      sucursal: this.sucursalSeleccionada,
-                      es_transportactics: this.esTransportactics,
-                      es_intshipperts: this.esIntshipperts 
+                    params: {
+                        sucursal: this.sucursalSeleccionada,
+                        es_transportactics: this.esTransportactics,
+                        es_intshipperts: this.esIntshipperts
                     }
                 });
 
@@ -483,8 +603,34 @@ export default {
             }
 
             let pedimentosLimpios = this.form.referenciasObj.map(ref => {
-                return ref.folio ? String(ref.folio).replace('F-', '').trim() : String(ref.label).replace('F-', '').trim();
-            }).filter(r => r !== '');
+                if (!ref) return '';
+
+                let texto = '';
+                if (typeof ref === 'string') {
+                    texto = ref;
+                } else if (typeof ref === 'object') {
+                    texto = ref.folio || ref.label || ref.value || ref.text || '';
+                }
+
+                texto = String(texto).trim();
+                if (!texto || texto === 'undefined') return '';
+
+                texto = texto.replace('F-', '');
+
+                let partes = texto.split(' - ');
+
+                if (partes.length >= 3) {
+                    texto = partes[1].trim();
+                } else if (partes.length === 2) {
+                    texto = partes[0].trim();
+                }
+
+                if (texto.includes('/')) {
+                    texto = texto.split('/')[0].trim();
+                }
+
+                return texto;
+            }).filter(r => r !== '' && r !== 'undefined');
 
             Swal.fire({
                 title: 'Calculando...',
@@ -502,6 +648,7 @@ export default {
 
                 const datos = response.data;
 
+                this.$set(this.form, 'metodo_pago', datos.metodo_pago || 'PUE');
                 this.$set(this.form, 'honorarios', Number(datos.honorarios) || 0);
                 this.$set(this.form, 'impuestos', Number(datos.impuestos) || 0);
                 this.$set(this.form, 'eci', Number(datos.eci) || 0);
@@ -549,12 +696,12 @@ export default {
                     }
                 }
 
-                Swal.fire({ 
-                    title: '¡Datos listos!', 
-                    text: 'Montos y operaciones actualizados.', 
-                    icon: 'success', 
-                    timer: 2000, 
-                    showConfirmButton: false 
+                Swal.fire({
+                    title: '¡Datos listos!',
+                    text: 'Montos y operaciones actualizados.',
+                    icon: 'success',
+                    timer: 2000,
+                    showConfirmButton: false
                 });
 
             } catch (error) {
@@ -591,12 +738,13 @@ export default {
             });
 
             if (!confirmacion.isConfirmed) {
-                return; 
+                return;
             }
 
             this.isSubmitting = true;
             const payload = { ...this.form };
 
+            // 1. Manejo de Cliente
             if (payload.cliente && String(payload.cliente.id).startsWith('nuevo_')) {
                 payload.cliente_id = null;
                 payload.nuevo_cliente_nombre = payload.cliente.nombre;
@@ -605,49 +753,116 @@ export default {
             } else {
                 payload.cliente_id = null;
             }
-            
+
+            payload.anticipo = Number(this.form.anticipo || 0);
             payload.sucursal_origen = this.sucursalReal;
+
             delete payload.cliente;
             delete payload._original;
             delete payload.cp;
 
-            payload.referencia = this.form.referenciasObj.map(r => r.folio || r.label).join(', ');
+            // 🔥 2. EXTRACCIÓN BLINDADA DE LA COLUMNA 'referencia'
+            payload.referencia = this.form.referenciasObj.map(r => {
+                if (typeof r === 'object' && r !== null) {
+                    return r.folio || r.label || r.referencia || r.pedimento || '';
+                }
+                return String(r);
+            }).filter(Boolean).join(', ');
+
+            if (payload.pedimento_detectado && !this.esManzanillo) {
+                payload.referencia = payload.pedimento_detectado;
+            }
+
+            // 🔥 3. CONSTRUCCIÓN DE 'OPERACIONES' PARA LA TABLA PIVOTE (ingreso_operacion)
+            if (this.form.referenciasObj && Array.isArray(this.form.referenciasObj) && this.form.referenciasObj.length > 0) {
+                // Función auxiliar para extraer el número de folio limpio
+                const obtenerFolioLimpio = (val) => {
+                    if (!val) return '';
+                    let str = String(val).trim().replace('F-', '');
+                    let partes = str.split(' - ');
+                    if (partes.length >= 3) str = partes[1].trim();
+                    else if (partes.length === 2) str = partes[0].trim();
+                    if (str.includes('/')) str = str.split('/')[0].trim();
+                    return str.toUpperCase();
+                };
+
+                const opsBuscadas = Array.isArray(this.form.operaciones) ? this.form.operaciones : [];
+                const pedimentosSheet = Array.isArray(this.pedimentosSheet) ? this.pedimentosSheet : [];
+
+                payload.operaciones = this.form.referenciasObj.map(ref => {
+                    const textoOriginal = typeof ref === 'object'
+                        ? (ref.folio || ref.label || ref.referencia || ref.pedimento || '')
+                        : String(ref);
+
+                    const folioLimpio = obtenerFolioLimpio(textoOriginal);
+                    const textoUpper = String(textoOriginal).toUpperCase().trim();
+
+                    // Buscamos coincidencia en form.operaciones o en pedimentosSheet
+                    const esCoincidencia = (o) => {
+                        if (!o) return false;
+                        const oFolioLimpio = obtenerFolioLimpio(o.folio || o.referencia || o.pedimento || o.id);
+                        const oFolioRaw = String(o.folio || o.referencia || o.label || '').toUpperCase().trim();
+
+                        return (folioLimpio && oFolioLimpio && (folioLimpio === oFolioLimpio || oFolioLimpio.includes(folioLimpio) || folioLimpio.includes(oFolioLimpio))) ||
+                            (oFolioRaw && (oFolioRaw === textoUpper || textoUpper.includes(oFolioRaw) || oFolioRaw.includes(textoUpper)));
+                    };
+
+                    let op = opsBuscadas.find(esCoincidencia) || pedimentosSheet.find(esCoincidencia);
+
+                    // Extraemos ID, TYPE, MONTO_CFDI y MONTO_GPC reales
+                    const opId = op ? (op.operacion_id || op.id || op.pedimento_id || null) : null;
+                    const opType = op ? (op.operation_type || op.operacion_type || op.type || 'GENERICO') : 'GENERICO';
+
+                    // Fallback de montos: lee desde la operación o desde los totales del formulario
+                    const montoCfdi = op ? Number(op.monto_cfdi ?? op.flete ?? op.monto_flete ?? 0) : Number(this.form.flete || 0);
+                    const montoGpc = op ? Number(op.monto_gpc ?? op.total_gpc ?? op.gpc ?? 0) : Number(this.totalGPC || 0);
+
+                    return {
+                        id: (opId && !isNaN(opId)) ? Number(opId) : null,
+                        type: opType !== 'GENERICO' ? opType : (this.esTransportactics ? 'App\\Models\\OperacionTransportactics' : 'GENERICO'),
+                        folio: textoOriginal,
+                        referencia: textoOriginal,
+                        monto_cfdi: montoCfdi,
+                        monto_gpc: montoGpc
+                    };
+                });
+            } else {
+                payload.operaciones = [];
+            }
+
+            delete payload.pedimento_detectado;
             delete payload.referenciasObj;
 
+            // 4. Tipo de comprobante
             if (this.tiposComprobanteArray.includes('CFDI') && this.tiposComprobanteArray.includes('Nota Cargo')) {
                 payload.tipo_comprobante = 'Ambos';
             } else {
                 payload.tipo_comprobante = this.tiposComprobanteArray[0] || 'N/A';
             }
 
-            if (payload.pedimento_detectado && !this.esManzanillo) {
-                payload.referencia = payload.pedimento_detectado;
-            }
-            delete payload.pedimento_detectado;
-
             try {
                 const response = await axios.put(`/ingresos-conciliados/${this.form.id}`, payload);
-                
+
                 if (response.status === 200 || response.data) {
-                    Swal.fire({ 
-                        title: '¡Actualizado!', 
-                        text: response.data.message || 'Ingreso modificado correctamente.', 
-                        icon: 'success', 
-                        toast: true, 
-                        position: 'top-end', 
-                        timer: 3000, 
-                        showConfirmButton: false 
+                    Swal.fire({
+                        title: '¡Actualizado!',
+                        text: response.data.message || 'Ingreso modificado correctamente.',
+                        icon: 'success',
+                        toast: true,
+                        position: 'top-end',
+                        timer: 3000,
+                        showConfirmButton: false
                     });
                     this.$emit('ingreso-actualizado');
                 }
             } catch (error) {
                 console.error("🔍 ERROR CRUDO:", error);
                 let mensajeReal = 'Problema al guardar los cambios';
-                
+
                 if (error.response && error.response.data && error.response.data.error) {
                     mensajeReal = error.response.data.error;
                 }
-                
+
                 Swal.fire('Error', mensajeReal, 'error');
             } finally {
                 this.isSubmitting = false;
@@ -656,6 +871,7 @@ export default {
     }
 }
 </script>
+
 <style scoped>
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button {
@@ -663,51 +879,126 @@ input[type=number]::-webkit-outer-spin-button {
     margin: 0;
 }
 
-:deep(.multiselect__tags) {
-    border-color: #D1D5DB !important;
-    padding-top: 10px !important;
-    min-height: 48px !important;
-    font-size: 16px !important;
-    border-radius: 8px;
-    overflow: hidden;
+/* Multiselect ocupa solamente el espacio disponible */
+:deep(.custom-multiselect) {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
 }
 
-:deep(.multiselect__select) {
+/* Caja principal */
+:deep(.custom-multiselect .multiselect__tags) {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  max-height: 48px !important; 
+  padding: 5px 40px 5px 8px !important;
+  border-color: #D1D5DB !important;
+  border-radius: 8px 0 0 8px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+}
+
+/* Personalización del scrollbar interno para las etiquetas */
+:deep(.custom-multiselect .multiselect__tags)::-webkit-scrollbar {
+  width: 4px;
+}
+:deep(.custom-multiselect .multiselect__tags)::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+/* Etiqueta seleccionada */
+:deep(.custom-multiselect .multiselect__tag) {
+    display: inline-flex !important;
+    align-items: center !important;
+
+    max-width: calc(100% - 10px) !important;
+
+    font-size: 14px !important;
+
+    background-color: #2A3A4D !important;
+
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+/* Texto dentro de la etiqueta */
+:deep(.custom-multiselect .multiselect__tag > span) {
+    display: block !important;
+
+    min-width: 0 !important;
+    max-width: 100% !important;
+
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+/* Flecha */
+:deep(.custom-multiselect .multiselect__select) {
+    width: 35px !important;
     height: 48px !important;
 }
 
-:deep(.multiselect__single),
-:deep(.multiselect__input) {
+/* Input */
+:deep(.custom-multiselect .multiselect__input) {
+    min-width: 0 !important;
+    max-width: 100% !important;
+
     font-size: 16px !important;
-    margin-bottom: 0px !important;
+    margin-bottom: 0 !important;
     padding-top: 2px !important;
+
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
 
-:deep(.multiselect__tag) {
-    background-color: #2A3A4D !important;
-    max-width: 100%;
-    display: inline-flex;
-    align-items: center;
-    font-size: 14px !important;
+/* Texto seleccionado */
+:deep(.custom-multiselect .multiselect__single) {
+    min-width: 0 !important;
+    max-width: 100% !important;
+
+    font-size: 16px !important;
+    margin-bottom: 0 !important;
+
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
 
-:deep(.multiselect__tag > span) {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+/* IMPORTANTE: permitir que se vea el dropdown */
+:deep(.custom-multiselect .multiselect__content-wrapper) {
+    position: absolute !important;
+    z-index: 9999 !important;
+
+    width: 100% !important;
+    max-height: 250px !important;
+
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
 }
 
-:deep(.multiselect__option--highlight) {
-    background-color: #00C09F !important;
-}
-
-:deep(.multiselect__option) {
+/* Opciones */
+:deep(.custom-multiselect .multiselect__option) {
     font-size: 16px !important;
     white-space: normal !important;
     word-break: break-word !important;
     overflow-wrap: break-word !important;
     line-height: 1.5 !important;
     padding: 12px 16px !important;
+}
+
+:deep(.custom-multiselect .multiselect__option--highlight) {
+    background-color: #00C09F !important;
 }
 
 :deep(.field-input) {

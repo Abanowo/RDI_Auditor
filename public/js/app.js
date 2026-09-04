@@ -9748,6 +9748,50 @@ __webpack_require__.r(__webpack_exports__);
 //
 //
 //
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
   name: 'IngresoCard',
@@ -9755,6 +9799,12 @@ __webpack_require__.r(__webpack_exports__);
     item: {
       type: Object,
       required: true
+    },
+    usuarioActual: {
+      type: Object,
+      "default": function _default() {
+        return {};
+      }
     }
   },
   computed: {
@@ -9841,7 +9891,9 @@ __webpack_require__.r(__webpack_exports__);
       }
     },
     montoSC: function montoSC() {
-      if (this.esRegistroTransportactics) return Number(this.item.flete) || 0;
+      if (this.esRegistroTransportactics) {
+        return Number(this.item.flete) || 0;
+      }
       if (this.esRegistroManzanillo || this.esRegistroIntshipperts) {
         return (Number(this.item.anticipo) || 0) + (Number(this.item.garantias) || 0) + (Number(this.item.desglose_naviera) || 0) + (Number(this.item.impuestos) || 0) + (Number(this.item.flete) || 0) + (Number(this.item.honorarios) || 0);
       }
@@ -9850,6 +9902,26 @@ __webpack_require__.r(__webpack_exports__);
     diferencia: function diferencia() {
       var calc = (Number(this.item.monto_deposito) || 0) - this.montoSC;
       return Number(calc.toFixed(2));
+    },
+    esManzanilloCard: function esManzanilloCard() {
+      var sucursal = String(this.item && this.item.sucursal_origen || '').toUpperCase();
+      return sucursal.includes('MANZANILLO') || sucursal.includes('ZLO');
+    },
+    puedeEliminar: function puedeEliminar() {
+      // 1. Leemos directamente el usuario de la ventana (inyectado por Blade)
+      var usuario = window.UsuarioActual;
+
+      // Si no hay usuario, bloqueamos el botón por seguridad
+      if (!usuario || !usuario.nombre) {
+        return false;
+      }
+
+      // 2. Armamos el nombre y limpiamos acentos/mayúsculas
+      var nombreStr = (usuario.nombre || '') + ' ' + (usuario.apellidos || '');
+      var nombreLimpio = nombreStr.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+
+      // 3. Verificamos si es alguna de las usuarias autorizadas
+      return nombreLimpio.includes('SONIA GOMEZ') || nombreLimpio.includes('MIRNA LOPEZ') || nombreLimpio.includes('SAYDA LEYVA');
     }
   },
   methods: {
@@ -9859,6 +9931,29 @@ __webpack_require__.r(__webpack_exports__);
         currency: 'USD',
         minimumFractionDigits: 2
       }).format(parseFloat(monto) || 0);
+    },
+    mostrarDesgloseManzanillo: function mostrarDesgloseManzanillo(item) {
+      var _item$cliente;
+      if (!item.operaciones || item.operaciones.length === 0) {
+        return;
+      }
+      var filasHtml = item.operaciones.map(function (op) {
+        // Lee el anticipo y el folio tanto si vienen directos como por pivote
+        var anticipoVal = op.anticipo !== undefined ? parseFloat(op.anticipo || 0) : op.pivot ? parseFloat(op.pivot.anticipo || 0) : 0;
+        var refVal = op.referencia || (op.pivot ? op.pivot.referencia : null) || op.folio || 'N/A';
+        return "\n                    <tr>\n                        <td style=\"padding: 10px; border-bottom: 1px solid #eee; text-align: left; font-weight: bold;\">\n                        ".concat(folioVal, "\n                        </td>\n                        <td style=\"padding: 10px; border-bottom: 1px solid #eee; text-align: right; color: #00C09F; font-weight: 900;\">\n                        $").concat(anticipoVal.toLocaleString('en-US', {
+          minimumFractionDigits: 2
+        }), "\n                        </td>\n                    </tr>\n                    ");
+      }).join('');
+      Swal.fire({
+        title: 'Desglose de Anticipos',
+        html: "\n                    <div style=\"font-family: Arial, sans-serif;\">\n                        <p style=\"color: #666; margin-bottom: 15px; text-align: left;\">\n                        Cliente: <b>".concat(((_item$cliente = item.cliente) === null || _item$cliente === void 0 ? void 0 : _item$cliente.nombre) || item.cliente, "</b><br>\n                        Total Anticipo Global: <b>$").concat(parseFloat(item.anticipo || 0).toLocaleString('en-US', {
+          minimumFractionDigits: 2
+        }), "</b>\n                        </p>\n                        <table style=\"width: 100%; border-collapse: collapse; font-size: 14px;\">\n                        <thead style=\"background: #f8f9fa;\">\n                            <tr>\n                            <th style=\"padding: 10px; text-align: left;\">Contenedor / Ref.</th>\n                            <th style=\"padding: 10px; text-align: right;\">Anticipo Asignado</th>\n                            </tr>\n                        </thead>\n                        <tbody>\n                            ").concat(filasHtml, "\n                        </tbody>\n                        </table>\n                    </div>\n                    "),
+        confirmButtonColor: '#2A3A4D',
+        confirmButtonText: 'Cerrar',
+        width: '600px'
+      });
     }
   }
 });
@@ -9886,6 +9981,16 @@ function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present,
 function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { if (r) i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n;else { var o = function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); }; o("next", 0), o("throw", 1), o("return", 2); } }, _regeneratorDefine2(e, r, n, t); }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 //
 //
 //
@@ -10085,13 +10190,6 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         referencia: '',
         observaciones: ''
       },
-      opcionesMetodoPago: [{
-        value: 'PPD',
-        label: 'PPD - Pago en parcialidades o diferido'
-      }, {
-        value: 'PUE',
-        label: 'PUE - Pago en una sola exhibición'
-      }],
       opcionesMoneda: [{
         value: 'MXN',
         label: 'MXN - Peso Mexicano'
@@ -10216,7 +10314,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         observaciones: this.form.observaciones,
         total: this.sumaTotal,
         forma_pago: this.form.formaPagoObj ? this.form.formaPagoObj.value : '',
-        metodo_pago: this.form.metodoPagoObj ? this.form.metodoPagoObj.value : 'PPD'
+        metodo_pago: 'PPD'
       };
       this.$emit('generar', payloadLimpio);
     },
@@ -10469,6 +10567,20 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 //
 //
 //
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 
 
 
@@ -10532,7 +10644,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         factura_muestras: null,
         proveedor_llc: null,
         factura_llc: null
-      }
+      },
+      opcionesReferenciasPredefinidas: ['Depósito de garantías', 'Devolución de garantías', 'Compensación SPEI', 'Anticipo por error', 'Abono préstamo colaborador', 'Transferencia interna', 'Préstamos intersucursales', 'Anticipo cliente', 'Pendiente desglose', 'Saldos a favor', 'Pago devuelto / Pago rechazado']
     };
   },
   computed: {
@@ -10619,6 +10732,67 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     },
     sumaTotal: function sumaTotal() {
       return this.totalGPC + (parseFloat(this.form.honorarios) || 0);
+    },
+    opcionesReferenciasCombinadas: function opcionesReferenciasCombinadas() {
+      var mapa = new Map();
+
+      // 1. Agregar opciones predefinidas como objetos estructurados
+      this.opcionesReferenciasPredefinidas.forEach(function (ref) {
+        var texto = _typeof(ref) === 'object' ? ref.label || ref.folio : String(ref);
+        if (texto && !mapa.has(texto)) {
+          mapa.set(texto, {
+            label: texto,
+            folio: texto
+          });
+        }
+      });
+
+      // 2. Extraer fragmentos si vienen de folio_sc o pedimento_detectado
+      var extraerYAgregar = function extraerYAgregar(texto) {
+        if (texto && typeof texto === 'string') {
+          var fragmentos = texto.split(',').map(function (item) {
+            return item.trim();
+          }).filter(Boolean);
+          fragmentos.forEach(function (fragmento) {
+            if (!mapa.has(fragmento)) {
+              mapa.set(fragmento, {
+                label: fragmento,
+                folio: fragmento
+              });
+            }
+          });
+        }
+      };
+      extraerYAgregar(this.form.folio_sc);
+      extraerYAgregar(this.form.pedimento_detectado);
+
+      // 3. Agregar pedimentos obtenidos del Sheet
+      if (this.opcionesPedimentos && Array.isArray(this.opcionesPedimentos)) {
+        this.opcionesPedimentos.forEach(function (objeto) {
+          var texto = _typeof(objeto) === 'object' ? objeto.label || objeto.folio || objeto.pedimento : String(objeto);
+          if (texto && !mapa.has(texto)) {
+            mapa.set(texto, {
+              label: texto,
+              folio: texto,
+              cliente: objeto.cliente || ''
+            });
+          }
+        });
+      }
+
+      // 4. Garantizar que las referencias ya seleccionadas por el usuario no desaparezcan
+      if (Array.isArray(this.form.referenciasObj)) {
+        this.form.referenciasObj.forEach(function (ref) {
+          var textoRef = _typeof(ref) === 'object' ? ref.label || ref.folio || ref.referencia : String(ref);
+          if (textoRef && !mapa.has(textoRef)) {
+            mapa.set(textoRef, {
+              label: textoRef,
+              folio: textoRef
+            });
+          }
+        });
+      }
+      return Array.from(mapa.values());
     }
   },
   watch: {
@@ -10640,7 +10814,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
     },
     'form.sucursal_origen': function formSucursal_origen(newVal, oldVal) {
-      // Reiniciar checkboxes si cambia la sucursal manual
       this.checkTransportactics = false;
       this.checkIntshipperts = false;
       if (newVal && newVal !== oldVal) {
@@ -10659,12 +10832,19 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     },
     'form.referenciasObj': function formReferenciasObj(newVal) {
       if (!this.form.cliente && newVal && newVal.length > 0) {
-        var refSeleccionada = newVal[0];
+        // Tomamos la última referencia seleccionada
+        var refSeleccionada = newVal[newVal.length - 1];
+        if (!refSeleccionada) {
+          return;
+        }
+        var refTexto = _typeof(refSeleccionada) === 'object' ? refSeleccionada.label || refSeleccionada.folio || refSeleccionada.cliente || '' : String(refSeleccionada);
+        var refUpper = refTexto.toUpperCase().trim();
         var sheetArray = Array.isArray(this.pedimentosSheet) ? this.pedimentosSheet : [];
-        var refNombre = String(refSeleccionada.label || refSeleccionada.folio || '').trim();
+
+        // 1. Buscar en el listado de pedimentos del Sheet (por coincidencia parcial)
         var dataPedimento = sheetArray.find(function (p) {
-          var pLabel = String(p.label || p.folio || p.pedimento || '').trim();
-          return pLabel === refNombre;
+          var pLabel = String(p.label || p.folio || p.pedimento || '').toUpperCase().trim();
+          return pLabel !== '' && (pLabel === refUpper || refUpper.includes(pLabel) || pLabel.includes(refUpper));
         });
         if (dataPedimento && dataPedimento.cliente) {
           var nombreClientePedimento = String(dataPedimento.cliente).toUpperCase().trim();
@@ -10674,15 +10854,23 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
           });
           if (clienteEncontrado) {
             this.form.cliente = clienteEncontrado;
+            return;
           }
+        }
+
+        // 2. Si no matchó con el Sheet, busca si el nombre de algún cliente está dentro del texto del tag
+        var clienteDirecto = this.opcionesCliente.find(function (c) {
+          var nombreOpcion = String(c.nombre).toUpperCase().trim();
+          return nombreOpcion.length > 3 && refUpper.includes(nombreOpcion);
+        });
+        if (clienteDirecto) {
+          this.form.cliente = clienteDirecto;
         }
       }
     }
   },
   mounted: function mounted() {
     this.form = _objectSpread(_objectSpread({}, this.form), this.ingresoBase);
-
-    // Autoseleccionar los checkboxes al abrir si la sucursal de la BD los contenía
     var sucursalBaseStr = String(this.form.sucursal_origen || '').toUpperCase();
     if (sucursalBaseStr.includes('TRANSPORTACTIC')) {
       this.checkTransportactics = true;
@@ -10705,9 +10893,22 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       }
     }
     var clienteActual = _typeof(this.form.cliente) === 'object' && this.form.cliente !== null ? String(this.form.cliente.nombre).toUpperCase() : '';
-    if (this.form.referencia) {
+    if (this.form.referencia && String(this.form.referencia).trim() !== '') {
       this.form.referenciasObj = String(this.form.referencia).split(',').map(function (r) {
         var val = r.trim();
+        return {
+          folio: val,
+          pedimento: val,
+          label: val,
+          cliente: clienteActual
+        };
+      }).filter(function (r) {
+        return r.folio !== '';
+      });
+    } else if (Array.isArray(this.form.operaciones) && this.form.operaciones.length > 0) {
+      // Fallback: Si 'referencia' en la tabla principal estaba vacío, leemos desde la pivote 'operaciones'
+      this.form.referenciasObj = this.form.operaciones.map(function (op) {
+        var val = String(op.referencia || op.folio_asignado || op.folio || '').trim();
         return {
           folio: val,
           pedimento: val,
@@ -10756,6 +10957,27 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         cliente: String(clienteActual).toUpperCase()
       };
       this.form.referenciasObj.push(nuevoFolio);
+    },
+    agregarReferenciaManual: function agregarReferenciaManual(nuevaReferencia) {
+      var texto = String(nuevaReferencia).trim();
+      if (!texto) {
+        return;
+      }
+
+      // 1. Lo agregamos al arreglo base si no existe
+      if (!this.opcionesReferenciasPredefinidas.includes(texto)) {
+        this.opcionesReferenciasPredefinidas.push(texto);
+      }
+
+      // 2. Lo agregamos al formulario formateado como objeto
+      if (!this.form.referenciasObj) {
+        this.form.referenciasObj = [];
+      }
+      var nuevoObj = {
+        label: texto,
+        folio: texto
+      };
+      this.form.referenciasObj.push(nuevoObj);
     },
     cargarListaPedimentos: function cargarListaPedimentos() {
       var _this = this;
@@ -10818,9 +11040,28 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               return _context2.a(2, sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Atención', 'Selecciona la sucursal y agrega al menos un folio.', 'warning'));
             case 1:
               pedimentosLimpios = _this2.form.referenciasObj.map(function (ref) {
-                return ref.folio ? String(ref.folio).replace('F-', '').trim() : String(ref.label).replace('F-', '').trim();
+                if (!ref) return '';
+                var texto = '';
+                if (typeof ref === 'string') {
+                  texto = ref;
+                } else if (_typeof(ref) === 'object') {
+                  texto = ref.folio || ref.label || ref.value || ref.text || '';
+                }
+                texto = String(texto).trim();
+                if (!texto || texto === 'undefined') return '';
+                texto = texto.replace('F-', '');
+                var partes = texto.split(' - ');
+                if (partes.length >= 3) {
+                  texto = partes[1].trim();
+                } else if (partes.length === 2) {
+                  texto = partes[0].trim();
+                }
+                if (texto.includes('/')) {
+                  texto = texto.split('/')[0].trim();
+                }
+                return texto;
               }).filter(function (r) {
-                return r !== '';
+                return r !== '' && r !== 'undefined';
               });
               sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
                 title: 'Calculando...',
@@ -10840,6 +11081,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             case 3:
               response = _context2.v;
               datos = response.data;
+              _this2.$set(_this2.form, 'metodo_pago', datos.metodo_pago || 'PUE');
               _this2.$set(_this2.form, 'honorarios', Number(datos.honorarios) || 0);
               _this2.$set(_this2.form, 'impuestos', Number(datos.impuestos) || 0);
               _this2.$set(_this2.form, 'eci', Number(datos.eci) || 0);
@@ -10909,7 +11151,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     guardarIngreso: function guardarIngreso() {
       var _this3 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
-        var confirmacion, payload, response, mensajeReal, _t3;
+        var confirmacion, payload, obtenerFolioLimpio, opsBuscadas, pedimentosSheet, response, mensajeReal, _t3;
         return _regenerator().w(function (_context3) {
           while (1) switch (_context3.n) {
             case 0:
@@ -10946,7 +11188,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               return _context3.a(2);
             case 4:
               _this3.isSubmitting = true;
-              payload = _objectSpread({}, _this3.form);
+              payload = _objectSpread({}, _this3.form); // 1. Manejo de Cliente
               if (payload.cliente && String(payload.cliente.id).startsWith('nuevo_')) {
                 payload.cliente_id = null;
                 payload.nuevo_cliente_nombre = payload.cliente.nombre;
@@ -10955,23 +11197,79 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               } else {
                 payload.cliente_id = null;
               }
+              payload.anticipo = Number(_this3.form.anticipo || 0);
               payload.sucursal_origen = _this3.sucursalReal;
               delete payload.cliente;
               delete payload._original;
               delete payload.cp;
+
+              // 🔥 2. EXTRACCIÓN BLINDADA DE LA COLUMNA 'referencia'
               payload.referencia = _this3.form.referenciasObj.map(function (r) {
-                return r.folio || r.label;
-              }).join(', ');
+                if (_typeof(r) === 'object' && r !== null) {
+                  return r.folio || r.label || r.referencia || r.pedimento || '';
+                }
+                return String(r);
+              }).filter(Boolean).join(', ');
+              if (payload.pedimento_detectado && !_this3.esManzanillo) {
+                payload.referencia = payload.pedimento_detectado;
+              }
+
+              // 🔥 3. CONSTRUCCIÓN DE 'OPERACIONES' PARA LA TABLA PIVOTE (ingreso_operacion)
+              if (_this3.form.referenciasObj && Array.isArray(_this3.form.referenciasObj) && _this3.form.referenciasObj.length > 0) {
+                // Función auxiliar para extraer el número de folio limpio
+                obtenerFolioLimpio = function obtenerFolioLimpio(val) {
+                  if (!val) return '';
+                  var str = String(val).trim().replace('F-', '');
+                  var partes = str.split(' - ');
+                  if (partes.length >= 3) str = partes[1].trim();else if (partes.length === 2) str = partes[0].trim();
+                  if (str.includes('/')) str = str.split('/')[0].trim();
+                  return str.toUpperCase();
+                };
+                opsBuscadas = Array.isArray(_this3.form.operaciones) ? _this3.form.operaciones : [];
+                pedimentosSheet = Array.isArray(_this3.pedimentosSheet) ? _this3.pedimentosSheet : [];
+                payload.operaciones = _this3.form.referenciasObj.map(function (ref) {
+                  var _ref, _ref2, _op$monto_cfdi, _ref3, _ref4, _op$monto_gpc;
+                  var textoOriginal = _typeof(ref) === 'object' ? ref.folio || ref.label || ref.referencia || ref.pedimento || '' : String(ref);
+                  var folioLimpio = obtenerFolioLimpio(textoOriginal);
+                  var textoUpper = String(textoOriginal).toUpperCase().trim();
+
+                  // Buscamos coincidencia en form.operaciones o en pedimentosSheet
+                  var esCoincidencia = function esCoincidencia(o) {
+                    if (!o) return false;
+                    var oFolioLimpio = obtenerFolioLimpio(o.folio || o.referencia || o.pedimento || o.id);
+                    var oFolioRaw = String(o.folio || o.referencia || o.label || '').toUpperCase().trim();
+                    return folioLimpio && oFolioLimpio && (folioLimpio === oFolioLimpio || oFolioLimpio.includes(folioLimpio) || folioLimpio.includes(oFolioLimpio)) || oFolioRaw && (oFolioRaw === textoUpper || textoUpper.includes(oFolioRaw) || oFolioRaw.includes(textoUpper));
+                  };
+                  var op = opsBuscadas.find(esCoincidencia) || pedimentosSheet.find(esCoincidencia);
+
+                  // Extraemos ID, TYPE, MONTO_CFDI y MONTO_GPC reales
+                  var opId = op ? op.operacion_id || op.id || op.pedimento_id || null : null;
+                  var opType = op ? op.operation_type || op.operacion_type || op.type || 'GENERICO' : 'GENERICO';
+
+                  // Fallback de montos: lee desde la operación o desde los totales del formulario
+                  var montoCfdi = op ? Number((_ref = (_ref2 = (_op$monto_cfdi = op.monto_cfdi) !== null && _op$monto_cfdi !== void 0 ? _op$monto_cfdi : op.flete) !== null && _ref2 !== void 0 ? _ref2 : op.monto_flete) !== null && _ref !== void 0 ? _ref : 0) : Number(_this3.form.flete || 0);
+                  var montoGpc = op ? Number((_ref3 = (_ref4 = (_op$monto_gpc = op.monto_gpc) !== null && _op$monto_gpc !== void 0 ? _op$monto_gpc : op.total_gpc) !== null && _ref4 !== void 0 ? _ref4 : op.gpc) !== null && _ref3 !== void 0 ? _ref3 : 0) : Number(_this3.totalGPC || 0);
+                  return {
+                    id: opId && !isNaN(opId) ? Number(opId) : null,
+                    type: opType !== 'GENERICO' ? opType : _this3.esTransportactics ? 'App\\Models\\OperacionTransportactics' : 'GENERICO',
+                    folio: textoOriginal,
+                    referencia: textoOriginal,
+                    monto_cfdi: montoCfdi,
+                    monto_gpc: montoGpc
+                  };
+                });
+              } else {
+                payload.operaciones = [];
+              }
+              delete payload.pedimento_detectado;
               delete payload.referenciasObj;
+
+              // 4. Tipo de comprobante
               if (_this3.tiposComprobanteArray.includes('CFDI') && _this3.tiposComprobanteArray.includes('Nota Cargo')) {
                 payload.tipo_comprobante = 'Ambos';
               } else {
                 payload.tipo_comprobante = _this3.tiposComprobanteArray[0] || 'N/A';
               }
-              if (payload.pedimento_detectado && !_this3.esManzanillo) {
-                payload.referencia = payload.pedimento_detectado;
-              }
-              delete payload.pedimento_detectado;
               _context3.p = 5;
               _context3.n = 6;
               return axios__WEBPACK_IMPORTED_MODULE_5__["default"].put("/ingresos-conciliados/".concat(_this3.form.id), payload);
@@ -12135,6 +12433,47 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
 //
 //
 //
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 
 
 
@@ -12194,7 +12533,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
         factura_muestras: null,
         proveedor_llc: null,
         factura_llc: null
-      }
+      },
+      opcionesReferenciasPredefinidas: ['Depósito de garantías', 'Devolución de garantías', 'Compensación SPEI', 'Anticipo por error', 'Abono préstamo colaborador', 'Transferencia interna', 'Préstamos intersucursales', 'Anticipo cliente', 'Pendiente desglose', 'Saldos a favor', 'Pago devuelto / Pago rechazado']
     };
   },
   computed: {
@@ -12257,6 +12597,67 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     },
     sumaTotal: function sumaTotal() {
       return this.totalGPC + (parseFloat(this.form.honorarios) || 0);
+    },
+    opcionesReferenciasCombinadas: function opcionesReferenciasCombinadas() {
+      var mapa = new Map();
+
+      // 1. Agregar opciones predefinidas como objetos estructurados
+      this.opcionesReferenciasPredefinidas.forEach(function (ref) {
+        var texto = _typeof(ref) === 'object' ? ref.label || ref.folio : String(ref);
+        if (texto && !mapa.has(texto)) {
+          mapa.set(texto, {
+            label: texto,
+            folio: texto
+          });
+        }
+      });
+
+      // 2. Extraer fragmentos si vienen de folio_sc o pedimento_detectado
+      var extraerYAgregar = function extraerYAgregar(texto) {
+        if (texto && typeof texto === 'string') {
+          var fragmentos = texto.split(',').map(function (item) {
+            return item.trim();
+          }).filter(Boolean);
+          fragmentos.forEach(function (fragmento) {
+            if (!mapa.has(fragmento)) {
+              mapa.set(fragmento, {
+                label: fragmento,
+                folio: fragmento
+              });
+            }
+          });
+        }
+      };
+      extraerYAgregar(this.form.folio_sc);
+      extraerYAgregar(this.form.pedimento_detectado);
+
+      // 3. Agregar pedimentos obtenidos del Sheet
+      if (this.opcionesPedimentos && Array.isArray(this.opcionesPedimentos)) {
+        this.opcionesPedimentos.forEach(function (objeto) {
+          var texto = _typeof(objeto) === 'object' ? objeto.label || objeto.folio || objeto.pedimento : String(objeto);
+          if (texto && !mapa.has(texto)) {
+            mapa.set(texto, {
+              label: texto,
+              folio: texto,
+              cliente: objeto.cliente || ''
+            });
+          }
+        });
+      }
+
+      // 4. Garantizar que las referencias ya seleccionadas por el usuario no desaparezcan
+      if (Array.isArray(this.form.referenciasObj)) {
+        this.form.referenciasObj.forEach(function (ref) {
+          var textoRef = _typeof(ref) === 'object' ? ref.label || ref.folio || ref.referencia : String(ref);
+          if (textoRef && !mapa.has(textoRef)) {
+            mapa.set(textoRef, {
+              label: textoRef,
+              folio: textoRef
+            });
+          }
+        });
+      }
+      return Array.from(mapa.values());
     }
   },
   watch: {
@@ -12287,19 +12688,39 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     },
     'form.referenciasObj': function formReferenciasObj(newVal) {
       if (!this.form.cliente && newVal && newVal.length > 0) {
-        var refSeleccionada = newVal[0];
-        var dataPedimento = this.pedimentosSheet.find(function (p) {
-          return p.label === refSeleccionada.label || p.folio === refSeleccionada.folio;
+        // Tomamos la última referencia seleccionada
+        var refSeleccionada = newVal[newVal.length - 1];
+        if (!refSeleccionada) {
+          return;
+        }
+        var refTexto = _typeof(refSeleccionada) === 'object' ? refSeleccionada.label || refSeleccionada.folio || refSeleccionada.cliente || '' : String(refSeleccionada);
+        var refUpper = refTexto.toUpperCase().trim();
+        var sheetArray = Array.isArray(this.pedimentosSheet) ? this.pedimentosSheet : [];
+
+        // 1. Buscar en el listado de pedimentos del Sheet (por coincidencia parcial)
+        var dataPedimento = sheetArray.find(function (p) {
+          var pLabel = String(p.label || p.folio || p.pedimento || '').toUpperCase().trim();
+          return pLabel !== '' && (pLabel === refUpper || refUpper.includes(pLabel) || pLabel.includes(refUpper));
         });
         if (dataPedimento && dataPedimento.cliente) {
-          var nombreClientePedimento = dataPedimento.cliente.toUpperCase().trim();
+          var nombreClientePedimento = String(dataPedimento.cliente).toUpperCase().trim();
           var clienteEncontrado = this.opcionesCliente.find(function (c) {
-            var nombreOpcion = c.nombre.toUpperCase().trim();
+            var nombreOpcion = String(c.nombre).toUpperCase().trim();
             return nombreOpcion.includes(nombreClientePedimento) || nombreClientePedimento.includes(nombreOpcion);
           });
           if (clienteEncontrado) {
             this.form.cliente = clienteEncontrado;
+            return;
           }
+        }
+
+        // 2. Si no matchó con el Sheet, busca si el nombre de algún cliente está dentro del texto del tag
+        var clienteDirecto = this.opcionesCliente.find(function (c) {
+          var nombreOpcion = String(c.nombre).toUpperCase().trim();
+          return nombreOpcion.length > 3 && refUpper.includes(nombreOpcion);
+        });
+        if (clienteDirecto) {
+          this.form.cliente = clienteDirecto;
         }
       }
     }
@@ -12312,6 +12733,27 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
       };
       this.clientesLocales.push(nuevoCliente);
       this.form.cliente = nuevoCliente;
+    },
+    agregarReferenciaManual: function agregarReferenciaManual(nuevaReferencia) {
+      var texto = String(nuevaReferencia).trim();
+      if (!texto) {
+        return;
+      }
+
+      // 1. Lo agregamos al arreglo base si no existe
+      if (!this.opcionesReferenciasPredefinidas.includes(texto)) {
+        this.opcionesReferenciasPredefinidas.push(texto);
+      }
+
+      // 2. Lo agregamos al formulario formateado como objeto
+      if (!this.form.referenciasObj) {
+        this.form.referenciasObj = [];
+      }
+      var nuevoObj = {
+        label: texto,
+        folio: texto
+      };
+      this.form.referenciasObj.push(nuevoObj);
     },
     formatearDinero: function formatearDinero(monto) {
       return new Intl.NumberFormat('en-US', {
@@ -12377,12 +12819,41 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               }
               return _context2.a(2, sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Atención', 'Selecciona la sucursal y agrega al menos un dato de búsqueda.', 'warning'));
             case 1:
-              // 🔥 Lógica de extracción inteligente unificada
-              // Solo enviamos los textos crudos, el backend será el encargado de buscar coincidencias
+              // Lógica de extracción inteligente para la Base de Datos
               pedimentosLimpios = _this2.form.referenciasObj.map(function (ref) {
-                return ref.folio ? String(ref.folio).trim() : String(ref.label).trim();
+                if (!ref) {
+                  return '';
+                }
+
+                // 1. Extraemos el texto crudo según el tipo de dato que contenga ref
+                var texto = '';
+                if (typeof ref === 'string') {
+                  texto = ref;
+                } else if (_typeof(ref) === 'object') {
+                  texto = ref.folio || ref.label || ref.value || ref.text || '';
+                }
+                texto = String(texto).trim();
+                if (!texto || texto === 'undefined') {
+                  return '';
+                }
+
+                // 2. Desarmamos el formato "3739 - 6000464 - SURTIDORA"
+                var partes = texto.split(' - ');
+                if (partes.length >= 3) {
+                  // El pedimento está en la segunda posición (índice 1)
+                  texto = partes[1].trim();
+                } else if (partes.length === 2) {
+                  // El pedimento está en la primera posición (índice 0)
+                  texto = partes[0].trim();
+                }
+
+                // 3. Regla de la diagonal: si viene "6000464/6000495", toma "6000464"
+                if (texto.includes('/')) {
+                  texto = texto.split('/')[0].trim();
+                }
+                return texto;
               }).filter(function (r) {
-                return r !== '';
+                return r !== '' && r !== 'undefined';
               });
               sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
                 title: 'Calculando...',
@@ -12402,6 +12873,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
             case 3:
               response = _context2.v;
               datos = response.data;
+              _this2.$set(_this2.form, 'metodo_pago', datos.metodo_pago || 'PUE');
               _this2.form.honorarios = datos.honorarios !== undefined ? Number(datos.honorarios) : 0;
               _this2.form.impuestos = datos.impuestos !== undefined ? Number(datos.impuestos) : 0;
               _this2.form.eci = datos.eci !== undefined ? Number(datos.eci) : 0;
@@ -12471,7 +12943,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     guardarIngreso: function guardarIngreso() {
       var _this3 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
-        var payload, sucursalGuardar, response, mensajeReal, _t3;
+        var payload, obtenerFolioLimpio, opsBuscadas, pedimentosSheet, sucursalGuardar, response, mensajeReal, _t3;
         return _regenerator().w(function (_context3) {
           while (1) switch (_context3.n) {
             case 0:
@@ -12482,7 +12954,7 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               return _context3.a(2, sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Atención', 'Completa la fecha, cliente y el monto de depósito.', 'warning'));
             case 1:
               _this3.isSubmitting = true;
-              payload = _objectSpread({}, _this3.form);
+              payload = _objectSpread({}, _this3.form); // 1. Manejo de Cliente
               if (String(payload.cliente.id).startsWith('nuevo_')) {
                 payload.cliente_id = null;
                 payload.nuevo_cliente_nombre = payload.cliente.nombre;
@@ -12491,6 +12963,9 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               }
               delete payload.cliente;
               payload.total_gpc = _this3.totalGPC;
+              payload.anticipo = Number(_this3.form.anticipo || 0); // 🔥 Forzamos envío numérico del anticipo
+
+              // 2. Construcción de string para la columna principal 'referencia'
               if (_this3.form.referenciasObj && Array.isArray(_this3.form.referenciasObj)) {
                 payload.referencia = _this3.form.referenciasObj.map(function (r) {
                   return r.folio || r.label || r;
@@ -12501,6 +12976,57 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               if (payload.pedimento_detectado) {
                 payload.referencia = payload.pedimento_detectado;
               }
+
+              // CONSTRUCCIÓN DE 'OPERACIONES' PARA LA TABLA PIVOTE (ingreso_operacion)
+              // Mapeamos cada referencia de la lista para enviarla como elemento de la tabla pivote
+              if (_this3.form.referenciasObj && Array.isArray(_this3.form.referenciasObj) && _this3.form.referenciasObj.length > 0) {
+                // Función auxiliar para extraer el número de folio limpio (ej: "68302 - 6001853 - CARNICOS DM" -> "6001853")
+                obtenerFolioLimpio = function obtenerFolioLimpio(val) {
+                  if (!val) return '';
+                  var str = String(val).trim().replace('F-', '');
+                  var partes = str.split(' - ');
+                  if (partes.length >= 3) str = partes[1].trim();else if (partes.length === 2) str = partes[0].trim();
+                  if (str.includes('/')) str = str.split('/')[0].trim();
+                  return str.toUpperCase();
+                };
+                opsBuscadas = Array.isArray(_this3.form.operaciones) ? _this3.form.operaciones : [];
+                pedimentosSheet = Array.isArray(_this3.pedimentosSheet) ? _this3.pedimentosSheet : [];
+                payload.operaciones = _this3.form.referenciasObj.map(function (ref) {
+                  var _ref, _ref2, _op$monto_cfdi, _ref3, _ref4, _op$monto_gpc;
+                  var textoOriginal = _typeof(ref) === 'object' ? ref.folio || ref.label || ref.referencia || ref.pedimento || '' : String(ref);
+                  var folioLimpio = obtenerFolioLimpio(textoOriginal);
+                  var textoUpper = String(textoOriginal).toUpperCase().trim();
+
+                  // Buscamos coincidencia en form.operaciones o en pedimentosSheet
+                  var esCoincidencia = function esCoincidencia(o) {
+                    if (!o) return false;
+                    var oFolioLimpio = obtenerFolioLimpio(o.folio || o.referencia || o.pedimento || o.id);
+                    var oFolioRaw = String(o.folio || o.referencia || o.label || '').toUpperCase().trim();
+                    return folioLimpio && oFolioLimpio && (folioLimpio === oFolioLimpio || oFolioLimpio.includes(folioLimpio) || folioLimpio.includes(oFolioLimpio)) || oFolioRaw && (oFolioRaw === textoUpper || textoUpper.includes(oFolioRaw) || oFolioRaw.includes(textoUpper));
+                  };
+                  var op = opsBuscadas.find(esCoincidencia) || pedimentosSheet.find(esCoincidencia);
+
+                  // Extraemos ID, TYPE, MONTO_CFDI y MONTO_GPC reales
+                  var opId = op ? op.operacion_id || op.id || op.pedimento_id || null : null;
+                  var opType = op ? op.operation_type || op.operacion_type || op.type || 'GENERICO' : 'GENERICO';
+
+                  // Fallback de montos: lee desde la operación o desde los totales del formulario
+                  var montoCfdi = op ? Number((_ref = (_ref2 = (_op$monto_cfdi = op.monto_cfdi) !== null && _op$monto_cfdi !== void 0 ? _op$monto_cfdi : op.flete) !== null && _ref2 !== void 0 ? _ref2 : op.monto_flete) !== null && _ref !== void 0 ? _ref : 0) : Number(_this3.form.flete || 0);
+                  var montoGpc = op ? Number((_ref3 = (_ref4 = (_op$monto_gpc = op.monto_gpc) !== null && _op$monto_gpc !== void 0 ? _op$monto_gpc : op.total_gpc) !== null && _ref4 !== void 0 ? _ref4 : op.gpc) !== null && _ref3 !== void 0 ? _ref3 : 0) : Number(_this3.totalGPC || 0);
+                  return {
+                    id: opId && !isNaN(opId) ? Number(opId) : null,
+                    type: opType !== 'GENERICO' ? opType : _this3.esTransportactics ? 'App\\Models\\OperacionTransportactics' : 'GENERICO',
+                    folio: textoOriginal,
+                    referencia: textoOriginal,
+                    monto_cfdi: montoCfdi,
+                    monto_gpc: montoGpc
+                  };
+                });
+              } else {
+                payload.operaciones = [];
+              }
+
+              // 4. Formateo de Sucursal
               sucursalGuardar = _typeof(payload.sucursal_origen) === 'object' && payload.sucursal_origen !== null ? payload.sucursal_origen.nombre || payload.sucursal_origen.id : payload.sucursal_origen;
               if (_this3.checkTransportactics && !String(sucursalGuardar).toUpperCase().includes('TRANSPORTACTIC')) {
                 sucursalGuardar += ' TRANSPORTACTICS';
@@ -12509,9 +13035,11 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               }
               payload.sucursal_origen = sucursalGuardar;
 
-              // Borramos lo que no va a la BD
+              // Limpieza de auxiliares
               delete payload.pedimento_detectado;
               delete payload.referenciasObj;
+
+              // 5. Tipo de comprobante
               if (_this3.tiposComprobanteArray && _this3.tiposComprobanteArray.includes('CFDI') && _this3.tiposComprobanteArray.includes('Nota Cargo')) {
                 payload.tipo_comprobante = 'Ambos';
               } else if (_this3.tiposComprobanteArray) {
@@ -12519,6 +13047,8 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
               } else {
                 payload.tipo_comprobante = 'N/A';
               }
+
+              // 6. Envío al Servidor
               _context3.p = 2;
               _context3.n = 3;
               return axios__WEBPACK_IMPORTED_MODULE_5__["default"].post("/ingresos-conciliados", payload);
@@ -13335,6 +13865,22 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
 //
 //
 //
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 
 
 
@@ -13366,6 +13912,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
   },
   data: function data() {
     return {
+      usuario: window.UsuarioActual || {},
       activeTab: 'ingresos',
       cargandoRegistros: false,
       showModal: false,
@@ -13445,6 +13992,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     this.cargarCatalogos();
     this.cargarIngresos();
     this.cargarSaldos();
+    this.obtenerUsuarioActual();
   },
   computed: {
     // Paginación Matemáticas
@@ -13469,22 +14017,31 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }
       return [1, 2, '...', current - 2, current - 1, current, current + 1, current + 2, '...', total - 1, total];
     },
-    // KPIs Inteligentes (Toman del backend, o suman lo actual si el backend aún no envía)
+    // KPIs
     totalDepositos: function totalDepositos() {
-      if (this.kpisTotales.depositos !== null) return this.kpisTotales.depositos;
-      return this.ingresosData.reduce(function (acc, item) {
+      if (this.kpisTotales.depositos !== null) {
+        return this.kpisTotales.depositos;
+      }
+      var lista = Array.isArray(this.ingresosData) ? this.ingresosData : [];
+      return lista.reduce(function (acc, item) {
         return acc + (Number(item.monto_deposito) || 0);
       }, 0);
     },
     totalHonorarios: function totalHonorarios() {
-      if (this.kpisTotales.honorarios !== null) return this.kpisTotales.honorarios;
-      return this.ingresosData.reduce(function (acc, item) {
+      if (this.kpisTotales.honorarios !== null) {
+        return this.kpisTotales.honorarios;
+      }
+      var lista = Array.isArray(this.ingresosData) ? this.ingresosData : [];
+      return lista.reduce(function (acc, item) {
         return acc + (Number(item.honorarios) || 0);
       }, 0);
     },
     totalNotaCargo: function totalNotaCargo() {
-      if (this.kpisTotales.notaCargo !== null) return this.kpisTotales.notaCargo;
-      return this.ingresosData.reduce(function (acc, item) {
+      if (this.kpisTotales.notaCargo !== null) {
+        return this.kpisTotales.notaCargo;
+      }
+      var lista = Array.isArray(this.ingresosData) ? this.ingresosData : [];
+      return lista.reduce(function (acc, item) {
         var sucursal = item.sucursal_origen ? item.sucursal_origen.toUpperCase() : '';
         var esManzanilloRow = sucursal.includes('MANZANILLO') || sucursal.includes('INTSHIPPERT');
         if (esManzanilloRow) {
@@ -13496,28 +14053,73 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     },
     saldosVigentesFiltrados: function saldosVigentesFiltrados() {
       var _this = this;
-      return this.saldosData.filter(function (s) {
-        if (s.estatus !== 'VIGENTE') return false;
-        if (_this.filtroSucursalActiva === 'Todas') return true;
+      var lista = Array.isArray(this.saldosData) ? this.saldosData : [];
+      return lista.filter(function (s) {
+        if (s.estatus !== 'VIGENTE') {
+          return false;
+        }
+
+        // Excluimos saldos en contra si la BD los marca en un campo tipo/concepto o monto negativo
+        var tipo = String(s.tipo || s.concepto || '').toUpperCase();
+        if (tipo.includes('CONTRA') || Number(s.monto) < 0) {
+          return false;
+        }
+        if (_this.filtroSucursalActiva === 'Todas') {
+          return true;
+        }
         return s.sucursal_origen && s.sucursal_origen.toUpperCase().includes(_this.filtroSucursalActiva.toUpperCase());
       });
     },
-    saldosAplicadosFiltrados: function saldosAplicadosFiltrados() {
+    saldosEnContraVigentesFiltrados: function saldosEnContraVigentesFiltrados() {
       var _this2 = this;
-      return this.saldosData.filter(function (s) {
-        if (s.estatus !== 'APLICADO') return false;
-        if (_this2.filtroSucursalActiva === 'Todas') return true;
+      var lista = Array.isArray(this.saldosData) ? this.saldosData : [];
+      return lista.filter(function (s) {
+        if (s.estatus !== 'VIGENTE') {
+          return false;
+        }
+
+        // Detectamos si es un saldo en contra (por campo tipo, texto del concepto o monto negativo)
+        var tipo = String(s.tipo || s.concepto || '').toUpperCase();
+        var esEnContra = tipo.includes('CONTRA') || Number(s.monto) < 0;
+        if (!esEnContra) {
+          return false;
+        }
+        if (_this2.filtroSucursalActiva === 'Todas') {
+          return true;
+        }
         return s.sucursal_origen && s.sucursal_origen.toUpperCase().includes(_this2.filtroSucursalActiva.toUpperCase());
       });
     },
+    saldosAplicadosFiltrados: function saldosAplicadosFiltrados() {
+      var _this3 = this;
+      var lista = Array.isArray(this.saldosData) ? this.saldosData : [];
+      return lista.filter(function (s) {
+        if (s.estatus !== 'APLICADO') {
+          return false;
+        }
+        if (_this3.filtroSucursalActiva === 'Todas') {
+          return true;
+        }
+        return s.sucursal_origen && s.sucursal_origen.toUpperCase().includes(_this3.filtroSucursalActiva.toUpperCase());
+      });
+    },
+    // CÁLCULOS SEGUROS
     totalSaldos: function totalSaldos() {
-      return this.saldosVigentesFiltrados.reduce(function (acc, item) {
-        return acc + (Number(item.monto) || 0);
+      var lista = Array.isArray(this.saldosVigentesFiltrados) ? this.saldosVigentesFiltrados : [];
+      return lista.reduce(function (acc, item) {
+        return acc + Math.abs(Number(item.monto) || 0);
+      }, 0);
+    },
+    totalSaldosEnContra: function totalSaldosEnContra() {
+      var lista = Array.isArray(this.saldosEnContraVigentesFiltrados) ? this.saldosEnContraVigentesFiltrados : [];
+      return lista.reduce(function (acc, item) {
+        return acc + Math.abs(Number(item.monto) || 0);
       }, 0);
     },
     totalSaldosAplicados: function totalSaldosAplicados() {
-      return this.saldosAplicadosFiltrados.reduce(function (acc, item) {
-        return acc + (Number(item.monto) || 0);
+      var lista = Array.isArray(this.saldosAplicadosFiltrados) ? this.saldosAplicadosFiltrados : [];
+      return lista.reduce(function (acc, item) {
+        return acc + Math.abs(Number(item.monto) || 0);
       }, 0);
     }
   },
@@ -13550,28 +14152,28 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       this.cargarIngresos();
     },
     cargarIngresos: function cargarIngresos() {
-      var _this3 = this;
+      var _this4 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
         var params, response, _t;
         return _regenerator().w(function (_context) {
           while (1) switch (_context.n) {
             case 0:
-              _this3.cargandoRegistros = true;
+              _this4.cargandoRegistros = true;
               _context.p = 1;
               // Empaquetamos TODOS los filtros y la página al Backend
               params = {
-                page: _this3.currentPage,
-                per_page: _this3.itemsPerPage,
-                sucursal: _this3.filtroSucursalActiva,
-                cliente: _this3.filtros.cliente,
-                tipo_servicio: _this3.filtros.tipoServicio,
-                tipo_operacion: _this3.filtros.tipoOperacion.id,
-                tipo_comprobante: _this3.filtros.tipo_comprobante,
-                estado_envio: _this3.filtros.estado_envio.id,
-                fecha_inicio: _this3.filtros.rangoFechas ? _this3.filtros.rangoFechas.start : null,
-                fecha_fin: _this3.filtros.rangoFechas ? _this3.filtros.rangoFechas.end : null,
-                folio_factura: _this3.filtros.folio_factura,
-                folio_complemento: _this3.filtros.folio_complemento
+                page: _this4.currentPage,
+                per_page: _this4.itemsPerPage,
+                sucursal: _this4.filtroSucursalActiva,
+                cliente: _this4.filtros.cliente,
+                tipo_servicio: _this4.filtros.tipoServicio,
+                tipo_operacion: _this4.filtros.tipoOperacion.id,
+                tipo_comprobante: _this4.filtros.tipo_comprobante,
+                estado_envio: _this4.filtros.estado_envio.id,
+                fecha_inicio: _this4.filtros.rangoFechas ? _this4.filtros.rangoFechas.start : null,
+                fecha_fin: _this4.filtros.rangoFechas ? _this4.filtros.rangoFechas.end : null,
+                folio_factura: _this4.filtros.folio_factura,
+                folio_complemento: _this4.filtros.folio_complemento
               };
               _context.n = 2;
               return axios__WEBPACK_IMPORTED_MODULE_13__["default"].get('/ingresos-conciliados', {
@@ -13582,20 +14184,20 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               // Evaluamos si el backend ya usa paginate() o si sigue mandando el array crudo
               if (response.data.data !== undefined) {
                 // El backend ya fue actualizado con ->paginate()
-                _this3.ingresosData = response.data.data;
-                _this3.totalRegistros = response.data.total;
+                _this4.ingresosData = response.data.data;
+                _this4.totalRegistros = response.data.total;
 
                 // Si el backend envía los totales (kpis), los asignamos.
                 if (response.data.kpis) {
-                  _this3.kpisTotales.depositos = response.data.kpis.depositos;
-                  _this3.kpisTotales.honorarios = response.data.kpis.honorarios;
-                  _this3.kpisTotales.notaCargo = response.data.kpis.notaCargo;
+                  _this4.kpisTotales.depositos = response.data.kpis.depositos;
+                  _this4.kpisTotales.honorarios = response.data.kpis.honorarios;
+                  _this4.kpisTotales.notaCargo = response.data.kpis.notaCargo;
                 }
               } else {
                 // Fallback (Si el Backend aún no se actualiza, usamos el array crudo y simulamos)
-                _this3.ingresosData = response.data.slice(0, 10);
-                _this3.totalRegistros = response.data.length;
-                _this3.kpisTotales.depositos = null; // Fuerza a sumar locamente
+                _this4.ingresosData = response.data.slice(0, 10);
+                _this4.totalRegistros = response.data.length;
+                _this4.kpisTotales.depositos = null; // Fuerza a sumar locamente
               }
               _context.n = 4;
               break;
@@ -13605,7 +14207,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               console.error("Error cargando ingresos", _t);
             case 4:
               _context.p = 4;
-              _this3.cargandoRegistros = false;
+              _this4.cargandoRegistros = false;
               return _context.f(4);
             case 5:
               return _context.a(2);
@@ -13662,9 +14264,10 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     onIngresoActualizadoDesdeModal: function onIngresoActualizadoDesdeModal() {
       this.showModalEditarIngreso = false;
       this.cargarIngresos();
+      this.cargarSaldos();
     },
     cargarCatalogos: function cargarCatalogos() {
-      var _this4 = this;
+      var _this5 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
         var response, nombresClientes, _t2;
         return _regenerator().w(function (_context2) {
@@ -13675,23 +14278,23 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               return axios__WEBPACK_IMPORTED_MODULE_13__["default"].get('/ingresos-conciliados/opciones');
             case 1:
               response = _context2.v;
-              _this4.opcionesSucursal = response.data.sucursales;
+              _this5.opcionesSucursal = response.data.sucursales;
               if (response.data.sucursalesBase) {
-                _this4.sucursalesBase = response.data.sucursalesBase.filter(function (sucursal) {
+                _this5.sucursalesBase = response.data.sucursalesBase.filter(function (sucursal) {
                   var nombre = String(sucursal).toUpperCase();
                   return !nombre.includes('INTSHIPPERT') && !nombre.includes('TRANSPORTACTIC');
                 });
               } else {
-                _this4.sucursalesBase = [];
+                _this5.sucursalesBase = [];
               }
-              _this4.opcionesBanco = response.data.bancos;
-              _this4.opcionesClienteObj = response.data.clientes;
+              _this5.opcionesBanco = response.data.bancos;
+              _this5.opcionesClienteObj = response.data.clientes;
               nombresClientes = response.data.clientes.map(function (c) {
                 return c.nombre;
               });
-              _this4.opcionesFiltroCliente = ['Todos'].concat(_toConsumableArray(nombresClientes));
-              _this4.opcionesFolioFactura = ['Todos'].concat(_toConsumableArray(response.data.foliosFactura || []));
-              _this4.opcionesFolioComplemento = ['Todos'].concat(_toConsumableArray(response.data.foliosComplemento || []));
+              _this5.opcionesFiltroCliente = ['Todos'].concat(_toConsumableArray(nombresClientes));
+              _this5.opcionesFolioFactura = ['Todos'].concat(_toConsumableArray(response.data.foliosFactura || []));
+              _this5.opcionesFolioComplemento = ['Todos'].concat(_toConsumableArray(response.data.foliosComplemento || []));
               _context2.n = 3;
               break;
             case 2:
@@ -13705,7 +14308,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }))();
     },
     cargarSaldos: function cargarSaldos() {
-      var _this5 = this;
+      var _this6 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
         var response, _t3;
         return _regenerator().w(function (_context3) {
@@ -13716,7 +14319,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               return axios__WEBPACK_IMPORTED_MODULE_13__["default"].get('/saldos-favor');
             case 1:
               response = _context3.v;
-              _this5.saldosData = response.data;
+              _this6.saldosData = response.data;
               _context3.n = 3;
               break;
             case 2:
@@ -13737,13 +14340,13 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       this.showModalEditarSaldo = true;
     },
     notificarCliente: function notificarCliente(row) {
-      var _this6 = this;
+      var _this7 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
         var clienteEncontrado, correosSugeridos, _yield$Swal$fire, correosDestino, isConfirmed, _t4;
         return _regenerator().w(function (_context4) {
           while (1) switch (_context4.n) {
             case 0:
-              clienteEncontrado = _this6.opcionesClienteObj.find(function (c) {
+              clienteEncontrado = _this7.opcionesClienteObj.find(function (c) {
                 return c.nombre === row.cliente;
               });
               correosSugeridos = clienteEncontrado ? clienteEncontrado.email || clienteEncontrado.correo || '' : '';
@@ -13810,7 +14413,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }))();
     },
     eliminarSaldo: function eliminarSaldo(id) {
-      var _this7 = this;
+      var _this8 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
         var _t5;
         return _regenerator().w(function (_context5) {
@@ -13824,7 +14427,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               _context5.n = 2;
               return axios__WEBPACK_IMPORTED_MODULE_13__["default"]["delete"]("/saldos-favor/".concat(id));
             case 2:
-              _this7.cargarSaldos();
+              _this8.cargarSaldos();
               _context5.n = 4;
               break;
             case 3:
@@ -13838,7 +14441,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }))();
     },
     aplicarSaldo: function aplicarSaldo(id) {
-      var _this8 = this;
+      var _this9 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
         var _t6;
         return _regenerator().w(function (_context6) {
@@ -13852,7 +14455,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               _context6.n = 2;
               return axios__WEBPACK_IMPORTED_MODULE_13__["default"].put("/saldos-favor/".concat(id, "/aplicar"));
             case 2:
-              _this8.cargarSaldos();
+              _this9.cargarSaldos();
               _context6.n = 4;
               break;
             case 3:
@@ -13866,7 +14469,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }))();
     },
     reactivarSaldo: function reactivarSaldo(id) {
-      var _this9 = this;
+      var _this0 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
         var _t7;
         return _regenerator().w(function (_context7) {
@@ -13880,7 +14483,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               _context7.n = 2;
               return axios__WEBPACK_IMPORTED_MODULE_13__["default"].put("/saldos-favor/".concat(id, "/reactivar"));
             case 2:
-              _this9.cargarSaldos();
+              _this0.cargarSaldos();
               _context7.n = 4;
               break;
             case 3:
@@ -13900,13 +14503,14 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     onSaldoActualizado: function onSaldoActualizado() {
       this.showModalEditarSaldo = false;
       this.cargarSaldos();
+      this.cargarSaldos();
     },
     onIngresoGuardado: function onIngresoGuardado() {
       this.showModal = false;
       this.cargarIngresos();
     },
     eliminarFila: function eliminarFila(id) {
-      var _this0 = this;
+      var _this1 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
         var result, _t8;
         return _regenerator().w(function (_context8) {
@@ -13933,7 +14537,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               _context8.n = 3;
               return axios__WEBPACK_IMPORTED_MODULE_13__["default"]["delete"]("/ingresos-conciliados/".concat(id));
             case 3:
-              _this0.cargarIngresos();
+              _this1.cargarIngresos();
               _context8.n = 5;
               break;
             case 4:
@@ -13947,7 +14551,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }))();
     },
     procesarComplementoBackend: function procesarComplementoBackend(payloadLimpio) {
-      var _this1 = this;
+      var _this10 = this;
       return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
         var response, mensajeError, _t9;
         return _regenerator().w(function (_context9) {
@@ -13975,7 +14579,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
                   text: response.data.message,
                   icon: response.data.saldado ? 'success' : 'warning'
                 });
-                _this1.cargarIngresos(); // Actualizamos la tabla
+                _this10.cargarIngresos(); // Actualizamos la tabla
               }
               _context9.n = 3;
               break;
@@ -13993,6 +14597,54 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
           }
         }, _callee9, null, [[0, 2]]);
       }))();
+    },
+    obtenerUsuarioActual: function obtenerUsuarioActual() {
+      var _this11 = this;
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
+        var response, _t0;
+        return _regenerator().w(function (_context0) {
+          while (1) switch (_context0.n) {
+            case 0:
+              _context0.p = 0;
+              _context0.n = 1;
+              return axios__WEBPACK_IMPORTED_MODULE_13__["default"].get('/api/user');
+            case 1:
+              response = _context0.v;
+              _this11.usuario = response.data;
+              _context0.n = 3;
+              break;
+            case 2:
+              _context0.p = 2;
+              _t0 = _context0.v;
+              console.warn("No se pudo obtener el usuario para los permisos", _t0);
+            case 3:
+              return _context0.a(2);
+          }
+        }, _callee0, null, [[0, 2]]);
+      }))();
+    },
+    mostrarDesgloseManzanillo: function mostrarDesgloseManzanillo(item) {
+      var _item$cliente;
+      if (!item.operaciones || item.operaciones.length === 0) {
+        return sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire('Atención', 'No hay operaciones o desgloses registrados para este ingreso.', 'info');
+      }
+      var filasHtml = item.operaciones.map(function (op) {
+        // Lee el anticipo y la referencia sin importar la estructura de la respuesta
+        var anticipoVal = op.anticipo !== undefined ? parseFloat(op.anticipo || 0) : op.pivot ? parseFloat(op.pivot.anticipo || 0) : 0;
+        var refVal = op.referencia || (op.pivot ? op.pivot.referencia : null) || op.folio || 'N/A';
+        return "\n          <tr>\n            <td style=\"padding: 10px; border-bottom: 1px solid #eee; text-align: left; font-weight: bold;\">\n               ".concat(refVal, "\n            </td>\n            <td style=\"padding: 10px; border-bottom: 1px solid #eee; text-align: right; color: #00C09F; font-weight: 900;\">\n               $").concat(anticipoVal.toLocaleString('en-US', {
+          minimumFractionDigits: 2
+        }), "\n            </td>\n          </tr>\n        ");
+      }).join('');
+      sweetalert2__WEBPACK_IMPORTED_MODULE_0___default().fire({
+        title: 'Desglose de Anticipos',
+        html: "\n          <div style=\"font-family: Arial, sans-serif;\">\n            <p style=\"color: #666; margin-bottom: 15px; text-align: left;\">\n              Cliente: <b>".concat(((_item$cliente = item.cliente) === null || _item$cliente === void 0 ? void 0 : _item$cliente.nombre) || item.cliente, "</b><br>\n              Total Anticipo Global: <b>$").concat(parseFloat(item.anticipo || 0).toLocaleString('en-US', {
+          minimumFractionDigits: 2
+        }), "</b>\n            </p>\n            <table style=\"width: 100%; border-collapse: collapse; font-size: 14px;\">\n              <thead style=\"background: #f8f9fa;\">\n                <tr>\n                  <th style=\"padding: 10px; text-align: left;\">Contenedor / Referencia</th>\n                  <th style=\"padding: 10px; text-align: right;\">Anticipo Asignado</th>\n                </tr>\n              </thead>\n              <tbody>\n                ").concat(filasHtml, "\n              </tbody>\n            </table>\n          </div>\n        "),
+        confirmButtonColor: '#2A3A4D',
+        confirmButtonText: 'Cerrar',
+        width: '600px'
+      });
     }
   }
 });
@@ -21886,7 +22538,7 @@ __webpack_require__.r(__webpack_exports__);
 
 var ___CSS_LOADER_EXPORT___ = _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0___default()(function(i){return i[1]});
 // Module
-___CSS_LOADER_EXPORT___.push([module.id, "input[type=number][data-v-745b8376]::-webkit-inner-spin-button,\r\ninput[type=number][data-v-745b8376]::-webkit-outer-spin-button {\n  -webkit-appearance: none;\n  margin: 0;\n}\n[data-v-745b8376]:deep(.multiselect__tags) {\n  border-color: #D1D5DB !important;\n  padding-top: 10px !important;\n  min-height: 48px !important;\n  font-size: 16px !important;\n  border-radius: 8px;\n  overflow: hidden;\n}\n[data-v-745b8376]:deep(.multiselect__select) {\n  height: 48px !important;\n}\n[data-v-745b8376]:deep(.multiselect__single),[data-v-745b8376]:deep(.multiselect__input) {\n  font-size: 16px !important;\n  margin-bottom: 0px !important;\n  padding-top: 2px !important;\n}\n[data-v-745b8376]:deep(.multiselect__tag) {\n  background-color: #2A3A4D !important;\n  max-width: 100%;\n  display: inline-flex;\n  align-items: center;\n  font-size: 14px !important;\n}\n[data-v-745b8376]:deep(.multiselect__tag > span) {\n  white-space: nowrap;\n  overflow: hidden;\n  text-overflow: ellipsis;\n}\n[data-v-745b8376]:deep(.multiselect__option--highlight) {\n  background-color: #00C09F !important;\n}\n[data-v-745b8376]:deep(.multiselect__option) {\n  font-size: 16px !important;\n  white-space: normal !important;\n  word-break: break-word !important;\n  overflow-wrap: break-word !important;\n  line-height: 1.5 !important;\n  padding: 12px 16px !important;\n}\n[data-v-745b8376]:deep(.field-input) {\n  min-height: 48px !important;\n  font-size: 16px !important;\n  border-radius: 8px !important;\n}\r\n", ""]);
+___CSS_LOADER_EXPORT___.push([module.id, "input[type=number][data-v-745b8376]::-webkit-inner-spin-button,\r\ninput[type=number][data-v-745b8376]::-webkit-outer-spin-button {\n  -webkit-appearance: none;\n  margin: 0;\n}\n\n/* Multiselect ocupa solamente el espacio disponible */\n[data-v-745b8376]:deep(.custom-multiselect) {\n  flex: 1 1 0% !important;\n  min-width: 0 !important;\n  max-width: 100% !important;\n}\n\n/* Caja principal */\n[data-v-745b8376]:deep(.custom-multiselect .multiselect__tags) {\n  box-sizing: border-box !important;\n  width: 100% !important;\n  min-width: 0 !important;\n  max-width: 100% !important;\n  height: 48px !important;\n  min-height: 48px !important;\n  max-height: 48px !important;\n  padding: 5px 40px 5px 8px !important;\n  border-color: #D1D5DB !important;\n  border-radius: 8px 0 0 8px !important;\n  overflow-y: auto !important;\n  overflow-x: hidden !important;\n  display: flex !important;\n  flex-wrap: wrap !important;\n  align-items: center !important;\n}\n\n/* Personalización del scrollbar interno para las etiquetas */\n[data-v-745b8376]:deep(.custom-multiselect .multiselect__tags)::-webkit-scrollbar {\n  width: 4px;\n}\n[data-v-745b8376]:deep(.custom-multiselect .multiselect__tags)::-webkit-scrollbar-thumb {\n  background: #cbd5e1;\n  border-radius: 4px;\n}\n\n/* Etiqueta seleccionada */\n[data-v-745b8376]:deep(.custom-multiselect .multiselect__tag) {\n  display: inline-flex !important;\n  align-items: center !important;\n  max-width: calc(100% - 10px) !important;\n  font-size: 14px !important;\n  background-color: #2A3A4D !important;\n  white-space: nowrap !important;\n  overflow: hidden !important;\n  text-overflow: ellipsis !important;\n}\n\n/* Texto dentro de la etiqueta */\n[data-v-745b8376]:deep(.custom-multiselect .multiselect__tag > span) {\n  display: block !important;\n  min-width: 0 !important;\n  max-width: 100% !important;\n  white-space: nowrap !important;\n  overflow: hidden !important;\n  text-overflow: ellipsis !important;\n}\n\n/* Flecha */\n[data-v-745b8376]:deep(.custom-multiselect .multiselect__select) {\n  width: 35px !important;\n  height: 48px !important;\n}\n\n/* Input */\n[data-v-745b8376]:deep(.custom-multiselect .multiselect__input) {\n  min-width: 0 !important;\n  max-width: 100% !important;\n  font-size: 16px !important;\n  margin-bottom: 0 !important;\n  padding-top: 2px !important;\n  white-space: nowrap !important;\n  overflow: hidden !important;\n  text-overflow: ellipsis !important;\n}\n\n/* Texto seleccionado */\n[data-v-745b8376]:deep(.custom-multiselect .multiselect__single) {\n  min-width: 0 !important;\n  max-width: 100% !important;\n  font-size: 16px !important;\n  margin-bottom: 0 !important;\n  white-space: nowrap !important;\n  overflow: hidden !important;\n  text-overflow: ellipsis !important;\n}\n\n/* IMPORTANTE: permitir que se vea el dropdown */\n[data-v-745b8376]:deep(.custom-multiselect .multiselect__content-wrapper) {\n  position: absolute !important;\n  z-index: 9999 !important;\n  width: 100% !important;\n  max-height: 250px !important;\n  overflow-y: auto !important;\n  overflow-x: hidden !important;\n}\n\n/* Opciones */\n[data-v-745b8376]:deep(.custom-multiselect .multiselect__option) {\n  font-size: 16px !important;\n  white-space: normal !important;\n  word-break: break-word !important;\n  overflow-wrap: break-word !important;\n  line-height: 1.5 !important;\n  padding: 12px 16px !important;\n}\n[data-v-745b8376]:deep(.custom-multiselect .multiselect__option--highlight) {\n  background-color: #00C09F !important;\n}\n[data-v-745b8376]:deep(.field-input) {\n  min-height: 48px !important;\n  font-size: 16px !important;\n  border-radius: 8px !important;\n}\r\n", ""]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
 
@@ -21958,7 +22610,7 @@ __webpack_require__.r(__webpack_exports__);
 
 var ___CSS_LOADER_EXPORT___ = _node_modules_css_loader_dist_runtime_api_js__WEBPACK_IMPORTED_MODULE_0___default()(function(i){return i[1]});
 // Module
-___CSS_LOADER_EXPORT___.push([module.id, "input[type=number][data-v-2b30bb2a]::-webkit-inner-spin-button,\r\ninput[type=number][data-v-2b30bb2a]::-webkit-outer-spin-button {\n  -webkit-appearance: none;\n  margin: 0;\n}\n[data-v-2b30bb2a]:deep(.multiselect__tags) {\n  border-color: #D1D5DB !important;\n  padding-top: 10px !important;\n  min-height: 48px !important;\n  font-size: 16px !important;\n  border-radius: 8px;\n  overflow: hidden;\n}\n[data-v-2b30bb2a]:deep(.multiselect__select) {\n  height: 48px !important;\n}\n[data-v-2b30bb2a]:deep(.multiselect__single),[data-v-2b30bb2a]:deep(.multiselect__input) {\n  font-size: 16px !important;\n  margin-bottom: 0px !important;\n  padding-top: 2px !important;\n}\n[data-v-2b30bb2a]:deep(.multiselect__tag) {\n  background-color: #2A3A4D !important;\n  max-width: 100%;\n  display: inline-flex;\n  align-items: center;\n  font-size: 14px !important;\n}\n[data-v-2b30bb2a]:deep(.multiselect__tag > span) {\n  white-space: nowrap;\n  overflow: hidden;\n  text-overflow: ellipsis;\n}\n[data-v-2b30bb2a]:deep(.multiselect__option--highlight) {\n  background-color: #00C09F !important;\n}\n[data-v-2b30bb2a]:deep(.multiselect__option) {\n  font-size: 16px !important;\n  white-space: normal !important;\n  word-break: break-word !important;\n  overflow-wrap: break-word !important;\n  line-height: 1.5 !important;\n  padding: 12px 16px !important;\n}\n[data-v-2b30bb2a]:deep(.field-input) {\n  min-height: 48px !important;\n  font-size: 16px !important;\n  border-radius: 8px !important;\n}\r\n", ""]);
+___CSS_LOADER_EXPORT___.push([module.id, "input[type=number][data-v-2b30bb2a]::-webkit-inner-spin-button,\r\ninput[type=number][data-v-2b30bb2a]::-webkit-outer-spin-button {\n  -webkit-appearance: none;\n  margin: 0;\n}\n\n/* Multiselect ocupa solamente el espacio disponible */\n[data-v-2b30bb2a]:deep(.custom-multiselect) {\n  flex: 1 1 0% !important;\n  min-width: 0 !important;\n  max-width: 100% !important;\n}\n\n/* Caja principal */\n[data-v-2b30bb2a]:deep(.custom-multiselect .multiselect__tags) {\n  box-sizing: border-box !important;\n  width: 100% !important;\n  min-width: 0 !important;\n  max-width: 100% !important;\n  height: 48px !important;\n  min-height: 48px !important;\n  max-height: 48px !important;\n  padding: 5px 40px 5px 8px !important;\n  border-color: #D1D5DB !important;\n  border-radius: 8px 0 0 8px !important;\n  overflow-y: auto !important;\n  overflow-x: hidden !important;\n  display: flex !important;\n  flex-wrap: wrap !important;\n  align-items: center !important;\n}\n\n/* Personalización del scrollbar interno para las etiquetas */\n[data-v-2b30bb2a]:deep(.custom-multiselect .multiselect__tags)::-webkit-scrollbar {\n  width: 4px;\n}\n[data-v-2b30bb2a]:deep(.custom-multiselect .multiselect__tags)::-webkit-scrollbar-thumb {\n  background: #cbd5e1;\n  border-radius: 4px;\n}\n\n/* Etiqueta seleccionada */\n[data-v-2b30bb2a]:deep(.custom-multiselect .multiselect__tag) {\n  display: inline-flex !important;\n  align-items: center !important;\n  max-width: calc(100% - 10px) !important;\n  font-size: 14px !important;\n  background-color: #2A3A4D !important;\n  white-space: nowrap !important;\n  overflow: hidden !important;\n  text-overflow: ellipsis !important;\n}\n\n/* Texto dentro de la etiqueta */\n[data-v-2b30bb2a]:deep(.custom-multiselect .multiselect__tag > span) {\n  display: block !important;\n  min-width: 0 !important;\n  max-width: 100% !important;\n  white-space: nowrap !important;\n  overflow: hidden !important;\n  text-overflow: ellipsis !important;\n}\n\n/* Flecha */\n[data-v-2b30bb2a]:deep(.custom-multiselect .multiselect__select) {\n  width: 35px !important;\n  height: 48px !important;\n}\n\n/* Input */\n[data-v-2b30bb2a]:deep(.custom-multiselect .multiselect__input) {\n  min-width: 0 !important;\n  max-width: 100% !important;\n  font-size: 16px !important;\n  margin-bottom: 0 !important;\n  padding-top: 2px !important;\n  white-space: nowrap !important;\n  overflow: hidden !important;\n  text-overflow: ellipsis !important;\n}\n\n/* Texto seleccionado */\n[data-v-2b30bb2a]:deep(.custom-multiselect .multiselect__single) {\n  min-width: 0 !important;\n  max-width: 100% !important;\n  font-size: 16px !important;\n  margin-bottom: 0 !important;\n  white-space: nowrap !important;\n  overflow: hidden !important;\n  text-overflow: ellipsis !important;\n}\n\n/* IMPORTANTE: permitir que se vea el dropdown */\n[data-v-2b30bb2a]:deep(.custom-multiselect .multiselect__content-wrapper) {\n  position: absolute !important;\n  z-index: 9999 !important;\n  width: 100% !important;\n  max-height: 250px !important;\n  overflow-y: auto !important;\n  overflow-x: hidden !important;\n}\n\n/* Opciones */\n[data-v-2b30bb2a]:deep(.custom-multiselect .multiselect__option) {\n  font-size: 16px !important;\n  white-space: normal !important;\n  word-break: break-word !important;\n  overflow-wrap: break-word !important;\n  line-height: 1.5 !important;\n  padding: 12px 16px !important;\n}\n[data-v-2b30bb2a]:deep(.custom-multiselect .multiselect__option--highlight) {\n  background-color: #00C09F !important;\n}\n[data-v-2b30bb2a]:deep(.field-input) {\n  min-height: 48px !important;\n  font-size: 16px !important;\n  border-radius: 8px !important;\n}\r\n", ""]);
 // Exports
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (___CSS_LOADER_EXPORT___);
 
@@ -88685,7 +89337,7 @@ var render = function () {
               "span",
               {
                 staticClass:
-                  "px-3 py-1 text-white font-black rounded uppercase shadow-sm text-sm",
+                  "px-3 py-1 text-white font-black rounded uppercase shadow-sm text-xl",
                 staticStyle: { "background-color": "#2A3A4D" },
               },
               [
@@ -88697,7 +89349,7 @@ var render = function () {
               ]
             ),
             _vm._v(" "),
-            _c("span", { staticClass: "text-base font-bold text-gray-500" }, [
+            _c("span", { staticClass: "text-xl font-bold text-gray-500" }, [
               _vm._v(_vm._s(_vm.item.fecha)),
             ]),
             _vm._v(" "),
@@ -88705,7 +89357,7 @@ var render = function () {
               "span",
               {
                 staticClass:
-                  "text-sm font-bold text-indigo-700 bg-indigo-100 border border-indigo-200 px-3 py-1 rounded uppercase hidden sm:block",
+                  "text-xl font-bold text-indigo-700 bg-indigo-100 border border-indigo-200 px-3 py-1 rounded uppercase hidden sm:block",
               },
               [
                 _vm._v(
@@ -88722,12 +89374,12 @@ var render = function () {
               "span",
               {
                 staticClass:
-                  "font-bold text-gray-400 uppercase text-sm hidden md:block",
+                  "font-bold text-gray-400 uppercase text-xl hidden md:block",
               },
               [_vm._v("Banco:")]
             ),
             _vm._v(" "),
-            _c("span", { staticClass: "text-base font-bold text-gray-700" }, [
+            _c("span", { staticClass: "text-xl font-bold text-gray-700" }, [
               _vm._v(_vm._s(_vm.item.banco_receptor || "N/E")),
             ]),
           ]),
@@ -88925,7 +89577,7 @@ var render = function () {
                   "span",
                   {
                     staticClass:
-                      "px-4 py-1.5 bg-blue-100 text-blue-700 font-bold rounded border border-blue-200 text-sm",
+                      "px-4 py-1.5 bg-blue-100 text-blue-700 font-bold rounded border border-blue-200 text-xl",
                   },
                   [_vm._v("CFDI")]
                 )
@@ -88934,7 +89586,7 @@ var render = function () {
                   "span",
                   {
                     staticClass:
-                      "px-4 py-1.5 bg-purple-100 text-purple-700 font-bold rounded border border-purple-200 text-sm",
+                      "px-4 py-1.5 bg-purple-100 text-purple-700 font-bold rounded border border-purple-200 text-xl",
                   },
                   [_vm._v("NOTA\n                CARGO")]
                 )
@@ -88942,17 +89594,31 @@ var render = function () {
                   "span",
                   {
                     staticClass:
-                      "px-4 py-1.5 bg-gray-200 text-gray-600 font-bold rounded border border-gray-300 text-sm",
+                      "px-4 py-1.5 bg-gray-200 text-gray-600 font-bold rounded border border-gray-300 text-xl",
                   },
-                  [_vm._v(_vm._s(_vm.item.tipo_comprobante || "N/A"))]
+                  [
+                    _vm._v(
+                      "\n                " +
+                        _vm._s(_vm.item.tipo_comprobante || "N/A") +
+                        "\n            "
+                    ),
+                  ]
                 ),
             _vm._v(" "),
             _c("div", { staticClass: "h-5 w-px bg-gray-300" }),
             _vm._v(" "),
             _c("span", { staticClass: "text-base font-bold text-gray-500" }, [
-              _vm._v("Comp: "),
+              _vm._v("Comp:\n                "),
               _c("span", { staticClass: "text-gray-800" }, [
-                _vm._v(_vm._s(_vm.item.folio_complemento || "SIN COMPLEMENTO")),
+                _vm._v(
+                  "\n                    " +
+                    _vm._s(
+                      _vm.item.metodo_pago === "PUE"
+                        ? "NO APLICA"
+                        : _vm.item.folio_complemento || "SIN COMPLEMENTO"
+                    ) +
+                    "\n                "
+                ),
               ]),
             ]),
             _vm._v(" "),
@@ -88964,14 +89630,20 @@ var render = function () {
                 staticClass:
                   "font-bold px-4 py-1.5 rounded uppercase border text-sm",
                 class:
-                  _vm.item.estado_envio === "ENVIADO"
+                  _vm.item.metodo_pago === "PUE"
+                    ? "bg-gray-100 text-gray-700 border-gray-200"
+                    : _vm.item.estado_envio === "ENVIADO"
                     ? "bg-green-100 text-green-700 border-green-200"
                     : "bg-orange-100 text-orange-700 border-orange-200",
               },
               [
                 _vm._v(
                   "\n                " +
-                    _vm._s(_vm.item.estado_envio || "PENDIENTE") +
+                    _vm._s(
+                      _vm.item.metodo_pago === "PUE"
+                        ? "NO APLICA"
+                        : _vm.item.estado_envio || "PENDIENTE"
+                    ) +
                     "\n            "
                 ),
               ]
@@ -88982,9 +89654,19 @@ var render = function () {
             _c(
               "button",
               {
-                staticClass:
-                  "text-green-600 hover:text-white bg-green-100 hover:bg-green-500 p-2.5 rounded-lg transition-colors",
-                attrs: { title: "Generar Complemento" },
+                class: [
+                  "p-2.5 rounded-lg transition-colors",
+                  _vm.item.metodo_pago === "PUE"
+                    ? "text-gray-400 bg-gray-100 cursor-not-allowed"
+                    : "text-green-600 hover:text-white bg-green-100 hover:bg-green-500",
+                ],
+                attrs: {
+                  disabled: _vm.item.metodo_pago === "PUE",
+                  title:
+                    _vm.item.metodo_pago === "PUE"
+                      ? "No requiere complemento (Factura PUE)"
+                      : "Generar Complemento",
+                },
                 on: {
                   click: function ($event) {
                     return _vm.$emit("generar", _vm.item)
@@ -89019,9 +89701,19 @@ var render = function () {
             _c(
               "button",
               {
-                staticClass:
-                  "text-blue-600 hover:text-white bg-blue-100 hover:bg-blue-500 p-2.5 rounded-lg transition-colors",
-                attrs: { title: "Visualizar Complemento" },
+                class: [
+                  "p-2.5 rounded-lg transition-colors",
+                  _vm.item.metodo_pago === "PUE"
+                    ? "text-gray-400 bg-gray-100 cursor-not-allowed"
+                    : "text-blue-600 hover:text-white bg-blue-100 hover:bg-blue-500",
+                ],
+                attrs: {
+                  disabled: _vm.item.metodo_pago === "PUE",
+                  title:
+                    _vm.item.metodo_pago === "PUE"
+                      ? "No requiere complemento (Factura PUE)"
+                      : "Visualizar Complemento",
+                },
                 on: {
                   click: function ($event) {
                     return _vm.$emit("visualizar", _vm.item)
@@ -89065,9 +89757,19 @@ var render = function () {
             _c(
               "button",
               {
-                staticClass:
-                  "text-purple-600 hover:text-white bg-purple-100 hover:bg-purple-500 p-2.5 rounded-lg transition-colors",
-                attrs: { title: "Enviar Complemento" },
+                class: [
+                  "p-2.5 rounded-lg transition-colors",
+                  _vm.item.metodo_pago === "PUE"
+                    ? "text-gray-400 bg-gray-100 cursor-not-allowed"
+                    : "text-purple-600 hover:text-white bg-purple-100 hover:bg-purple-500",
+                ],
+                attrs: {
+                  disabled: _vm.item.metodo_pago === "PUE",
+                  title:
+                    _vm.item.metodo_pago === "PUE"
+                      ? "No requiere complemento (Factura PUE)"
+                      : "Enviar Complemento",
+                },
                 on: {
                   click: function ($event) {
                     return _vm.$emit("enviar", _vm.item)
@@ -89099,12 +89801,64 @@ var render = function () {
               ]
             ),
             _vm._v(" "),
+            _vm.esManzanilloCard
+              ? _c(
+                  "button",
+                  {
+                    staticClass:
+                      "text-purple-600 bg-purple-100 hover:bg-purple-200 p-2.5 rounded-lg transition-colors",
+                    attrs: {
+                      title: "Ver Desglose de Anticipos por Contenedor",
+                    },
+                    on: {
+                      click: function ($event) {
+                        return _vm.$emit("ver-desglose", _vm.item)
+                      },
+                    },
+                  },
+                  [
+                    _c(
+                      "svg",
+                      {
+                        staticClass: "w-5 h-5",
+                        attrs: {
+                          fill: "none",
+                          stroke: "currentColor",
+                          viewBox: "0 0 24 24",
+                        },
+                      },
+                      [
+                        _c("path", {
+                          attrs: {
+                            "stroke-linecap": "round",
+                            "stroke-linejoin": "round",
+                            "stroke-width": "2",
+                            d: "M4 6h16M4 10h16M4 14h16M4 18h16",
+                          },
+                        }),
+                      ]
+                    ),
+                  ]
+                )
+              : _vm._e(),
+            _vm._v(" "),
             _c(
               "button",
               {
-                staticClass:
-                  "text-indigo-600 hover:text-white bg-indigo-100 hover:bg-indigo-500 p-2.5 rounded-lg transition-colors",
-                attrs: { title: "Editar Fila" },
+                class: [
+                  "p-2.5 rounded-lg transition-colors",
+                  _vm.item.timbrado || _vm.item.estado_envio === "ENVIADO"
+                    ? "text-gray-400 bg-gray-100 cursor-not-allowed"
+                    : "text-indigo-600 hover:text-white bg-indigo-100 hover:bg-indigo-500",
+                ],
+                attrs: {
+                  disabled:
+                    _vm.item.timbrado || _vm.item.estado_envio === "ENVIADO",
+                  title:
+                    _vm.item.timbrado || _vm.item.estado_envio === "ENVIADO"
+                      ? "Inhabilitado: El ingreso ya fue timbrado"
+                      : "Editar Fila",
+                },
                 on: {
                   click: function ($event) {
                     return _vm.$emit("editar", _vm.item)
@@ -89139,9 +89893,25 @@ var render = function () {
             _c(
               "button",
               {
-                staticClass:
-                  "text-red-500 hover:text-white bg-red-100 hover:bg-red-500 p-2.5 rounded-lg transition-colors",
-                attrs: { title: "Eliminar Fila" },
+                class: [
+                  "p-2.5 rounded-lg transition-colors",
+                  !_vm.puedeEliminar ||
+                  _vm.item.timbrado ||
+                  _vm.item.estado_envio === "ENVIADO"
+                    ? "text-gray-400 bg-gray-100 cursor-not-allowed"
+                    : "text-red-500 hover:text-white bg-red-100 hover:bg-red-500",
+                ],
+                attrs: {
+                  disabled:
+                    !_vm.puedeEliminar ||
+                    _vm.item.timbrado ||
+                    _vm.item.estado_envio === "ENVIADO",
+                  title: !_vm.puedeEliminar
+                    ? "No tienes los permisos necesarios para eliminar"
+                    : _vm.item.timbrado || _vm.item.estado_envio === "ENVIADO"
+                    ? "Inhabilitado: El ingreso ya fue timbrado"
+                    : "Eliminar Fila",
+                },
                 on: {
                   click: function ($event) {
                     return _vm.$emit("eliminar", _vm.item.id)
@@ -89213,14 +89983,15 @@ var render = function () {
             "div",
             {
               staticClass:
-                "bg-white rounded-xl shadow-2xl w-full max-w-5xl overflow-hidden flex flex-col max-h-[calc(100vh-4rem)] mx-4",
+                "bg-white rounded-xl shadow-2xl w-full max-w-7xl overflow-hidden flex flex-col max-h-[calc(100vh-4rem)] mx-4",
             },
             [
               _c(
                 "div",
                 {
                   staticClass:
-                    "bg-indigo-700 px-8 py-6 flex justify-between items-center shrink-0",
+                    "px-8 py-6 flex justify-between items-center shrink-0",
+                  staticStyle: { "background-color": "#2A3A4D" },
                 },
                 [
                   _c(
@@ -89515,41 +90286,7 @@ var render = function () {
                     ]
                   ),
                   _vm._v(" "),
-                  _c(
-                    "div",
-                    { staticClass: "col-span-1" },
-                    [
-                      _c(
-                        "label",
-                        {
-                          staticClass:
-                            "block text-lg font-bold text-gray-700 mb-2",
-                        },
-                        [_vm._v("Método de Pago")]
-                      ),
-                      _vm._v(" "),
-                      _c("multiselect", {
-                        staticClass: "custom-multiselect text-xl",
-                        attrs: {
-                          options: _vm.opcionesMetodoPago,
-                          label: "label",
-                          "track-by": "value",
-                          searchable: false,
-                          "show-labels": false,
-                          "allow-empty": false,
-                          placeholder: "Seleccione...",
-                        },
-                        model: {
-                          value: _vm.form.metodoPagoObj,
-                          callback: function ($$v) {
-                            _vm.$set(_vm.form, "metodoPagoObj", $$v)
-                          },
-                          expression: "form.metodoPagoObj",
-                        },
-                      }),
-                    ],
-                    1
-                  ),
+                  _vm._m(0),
                   _vm._v(" "),
                   _c(
                     "div",
@@ -89756,7 +90493,12 @@ var render = function () {
                           ? "bg-gray-400 text-gray-200 cursor-not-allowed"
                           : "bg-indigo-600 text-white hover:bg-indigo-700",
                       ],
-                      attrs: { disabled: !!_vm.ingreso.folio_complemento },
+                      attrs: {
+                        disabled: !!_vm.ingreso.folio_complemento,
+                        title: !!_vm.ingreso.folio_complemento
+                          ? "El complemento ya fue generado"
+                          : "Generar Complemento",
+                      },
                       on: { click: _vm.enviarComplemento },
                     },
                     [_vm._v("\n        Generar Complemento\n      ")]
@@ -89767,11 +90509,24 @@ var render = function () {
                     {
                       class: [
                         "px-6 py-4 rounded-lg font-bold transition-colors flex items-center text-xl shadow-sm",
-                        !_vm.ingreso.folio_complemento
+                        !_vm.ingreso.folio_complemento ||
+                        _vm.ingreso.timbrado ||
+                        _vm.ingreso.estado_envio === "ENVIADO"
                           ? "bg-gray-400 text-gray-200 cursor-not-allowed"
                           : "bg-green-600 text-white hover:bg-green-700",
                       ],
-                      attrs: { disabled: !_vm.ingreso.folio_complemento },
+                      attrs: {
+                        disabled:
+                          !_vm.ingreso.folio_complemento ||
+                          _vm.ingreso.timbrado ||
+                          _vm.ingreso.estado_envio === "ENVIADO",
+                        title: !_vm.ingreso.folio_complemento
+                          ? "Primero debes generar el complemento"
+                          : _vm.ingreso.timbrado ||
+                            _vm.ingreso.estado_envio === "ENVIADO"
+                          ? "El complemento ya fue timbrado"
+                          : "Timbrar ante el SAT",
+                      },
                       on: { click: _vm.timbrarComplemento },
                     },
                     [_vm._v("\n        Timbrar\n      ")]
@@ -89784,7 +90539,30 @@ var render = function () {
       )
     : _vm._e()
 }
-var staticRenderFns = []
+var staticRenderFns = [
+  function () {
+    var _vm = this
+    var _h = _vm.$createElement
+    var _c = _vm._self._c || _h
+    return _c("div", { staticClass: "col-span-1" }, [
+      _c(
+        "label",
+        { staticClass: "block text-lg font-bold text-gray-700 mb-2" },
+        [_vm._v("Método de Pago")]
+      ),
+      _vm._v(" "),
+      _c("input", {
+        staticClass:
+          "w-full border-gray-300 bg-gray-100 rounded-lg shadow-sm px-3 py-4 text-lg text-gray-700 font-semibold cursor-not-allowed",
+        attrs: {
+          type: "text",
+          value: "PPD - Pago en parcialidades o diferido",
+          disabled: "",
+        },
+      }),
+    ])
+  },
+]
 render._withStripped = true
 
 
@@ -89818,14 +90596,15 @@ var render = function () {
         "div",
         {
           staticClass:
-            "bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[calc(100vh-4rem)] flex flex-col overflow-hidden",
+            "bg-white rounded-xl shadow-2xl w-full max-w-6xl flex flex-col overflow-hidden",
+          staticStyle: { "max-height": "90vh" },
         },
         [
           _c(
             "div",
             {
               staticClass:
-                "px-8 py-6 flex justify-between items-center shrink-0",
+                "px-8 py-5 flex-none flex justify-between items-center z-10",
               staticStyle: { "background-color": "#2A3A4D" },
             },
             [
@@ -89905,6 +90684,7 @@ var render = function () {
             "div",
             {
               staticClass: "p-8 overflow-y-auto flex-1 grid grid-cols-2 gap-8",
+              staticStyle: { "min-height": "0" },
             },
             [
               _c(
@@ -90201,7 +90981,11 @@ var render = function () {
                     staticClass:
                       "block text-base font-bold text-gray-500 uppercase mb-2",
                   },
-                  [_vm._v("PEDIMENTOS / FOLIOS DISPONIBLES *")]
+                  [
+                    _vm._v(
+                      "PEDIMENTOS / FOLIOS\n                      DISPONIBLES *"
+                    ),
+                  ]
                 ),
                 _vm._v(" "),
                 _c(
@@ -90211,9 +90995,10 @@ var render = function () {
                     _c(
                       "multiselect",
                       {
-                        staticClass: "w-full min-w-0 flex-1 text-xl",
+                        staticClass:
+                          "w-full min-w-0 flex-1 text-xl custom-multiselect",
                         attrs: {
-                          options: _vm.opcionesPedimentos,
+                          options: _vm.opcionesReferenciasCombinadas,
                           multiple: true,
                           taggable: true,
                           "track-by": "label",
@@ -90221,8 +91006,11 @@ var render = function () {
                           loading: _vm.cargandoSheet,
                           disabled: !_vm.form.sucursal_origen,
                           placeholder: "Seleccione folios o escriba...",
+                          "select-label": "Presiona Enter para seleccionar",
+                          "tag-placeholder":
+                            "Presiona Enter para agregar este texto libre",
                         },
-                        on: { tag: _vm.agregarReferencia },
+                        on: { tag: _vm.agregarReferenciaManual },
                         model: {
                           value: _vm.form.referenciasObj,
                           callback: function ($$v) {
@@ -90233,7 +91021,9 @@ var render = function () {
                       },
                       [
                         _c("template", { slot: "noResult" }, [
-                          _vm._v("No se encontraron folios para este cliente"),
+                          _vm._v(
+                            "No se encontraron folios ni referencias para este\n                              cliente"
+                          ),
                         ]),
                       ],
                       2
@@ -90288,7 +91078,7 @@ var render = function () {
                       },
                       [
                         _vm._v(
-                          "⚠️ Selecciona una sucursal para cargar la lista."
+                          "⚠️\n                      Selecciona una sucursal para cargar la lista."
                         ),
                       ]
                     )
@@ -92444,14 +93234,15 @@ var render = function () {
         "div",
         {
           staticClass:
-            "bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[calc(100vh-4rem)] flex flex-col overflow-hidden",
+            "bg-white rounded-xl shadow-2xl w-full max-w-6xl flex flex-col overflow-hidden",
+          staticStyle: { "max-height": "90vh" },
         },
         [
           _c(
             "div",
             {
               staticClass:
-                "px-8 py-6 flex justify-between items-center shrink-0",
+                "px-8 py-6 flex justify-between items-center shrink-0 z-10",
               staticStyle: { "background-color": "#2A3A4D" },
             },
             [
@@ -92529,6 +93320,7 @@ var render = function () {
             "div",
             {
               staticClass: "p-8 overflow-y-auto flex-1 grid grid-cols-2 gap-8",
+              staticStyle: { "min-height": "0" },
             },
             [
               _c(
@@ -92836,37 +93628,28 @@ var render = function () {
                   "div",
                   { staticClass: "flex w-full min-w-0" },
                   [
-                    _c(
-                      "multiselect",
-                      {
-                        staticClass: "w-full min-w-0 flex-1 text-xl",
-                        attrs: {
-                          options: _vm.opcionesPedimentos,
-                          multiple: true,
-                          taggable: true,
-                          "track-by": "label",
-                          label: "label",
-                          loading: _vm.cargandoSheet,
-                          disabled: !_vm.form.sucursal_origen,
-                          placeholder:
-                            "Seleccione o escriba folio/pedimento...",
-                        },
-                        on: { tag: _vm.agregarReferencia },
-                        model: {
-                          value: _vm.form.referenciasObj,
-                          callback: function ($$v) {
-                            _vm.$set(_vm.form, "referenciasObj", $$v)
-                          },
-                          expression: "form.referenciasObj",
-                        },
+                    _c("multiselect", {
+                      staticClass: "custom-multiselect text-xl flex-1 min-w-0",
+                      attrs: {
+                        options: _vm.opcionesReferenciasCombinadas,
+                        multiple: true,
+                        "track-by": "label",
+                        label: "label",
+                        taggable: true,
+                        placeholder: "Escribe o selecciona una opción...",
+                        "select-label": "Presiona Enter para seleccionar",
+                        "tag-placeholder":
+                          "Presiona Enter para agregar este texto libre",
                       },
-                      [
-                        _c("template", { slot: "noResult" }, [
-                          _vm._v("No se encontraron datos para este cliente"),
-                        ]),
-                      ],
-                      2
-                    ),
+                      on: { tag: _vm.agregarReferenciaManual },
+                      model: {
+                        value: _vm.form.referenciasObj,
+                        callback: function ($$v) {
+                          _vm.$set(_vm.form, "referenciasObj", $$v)
+                        },
+                        expression: "form.referenciasObj",
+                      },
+                    }),
                     _vm._v(" "),
                     _c(
                       "button",
@@ -92917,7 +93700,7 @@ var render = function () {
                       },
                       [
                         _vm._v(
-                          "⚠️ Selecciona una sucursal para cargar la lista."
+                          "\n          ⚠️ Selecciona una sucursal para cargar la lista.\n        "
                         ),
                       ]
                     )
@@ -92944,7 +93727,7 @@ var render = function () {
                     },
                   ],
                   staticClass:
-                    "w-full border border-gray-300 rounded-lg px-5 py-4 text-3xl font-black text-purple-700 focus:outline-none focus:border-gray-400",
+                    "w-full border border-gray-300 rounded-lg px-5 py-4 text-3xl font-black text-purple-700 focus:outline-none focus:border-gray-400 h-12",
                   attrs: { type: "number", step: "0.01", placeholder: "0.00" },
                   domProps: { value: _vm.form.monto_deposito },
                   on: {
@@ -93125,7 +93908,7 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass: "block text-base text-gray-500 mb-2",
+                              staticClass: "block text-base text-gray-700 mb-2",
                             },
                             [_vm._v("Flete (XML):")]
                           ),
@@ -93162,7 +93945,7 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass: "block text-base text-gray-500 mb-2",
+                              staticClass: "block text-base text-gray-700 mb-2",
                             },
                             [_vm._v("Pago Proveedor:")]
                           ),
@@ -93204,7 +93987,7 @@ var render = function () {
                             "label",
                             {
                               staticClass:
-                                "block text-base text-emerald-600 mb-2 font-bold",
+                                "block text-base text-emerald-700 mb-2 font-bold",
                             },
                             [_vm._v("Ganancia:")]
                           ),
@@ -93228,7 +94011,7 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass: "block text-base text-gray-500 mb-2",
+                              staticClass: "block text-base text-gray-700 mb-2",
                             },
                             [_vm._v("Anticipo:")]
                           ),
@@ -93269,7 +94052,7 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass: "block text-base text-gray-500 mb-2",
+                              staticClass: "block text-base text-gray-700 mb-2",
                             },
                             [_vm._v("ALMAN / Flete:")]
                           ),
@@ -93308,7 +94091,7 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass: "block text-base text-gray-500 mb-2",
+                              staticClass: "block text-base text-gray-700 mb-2",
                             },
                             [_vm._v("Anticipo:")]
                           ),
@@ -93348,7 +94131,7 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass: "block text-base text-gray-500 mb-2",
+                              staticClass: "block text-base text-gray-700 mb-2",
                             },
                             [_vm._v("Garantías:")]
                           ),
@@ -93388,7 +94171,7 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass: "block text-base text-gray-500 mb-2",
+                              staticClass: "block text-base text-gray-700 mb-2",
                             },
                             [_vm._v("Desglose Naviera:")]
                           ),
@@ -93428,7 +94211,7 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass: "block text-base text-gray-500 mb-2",
+                              staticClass: "block text-base text-gray-700 mb-2",
                             },
                             [_vm._v("Impuestos:")]
                           ),
@@ -93468,7 +94251,7 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass: "block text-base text-gray-500 mb-2",
+                              staticClass: "block text-base text-gray-700 mb-2",
                             },
                             [_vm._v("ALMAN / Flete:")]
                           ),
@@ -93504,7 +94287,7 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass: "block text-base text-gray-500 mb-2",
+                              staticClass: "block text-base text-gray-700 mb-2",
                             },
                             [_vm._v("Honorarios:")]
                           ),
@@ -93545,7 +94328,7 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass: "block text-base text-gray-500 mb-2",
+                              staticClass: "block text-base text-gray-700 mb-2",
                             },
                             [_vm._v("Honorarios:")]
                           ),
@@ -93585,7 +94368,7 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass: "block text-base text-gray-500 mb-2",
+                              staticClass: "block text-base text-gray-700 mb-2",
                             },
                             [_vm._v("Impuestos:")]
                           ),
@@ -93625,7 +94408,7 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass: "block text-base text-gray-500 mb-2",
+                              staticClass: "block text-base text-gray-700 mb-2",
                             },
                             [_vm._v("ECI:")]
                           ),
@@ -93661,7 +94444,7 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass: "block text-base text-gray-500 mb-2",
+                              staticClass: "block text-base text-gray-700 mb-2",
                             },
                             [_vm._v("Maniobras:")]
                           ),
@@ -93701,7 +94484,7 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass: "block text-base text-gray-500 mb-2",
+                              staticClass: "block text-base text-gray-700 mb-2",
                             },
                             [_vm._v("Flete:")]
                           ),
@@ -93737,7 +94520,7 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass: "block text-base text-gray-500 mb-2",
+                              staticClass: "block text-base text-gray-700 mb-2",
                             },
                             [_vm._v("Muestras:")]
                           ),
@@ -93777,7 +94560,7 @@ var render = function () {
                           _c(
                             "label",
                             {
-                              staticClass: "block text-base text-gray-500 mb-2",
+                              staticClass: "block text-base text-gray-700 mb-2",
                             },
                             [_vm._v("LLC:")]
                           ),
@@ -93909,7 +94692,7 @@ var render = function () {
             "div",
             {
               staticClass:
-                "px-8 py-6 border-t border-gray-200 flex justify-end gap-6 bg-gray-100 shrink-0",
+                "px-8 py-6 border-t border-gray-200 flex justify-end gap-6 bg-gray-100 shrink-0 z-10",
             },
             [
               _c(
@@ -94589,7 +95372,7 @@ var render = function () {
         "div",
         {
           staticClass:
-            "grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-6 mb-10",
+            "grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-6 mb-10",
         },
         [
           _c(
@@ -94879,7 +95662,7 @@ var render = function () {
                     staticClass:
                       "text-base font-bold text-gray-400 uppercase tracking-wider mb-3",
                   },
-                  [_vm._v("Saldos a Favor")]
+                  [_vm._v("Saldos a Favor del Cliente")]
                 ),
                 _vm._v(" "),
                 _c(
@@ -94903,6 +95686,64 @@ var render = function () {
                 {
                   staticClass:
                     "w-16 h-16 rounded-xl bg-blue-100 text-blue-400 flex items-center justify-center shrink-0",
+                },
+                [
+                  _c(
+                    "svg",
+                    {
+                      staticClass: "w-8 h-8",
+                      attrs: {
+                        fill: "none",
+                        stroke: "currentColor",
+                        viewBox: "0 0 24 24",
+                      },
+                    },
+                    [
+                      _c("path", {
+                        attrs: {
+                          "stroke-linecap": "round",
+                          "stroke-linejoin": "round",
+                          "stroke-width": "2",
+                          d: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z",
+                        },
+                      }),
+                    ]
+                  ),
+                ]
+              ),
+            ]
+          ),
+          _vm._v(" "),
+          _c(
+            "div",
+            {
+              staticClass:
+                "bg-white rounded-xl shadow-sm border border-gray-100 p-8 border-l-4 flex justify-between items-center",
+              staticStyle: { "border-left-color": "#F54927" },
+            },
+            [
+              _c("div", [
+                _c(
+                  "p",
+                  {
+                    staticClass:
+                      "text-base font-bold text-gray-400 uppercase tracking-wider mb-3",
+                  },
+                  [_vm._v("Saldos en Contra del Cliente")]
+                ),
+                _vm._v(" "),
+                _c(
+                  "p",
+                  { staticClass: "text-4xl font-black text-gray-800 mb-2" },
+                  [_vm._v(_vm._s(_vm.formatearDinero(_vm.totalSaldosEnContra)))]
+                ),
+              ]),
+              _vm._v(" "),
+              _c(
+                "div",
+                {
+                  staticClass:
+                    "w-16 h-16 rounded-xl bg-red-100 text-red-400 flex items-center justify-center shrink-0",
                 },
                 [
                   _c(
@@ -94977,7 +95818,11 @@ var render = function () {
                     },
                   },
                 },
-                [_vm._v("\n        Saldos a Favor (Vigentes)\n      ")]
+                [
+                  _vm._v("\n        Saldos a Favor y en Contra\n        "),
+                  _c("br"),
+                  _vm._v("del Cliente (Vigentes)\n      "),
+                ]
               ),
               _vm._v(" "),
               _c(
@@ -95059,7 +95904,7 @@ var render = function () {
                       }),
                     ]
                   ),
-                  _vm._v("\n        Insertar Fila\n      "),
+                  _vm._v("\n        Registrar Ingreso\n      "),
                 ]
               ),
             ]
@@ -95501,6 +96346,7 @@ var render = function () {
                     enviar: _vm.enviarCorreoComplemento,
                     editar: _vm.abrirModalEditarIngreso,
                     eliminar: _vm.eliminarFila,
+                    "ver-desglose": _vm.mostrarDesgloseManzanillo,
                   },
                 })
               }),

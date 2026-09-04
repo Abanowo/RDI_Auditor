@@ -1,9 +1,8 @@
 <template>
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-6 md:p-10">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl flex flex-col overflow-hidden" style="max-height: 90vh;">
 
-    <div class="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
-
-      <div class="px-8 py-6 flex justify-between items-center shrink-0" style="background-color: #2A3A4D;">
+      <div class="px-8 py-6 flex justify-between items-center shrink-0 z-10" style="background-color: #2A3A4D;">
         <h3 class="text-white text-2xl font-bold uppercase tracking-wider flex items-center gap-3">
           <!-- Ícono de Nuevo Documento (Agregar) SVG -->
           <svg class="w-7 h-7 shrink-0 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -20,7 +19,7 @@
         </button>
       </div>
 
-      <div class="p-8 overflow-y-auto flex-1 grid grid-cols-2 gap-8">
+      <div class="p-8 overflow-y-auto flex-1 grid grid-cols-2 gap-8" style="min-height: 0;">
 
         <div class="col-span-1">
           <label class="block text-base font-bold text-gray-500 uppercase mb-2">SUCURSAL ORIGEN *</label>
@@ -74,11 +73,11 @@
           </label>
 
           <div class="flex w-full min-w-0">
-            <multiselect v-model="form.referenciasObj" :options="opcionesPedimentos" :multiple="true" :taggable="true"
-              @tag="agregarReferencia" track-by="label" label="label" :loading="cargandoSheet"
-              :disabled="!form.sucursal_origen" placeholder="Seleccione o escriba folio/pedimento..."
-              class="w-full min-w-0 flex-1 text-xl">
-              <template slot="noResult">No se encontraron datos para este cliente</template>
+            <multiselect v-model="form.referenciasObj" :options="opcionesReferenciasCombinadas" :multiple="true"
+              track-by="label" label="label" :taggable="true" @tag="agregarReferenciaManual"
+              placeholder="Escribe o selecciona una opción..." select-label="Presiona Enter para seleccionar"
+              tag-placeholder="Presiona Enter para agregar este texto libre"
+              class="custom-multiselect text-xl flex-1 min-w-0">
             </multiselect>
 
             <button @click="buscarYRecalcularPedimento" type="button" title="Calcular montos desde XML/Sheet"
@@ -90,13 +89,15 @@
               </svg>
             </button>
           </div>
-          <span v-if="!form.sucursal_origen" class="text-sm text-red-500 font-bold mt-2 inline-block">⚠️ Selecciona una sucursal para cargar la lista.</span>
+          <span v-if="!form.sucursal_origen" class="text-sm text-red-500 font-bold mt-2 inline-block">
+            ⚠️ Selecciona una sucursal para cargar la lista.
+          </span>
         </div>
 
         <div class="col-span-1">
           <label class="block text-base font-bold text-gray-500 uppercase mb-2">MONTO DEPÓSITO ($) *</label>
           <input v-model="form.monto_deposito" type="number" step="0.01" placeholder="0.00"
-            class="w-full border border-gray-300 rounded-lg px-5 py-4 text-3xl font-black text-purple-700 focus:outline-none focus:border-gray-400">
+            class="w-full border border-gray-300 rounded-lg px-5 py-4 text-3xl font-black text-purple-700 focus:outline-none focus:border-gray-400 h-12">
         </div>
 
         <div class="col-span-2 flex items-center gap-8 mt-2 p-5 bg-gray-100 border border-gray-200 rounded-xl">
@@ -122,17 +123,17 @@
 
           <div class="grid grid-cols-3 gap-6" v-if="esTransportactics">
             <div>
-              <label class="block text-base text-gray-500 mb-2">Flete (XML):</label>
+              <label class="block text-base text-gray-700 mb-2">Flete (XML):</label>
               <input v-model="form.flete" type="number" step="0.01" placeholder="0.00"
                 class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800">
             </div>
             <div>
-              <label class="block text-base text-gray-500 mb-2">Pago Proveedor:</label>
+              <label class="block text-base text-gray-700 mb-2">Pago Proveedor:</label>
               <input v-model="form.pago_proveedor" type="number" step="0.01" placeholder="0.00"
                 class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800">
             </div>
             <div>
-              <label class="block text-base text-emerald-600 mb-2 font-bold">Ganancia:</label>
+              <label class="block text-base text-emerald-700 mb-2 font-bold">Ganancia:</label>
               <input :value="(parseFloat(form.flete || 0) - parseFloat(form.pago_proveedor || 0)).toFixed(2)" readonly
                 type="number"
                 class="w-full border border-emerald-200 rounded-lg px-4 py-3 text-xl bg-emerald-100 text-emerald-700 font-bold focus:outline-none cursor-not-allowed">
@@ -141,34 +142,73 @@
 
           <div class="grid grid-cols-2 gap-6" v-else-if="esIntshipperts">
             <div>
-              <label class="block text-base text-gray-500 mb-2">Anticipo:</label>
+              <label class="block text-base text-gray-700 mb-2">Anticipo:</label>
               <input v-model="form.anticipo" type="number" step="0.01" placeholder="0.00"
                 class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800">
             </div>
             <div>
-              <label class="block text-base text-gray-500 mb-2">ALMAN / Flete:</label>
+              <label class="block text-base text-gray-700 mb-2">ALMAN / Flete:</label>
               <input v-model="form.flete" type="number" step="0.01" placeholder="0.00"
                 class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800">
             </div>
           </div>
 
           <div class="grid grid-cols-4 gap-6" v-else-if="esManzanillo">
-            <div><label class="block text-base text-gray-500 mb-2">Anticipo:</label><input v-model="form.anticipo" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
-            <div><label class="block text-base text-gray-500 mb-2">Garantías:</label><input v-model="form.garantias" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
-            <div><label class="block text-base text-gray-500 mb-2">Desglose Naviera:</label><input v-model="form.desglose_naviera" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
-            <div><label class="block text-base text-gray-500 mb-2">Impuestos:</label><input v-model="form.impuestos" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
-            <div><label class="block text-base text-gray-500 mb-2">ALMAN / Flete:</label><input v-model="form.flete" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
-            <div><label class="block text-base text-gray-500 mb-2">Honorarios:</label><input v-model="form.honorarios" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-700 mb-2">Anticipo:</label><input v-model="form.anticipo"
+                type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800">
+            </div>
+            <div><label class="block text-base text-gray-700 mb-2">Garantías:</label><input v-model="form.garantias"
+                type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800">
+            </div>
+            <div><label class="block text-base text-gray-700 mb-2">Desglose Naviera:</label><input
+                v-model="form.desglose_naviera" type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800">
+            </div>
+            <div><label class="block text-base text-gray-700 mb-2">Impuestos:</label><input v-model="form.impuestos"
+                type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800">
+            </div>
+            <div><label class="block text-base text-gray-700 mb-2">ALMAN / Flete:</label><input v-model="form.flete"
+                type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800">
+            </div>
+            <div><label class="block text-base text-gray-700 mb-2">Honorarios:</label><input v-model="form.honorarios"
+                type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800">
+            </div>
           </div>
 
           <div class="grid grid-cols-4 gap-6" v-else>
-            <div><label class="block text-base text-gray-500 mb-2">Honorarios:</label><input v-model="form.honorarios" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
-            <div><label class="block text-base text-gray-500 mb-2">Impuestos:</label><input v-model="form.impuestos" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
-            <div><label class="block text-base text-gray-500 mb-2">ECI:</label><input v-model="form.eci" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
-            <div><label class="block text-base text-gray-500 mb-2">Maniobras:</label><input v-model="form.maniobras" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
-            <div><label class="block text-base text-gray-500 mb-2">Flete:</label><input v-model="form.flete" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
-            <div><label class="block text-base text-gray-500 mb-2">Muestras:</label><input v-model="form.muestras" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
-            <div><label class="block text-base text-gray-500 mb-2">LLC:</label><input v-model="form.llc" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-700 mb-2">Honorarios:</label><input v-model="form.honorarios"
+                type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800">
+            </div>
+            <div><label class="block text-base text-gray-700 mb-2">Impuestos:</label><input v-model="form.impuestos"
+                type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800">
+            </div>
+            <div><label class="block text-base text-gray-700 mb-2">ECI:</label><input v-model="form.eci" type="number"
+                step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800">
+            </div>
+            <div><label class="block text-base text-gray-700 mb-2">Maniobras:</label><input v-model="form.maniobras"
+                type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800">
+            </div>
+            <div><label class="block text-base text-gray-700 mb-2">Flete:</label><input v-model="form.flete"
+                type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800">
+            </div>
+            <div><label class="block text-base text-gray-700 mb-2">Muestras:</label><input v-model="form.muestras"
+                type="number" step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800">
+            </div>
+            <div><label class="block text-base text-gray-700 mb-2">LLC:</label><input v-model="form.llc" type="number"
+                step="0.01" placeholder="0.00"
+                class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800">
+            </div>
           </div>
 
           <div
@@ -191,7 +231,8 @@
         </div>
       </div>
 
-      <div class="px-8 py-6 border-t border-gray-200 flex justify-end gap-6 bg-gray-100 shrink-0">
+      <!-- 5. FOOTER: shrink-0 (o flex-none) para que se ancle al fondo -->
+      <div class="px-8 py-6 border-t border-gray-200 flex justify-end gap-6 bg-gray-100 shrink-0 z-10">
         <button @click="$emit('close')"
           class="px-8 py-4 rounded-lg bg-gray-200 text-gray-700 text-xl font-bold hover:bg-gray-300 transition-colors shadow-sm">
           Cancelar
@@ -263,7 +304,20 @@ export default {
         factura_muestras: null,
         proveedor_llc: null,
         factura_llc: null,
-      }
+      },
+      opcionesReferenciasPredefinidas: [
+        'Depósito de garantías',
+        'Devolución de garantías',
+        'Compensación SPEI',
+        'Anticipo por error',
+        'Abono préstamo colaborador',
+        'Transferencia interna',
+        'Préstamos intersucursales',
+        'Anticipo cliente',
+        'Pendiente desglose',
+        'Saldos a favor',
+        'Pago devuelto / Pago rechazado'
+      ],
     }
   },
   computed: {
@@ -341,6 +395,54 @@ export default {
     },
     sumaTotal() {
       return this.totalGPC + (parseFloat(this.form.honorarios) || 0);
+    },
+    opcionesReferenciasCombinadas() {
+      let mapa = new Map();
+
+      // 1. Agregar opciones predefinidas como objetos estructurados
+      this.opcionesReferenciasPredefinidas.forEach(ref => {
+        let texto = typeof ref === 'object' ? (ref.label || ref.folio) : String(ref);
+        if (texto && !mapa.has(texto)) {
+          mapa.set(texto, { label: texto, folio: texto });
+        }
+      });
+
+      // 2. Extraer fragmentos si vienen de folio_sc o pedimento_detectado
+      const extraerYAgregar = (texto) => {
+        if (texto && typeof texto === 'string') {
+          let fragmentos = texto.split(',').map(item => item.trim()).filter(Boolean);
+          fragmentos.forEach(fragmento => {
+            if (!mapa.has(fragmento)) {
+              mapa.set(fragmento, { label: fragmento, folio: fragmento });
+            }
+          });
+        }
+      };
+
+      extraerYAgregar(this.form.folio_sc);
+      extraerYAgregar(this.form.pedimento_detectado);
+      
+      // 3. Agregar pedimentos obtenidos del Sheet
+      if (this.opcionesPedimentos && Array.isArray(this.opcionesPedimentos)) {
+        this.opcionesPedimentos.forEach(objeto => {
+          let texto = typeof objeto === 'object' ? (objeto.label || objeto.folio || objeto.pedimento) : String(objeto);
+          if (texto && !mapa.has(texto)) {
+            mapa.set(texto, { label: texto, folio: texto, cliente: objeto.cliente || '' });
+          }
+        });
+      }
+
+      // 4. Garantizar que las referencias ya seleccionadas por el usuario no desaparezcan
+      if (Array.isArray(this.form.referenciasObj)) {
+        this.form.referenciasObj.forEach(ref => {
+          let textoRef = typeof ref === 'object' ? (ref.label || ref.folio || ref.referencia) : String(ref);
+          if (textoRef && !mapa.has(textoRef)) {
+            mapa.set(textoRef, { label: textoRef, folio: textoRef });
+          }
+        });
+      }
+
+      return Array.from(mapa.values());
     }
   },
   watch: {
@@ -372,19 +474,46 @@ export default {
     },
     'form.referenciasObj': function (newVal) {
       if (!this.form.cliente && newVal && newVal.length > 0) {
-        const refSeleccionada = newVal[0];
-        const dataPedimento = this.pedimentosSheet.find(p => p.label === refSeleccionada.label || p.folio === refSeleccionada.folio);
+        // Tomamos la última referencia seleccionada
+        const refSeleccionada = newVal[newVal.length - 1];
+        if (!refSeleccionada) {
+          return;
+        }
+
+        const refTexto = typeof refSeleccionada === 'object'
+          ? (refSeleccionada.label || refSeleccionada.folio || refSeleccionada.cliente || '')
+          : String(refSeleccionada);
+
+        const refUpper = refTexto.toUpperCase().trim();
+        const sheetArray = Array.isArray(this.pedimentosSheet) ? this.pedimentosSheet : [];
+
+        // 1. Buscar en el listado de pedimentos del Sheet (por coincidencia parcial)
+        const dataPedimento = sheetArray.find(p => {
+          const pLabel = String(p.label || p.folio || p.pedimento || '').toUpperCase().trim();
+          return pLabel !== '' && (pLabel === refUpper || refUpper.includes(pLabel) || pLabel.includes(refUpper));
+        });
 
         if (dataPedimento && dataPedimento.cliente) {
-          const nombreClientePedimento = dataPedimento.cliente.toUpperCase().trim();
+          const nombreClientePedimento = String(dataPedimento.cliente).toUpperCase().trim();
           const clienteEncontrado = this.opcionesCliente.find(c => {
-            const nombreOpcion = c.nombre.toUpperCase().trim();
+            const nombreOpcion = String(c.nombre).toUpperCase().trim();
             return nombreOpcion.includes(nombreClientePedimento) || nombreClientePedimento.includes(nombreOpcion);
           });
 
           if (clienteEncontrado) {
             this.form.cliente = clienteEncontrado;
+            return;
           }
+        }
+
+        // 2. Si no matchó con el Sheet, busca si el nombre de algún cliente está dentro del texto del tag
+        const clienteDirecto = this.opcionesCliente.find(c => {
+          const nombreOpcion = String(c.nombre).toUpperCase().trim();
+          return nombreOpcion.length > 3 && refUpper.includes(nombreOpcion);
+        });
+
+        if (clienteDirecto) {
+          this.form.cliente = clienteDirecto;
         }
       }
     }
@@ -397,6 +526,25 @@ export default {
       };
       this.clientesLocales.push(nuevoCliente);
       this.form.cliente = nuevoCliente;
+    },
+    agregarReferenciaManual(nuevaReferencia) {
+      const texto = String(nuevaReferencia).trim();
+      if (!texto) {
+        return;
+      }
+
+      // 1. Lo agregamos al arreglo base si no existe
+      if (!this.opcionesReferenciasPredefinidas.includes(texto)) {
+        this.opcionesReferenciasPredefinidas.push(texto);
+      }
+
+      // 2. Lo agregamos al formulario formateado como objeto
+      if (!this.form.referenciasObj) {
+        this.form.referenciasObj = [];
+      }
+
+      const nuevoObj = { label: texto, folio: texto };
+      this.form.referenciasObj.push(nuevoObj);
     },
     formatearDinero(monto) {
       return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(parseFloat(monto) || 0);
@@ -415,11 +563,11 @@ export default {
       this.cargandoSheet = true;
       try {
         const response = await axios.get('/ingresos-conciliados/listar-pedimentos', {
-          params: { 
+          params: {
             sucursal: this.sucursalSeleccionada,
             es_transportactics: this.checkTransportactics,
             es_intshipperts: this.esIntshipperts
-          } 
+          }
         });
         this.pedimentosSheet = Array.isArray(response.data) ? response.data : [];
       } catch (error) {
@@ -434,11 +582,43 @@ export default {
         return Swal.fire('Atención', 'Selecciona la sucursal y agrega al menos un dato de búsqueda.', 'warning');
       }
 
-      // 🔥 Lógica de extracción inteligente unificada
-      // Solo enviamos los textos crudos, el backend será el encargado de buscar coincidencias
+      // Lógica de extracción inteligente para la Base de Datos
       let pedimentosLimpios = this.form.referenciasObj.map(ref => {
-        return ref.folio ? String(ref.folio).trim() : String(ref.label).trim();
-      }).filter(r => r !== '');
+        if (!ref) {
+          return '';
+        }
+
+        // 1. Extraemos el texto crudo según el tipo de dato que contenga ref
+        let texto = '';
+        if (typeof ref === 'string') {
+          texto = ref;
+        } else if (typeof ref === 'object') {
+          texto = ref.folio || ref.label || ref.value || ref.text || '';
+        }
+
+        texto = String(texto).trim();
+        if (!texto || texto === 'undefined') {
+          return '';
+        }
+
+        // 2. Desarmamos el formato "3739 - 6000464 - SURTIDORA"
+        let partes = texto.split(' - ');
+        
+        if (partes.length >= 3) {
+          // El pedimento está en la segunda posición (índice 1)
+          texto = partes[1].trim(); 
+        } else if (partes.length === 2) {
+          // El pedimento está en la primera posición (índice 0)
+          texto = partes[0].trim();
+        }
+
+        // 3. Regla de la diagonal: si viene "6000464/6000495", toma "6000464"
+        if (texto.includes('/')) {
+          texto = texto.split('/')[0].trim();
+        }
+
+        return texto;
+      }).filter(r => r !== '' && r !== 'undefined');
 
       Swal.fire({
         title: 'Calculando...',
@@ -455,6 +635,7 @@ export default {
         });
 
         const datos = response.data;
+        this.$set(this.form, 'metodo_pago', datos.metodo_pago || 'PUE');
 
         this.form.honorarios = datos.honorarios !== undefined ? Number(datos.honorarios) : 0;
         this.form.impuestos = datos.impuestos !== undefined ? Number(datos.impuestos) : 0;
@@ -518,6 +699,7 @@ export default {
       this.isSubmitting = true;
       const payload = { ...this.form };
 
+      // 1. Manejo de Cliente
       if (String(payload.cliente.id).startsWith('nuevo_')) {
         payload.cliente_id = null;
         payload.nuevo_cliente_nombre = payload.cliente.nombre;
@@ -527,7 +709,9 @@ export default {
       delete payload.cliente;
 
       payload.total_gpc = this.totalGPC;
+      payload.anticipo = Number(this.form.anticipo || 0); // 🔥 Forzamos envío numérico del anticipo
 
+      // 2. Construcción de string para la columna principal 'referencia'
       if (this.form.referenciasObj && Array.isArray(this.form.referenciasObj)) {
         payload.referencia = this.form.referenciasObj.map(r => r.folio || r.label || r).join(', ');
       } else {
@@ -538,6 +722,66 @@ export default {
         payload.referencia = payload.pedimento_detectado;
       }
 
+      // CONSTRUCCIÓN DE 'OPERACIONES' PARA LA TABLA PIVOTE (ingreso_operacion)
+      // Mapeamos cada referencia de la lista para enviarla como elemento de la tabla pivote
+      if (this.form.referenciasObj && Array.isArray(this.form.referenciasObj) && this.form.referenciasObj.length > 0) {
+        
+        // Función auxiliar para extraer el número de folio limpio (ej: "68302 - 6001853 - CARNICOS DM" -> "6001853")
+        const obtenerFolioLimpio = (val) => {
+          if (!val) return '';
+          let str = String(val).trim().replace('F-', '');
+          let partes = str.split(' - ');
+          if (partes.length >= 3) str = partes[1].trim();
+          else if (partes.length === 2) str = partes[0].trim();
+          if (str.includes('/')) str = str.split('/')[0].trim();
+          return str.toUpperCase();
+        };
+
+        const opsBuscadas = Array.isArray(this.form.operaciones) ? this.form.operaciones : [];
+        const pedimentosSheet = Array.isArray(this.pedimentosSheet) ? this.pedimentosSheet : [];
+
+        payload.operaciones = this.form.referenciasObj.map(ref => {
+          const textoOriginal = typeof ref === 'object' 
+            ? (ref.folio || ref.label || ref.referencia || ref.pedimento || '') 
+            : String(ref);
+          
+          const folioLimpio = obtenerFolioLimpio(textoOriginal);
+          const textoUpper = String(textoOriginal).toUpperCase().trim();
+
+          // Buscamos coincidencia en form.operaciones o en pedimentosSheet
+          const esCoincidencia = (o) => {
+            if (!o) return false;
+            const oFolioLimpio = obtenerFolioLimpio(o.folio || o.referencia || o.pedimento || o.id);
+            const oFolioRaw = String(o.folio || o.referencia || o.label || '').toUpperCase().trim();
+            
+            return (folioLimpio && oFolioLimpio && (folioLimpio === oFolioLimpio || oFolioLimpio.includes(folioLimpio) || folioLimpio.includes(oFolioLimpio))) ||
+                   (oFolioRaw && (oFolioRaw === textoUpper || textoUpper.includes(oFolioRaw) || oFolioRaw.includes(textoUpper)));
+          };
+
+          let op = opsBuscadas.find(esCoincidencia) || pedimentosSheet.find(esCoincidencia);
+
+          // Extraemos ID, TYPE, MONTO_CFDI y MONTO_GPC reales
+          const opId = op ? (op.operacion_id || op.id || op.pedimento_id || null) : null;
+          const opType = op ? (op.operation_type || op.operacion_type || op.type || 'GENERICO') : 'GENERICO';
+          
+          // Fallback de montos: lee desde la operación o desde los totales del formulario
+          const montoCfdi = op ? Number(op.monto_cfdi ?? op.flete ?? op.monto_flete ?? 0) : Number(this.form.flete || 0);
+          const montoGpc = op ? Number(op.monto_gpc ?? op.total_gpc ?? op.gpc ?? 0) : Number(this.totalGPC || 0);
+
+          return {
+            id: (opId && !isNaN(opId)) ? Number(opId) : null,
+            type: opType !== 'GENERICO' ? opType : (this.esTransportactics ? 'App\\Models\\OperacionTransportactics' : 'GENERICO'),
+            folio: textoOriginal,
+            referencia: textoOriginal,
+            monto_cfdi: montoCfdi,
+            monto_gpc: montoGpc
+          };
+        });
+      } else {
+        payload.operaciones = [];
+      }
+
+      // 4. Formateo de Sucursal
       let sucursalGuardar = typeof payload.sucursal_origen === 'object' && payload.sucursal_origen !== null
         ? (payload.sucursal_origen.nombre || payload.sucursal_origen.id)
         : payload.sucursal_origen;
@@ -550,10 +794,11 @@ export default {
 
       payload.sucursal_origen = sucursalGuardar;
 
-      // Borramos lo que no va a la BD
+      // Limpieza de auxiliares
       delete payload.pedimento_detectado;
       delete payload.referenciasObj;
 
+      // 5. Tipo de comprobante
       if (this.tiposComprobanteArray && this.tiposComprobanteArray.includes('CFDI') && this.tiposComprobanteArray.includes('Nota Cargo')) {
         payload.tipo_comprobante = 'Ambos';
       } else if (this.tiposComprobanteArray) {
@@ -562,6 +807,7 @@ export default {
         payload.tipo_comprobante = 'N/A';
       }
 
+      // 6. Envío al Servidor
       try {
         const response = await axios.post(`/ingresos-conciliados`, payload);
 
@@ -602,60 +848,135 @@ export default {
 <style scoped>
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
+    -webkit-appearance: none;
+    margin: 0;
 }
 
-:deep(.multiselect__tags) {
-  border-color: #D1D5DB !important;
-  padding-top: 10px !important;
-  min-height: 48px !important;
-  font-size: 16px !important;
-  border-radius: 8px;
-  overflow: hidden;
+/* Multiselect ocupa solamente el espacio disponible */
+:deep(.custom-multiselect) {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
 }
 
-:deep(.multiselect__select) {
+/* Caja principal */
+:deep(.custom-multiselect .multiselect__tags) {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
   height: 48px !important;
+  min-height: 48px !important;
+  max-height: 48px !important; 
+  padding: 5px 40px 5px 8px !important;
+  border-color: #D1D5DB !important;
+  border-radius: 8px 0 0 8px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
 }
 
-:deep(.multiselect__single),
-:deep(.multiselect__input) {
-  font-size: 16px !important;
-  margin-bottom: 0px !important;
-  padding-top: 2px !important;
+/* Personalización del scrollbar interno para las etiquetas */
+:deep(.custom-multiselect .multiselect__tags)::-webkit-scrollbar {
+  width: 4px;
+}
+:deep(.custom-multiselect .multiselect__tags)::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
 }
 
-:deep(.multiselect__tag) {
-  background-color: #2A3A4D !important;
-  max-width: 100%;
-  display: inline-flex;
-  align-items: center;
-  font-size: 14px !important;
+/* Etiqueta seleccionada */
+:deep(.custom-multiselect .multiselect__tag) {
+    display: inline-flex !important;
+    align-items: center !important;
+
+    max-width: calc(100% - 10px) !important;
+
+    font-size: 14px !important;
+
+    background-color: #2A3A4D !important;
+
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
 
-:deep(.multiselect__tag > span) {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* Texto dentro de la etiqueta */
+:deep(.custom-multiselect .multiselect__tag > span) {
+    display: block !important;
+
+    min-width: 0 !important;
+    max-width: 100% !important;
+
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
 
-:deep(.multiselect__option--highlight) {
-  background-color: #00C09F !important;
+/* Flecha */
+:deep(.custom-multiselect .multiselect__select) {
+    width: 35px !important;
+    height: 48px !important;
 }
 
-:deep(.multiselect__option) {
-  font-size: 16px !important;
-  white-space: normal !important;
-  word-break: break-word !important;
-  overflow-wrap: break-word !important;
-  line-height: 1.5 !important;
-  padding: 12px 16px !important;
+/* Input */
+:deep(.custom-multiselect .multiselect__input) {
+    min-width: 0 !important;
+    max-width: 100% !important;
+
+    font-size: 16px !important;
+    margin-bottom: 0 !important;
+    padding-top: 2px !important;
+
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+/* Texto seleccionado */
+:deep(.custom-multiselect .multiselect__single) {
+    min-width: 0 !important;
+    max-width: 100% !important;
+
+    font-size: 16px !important;
+    margin-bottom: 0 !important;
+
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+/* IMPORTANTE: permitir que se vea el dropdown */
+:deep(.custom-multiselect .multiselect__content-wrapper) {
+    position: absolute !important;
+    z-index: 9999 !important;
+
+    width: 100% !important;
+    max-height: 250px !important;
+
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+
+/* Opciones */
+:deep(.custom-multiselect .multiselect__option) {
+    font-size: 16px !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    line-height: 1.5 !important;
+    padding: 12px 16px !important;
+}
+
+:deep(.custom-multiselect .multiselect__option--highlight) {
+    background-color: #00C09F !important;
 }
 
 :deep(.field-input) {
-  min-height: 48px !important;
-  font-size: 16px !important;
-  border-radius: 8px !important;
+    min-height: 48px !important;
+    font-size: 16px !important;
+    border-radius: 8px !important;
 }
 </style>

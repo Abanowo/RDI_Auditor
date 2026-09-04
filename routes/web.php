@@ -68,6 +68,9 @@ Route::put('/saldos-favor/{id}/reactivar', [IngresoConciliadoController::class, 
 Route::put('/saldos-favor/{id}', [IngresoConciliadoController::class, 'updateSaldo']);
 Route::delete('/saldos-favor/{id}', [IngresoConciliadoController::class, 'destroySaldo']);
 
+Route::get('/datos-usuario-actual', function () {
+    return response()->json(auth()->user());
+});
 
 // Atrapa cualquier URL que no coincida con las de arriba y le entrega el control a Vue Router.
 Route::get('/{any}', function () {

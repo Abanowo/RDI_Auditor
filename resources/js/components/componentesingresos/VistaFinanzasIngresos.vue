@@ -27,7 +27,7 @@
     </div>
 
     <!-- TARJETAS DE INDICADORES (KPIs) -->
-    <div class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-6 mb-10">
+    <div class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-6 mb-10">
 
       <!-- 1. INGRESOS TOTALES -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 border-l-4 flex justify-between items-center"
@@ -101,7 +101,7 @@
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 border-l-4 flex justify-between items-center"
         style="border-left-color: #4299E1;">
         <div>
-          <p class="text-base font-bold text-gray-400 uppercase tracking-wider mb-3">Saldos a Favor</p>
+          <p class="text-base font-bold text-gray-400 uppercase tracking-wider mb-3">Saldos a Favor del Cliente</p>
           <p class="text-4xl font-black text-gray-800 mb-2">{{ formatearDinero(totalSaldos) }}</p>
           <p class="text-sm font-bold" style="color: #4299E1;">Abonos listos</p>
         </div>
@@ -114,6 +114,21 @@
         </div>
       </div>
 
+      <!-- 6. SALDOS EN CONTRA -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 border-l-4 flex justify-between items-center"
+        style="border-left-color: #F54927;">
+        <div>
+          <p class="text-base font-bold text-gray-400 uppercase tracking-wider mb-3">Saldos en Contra del Cliente</p>
+          <p class="text-4xl font-black text-gray-800 mb-2">{{ formatearDinero(totalSaldosEnContra) }}</p> 
+        </div>
+        <div class="w-16 h-16 rounded-xl bg-red-100 text-red-400 flex items-center justify-center shrink-0">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z">
+            </path>
+          </svg>
+        </div>
+      </div>
     </div>
 
     <!-- PESTAÑAS SECUNDARIAS -->
@@ -125,7 +140,8 @@
         </button>
         <button @click="activeTab = 'saldos'"
           :class="['px-6 py-3 rounded-lg text-base font-bold shadow-sm whitespace-nowrap transition-colors', activeTab === 'saldos' ? 'bg-blue-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100']">
-          Saldos a Favor (Vigentes)
+          Saldos a Favor y en Contra
+          <br>del Cliente (Vigentes)
         </button>
         <button @click="activeTab = 'saldos_aplicados'"
           :class="['px-8 py-4 rounded-lg text-xl font-bold shadow-sm whitespace-nowrap transition-colors', activeTab === 'saldos_aplicados' ? 'bg-blue-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100']">
@@ -153,7 +169,7 @@
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
           </svg>
-          Insertar Fila
+          Registrar Ingreso
         </button>
       </div>
 
@@ -179,7 +195,7 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4 pt-1">
           <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap">Cliente:</label>
-            <multiselect v-model="filtros.cliente" :options="opcionesFiltroCliente" placeholder="Todos"
+            <multiselect v-model="filtros.cliente" :options="opcionesFiltroCliente" placeholder="Todos" 
               :searchable="true" :show-labels="false" @input="aplicarFiltrosYBuscar" class="custom-filter-multiselect"></multiselect>
           </div>
           <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap">Servicio:</label>
@@ -238,7 +254,7 @@
 
         <IngresoCard v-for="item in ingresosData" :key="item.id" :item="item" @generar="generarComplemento"
           @visualizar="visualizarComplemento" @enviar="enviarCorreoComplemento" @editar="abrirModalEditarIngreso"
-          @eliminar="eliminarFila" />
+          @eliminar="eliminarFila" @ver-desglose="mostrarDesgloseManzanillo" />
 
         <div v-if="!cargandoRegistros && ingresosData.length === 0"
           class="text-center py-16 text-lg text-gray-500 bg-white rounded-xl shadow-sm border border-gray-200 font-bold mt-4">
@@ -476,6 +492,8 @@ export default {
   },
   data() {
     return {
+      usuario: window.UsuarioActual || {},
+
       activeTab: 'ingresos',
       cargandoRegistros: false,
       showModal: false,
@@ -552,6 +570,7 @@ export default {
     this.cargarCatalogos();
     this.cargarIngresos();
     this.cargarSaldos();
+    this.obtenerUsuarioActual();
   },
   computed: {
     // Paginación Matemáticas
@@ -577,18 +596,27 @@ export default {
       return [1, 2, '...', current - 2, current - 1, current, current + 1, current + 2, '...', total - 1, total];
     },
 
-    // KPIs Inteligentes (Toman del backend, o suman lo actual si el backend aún no envía)
+    // KPIs
     totalDepositos() {
-      if (this.kpisTotales.depositos !== null) return this.kpisTotales.depositos;
-      return this.ingresosData.reduce((acc, item) => acc + (Number(item.monto_deposito) || 0), 0);
+      if (this.kpisTotales.depositos !== null) {
+        return this.kpisTotales.depositos;
+      }
+      const lista = Array.isArray(this.ingresosData) ? this.ingresosData : [];
+      return lista.reduce((acc, item) => acc + (Number(item.monto_deposito) || 0), 0);
     },
     totalHonorarios() {
-      if (this.kpisTotales.honorarios !== null) return this.kpisTotales.honorarios;
-      return this.ingresosData.reduce((acc, item) => acc + (Number(item.honorarios) || 0), 0);
+      if (this.kpisTotales.honorarios !== null) {
+        return this.kpisTotales.honorarios;
+      }
+      const lista = Array.isArray(this.ingresosData) ? this.ingresosData : [];
+      return lista.reduce((acc, item) => acc + (Number(item.honorarios) || 0), 0);
     },
     totalNotaCargo() {
-      if (this.kpisTotales.notaCargo !== null) return this.kpisTotales.notaCargo;
-      return this.ingresosData.reduce((acc, item) => {
+      if (this.kpisTotales.notaCargo !== null) {
+        return this.kpisTotales.notaCargo;
+      }
+      const lista = Array.isArray(this.ingresosData) ? this.ingresosData : [];
+      return lista.reduce((acc, item) => {
         const sucursal = item.sucursal_origen ? item.sucursal_origen.toUpperCase() : '';
         const esManzanilloRow = sucursal.includes('MANZANILLO') || sucursal.includes('INTSHIPPERT');
         if (esManzanilloRow) {
@@ -603,24 +631,73 @@ export default {
     },
 
     saldosVigentesFiltrados() {
-      return this.saldosData.filter(s => {
-        if (s.estatus !== 'VIGENTE') return false;
-        if (this.filtroSucursalActiva === 'Todas') return true;
+      const lista = Array.isArray(this.saldosData) ? this.saldosData : [];
+      return lista.filter(s => {
+        if (s.estatus !== 'VIGENTE') {
+          return false;
+        }
+        
+        // Excluimos saldos en contra si la BD los marca en un campo tipo/concepto o monto negativo
+        const tipo = String(s.tipo || s.concepto || '').toUpperCase();
+        if (tipo.includes('CONTRA') || Number(s.monto) < 0) {
+          return false;
+        }
+
+        if (this.filtroSucursalActiva === 'Todas') {
+          return true;
+        }
         return s.sucursal_origen && s.sucursal_origen.toUpperCase().includes(this.filtroSucursalActiva.toUpperCase());
       });
     },
+
+    saldosEnContraVigentesFiltrados() {
+      const lista = Array.isArray(this.saldosData) ? this.saldosData : [];
+      return lista.filter(s => {
+        if (s.estatus !== 'VIGENTE') {
+          return false;
+        }
+        
+        // Detectamos si es un saldo en contra (por campo tipo, texto del concepto o monto negativo)
+        const tipo = String(s.tipo || s.concepto || '').toUpperCase();
+        const esEnContra = tipo.includes('CONTRA') || Number(s.monto) < 0;
+        if (!esEnContra) {
+          return false;
+        }
+
+        if (this.filtroSucursalActiva === 'Todas') {
+          return true;
+        }
+        return s.sucursal_origen && s.sucursal_origen.toUpperCase().includes(this.filtroSucursalActiva.toUpperCase());
+      });
+    },
+
     saldosAplicadosFiltrados() {
-      return this.saldosData.filter(s => {
-        if (s.estatus !== 'APLICADO') return false;
-        if (this.filtroSucursalActiva === 'Todas') return true;
+      const lista = Array.isArray(this.saldosData) ? this.saldosData : [];
+      return lista.filter(s => {
+        if (s.estatus !== 'APLICADO') {
+          return false;
+        }
+        if (this.filtroSucursalActiva === 'Todas') {
+          return true;
+        }
         return s.sucursal_origen && s.sucursal_origen.toUpperCase().includes(this.filtroSucursalActiva.toUpperCase());
       });
     },
+
+    // CÁLCULOS SEGUROS
     totalSaldos() {
-      return this.saldosVigentesFiltrados.reduce((acc, item) => acc + (Number(item.monto) || 0), 0);
+      const lista = Array.isArray(this.saldosVigentesFiltrados) ? this.saldosVigentesFiltrados : [];
+      return lista.reduce((acc, item) => acc + Math.abs(Number(item.monto) || 0), 0);
     },
+
+    totalSaldosEnContra() {
+      const lista = Array.isArray(this.saldosEnContraVigentesFiltrados) ? this.saldosEnContraVigentesFiltrados : [];
+      return lista.reduce((acc, item) => acc + Math.abs(Number(item.monto) || 0), 0);
+    },
+
     totalSaldosAplicados() {
-      return this.saldosAplicadosFiltrados.reduce((acc, item) => acc + (Number(item.monto) || 0), 0);
+      const lista = Array.isArray(this.saldosAplicadosFiltrados) ? this.saldosAplicadosFiltrados : [];
+      return lista.reduce((acc, item) => acc + Math.abs(Number(item.monto) || 0), 0);
     }
   },
   methods: {
@@ -744,6 +821,7 @@ export default {
     onIngresoActualizadoDesdeModal() {
       this.showModalEditarIngreso = false;
       this.cargarIngresos();
+      this.cargarSaldos();
     },
     async cargarCatalogos() {
       try {
@@ -878,6 +956,7 @@ export default {
     onSaldoActualizado() {
       this.showModalEditarSaldo = false;
       this.cargarSaldos();
+      this.cargarSaldos();
     },
     onIngresoGuardado() {
       this.showModal = false;
@@ -935,6 +1014,67 @@ export default {
 
         Swal.fire('Atención', mensajeError, 'error');
       }
+    },
+    async obtenerUsuarioActual() {
+      try {
+        // En Laravel normalmente la ruta '/api/user' o '/user' devuelve al auth()->user()
+        // Ajusta la ruta si en tu sistema utilizan otra (ej. '/perfil-usuario-actual')
+        const response = await axios.get('/api/user'); 
+        this.usuario = response.data;
+      } catch (error) {
+        console.warn("No se pudo obtener el usuario para los permisos", error);
+      }
+    },
+    mostrarDesgloseManzanillo(item) {
+      if (!item.operaciones || item.operaciones.length === 0) {
+        return Swal.fire('Atención', 'No hay operaciones o desgloses registrados para este ingreso.', 'info');
+      }
+
+      let filasHtml = item.operaciones.map(op => {
+        // Lee el anticipo y la referencia sin importar la estructura de la respuesta
+        const anticipoVal = op.anticipo !== undefined 
+          ? parseFloat(op.anticipo || 0) 
+          : (op.pivot ? parseFloat(op.pivot.anticipo || 0) : 0);
+          
+        const refVal = op.referencia || (op.pivot ? op.pivot.referencia : null) || op.folio || 'N/A';
+
+        return `
+          <tr>
+            <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: left; font-weight: bold;">
+               ${refVal}
+            </td>
+            <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right; color: #00C09F; font-weight: 900;">
+               $${anticipoVal.toLocaleString('en-US', {minimumFractionDigits: 2})}
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      Swal.fire({
+        title: 'Desglose de Anticipos',
+        html: `
+          <div style="font-family: Arial, sans-serif;">
+            <p style="color: #666; margin-bottom: 15px; text-align: left;">
+              Cliente: <b>${item.cliente?.nombre || item.cliente}</b><br>
+              Total Anticipo Global: <b>$${parseFloat(item.anticipo || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}</b>
+            </p>
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+              <thead style="background: #f8f9fa;">
+                <tr>
+                  <th style="padding: 10px; text-align: left;">Contenedor / Referencia</th>
+                  <th style="padding: 10px; text-align: right;">Anticipo Asignado</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filasHtml}
+              </tbody>
+            </table>
+          </div>
+        `,
+        confirmButtonColor: '#2A3A4D',
+        confirmButtonText: 'Cerrar',
+        width: '600px'
+      });
     }
   }
 }
