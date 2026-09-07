@@ -187,15 +187,13 @@
                     </svg>
                 </button>
                 <button @click="$emit('eliminar', item.id)"
-                    :disabled="!puedeEliminar || item.timbrado || item.estado_envio === 'ENVIADO'" :class="[
+                    :disabled="item.timbrado || item.estado_envio === 'ENVIADO'" :class="[
                         'p-2.5 rounded-lg transition-colors',
-                        (!puedeEliminar || item.timbrado || item.estado_envio === 'ENVIADO')
+                        (item.timbrado || item.estado_envio === 'ENVIADO')
                             ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
                             : 'text-red-500 hover:text-white bg-red-100 hover:bg-red-500'
                     ]"
-                    :title="!puedeEliminar
-                        ? 'No tienes los permisos necesarios para eliminar'
-                        : ((item.timbrado || item.estado_envio === 'ENVIADO') ? 'Inhabilitado: El ingreso ya fue timbrado' : 'Eliminar Fila')">
+                    :title="(item.timbrado || item.estado_envio === 'ENVIADO') ? 'Inhabilitado: El ingreso ya fue timbrado' : 'Eliminar Fila'">
 
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -211,16 +209,13 @@
 
 <script>
 import Swal from 'sweetalert2';
+
 export default {
     name: 'IngresoCard',
     props: {
         item: {
             type: Object,
             required: true
-        },
-        usuarioActual: {
-            type: Object,
-            default: () => ({})
         }
     },
     computed: {
@@ -295,44 +290,7 @@ export default {
         esManzanilloCard() {
             const sucursal = String((this.item && this.item.sucursal_origen) || '').toUpperCase();
             return sucursal.includes('MANZANILLO') || sucursal.includes('ZLO');
-        },
-        puedeEliminar() {
-            let u = this.usuarioActual;
-
-            // Si recibió una cadena (como un HTML) o null, intenta recurrir a window.UsuarioActual
-            if (typeof u !== 'object' || u === null) {
-                u = window.UsuarioActual || {};
-            }
-
-            if (!u || Object.keys(u).length === 0) {
-                return false;
-            }
-
-            // Super Admin (Soporta id_usuario, id o rol_id)
-            const idUser = u.id_usuario || u.id;
-            if (idUser === 1 || u.rol_id === 1) {
-                return true;
-            }
-
-            const nombre = String(u.nombre || u.name || '');
-            const apellidos = String(u.apellidos || u.last_name || '');
-
-            const nombreCompleto = `${nombre} ${apellidos}`
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "")
-                .toUpperCase()
-                .trim();
-
-            const personalAutorizado = [
-                ['SONIA', 'GOMEZ'],
-                ['MIRNA', 'LOPEZ'],
-                ['SAYDA', 'LEYVA']
-            ];
-
-            return personalAutorizado.some(combinacion => {
-                return combinacion.every(palabraClave => nombreCompleto.includes(palabraClave));
-            });
-        },
+        }
     },
     methods: {
         formatearDinero(monto) {

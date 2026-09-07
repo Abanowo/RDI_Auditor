@@ -9583,9 +9583,6 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ });
 /* harmony import */ var sweetalert2__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! sweetalert2 */ "./node_modules/sweetalert2/dist/sweetalert2.all.js");
 /* harmony import */ var sweetalert2__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(sweetalert2__WEBPACK_IMPORTED_MODULE_0__);
-function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
-//
-//
 //
 //
 //
@@ -9803,12 +9800,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     item: {
       type: Object,
       required: true
-    },
-    usuarioActual: {
-      type: Object,
-      "default": function _default() {
-        return {};
-      }
     }
   },
   computed: {
@@ -9910,32 +9901,6 @@ function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == 
     esManzanilloCard: function esManzanilloCard() {
       var sucursal = String(this.item && this.item.sucursal_origen || '').toUpperCase();
       return sucursal.includes('MANZANILLO') || sucursal.includes('ZLO');
-    },
-    puedeEliminar: function puedeEliminar() {
-      var u = this.usuarioActual;
-
-      // Si recibió una cadena (como un HTML) o null, intenta recurrir a window.UsuarioActual
-      if (_typeof(u) !== 'object' || u === null) {
-        u = window.UsuarioActual || {};
-      }
-      if (!u || Object.keys(u).length === 0) {
-        return false;
-      }
-
-      // Super Admin (Soporta id_usuario, id o rol_id)
-      var idUser = u.id_usuario || u.id;
-      if (idUser === 1 || u.rol_id === 1) {
-        return true;
-      }
-      var nombre = String(u.nombre || u.name || '');
-      var apellidos = String(u.apellidos || u.last_name || '');
-      var nombreCompleto = "".concat(nombre, " ").concat(apellidos).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().trim();
-      var personalAutorizado = [['SONIA', 'GOMEZ'], ['MIRNA', 'LOPEZ'], ['SAYDA', 'LEYVA']];
-      return personalAutorizado.some(function (combinacion) {
-        return combinacion.every(function (palabraClave) {
-          return nombreCompleto.includes(palabraClave);
-        });
-      });
     }
   },
   methods: {
@@ -90116,22 +90081,17 @@ var render = function () {
               {
                 class: [
                   "p-2.5 rounded-lg transition-colors",
-                  !_vm.puedeEliminar ||
-                  _vm.item.timbrado ||
-                  _vm.item.estado_envio === "ENVIADO"
+                  _vm.item.timbrado || _vm.item.estado_envio === "ENVIADO"
                     ? "text-gray-400 bg-gray-100 cursor-not-allowed"
                     : "text-red-500 hover:text-white bg-red-100 hover:bg-red-500",
                 ],
                 attrs: {
                   disabled:
-                    !_vm.puedeEliminar ||
-                    _vm.item.timbrado ||
-                    _vm.item.estado_envio === "ENVIADO",
-                  title: !_vm.puedeEliminar
-                    ? "No tienes los permisos necesarios para eliminar"
-                    : _vm.item.timbrado || _vm.item.estado_envio === "ENVIADO"
-                    ? "Inhabilitado: El ingreso ya fue timbrado"
-                    : "Eliminar Fila",
+                    _vm.item.timbrado || _vm.item.estado_envio === "ENVIADO",
+                  title:
+                    _vm.item.timbrado || _vm.item.estado_envio === "ENVIADO"
+                      ? "Inhabilitado: El ingreso ya fue timbrado"
+                      : "Eliminar Fila",
                 },
                 on: {
                   click: function ($event) {
