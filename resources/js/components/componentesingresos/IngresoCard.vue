@@ -49,7 +49,7 @@
                         class="flex flex-col justify-center px-5 py-3 bg-gray-100 border border-gray-200 rounded-lg shrink-0 min-w-[150px]">
                         <span class="font-bold text-gray-500 uppercase text-sm mb-1">SC (Calc)</span>
                         <span class="text-xl font-black text-gray-800 leading-none">{{ formatearDinero(montoSC)
-                        }}</span>
+                            }}</span>
                     </div>
                     <div class="flex flex-col justify-center px-5 py-3 border rounded-lg shrink-0 min-w-[150px]"
                         :class="diferencia < 0 ? 'bg-red-100 border-red-200' : (diferencia > 0 ? 'bg-yellow-100 border-yellow-200' : 'bg-green-100 border-green-200')">
@@ -210,6 +210,7 @@
 </template>
 
 <script>
+import Swal from 'sweetalert2';
 export default {
     name: 'IngresoCard',
     props: {
@@ -296,23 +297,42 @@ export default {
             return sucursal.includes('MANZANILLO') || sucursal.includes('ZLO');
         },
         puedeEliminar() {
-            // 1. Leemos directamente el usuario de la ventana (inyectado por Blade)
-            const usuario = window.UsuarioActual;
+            let u = this.usuarioActual;
 
-            // Si no hay usuario, bloqueamos el botón por seguridad
-            if (!usuario || !usuario.nombre) {
+            // Si recibió una cadena (como un HTML) o null, intenta recurrir a window.UsuarioActual
+            if (typeof u !== 'object' || u === null) {
+                u = window.UsuarioActual || {};
+            }
+
+            if (!u || Object.keys(u).length === 0) {
                 return false;
             }
 
-            // 2. Armamos el nombre y limpiamos acentos/mayúsculas
-            const nombreStr = (usuario.nombre || '') + ' ' + (usuario.apellidos || '');
-            const nombreLimpio = nombreStr.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+            // Super Admin (Soporta id_usuario, id o rol_id)
+            const idUser = u.id_usuario || u.id;
+            if (idUser === 1 || u.rol_id === 1) {
+                return true;
+            }
 
-            // 3. Verificamos si es alguna de las usuarias autorizadas
-            return nombreLimpio.includes('SONIA GOMEZ') ||
-                nombreLimpio.includes('MIRNA LOPEZ') ||
-                nombreLimpio.includes('SAYDA LEYVA');
-        }
+            const nombre = String(u.nombre || u.name || '');
+            const apellidos = String(u.apellidos || u.last_name || '');
+
+            const nombreCompleto = `${nombre} ${apellidos}`
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .toUpperCase()
+                .trim();
+
+            const personalAutorizado = [
+                ['SONIA', 'GOMEZ'],
+                ['MIRNA', 'LOPEZ'],
+                ['SAYDA', 'LEYVA']
+            ];
+
+            return personalAutorizado.some(combinacion => {
+                return combinacion.every(palabraClave => nombreCompleto.includes(palabraClave));
+            });
+        },
     },
     methods: {
         formatearDinero(monto) {
@@ -328,7 +348,6 @@ export default {
             }
 
             let filasHtml = item.operaciones.map(op => {
-                // Lee el anticipo y el folio tanto si vienen directos como por pivote
                 const anticipoVal = op.anticipo !== undefined
                     ? parseFloat(op.anticipo || 0)
                     : (op.pivot ? parseFloat(op.pivot.anticipo || 0) : 0);
@@ -338,18 +357,18 @@ export default {
                 return `
                     <tr>
                         <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: left; font-weight: bold;">
-                        ${folioVal}
+                        ${refVal}
                         </td>
                         <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right; color: #00C09F; font-weight: 900;">
                         $${anticipoVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                         </td>
                     </tr>
                     `;
-                        }).join('');
+            }).join('');
 
-                        Swal.fire({
-                            title: 'Desglose de Anticipos',
-                            html: `
+            Swal.fire({
+                title: 'Desglose de Anticipos',
+                html: `
                     <div style="font-family: Arial, sans-serif;">
                         <p style="color: #666; margin-bottom: 15px; text-align: left;">
                         Cliente: <b>${item.cliente?.nombre || item.cliente}</b><br>

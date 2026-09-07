@@ -519,6 +519,59 @@ export default {
     }
   },
   methods: {
+    obtenerPedimentoLimpio(ref) {
+      if (!ref) {
+        return '';
+      }
+
+      // 1. SI ES UN OBJETO (Multiselect), priorizar propiedad explícita de pedimento si existe
+      if (typeof ref === 'object' && ref !== null) {
+        if (ref.pedimento) {
+          return String(ref.pedimento).trim();
+        }
+        if (ref.num_pedimento) {
+          return String(ref.num_pedimento).trim();
+        }
+        ref = ref.folio || ref.label || ref.value || ref.text || '';
+      }
+
+      let str = String(ref).trim().toUpperCase();
+      if (!str || str === 'UNDEFINED' || str === 'NULL') {
+        return '';
+      }
+
+      // 2. PURGA EXPLICITA: Eliminamos folios de LLC, Facturas, Notas de Cargo, F- y SC-
+      str = str.replace(/LLC\s*[-_]?\s*\d+/gi, '');          // Quita 'LLC 12345', 'LLC-12345'
+      str = str.replace(/FAC(?:TURA)?\s*[-_]?\s*\d+/gi, ''); // Quita 'FACTURA 600123'
+      str = str.replace(/F-\d+/gi, '');                      // Quita 'F-12345'
+      str = str.replace(/SC\s*[-_]?\s*\d+/gi, '');           // Quita 'SC-12345'
+
+      // 3. BUSQUEDA POR PATENTE + PEDIMENTO (ej: 3739-6000464 o 3711 / 6000464)
+      const matchPatente = str.match(/(?:\d{4})\s*[-_/\s]\s*(\d{7})/);
+      if (matchPatente) {
+        return matchPatente[1]; // Retorna los 7 dígitos del pedimento
+      }
+
+      // 4. BÚSQUEDA DE 7 DÍGITOS EXACTOS (Pedimento aislado)
+      const match7Digitos = str.match(/\b\d{7}\b/);
+      if (match7Digitos) {
+        return match7Digitos[0];
+      }
+
+      // 5. FALLBACK: Limpieza de guiones tradicional si no es pedimento de 7 dígitos
+      let partes = str.split(' - ').map(p => p.trim()).filter(Boolean);
+      if (partes.length >= 3) {
+        str = partes[1];
+      } else if (partes.length === 2) {
+        str = partes[0];
+      } else {
+        str = partes[0] || str;
+      }
+
+      if (str.includes('/')) str = str.split('/')[0].trim();
+
+      return str;
+    },
     agregarClienteManual(nuevoNombre) {
       const nuevoCliente = {
         id: 'nuevo_' + Date.now(),
@@ -582,43 +635,10 @@ export default {
         return Swal.fire('Atención', 'Selecciona la sucursal y agrega al menos un dato de búsqueda.', 'warning');
       }
 
-      // Lógica de extracción inteligente para la Base de Datos
-      let pedimentosLimpios = this.form.referenciasObj.map(ref => {
-        if (!ref) {
-          return '';
-        }
-
-        // 1. Extraemos el texto crudo según el tipo de dato que contenga ref
-        let texto = '';
-        if (typeof ref === 'string') {
-          texto = ref;
-        } else if (typeof ref === 'object') {
-          texto = ref.folio || ref.label || ref.value || ref.text || '';
-        }
-
-        texto = String(texto).trim();
-        if (!texto || texto === 'undefined') {
-          return '';
-        }
-
-        // 2. Desarmamos el formato "3739 - 6000464 - SURTIDORA"
-        let partes = texto.split(' - ');
-        
-        if (partes.length >= 3) {
-          // El pedimento está en la segunda posición (índice 1)
-          texto = partes[1].trim(); 
-        } else if (partes.length === 2) {
-          // El pedimento está en la primera posición (índice 0)
-          texto = partes[0].trim();
-        }
-
-        // 3. Regla de la diagonal: si viene "6000464/6000495", toma "6000464"
-        if (texto.includes('/')) {
-          texto = texto.split('/')[0].trim();
-        }
-
-        return texto;
-      }).filter(r => r !== '' && r !== 'undefined');
+      // Extraemos los pedimentos utilizando la función purgada anti-LLC y anti-Facturas
+      let pedimentosLimpios = this.form.referenciasObj
+        .map(ref => this.obtenerPedimentoLimpio(ref))
+        .filter(p => p !== '');
 
       Swal.fire({
         title: 'Calculando...',
@@ -709,7 +729,7 @@ export default {
       delete payload.cliente;
 
       payload.total_gpc = this.totalGPC;
-      payload.anticipo = Number(this.form.anticipo || 0); // 🔥 Forzamos envío numérico del anticipo
+      payload.anticipo = Number(this.form.anticipo || 0); // Forzamos envío numérico del anticipo
 
       // 2. Construcción de string para la columna principal 'referencia'
       if (this.form.referenciasObj && Array.isArray(this.form.referenciasObj)) {
@@ -725,17 +745,6 @@ export default {
       // CONSTRUCCIÓN DE 'OPERACIONES' PARA LA TABLA PIVOTE (ingreso_operacion)
       // Mapeamos cada referencia de la lista para enviarla como elemento de la tabla pivote
       if (this.form.referenciasObj && Array.isArray(this.form.referenciasObj) && this.form.referenciasObj.length > 0) {
-        
-        // Función auxiliar para extraer el número de folio limpio (ej: "68302 - 6001853 - CARNICOS DM" -> "6001853")
-        const obtenerFolioLimpio = (val) => {
-          if (!val) return '';
-          let str = String(val).trim().replace('F-', '');
-          let partes = str.split(' - ');
-          if (partes.length >= 3) str = partes[1].trim();
-          else if (partes.length === 2) str = partes[0].trim();
-          if (str.includes('/')) str = str.split('/')[0].trim();
-          return str.toUpperCase();
-        };
 
         const opsBuscadas = Array.isArray(this.form.operaciones) ? this.form.operaciones : [];
         const pedimentosSheet = Array.isArray(this.pedimentosSheet) ? this.pedimentosSheet : [];
@@ -745,13 +754,15 @@ export default {
             ? (ref.folio || ref.label || ref.referencia || ref.pedimento || '') 
             : String(ref);
           
-          const folioLimpio = obtenerFolioLimpio(textoOriginal);
+          const folioLimpio = this.obtenerPedimentoLimpio(textoOriginal);
           const textoUpper = String(textoOriginal).toUpperCase().trim();
 
           // Buscamos coincidencia en form.operaciones o en pedimentosSheet
           const esCoincidencia = (o) => {
-            if (!o) return false;
-            const oFolioLimpio = obtenerFolioLimpio(o.folio || o.referencia || o.pedimento || o.id);
+            if (!o) {
+              return false;
+            }
+            const oFolioLimpio = this.obtenerPedimentoLimpio(o.folio || o.referencia || o.pedimento || o.id);
             const oFolioRaw = String(o.folio || o.referencia || o.label || '').toUpperCase().trim();
             
             return (folioLimpio && oFolioLimpio && (folioLimpio === oFolioLimpio || oFolioLimpio.includes(folioLimpio) || folioLimpio.includes(oFolioLimpio))) ||

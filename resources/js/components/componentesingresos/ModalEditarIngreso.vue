@@ -602,8 +602,11 @@ export default {
                 return Swal.fire('Atención', 'Selecciona la sucursal y agrega al menos un folio.', 'warning');
             }
 
+            // Lógica de extracción inteligente para la Base de Datos
             let pedimentosLimpios = this.form.referenciasObj.map(ref => {
-                if (!ref) return '';
+                if (!ref) {
+                    return '';
+                }
 
                 let texto = '';
                 if (typeof ref === 'string') {
@@ -612,13 +615,19 @@ export default {
                     texto = ref.folio || ref.label || ref.value || ref.text || '';
                 }
 
-                texto = String(texto).trim();
-                if (!texto || texto === 'undefined') return '';
+                texto = String(texto).trim().toUpperCase();
+                if (!texto || texto === 'UNDEFINED') {
+                    return '';
+                }
 
-                texto = texto.replace('F-', '');
+                // Búsqueda inteligente de Pedimentos de 7 dígitos (ej: 6000464)
+                const matchPedimento = texto.match(/(?:\d{4}\s*-\s*)?(\d{7})/);
+                if (matchPedimento) {
+                    return matchPedimento[1]; // Retorna solo el pedimento de 7 dígitos
+                }
 
+                // Si no es un pedimento, limpiamos los guiones
                 let partes = texto.split(' - ');
-
                 if (partes.length >= 3) {
                     texto = partes[1].trim();
                 } else if (partes.length === 2) {
@@ -630,7 +639,7 @@ export default {
                 }
 
                 return texto;
-            }).filter(r => r !== '' && r !== 'undefined');
+            }).filter(r => r !== '');
 
             Swal.fire({
                 title: 'Calculando...',
@@ -756,12 +765,13 @@ export default {
 
             payload.anticipo = Number(this.form.anticipo || 0);
             payload.sucursal_origen = this.sucursalReal;
+            payload.total_gpc = this.totalGPC;
 
             delete payload.cliente;
             delete payload._original;
             delete payload.cp;
 
-            // 🔥 2. EXTRACCIÓN BLINDADA DE LA COLUMNA 'referencia'
+            // 2. EXTRACCIÓN BLINDADA DE LA COLUMNA 'referencia'
             payload.referencia = this.form.referenciasObj.map(r => {
                 if (typeof r === 'object' && r !== null) {
                     return r.folio || r.label || r.referencia || r.pedimento || '';
@@ -773,17 +783,38 @@ export default {
                 payload.referencia = payload.pedimento_detectado;
             }
 
-            // 🔥 3. CONSTRUCCIÓN DE 'OPERACIONES' PARA LA TABLA PIVOTE (ingreso_operacion)
+            // 3. CONSTRUCCIÓN DE 'OPERACIONES' PARA LA TABLA PIVOTE (ingreso_operacion)
             if (this.form.referenciasObj && Array.isArray(this.form.referenciasObj) && this.form.referenciasObj.length > 0) {
                 // Función auxiliar para extraer el número de folio limpio
                 const obtenerFolioLimpio = (val) => {
-                    if (!val) return '';
-                    let str = String(val).trim().replace('F-', '');
+                    if (!val) {
+                        return '';
+                    }
+                    let str = String(val).trim().toUpperCase();
+
+                    // 1. Buscamos específicamente un formato de pedimento de 7 dígitos
+                    // Puede venir solo "6000464" o con patente "3711-6000464" o "3739 - 6000464"
+                    const matchPedimento = str.match(/(?:\d{4}\s*-\s*)?(\d{7})/);
+
+                    if (matchPedimento) {
+                        // matchPedimento[1] contiene siempre los 7 dígitos del pedimento
+                        return matchPedimento[1];
+                    }
+
+                    // 2. Si no es un pedimento de 7 dígitos (ej. Transportactics o Folios Manuales)
+                    // Mantenemos la lógica de limpieza básica
+                    str = str.replace('F-', '');
                     let partes = str.split(' - ');
-                    if (partes.length >= 3) str = partes[1].trim();
-                    else if (partes.length === 2) str = partes[0].trim();
-                    if (str.includes('/')) str = str.split('/')[0].trim();
-                    return str.toUpperCase();
+                    if (partes.length >= 3) {
+                        str = partes[1].trim();
+                    } else if (partes.length === 2) {
+                        str = partes[0].trim();
+                    }
+                    if (str.includes('/')) {
+                        str = str.split('/')[0].trim();
+                    }
+
+                    return str;
                 };
 
                 const opsBuscadas = Array.isArray(this.form.operaciones) ? this.form.operaciones : [];
@@ -799,7 +830,9 @@ export default {
 
                     // Buscamos coincidencia en form.operaciones o en pedimentosSheet
                     const esCoincidencia = (o) => {
-                        if (!o) return false;
+                        if (!o) {
+                            return false;
+                        }
                         const oFolioLimpio = obtenerFolioLimpio(o.folio || o.referencia || o.pedimento || o.id);
                         const oFolioRaw = String(o.folio || o.referencia || o.label || '').toUpperCase().trim();
 

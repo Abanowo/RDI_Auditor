@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\SaldoFavor;
 
 class IngresoConciliado extends Model
 {
@@ -53,5 +54,12 @@ class IngresoConciliado extends Model
     public function operaciones()
     {
         return $this->hasMany(IngresoOperacion::class, 'ingreso_id');
+    }
+    protected static function booted()
+    {
+        static::deleting(function ($ingreso) {
+            // Se ejecuta automáticamente cada vez que se borra un ingreso
+            SaldoFavor::where('ingreso_conciliado_id', $ingreso->id)->delete();
+        });
     }
 }

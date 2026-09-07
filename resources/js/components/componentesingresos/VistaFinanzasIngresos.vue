@@ -252,9 +252,9 @@
           <span class="text-sm font-bold text-gray-500">Cargando registros...</span>
         </div>
 
-        <IngresoCard v-for="item in ingresosData" :key="item.id" :item="item" @generar="generarComplemento"
-          @visualizar="visualizarComplemento" @enviar="enviarCorreoComplemento" @editar="abrirModalEditarIngreso"
-          @eliminar="eliminarFila" @ver-desglose="mostrarDesgloseManzanillo" />
+        <IngresoCard v-for="item in ingresosData" :key="item.id" :item="item" :usuario-actual="usuario"
+          @generar="generarComplemento" @visualizar="visualizarComplemento" @enviar="enviarCorreoComplemento"
+          @editar="abrirModalEditarIngreso" @eliminar="eliminarFila" @ver-desglose="mostrarDesgloseManzanillo" />
 
         <div v-if="!cargandoRegistros && ingresosData.length === 0"
           class="text-center py-16 text-lg text-gray-500 bg-white rounded-xl shadow-sm border border-gray-200 font-bold mt-4">
@@ -296,86 +296,177 @@
     <!-- ============================================== -->
     <!-- TAB 2: CARTERA DE SALDOS A FAVOR (VIGENTES)    -->
     <!-- ============================================== -->
-    <div v-show="activeTab === 'saldos'" class="flex-1 flex flex-col">
-      <div class="flex justify-between items-end mb-6">
-        <div>
-          <h2 class="text-2xl font-black text-gray-800 uppercase tracking-wide">CARTERA DE SALDOS A FAVOR DE CLIENTES
-            (VIGENTES)</h2>
-          <p class="text-lg text-gray-500 mt-3">Registros de saldo a favor detectados o notas de crédito que pueden
-            aplicarse en despachos futuros</p>
+    <div v-show="activeTab === 'saldos'" class="flex-1 flex flex-col gap-10">
+
+      <!-- SECCIÓN 1: SALDOS A FAVOR (ABONOS / NOTAS DE CRÉDITO) -->
+      <div>
+        <div class="flex justify-between items-end mb-4">
+          <div>
+            <h2 class="text-2xl font-black text-gray-800 uppercase tracking-wide flex items-center gap-3">
+              <span class="w-3 h-3 rounded-full bg-blue-500"></span>
+              CARTERA DE SALDOS A FAVOR DE CLIENTES (VIGENTES)
+            </h2>
+            <p class="text-base text-gray-500 mt-1">Saldos a favor o abonos disponibles para aplicar en despachos
+              futuros</p>
+          </div>
+          <button @click="abrirModalNuevoSaldo"
+            class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg text-lg font-bold flex items-center gap-2 shadow-sm transition-colors">
+            <span class="text-2xl leading-none mt-[-2px]">+</span> Registrar Saldo a Favor
+          </button>
         </div>
-        <button @click="abrirModalNuevoSaldo"
-          class="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-lg text-xl font-bold flex items-center gap-3 shadow-sm transition-colors">
-          <span class="text-3xl leading-none mt-[-2px]">+</span> Registrar Saldo a Favor
-        </button>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <table class="w-full text-left whitespace-nowrap min-w-max">
+            <thead
+              class="bg-gray-50 text-gray-800 text-sm font-black uppercase tracking-wider border-b border-gray-200">
+              <tr>
+                <th class="px-6 py-4" style="width: 250px;">CLIENTE</th>
+                <th class="px-6 py-4" style="width: 200px;">SUCURSAL ORIGEN</th>
+                <th class="px-6 py-4 text-center" style="width: 200px;">MONTO A FAVOR</th>
+                <th class="px-6 py-4 text-center" style="width: 220px;">FECHA DETECCIÓN</th>
+                <th class="px-6 py-4">CONCEPTO O JUSTIFICACIÓN</th>
+                <th class="px-6 py-4 text-center" style="width: 140px;">ESTATUS</th>
+                <th class="px-6 py-4 text-right" style="width: 280px;">ACCIÓN</th>
+              </tr>
+            </thead>
+            <tbody class="text-gray-700 font-medium text-base">
+              <tr v-for="saldo in saldosVigentesFiltrados" :key="'favor-' + saldo.id"
+                class="border-b border-gray-100 hover:bg-gray-50 transition-colors bg-white">
+                <td class="px-6 py-4 font-bold text-gray-900">{{ saldo.cliente }}</td>
+                <td class="px-6 py-4 text-gray-600">{{ saldo.sucursal_origen }}</td>
+                <td class="px-6 py-4 text-center font-black text-emerald-600">{{ formatearDinero(saldo.monto) }}</td>
+                <td class="px-6 py-4 text-center text-gray-600">{{ saldo.fecha_deteccion }}</td>
+                <td class="px-6 py-4 text-gray-600">{{ saldo.concepto }}</td>
+                <td class="px-6 py-4 text-center">
+                  <span
+                    class="px-3 py-1 bg-emerald-100 text-emerald-800 font-black rounded-full uppercase text-xs tracking-wider">A
+                    FAVOR</span>
+                </td>
+                <td class="px-6 py-4 text-right">
+                  <div class="flex items-center justify-end gap-2">
+                    <button @click="editarSaldo(saldo)"
+                      class="text-indigo-600 bg-indigo-100 hover:bg-indigo-200 p-2 rounded-lg transition-colors"
+                      title="Editar">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z">
+                        </path>
+                      </svg>
+                    </button>
+                    <button @click="eliminarSaldo(saldo.id)"
+                      class="text-red-500 bg-red-100 hover:bg-red-200 p-2 rounded-lg transition-colors"
+                      title="Eliminar">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                        </path>
+                      </svg>
+                    </button>
+                    <button @click="notificarCliente(saldo)"
+                      class="text-blue-500 bg-blue-100 hover:bg-blue-200 p-2 rounded-lg transition-colors"
+                      title="Notificar">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
+                        </path>
+                      </svg>
+                    </button>
+                    <button @click="aplicarSaldo(saldo.id)"
+                      class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold text-xs transition-colors uppercase tracking-wider shadow-sm ml-2">APLICAR</button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="saldosVigentesFiltrados.length === 0">
+                <td colspan="7" class="text-center py-10 text-base text-gray-400 bg-gray-50 font-medium">No se
+                  encontraron saldos a favor vigentes.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mt-2">
-        <table class="w-full text-left whitespace-nowrap min-w-max">
-          <thead class="bg-gray-50 text-gray-800 text-sm font-black uppercase tracking-wider border-b border-gray-200">
-            <tr>
-              <th class="px-6 py-5" style="width: 250px;">CLIENTE</th>
-              <th class="px-6 py-5" style="width: 200px;">SUCURSAL ORIGEN</th>
-              <th class="px-6 py-5 text-center" style="width: 200px;">MONTO DE CRÉDITO</th>
-              <th class="px-6 py-5 text-center" style="width: 220px;">FECHA DE DETECCIÓN</th>
-              <th class="px-6 py-5">CONCEPTO O JUSTIFICACIÓN</th>
-              <th class="px-6 py-5 text-center" style="width: 140px;">ESTATUS</th>
-              <th class="px-6 py-5 text-right" style="width: 280px;">ACCIÓN</th>
-            </tr>
-          </thead>
-          <tbody class="text-gray-700 font-medium text-base">
-            <tr v-for="saldo in saldosVigentesFiltrados" :key="saldo.id"
-              class="border-b border-gray-100 hover:bg-gray-50 transition-colors bg-white">
-              <td class="px-6 py-5 font-bold text-gray-900">{{ saldo.cliente }}</td>
-              <td class="px-6 py-5 text-gray-600">{{ saldo.sucursal_origen }}</td>
-              <td class="px-6 py-5 text-center font-black text-gray-900">{{ formatearDinero(saldo.monto) }}</td>
-              <td class="px-6 py-5 text-center text-gray-600">{{ saldo.fecha_deteccion }}</td>
-              <td class="px-6 py-5 text-gray-600">{{ saldo.concepto }}</td>
-              <td class="px-6 py-5 text-center">
-                <span
-                  class="px-4 py-1.5 bg-white border border-gray-200 text-gray-800 font-black rounded-full uppercase text-xs tracking-widest shadow-sm">VIGENTE</span>
-              </td>
-              <td class="px-6 py-5 text-right">
-                <div class="flex items-center justify-end gap-2">
-                  <button @click="editarSaldo(saldo)"
-                    class="text-indigo-600 bg-indigo-100 hover:bg-indigo-200 p-2.5 rounded-lg transition-colors"
-                    title="Editar">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z">
-                      </path>
-                    </svg>
-                  </button>
-                  <button @click="eliminarSaldo(saldo.id)"
-                    class="text-red-500 bg-red-100 hover:bg-red-200 p-2.5 rounded-lg transition-colors"
-                    title="Eliminar">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
-                      </path>
-                    </svg>
-                  </button>
-                  <button @click="notificarCliente(saldo)"
-                    class="text-blue-500 bg-blue-100 hover:bg-blue-200 p-2.5 rounded-lg transition-colors"
-                    title="Notificar">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
-                      </path>
-                    </svg>
-                  </button>
-                  <button @click="aplicarSaldo(saldo.id)"
-                    class="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-lg font-bold text-sm transition-colors uppercase tracking-wider shadow-sm ml-2">APLICAR</button>
-                </div>
-              </td>
-            </tr>
-            <tr v-if="saldosVigentesFiltrados.length === 0">
-              <td colspan="7" class="text-center py-16 text-lg text-gray-400 bg-gray-50 font-medium">No se encontraron
-                saldos vigentes.</td>
-            </tr>
-          </tbody>
-        </table>
+      <!-- SECCIÓN 2: SALDOS EN CONTRA (PAGOS PENDIENTES / DEUDAS) -->
+      <div>
+        <div class="mb-4">
+          <h2 class="text-2xl font-black text-gray-800 uppercase tracking-wide flex items-center gap-3">
+            <span class="w-3 h-3 rounded-full bg-red-500"></span>
+            SALDOS EN CONTRA / A CARGO DEL CLIENTE (VIGENTES)
+          </h2>
+          <p class="text-base text-gray-500 mt-1">Diferencias pendientes de cobro por faltantes en depósitos o facturas
+            parcialmente cubiertas</p>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <table class="w-full text-left whitespace-nowrap min-w-max">
+            <thead
+              class="bg-gray-50 text-gray-800 text-sm font-black uppercase tracking-wider border-b border-gray-200">
+              <tr>
+                <th class="px-6 py-4" style="width: 250px;">CLIENTE</th>
+                <th class="px-6 py-4" style="width: 200px;">SUCURSAL ORIGEN</th>
+                <th class="px-6 py-4 text-center" style="width: 200px;">MONTO PENDIENTE</th>
+                <th class="px-6 py-4 text-center" style="width: 220px;">FECHA DETECCIÓN</th>
+                <th class="px-6 py-4">CONCEPTO O JUSTIFICACIÓN</th>
+                <th class="px-6 py-4 text-center" style="width: 140px;">ESTATUS</th>
+                <th class="px-6 py-4 text-right" style="width: 280px;">ACCIÓN</th>
+              </tr>
+            </thead>
+            <tbody class="text-gray-700 font-medium text-base">
+              <tr v-for="saldo in saldosEnContraVigentesFiltrados" :key="'contra-' + saldo.id"
+                class="border-b border-gray-100 hover:bg-red-50/30 transition-colors bg-white">
+                <td class="px-6 py-4 font-bold text-gray-900">{{ saldo.cliente }}</td>
+                <td class="px-6 py-4 text-gray-600">{{ saldo.sucursal_origen }}</td>
+                <td class="px-6 py-4 text-center font-black text-red-600">-${{
+                  Math.abs(parseFloat(saldo.monto)).toLocaleString('en-US', {minimumFractionDigits: 2}) }}</td>
+                <td class="px-6 py-4 text-center text-gray-600">{{ saldo.fecha_deteccion }}</td>
+                <td class="px-6 py-4 text-gray-600">{{ saldo.concepto }}</td>
+                <td class="px-6 py-4 text-center">
+                  <span
+                    class="px-3 py-1 bg-red-100 text-red-800 font-black rounded-full uppercase text-xs tracking-wider">EN
+                    CONTRA</span>
+                </td>
+                <td class="px-6 py-4 text-right">
+                  <div class="flex items-center justify-end gap-2">
+                    <button @click="editarSaldo(saldo)"
+                      class="text-indigo-600 bg-indigo-100 hover:bg-indigo-200 p-2 rounded-lg transition-colors"
+                      title="Editar">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z">
+                        </path>
+                      </svg>
+                    </button>
+                    <button @click="eliminarSaldo(saldo.id)"
+                      class="text-red-500 bg-red-100 hover:bg-red-200 p-2 rounded-lg transition-colors"
+                      title="Eliminar">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                        </path>
+                      </svg>
+                    </button>
+                    <button @click="notificarCliente(saldo)"
+                      class="text-blue-500 bg-blue-100 hover:bg-blue-200 p-2 rounded-lg transition-colors"
+                      title="Notificar Cobro">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
+                        </path>
+                      </svg>
+                    </button>
+                    <button @click="aplicarSaldo(saldo.id)"
+                      class="bg-gray-800 hover:bg-black text-white px-4 py-2 rounded-lg font-bold text-xs transition-colors uppercase tracking-wider shadow-sm ml-2">SALDAR</button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-if="saldosEnContraVigentesFiltrados.length === 0">
+                <td colspan="7" class="text-center py-10 text-base text-gray-400 bg-gray-50 font-medium">No se
+                  encontraron saldos en contra vigentes.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
+
     </div>
 
     <!-- ============================================== -->
@@ -633,33 +724,37 @@ export default {
     saldosVigentesFiltrados() {
       const lista = Array.isArray(this.saldosData) ? this.saldosData : [];
       return lista.filter(s => {
-        if (s.estatus !== 'VIGENTE') {
+        const estatus = s.estatus ? String(s.estatus).toUpperCase().trim() : 'VIGENTE';
+        if (estatus === 'APLICADO' || estatus === 'CANCELADO') {
           return false;
         }
-        
-        // Excluimos saldos en contra si la BD los marca en un campo tipo/concepto o monto negativo
-        const tipo = String(s.tipo || s.concepto || '').toUpperCase();
-        if (tipo.includes('CONTRA') || Number(s.monto) < 0) {
+
+        const montoNum = parseFloat(s.monto) || 0;
+        const textoConcepto = String(s.concepto || '').toUpperCase();
+
+        const esAFavor = montoNum > 0 && !textoConcepto.includes('CONTRA') && !textoConcepto.includes('MENOS');
+        if (!esAFavor) {
           return false;
         }
 
         if (this.filtroSucursalActiva === 'Todas') {
           return true;
         }
-        return s.sucursal_origen && s.sucursal_origen.toUpperCase().includes(this.filtroSucursalActiva.toUpperCase());
+        return s.sucursal_origen && String(s.sucursal_origen).toUpperCase().includes(this.filtroSucursalActiva.toUpperCase());
       });
     },
-
     saldosEnContraVigentesFiltrados() {
       const lista = Array.isArray(this.saldosData) ? this.saldosData : [];
       return lista.filter(s => {
-        if (s.estatus !== 'VIGENTE') {
+        const estatus = s.estatus ? String(s.estatus).toUpperCase().trim() : 'VIGENTE';
+        if (estatus === 'APLICADO' || estatus === 'CANCELADO') {
           return false;
         }
-        
-        // Detectamos si es un saldo en contra (por campo tipo, texto del concepto o monto negativo)
-        const tipo = String(s.tipo || s.concepto || '').toUpperCase();
-        const esEnContra = tipo.includes('CONTRA') || Number(s.monto) < 0;
+
+        const montoNum = parseFloat(s.monto) || 0;
+        const textoConcepto = String(s.concepto || '').toUpperCase();
+
+        const esEnContra = montoNum < 0 || textoConcepto.includes('CONTRA') || textoConcepto.includes('MENOS');
         if (!esEnContra) {
           return false;
         }
@@ -667,37 +762,35 @@ export default {
         if (this.filtroSucursalActiva === 'Todas') {
           return true;
         }
-        return s.sucursal_origen && s.sucursal_origen.toUpperCase().includes(this.filtroSucursalActiva.toUpperCase());
+        return s.sucursal_origen && String(s.sucursal_origen).toUpperCase().includes(this.filtroSucursalActiva.toUpperCase());
       });
     },
-
     saldosAplicadosFiltrados() {
       const lista = Array.isArray(this.saldosData) ? this.saldosData : [];
       return lista.filter(s => {
-        if (s.estatus !== 'APLICADO') {
+        const estatus = s.estatus ? String(s.estatus).toUpperCase().trim() : '';
+        if (estatus !== 'APLICADO') {
           return false;
         }
         if (this.filtroSucursalActiva === 'Todas') {
           return true;
         }
-        return s.sucursal_origen && s.sucursal_origen.toUpperCase().includes(this.filtroSucursalActiva.toUpperCase());
+        return s.sucursal_origen && String(s.sucursal_origen).toUpperCase().includes(this.filtroSucursalActiva.toUpperCase());
       });
     },
-
-    // CÁLCULOS SEGUROS
     totalSaldos() {
       const lista = Array.isArray(this.saldosVigentesFiltrados) ? this.saldosVigentesFiltrados : [];
-      return lista.reduce((acc, item) => acc + Math.abs(Number(item.monto) || 0), 0);
+      return lista.reduce((acc, item) => acc + Math.abs(parseFloat(item.monto) || 0), 0);
     },
 
     totalSaldosEnContra() {
       const lista = Array.isArray(this.saldosEnContraVigentesFiltrados) ? this.saldosEnContraVigentesFiltrados : [];
-      return lista.reduce((acc, item) => acc + Math.abs(Number(item.monto) || 0), 0);
+      return lista.reduce((acc, item) => acc + Math.abs(parseFloat(item.monto) || 0), 0);
     },
 
     totalSaldosAplicados() {
       const lista = Array.isArray(this.saldosAplicadosFiltrados) ? this.saldosAplicadosFiltrados : [];
-      return lista.reduce((acc, item) => acc + Math.abs(Number(item.monto) || 0), 0);
+      return lista.reduce((acc, item) => acc + Math.abs(parseFloat(item.monto) || 0), 0);
     }
   },
   methods: {
@@ -818,10 +911,12 @@ export default {
       this.ingresoAEditar = item;
       this.showModalEditarIngreso = true;
     },
-    onIngresoActualizadoDesdeModal() {
+    async onIngresoActualizadoDesdeModal() {
       this.showModalEditarIngreso = false;
-      this.cargarIngresos();
-      this.cargarSaldos();
+      await Promise.all([
+        this.cargarIngresos(),
+        this.cargarSaldos()
+      ]);
     },
     async cargarCatalogos() {
       try {
@@ -850,9 +945,12 @@ export default {
     async cargarSaldos() {
       try {
         const response = await axios.get('/saldos-favor');
-        this.saldosData = response.data;
+
+        const datos = Array.isArray(response.data) ? response.data : (response.data.data || []);
+
+        this.saldosData = datos; // O this.saldos según como lo tengas en data()
       } catch (error) {
-        console.error("Error cargando saldos a favor", error);
+        console.error("Error al cargar saldos:", error);
       }
     },
     abrirModalNuevoSaldo() {
@@ -865,22 +963,29 @@ export default {
     async notificarCliente(row) {
       const clienteEncontrado = this.opcionesClienteObj.find(c => c.nombre === row.cliente);
       const correosSugeridos = clienteEncontrado ? (clienteEncontrado.email || clienteEncontrado.correo || '') : '';
+      
+      const montoNum = parseFloat(row.monto) || 0;
+      const esEnContra = montoNum < 0 || String(row.concepto || '').toUpperCase().includes('MENOS');
+
+      const tituloModal = esEnContra ? 'Aviso de Saldo Pendiente (Cobro)' : 'Aviso de Saldo a Favor';
+      const etiquetaTipo = esEnContra ? 'saldo a cargo pendiente' : 'saldo a favor disponible';
+      const montoFormateado = Math.abs(montoNum).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
       const { value: correosDestino, isConfirmed } = await Swal.fire({
-        title: 'Confirmar Destinatarios',
+        title: tituloModal,
         html: `
           <p class="text-lg text-gray-600 mb-4" style="font-family: sans-serif;">
-            Se enviará el aviso de saldo a favor de <b>$${parseFloat(row.monto).toLocaleString('en-US', { minimumFractionDigits: 2 })}</b> para <b>${row.cliente}</b>.
+            Se enviará la notificación de <b>${etiquetaTipo}</b> por <b>$${montoFormateado} USD</b> para el cliente <b>${row.cliente}</b>.
           </p>
           <div class="text-left" style="font-family: sans-serif;">
             <label class="block text-base font-bold text-gray-700 uppercase mb-2">Correos a notificar (separados por coma):</label>
             <input id="swal-input-correos" class="swal2-input" style="width: 100%; max-width: 100%; margin: 0; font-size: 16px;" value="${correosSugeridos}" placeholder="ejemplo@correo.com, contabilidad@correo.com">
           </div>
         `,
-        icon: 'info',
+        icon: esEnContra ? 'warning' : 'info',
         showCancelButton: true,
-        confirmButtonColor: '#002060',
-        cancelButtonColor: '#d33',
+        confirmButtonColor: esEnContra ? '#DC2626' : '#002060',
+        cancelButtonColor: '#9CA3AF',
         confirmButtonText: 'Sí, enviar correo',
         cancelButtonText: 'Cancelar',
         preConfirm: () => {
@@ -915,7 +1020,11 @@ export default {
 
         } catch (error) {
           console.error("Error al enviar el correo:", error);
-          Swal.fire('Error', 'Hubo un problema al intentar enviar el correo. Verifica tu configuración.', 'error');
+          let mensajeError = 'Hubo un problema al intentar enviar el correo.';
+          if (error.response && error.response.data && error.response.data.error) {
+            mensajeError = error.response.data.error;
+          }
+          Swal.fire('Error', mensajeError, 'error');
         }
       }
     },
@@ -958,14 +1067,17 @@ export default {
       this.cargarSaldos();
       this.cargarSaldos();
     },
-    onIngresoGuardado() {
+    async onIngresoGuardado() {
       this.showModal = false;
-      this.cargarIngresos();
+      await Promise.all([
+        this.cargarIngresos(),
+        this.cargarSaldos()
+      ]);
     },
     async eliminarFila(id) {
       const result = await Swal.fire({
         title: '¿Seguro deseas continuar?',
-        text: 'Se eliminará de forma permanente esta fila. ¿Seguro deseas continuar?',
+        text: 'Se eliminará de forma permanente esta fila y cualquier saldo asociado. ¿Deseas continuar?',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#00C09F',
@@ -975,10 +1087,33 @@ export default {
       });
       if (result.isConfirmed) {
         try {
-          await axios.delete(`/ingresos-conciliados/${id}`);
-          this.cargarIngresos();
+          // 1. Petición AJAX DELETE al backend
+          const response = await axios.delete(`/ingresos-conciliados/${id}`);
+
+          // 2. Recargamos asíncronamente las dos tablas para reflejar los cambios en vivo
+          await Promise.all([
+            this.cargarIngresos(),
+            this.cargarSaldos()
+          ]);
+
+          // 3. Notificación de éxito
+          Swal.fire({
+            title: '¡Eliminado!',
+            text: response.data.message || 'El ingreso y su saldo asociado fueron eliminados.',
+            icon: 'success',
+            toast: true,
+            position: 'top-end',
+            timer: 2500,
+            showConfirmButton: false
+          });
+
         } catch (error) {
-          Swal.fire('Error', 'No se pudo eliminar la fila', 'error');
+          console.error("Error al eliminar el ingreso:", error);
+          let mensajeError = 'No se pudo eliminar la fila.';
+          if (error.response && error.response.data && error.response.data.error) {
+            mensajeError = error.response.data.error;
+          }
+          Swal.fire('Error', mensajeError, 'error');
         }
       }
     },
@@ -1016,13 +1151,26 @@ export default {
       }
     },
     async obtenerUsuarioActual() {
+      // 1. Si ya tenemos el objeto global cargado en window.UsuarioActual, lo usamos directamente
+      if (window.UsuarioActual && typeof window.UsuarioActual === 'object' && (window.UsuarioActual.nombre || window.UsuarioActual.name)) {
+        this.usuario = window.UsuarioActual;
+        return;
+      }
+
       try {
-        // En Laravel normalmente la ruta '/api/user' o '/user' devuelve al auth()->user()
-        // Ajusta la ruta si en tu sistema utilizan otra (ej. '/perfil-usuario-actual')
         const response = await axios.get('/api/user'); 
-        this.usuario = response.data;
+        
+        // 2. Validamos estrictamente que la respuesta sea un objeto JSON y NO texto/HTML
+        if (response.data && typeof response.data === 'object') {
+          this.usuario = response.data;
+        } else if (window.UsuarioActual) {
+          this.usuario = window.UsuarioActual;
+        }
       } catch (error) {
-        console.warn("No se pudo obtener el usuario para los permisos", error);
+        console.warn("No se pudo obtener el usuario por API, manteniendo window.UsuarioActual", error);
+        if (window.UsuarioActual) {
+          this.usuario = window.UsuarioActual;
+        }
       }
     },
     mostrarDesgloseManzanillo(item) {

@@ -10,6 +10,7 @@ use App\Models\SaldoFavor;
 use App\Models\ComplementoPago;
 use App\Models\User;
 use App\Mail\NotificacionSaldoFavorMail;
+use App\Mail\NotificacionSaldoContraMail;
 use App\Mail\ComplementoPagoMail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
@@ -256,75 +257,49 @@ class IngresoConciliadoController extends Controller
 
             $pedimentos = [];
 
-            $idxCliente = 1;
-            $idxPedimento = 2;
-            $idxProveedor = 4;
-            $idxFacturaP = 5;
-            $idxMonto = 6;
-            $idxFacturaSC = 8;
-
-            $encontroPedimento = false;
-
-            foreach ($rows as $cols) {
-                foreach ($cols as $i => $col) {
-                    $txt = strtolower(trim($col));
-
-                    if (str_contains($txt, 'cliente')) {
-                        $idxCliente = $i;
-                    }
-                    if (!$encontroPedimento && str_contains($txt, 'pedimento') && !str_contains($txt, 'folio')) {
-                        $idxPedimento = $i;
-                        $encontroPedimento = true;
-                    }
-                    if (str_contains($txt, 'factura sc') || str_contains($txt, 'folio sc')) {
-                        $idxFacturaSC = $i;
-                    }
-                    if (str_contains($txt, 'proveedor')) {
-                        $idxProveedor = $i;
-                    }
-                    if (str_contains($txt, 'factura p') || str_contains($txt, 'factura prov')) {
-                        $idxFacturaP = $i;
-                    }
-                    if (str_contains($txt, 'monto') && !str_contains($txt, 'llc')) {
-                        $idxMonto = $i;
-                    }
-                }
-                break;
-            }
+            // ASIGNACIÓN ESTRICTA DE COLUMNAS
+            $idxCliente   = 1; // Columna B
+            $idxPedimento = 2; // Columna C (Pedimento Real)
+            $idxProveedor = 4; // Columna E
+            $idxFacturaP  = 5; // Columna F (Folio Transportactics)
+            $idxMonto     = 6; // Columna G
+            $idxFacturaSC = 8; // Columna I (Factura / SC)
 
             $ultimoCliente = '';
             $ultimoPedimento = '';
+            $ultimoPedimentoCrudo = '';
             $ultimaFacturaSC = '';
 
             foreach ($rows as $index => $cols) {
                 if ($index === 0) {
-                    continue;
+                    continue; // Saltar encabezados
                 }
 
-                // 1. Limpiamos espacios y saltos de línea ocultos
-                $clienteCeldaOriginal = trim(preg_replace('/\s+/', ' ', $cols[$idxCliente] ?? ''));
-                $pedimentoCeldaOriginal = trim(preg_replace('/\s+/', ' ', $cols[$idxPedimento] ?? ''));
-                $facturaCeldaOriginal = trim(preg_replace('/\s+/', ' ', $cols[$idxFacturaSC] ?? ''));
+                $clienteCeldaOriginal   = trim(preg_replace('/\s+/', ' ', $cols[$idxCliente] ?? ''));
+                $pedimentoCeldaCrudo    = trim(preg_replace('/\s+/', ' ', $cols[$idxPedimento] ?? '')); // Cadena original intacta
+                $pedimentoCeldaOriginal = $pedimentoCeldaCrudo; 
+                
+                $facturaSCCeldaOriginal = trim(preg_replace('/\s+/', ' ', $cols[$idxFacturaSC] ?? ''));
+                $facturaPCeldaOriginal  = trim(preg_replace('/\s+/', ' ', $cols[$idxFacturaP] ?? ''));
+                $proveedorCeldaOriginal = strtoupper(trim($cols[$idxProveedor] ?? ''));
 
-                $facturaPCeldaTemporal = trim(preg_replace('/\s+/', ' ', $cols[$idxFacturaP] ?? ''));
-                $proveedorCeldaTemporal = strtoupper(trim($cols[$idxProveedor] ?? ''));
-
-                // Solo rescatamos si el proveedor es "N/A" o vacío, o el número es de 7+ dígitos
-                if ($pedimentoCeldaOriginal === '' && is_numeric($facturaPCeldaTemporal)) {
-                    if ($proveedorCeldaTemporal === 'N/A' || $proveedorCeldaTemporal === '' || strlen($facturaPCeldaTemporal) >= 7) {
-                        $pedimentoCeldaOriginal = $facturaPCeldaTemporal;
+                if ($esTransportactics && $facturaPCeldaOriginal !== '') {
+                    if ($proveedorCeldaOriginal === 'TRANSPORTACTICS' || str_contains($proveedorCeldaOriginal, 'TRANSPORTACTICS')) {
+                        $pedimentoCeldaOriginal = $facturaPCeldaOriginal;
+                        $pedimentoCeldaCrudo = $facturaPCeldaOriginal;
                     }
                 }
 
-                // 3. REGLA DE ORO: Si aún hay diagonales, tomamos únicamente el primero
                 if (str_contains($pedimentoCeldaOriginal, '/')) {
                     $pedimentoCeldaOriginal = trim(explode('/', $pedimentoCeldaOriginal)[0]);
                 }
+                $pedimentoCeldaOriginal = trim(preg_replace('/ZLO[A-Z]*\s*[0-9]*/i', '', $pedimentoCeldaOriginal));
+                $pedimentoCeldaOriginal = trim($pedimentoCeldaOriginal, ' -/');
 
-                // Lógica de herencia (si las celdas de abajo vienen en blanco, heredan las de arriba)
                 if ($clienteCeldaOriginal !== '') {
                     if ($clienteCeldaOriginal !== $ultimoCliente) {
                         $ultimoPedimento = '';
+                        $ultimoPedimentoCrudo = '';
                         $ultimaFacturaSC = '';
                     }
                     $ultimoCliente = $clienteCeldaOriginal;
@@ -333,17 +308,19 @@ class IngresoConciliadoController extends Controller
                 if ($pedimentoCeldaOriginal !== '') {
                     $ultimoPedimento = $pedimentoCeldaOriginal;
                 }
-
-                if ($facturaCeldaOriginal !== '') {
-                    $ultimaFacturaSC = $facturaCeldaOriginal;
+                if ($pedimentoCeldaCrudo !== '') {
+                    $ultimoPedimentoCrudo = $pedimentoCeldaCrudo;
+                }
+                if ($facturaSCCeldaOriginal !== '') {
+                    $ultimaFacturaSC = $facturaSCCeldaOriginal;
                 }
 
-                $clienteCelda = $ultimoCliente;
-                $pedimentoCelda = $ultimoPedimento;
-                $facturaCelda = $ultimaFacturaSC;
+                $clienteCelda   = $ultimoCliente;
+                $pedimentoCelda = $ultimoPedimento;            // Pedimento visual limpio (ej: "3711-6031512")
+                $pedimentoCrudo = $ultimoPedimentoCrudo;       // Cadena completa (ej: "3711-6031512 ZLO6651 / ZLOI532")
+                $folioTR        = $facturaPCeldaOriginal;      
+                $facturaSC      = $ultimaFacturaSC;            
 
-                $proveedorCelda = strtoupper(trim($cols[$idxProveedor] ?? ''));
-                $facturaPCelda = trim($cols[$idxFacturaP] ?? '');
                 $montoCelda = (float) filter_var(trim($cols[$idxMonto] ?? '0'), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
 
                 if ($pedimentoCelda !== '' && $clienteCelda !== '') {
@@ -352,46 +329,70 @@ class IngresoConciliadoController extends Controller
                     }
 
                     if ($esTransportactics) {
-                        if (!str_contains($proveedorCelda, 'TRANSPORTACTICS') || $montoCelda <= 0) {
+                        if (!str_contains($proveedorCeldaOriginal, 'TRANSPORTACTICS') || $montoCelda <= 0) {
                             continue;
                         }
                     }
 
                     $folioIntshipperts = '';
-                    if (preg_match('/(ZLOI\s*[0-9]+)/i', $facturaCelda, $matches)) {
+                    if (preg_match('/(ZLOI\s*[0-9]+)/i', $facturaSC, $matches)) {
                         $folioIntshipperts = strtoupper(str_replace(' ', '', $matches[1]));
-                    } elseif (preg_match('/(ZLOI\s*[0-9]+)/i', $pedimentoCelda, $matches)) {
+                    } elseif (preg_match('/(ZLOI\s*[0-9]+)/i', $pedimentoCrudo, $matches)) {
                         $folioIntshipperts = strtoupper(str_replace(' ', '', $matches[1]));
+                    }
+
+                    $folioZloNormal = '';
+                    if (preg_match('/(ZLO(?!I)\s*[0-9]+)/i', $pedimentoCrudo, $matches)) {
+                        $folioZloNormal = strtoupper(str_replace(' ', '', $matches[1]));
+                    } elseif (preg_match('/(ZLO(?!I)\s*[0-9]+)/i', $facturaSC, $matches)) {
+                        $folioZloNormal = strtoupper(str_replace(' ', '', $matches[1]));
                     }
 
                     if ($esIntshipperts && $folioIntshipperts === '') {
                         continue;
                     }
 
-                    // 4. Armado de la etiqueta final para Vue
+                    // Determinar el folio secundario visual para no-Intshipperts
+                    $folioSecundario = '';
+                    if ($folioZloNormal !== '') {
+                        $folioSecundario = $folioZloNormal;
+                    } elseif ($facturaSC !== '' && !str_contains($facturaSC, '$') && $facturaSC !== $pedimentoCelda) {
+                        $folioSecundario = $facturaSC;
+                    }
+
+                    $pedimentoLimpio = $pedimentoCelda;
+                    if (preg_match('/(?:\d{4})\s*[-_\/\s]\s*(\d{7})/', $pedimentoCelda, $matches)) {
+                        $pedimentoLimpio = $matches[1];
+                    } elseif (preg_match('/\b\d{7}\b/', $pedimentoCelda, $matches)) {
+                        $pedimentoLimpio = $matches[0];
+                    }
+
                     $etiqueta = '';
 
-                    if ($esTransportactics && $facturaPCelda !== '') {
-                        $etiqueta .= 'TR: ' . $facturaPCelda . ' - ';
+                    if ($esTransportactics && $folioTR !== '') {
+                        $etiqueta .= 'TR: ' . $folioTR . ' - ';
                     } elseif ($esIntshipperts && $folioIntshipperts !== '') {
                         $etiqueta .= 'INT: ' . $folioIntshipperts . ' - ';
+                    } elseif (!$esIntshipperts && !$esTransportactics && $folioSecundario !== '') {
+                        $etiqueta .= $folioSecundario . ' - ';
                     }
 
-                    if ($facturaCelda !== '' && !str_contains($facturaCelda, '$')) {
-                        $etiqueta .= $facturaCelda . ' - ';
+                    if ($pedimentoCelda !== '') {
+                        $etiqueta .= $pedimentoCelda . ' - ';
                     }
 
-                    $etiqueta .= $pedimentoCelda . ' - ' . $clienteCelda;
+                    $etiqueta .= $clienteCelda;
 
                     $pedimentos[] = [
-                        'label' => $etiqueta,
-                        'folio' => $etiqueta,
-                        'cliente' => strtoupper($clienteCelda)
+                        'label'     => $etiqueta,
+                        'folio'     => $etiqueta,
+                        'cliente'   => strtoupper($clienteCelda),
+                        'pedimento' => $pedimentoLimpio !== '' ? $pedimentoLimpio : $pedimentoCelda, 
+                        'folio_tr'  => $folioTR                                                      
                     ];
                 }
             }
 
-            // Quitamos duplicados y reindexamos
             $pedimentos = collect($pedimentos)->unique('label')->values()->all();
 
             return response()->json($pedimentos);
@@ -2553,7 +2554,7 @@ class IngresoConciliadoController extends Controller
 
             // Validaciones de negocio
             $isTransportactics = str_contains($clienteNombre, 'TRANSPORTACTICS') || str_contains($sucursal, 'TRANSPORTACTIC');
-            $esManzanillo = str_contains($sucursal, 'MANZANILLO') || str_contains($sucursal, 'INTSHIPPERT');
+            $esManzanillo = str_contains($sucursal, 'MANZANILLO') || str_contains($sucursal, 'ZLO') || str_contains($sucursal, 'INTSHIPPERT');
 
             // BLINDAJE: Limpiamos y forzamos a que sean números reales
             $fleteReal = (float) str_replace(['$', ','], '', $request->flete ?? 0);
@@ -2595,7 +2596,13 @@ class IngresoConciliadoController extends Controller
             $ingreso->flete = $fleteReal;
             $ingreso->muestras = $request->muestras ?? 0;
             $ingreso->llc = $request->llc ?? 0;
-            $ingreso->anticipo = $request->anticipo ?? 0;
+
+            if (str_contains($clienteNombre, 'ALMACENADORA')) {
+                $ingreso->anticipo = 0;
+            } else {
+                $ingreso->anticipo = (float) ($request->anticipo ?? 0);
+            }
+
             $ingreso->garantias = $request->garantias ?? 0;
             $ingreso->desglose_naviera = $request->desglose_naviera ?? 0;
             $ingreso->pago_proveedor = $pagoProvReal;
@@ -2611,7 +2618,7 @@ class IngresoConciliadoController extends Controller
             }
 
             // Textos
-            $textoLibre = $request->folio_sc ?? $request->referencia;
+            $textoLibre = $request->referencia ?? $request->folio_sc;
             $ingreso->folio_sc = $textoLibre;
             $ingreso->referencia = $textoLibre;
             $ingreso->tipo_comprobante = $request->tipo_comprobante;
@@ -2631,15 +2638,11 @@ class IngresoConciliadoController extends Controller
                 // 1. Sumatoria de Flete para Transportactics
                 $sumaFleteXml = 0;
                 foreach ($request->operaciones as $op) {
-                    $sumaFleteXml += (float) ($op['monto_cfdi'] ?? 0);
+                    $sumaFleteXml += (float) ($op['monto_cfdi'] ?? $op['flete'] ?? 0);
                 }
                 $totalFlete = $sumaFleteXml > 0 ? $sumaFleteXml : 1;
 
-                // 2. División de Anticipo para Manzanillo
-                $esManzanillo = str_contains(strtoupper($ingreso->sucursal_origen), 'MANZANILLO') ||
-                    str_contains(strtoupper($ingreso->sucursal_origen), 'ZLO');
-
-                $anticipoGlobal = (float) ($request->anticipo ?? 0);
+                $anticipoGlobal = (float) $ingreso->anticipo;
                 $anticipoUnitario = 0;
 
                 if ($esManzanillo && $totalElementos > 0 && $anticipoGlobal > 0) {
@@ -2648,8 +2651,8 @@ class IngresoConciliadoController extends Controller
 
                 // 3. Inserción en Pivote (Admite con o sin operacion_id)
                 foreach ($request->operaciones as $op) {
-                    $fleteOperacion = (float) ($op['monto_cfdi'] ?? 0);
-                    $montoGpcVal    = (float) ($op['monto_gpc'] ?? 0);
+                    $fleteOperacion = (float) ($op['monto_cfdi'] ?? $op['flete'] ?? 0);
+                    $montoGpcVal    = (float) ($op['monto_gpc'] ?? $op['total_gpc'] ?? 0);
                     $montoCfdiFinal = $fleteOperacion;
 
                     // Cálculo proporcional exclusivo para Transportactics
@@ -2659,15 +2662,22 @@ class IngresoConciliadoController extends Controller
                     }
 
                     $folioTexto = $op['referencia'] ?? $op['folio'] ?? $op['label'] ?? (is_string($op) ? $op : null);
-                    $opId = (isset($op['id']) && is_numeric($op['id'])) ? $op['id'] : null;
-                    $opType = $op['type'] ?? $op['operacion_type'] ?? 'GENERICO';
+
+                    $opId = null;
+                    if (isset($op['id']) && is_numeric($op['id'])) {
+                        $opId = (int) $op['id'];
+                    } elseif (isset($op['operacion_id']) && is_numeric($op['operacion_id'])) {
+                        $opId = (int) $op['operacion_id'];
+                    }
+
+                    $opType = $op['type'] ?? $op['operacion_type'] ?? $op['operation_type'] ?? 'GENERICO';
 
                     $pivotData[] = [
                         'ingreso_id'     => $ingreso->id,
                         'operacion_id'   => $opId,
                         'operacion_type' => $opType,
                         'monto_cfdi'     => round($montoCfdiFinal, 2),
-                        'monto_gpc'      => round($montoGpcVal, 2), // 🔥 Se guarda el valor devuelto
+                        'monto_gpc'      => round($montoGpcVal, 2),
                         'referencia'     => $folioTexto,
                         'anticipo'       => $anticipoUnitario,
                         'created_at'     => now(),
@@ -2683,31 +2693,27 @@ class IngresoConciliadoController extends Controller
             // ==========================================
             // 3. CÁLCULO Y REGISTRO AUTOMÁTICO DE SALDO
             // ==========================================
-            $costoTotal = $ingreso->total_gpc + $ingreso->honorarios;
-            $diferencia = round($ingreso->monto_deposito - $costoTotal, 2);
+            $montoDeposito = round((float) $ingreso->monto_deposito, 2);
+            $totalGpc      = round((float) $ingreso->total_gpc, 2);
+            $honorarios    = round((float) $ingreso->honorarios, 2);
 
-            $costoTotal = $ingreso->total_gpc + $ingreso->honorarios;
-            $diferencia = round($ingreso->monto_deposito - $costoTotal, 2);
+            $costoTotal = round($totalGpc + $honorarios, 2);
+            $diferencia = round($montoDeposito - $costoTotal, 2);
 
-            if ($diferencia !== 0.00) {
-                // 1. Identificamos el tipo de documento exacto
-                $tipoDoc = 'CFDI o GPC'; // Valor por defecto si son 'Ambos' o está vacío
+            if (abs($diferencia) > 0.05) {
+                $tipoDoc = 'CFDI o GPC';
 
                 if ($ingreso->tipo_comprobante === 'CFDI') {
                     $tipoDoc = 'CFDI';
                 } elseif ($ingreso->tipo_comprobante === 'Nota Cargo') {
-                    $tipoDoc = 'GPC'; // Nota de cargo equivale a los Gastos Por Comprobar
+                    $tipoDoc = 'GPC';
                 }
 
-                // 2. Definimos el texto dependiendo de la diferencia y el documento
                 $textoObservacion = $diferencia > 0
                     ? "Pago de más en {$tipoDoc}"
                     : "Pago de menos en {$tipoDoc}";
 
-                // 3. Extraemos la referencia base
                 $referenciaBase = $ingreso->referencia ?? $ingreso->folio_sc ?? 'Sin Referencia';
-
-                // 4. Unimos ambos textos para guardarlos en la columna 'concepto'
                 $conceptoFinal = $referenciaBase . ' - ' . $textoObservacion;
 
                 SaldoFavor::updateOrCreate(
@@ -2717,12 +2723,12 @@ class IngresoConciliadoController extends Controller
                         'cliente'         => $ingreso->cliente,
                         'sucursal_origen' => $ingreso->sucursal_origen,
                         'monto'           => $diferencia,
+                        'estatus'         => 'VIGENTE',
                         'fecha_deteccion' => $ingreso->fecha,
                         'concepto'        => $conceptoFinal
                     ]
                 );
             } else {
-                // Si ahora quedaron en ceros, eliminamos el saldo si es que existía
                 SaldoFavor::where('ingreso_conciliado_id', $ingreso->id)->delete();
             }
 
@@ -2770,8 +2776,9 @@ class IngresoConciliadoController extends Controller
                 }
             }
 
-            // Identificar si es Transportactics
-            $isTransportactics = str_contains($clienteNombre, 'TRANSPORTACTICS') || str_contains(strtoupper($ingreso->sucursal_origen), 'TRANSPORTACTIC');
+            $sucursalUpper = strtoupper($ingreso->sucursal_origen ?? '');
+            $isTransportactics = str_contains($clienteNombre, 'TRANSPORTACTICS') || str_contains($sucursalUpper, 'TRANSPORTACTIC');
+            $esManzanillo = str_contains($sucursalUpper, 'MANZANILLO') || str_contains($sucursalUpper, 'ZLO') || str_contains($sucursalUpper, 'INTSHIPPERT');
 
             // BLINDAJE: Limpiamos y forzamos a que sean números reales
             $fleteReal = (float) str_replace(['$', ','], '', $request->flete ?? $ingreso->flete);
@@ -2781,8 +2788,24 @@ class IngresoConciliadoController extends Controller
             $gananciaFrontend = $request->ganancia ?? $request->ganancias ?? $ingreso->ganancia;
             $gananciaReal = (float) str_replace(['$', ','], '', $gananciaFrontend);
 
+            $monto_gpc = 0;
+            if ($isTransportactics) {
+                $monto_gpc = 0;
+            } elseif ($esManzanillo) {
+                $monto_gpc = (float)($request->anticipo ?? $ingreso->anticipo ?? 0) + 
+                             (float)($request->garantias ?? $ingreso->garantias ?? 0) +
+                             (float)($request->desglose_naviera ?? $ingreso->desglose_naviera ?? 0) + 
+                             (float)($request->impuestos ?? $ingreso->impuestos ?? 0) + $fleteReal;
+            } else {
+                $monto_gpc = (float)($request->impuestos ?? $ingreso->impuestos ?? 0) + 
+                             (float)($request->eci ?? $ingreso->eci ?? 0) +
+                             (float)($request->maniobras ?? $ingreso->maniobras ?? 0) + $fleteReal +
+                             (float)($request->muestras ?? $ingreso->muestras ?? 0) + 
+                             (float)($request->llc ?? $ingreso->llc ?? 0);
+            }
+
             $ingreso->monto_deposito = (float) str_replace(['$', ','], '', $request->monto_deposito ?? $ingreso->monto_deposito);
-            $ingreso->total_gpc = $request->total_gpc ?? $ingreso->total_gpc;
+            $ingreso->total_gpc = $monto_gpc;
 
             $ingreso->metodo_pago = $request->metodo_pago ?? 'PUE';
 
@@ -2830,13 +2853,9 @@ class IngresoConciliadoController extends Controller
                 // 1. Sumatoria de Flete para Transportactics
                 $sumaFleteXml = 0;
                 foreach ($request->operaciones as $op) {
-                    $sumaFleteXml += (float) ($op['monto_cfdi'] ?? 0);
+                    $sumaFleteXml += (float) ($op['monto_cfdi'] ?? $op['flete'] ?? 0);
                 }
                 $totalFlete = $sumaFleteXml > 0 ? $sumaFleteXml : 1;
-
-                // 2. División de Anticipo para Manzanillo
-                $esManzanillo = str_contains(strtoupper($ingreso->sucursal_origen), 'MANZANILLO') ||
-                    str_contains(strtoupper($ingreso->sucursal_origen), 'ZLO');
 
                 // Toma el anticipo definitivo ya procesado del modelo $ingreso
                 $anticipoGlobal = (float) $ingreso->anticipo;
@@ -2889,10 +2908,14 @@ class IngresoConciliadoController extends Controller
             // ==========================================
             // CÁLCULO Y REGISTRO AUTOMÁTICO DE SALDO
             // ==========================================
-            $costoTotal = $ingreso->total_gpc + $ingreso->honorarios;
-            $diferencia = round($ingreso->monto_deposito - $costoTotal, 2);
+            $montoDeposito = round((float) $ingreso->monto_deposito, 2);
+            $totalGpc      = round((float) $ingreso->total_gpc, 2);
+            $honorarios    = round((float) $ingreso->honorarios, 2);
 
-            if ($diferencia !== 0.00) {
+            $costoTotal = round($totalGpc + $honorarios, 2);
+            $diferencia = round($montoDeposito - $costoTotal, 2);
+
+            if (abs($diferencia) > 0.05) {
                 $tipoDoc = 'CFDI o GPC';
 
                 if ($ingreso->tipo_comprobante === 'CFDI') {
@@ -2933,8 +2956,32 @@ class IngresoConciliadoController extends Controller
 
     public function destroy($id)
     {
-        IngresoConciliado::destroy($id);
-        return response()->json(['success' => true]);
+        DB::beginTransaction();
+        try {
+            $ingreso = IngresoConciliado::findOrFail($id);
+
+            // 1. Elimina automáticamente cualquier saldo (a favor o en contra) vinculado a este ingreso
+            SaldoFavor::where('ingreso_conciliado_id', $ingreso->id)->delete();
+
+            // 2. Elimina las relaciones con las operaciones en la tabla pivote
+            DB::table('ingreso_operacion')->where('ingreso_id', $ingreso->id)->delete();
+
+            // 3. Elimina el registro del ingreso
+            $ingreso->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Ingreso y sus saldos asociados eliminados correctamente.'
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'error' => 'Error al eliminar el ingreso: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     // =====================================================================
@@ -2943,8 +2990,11 @@ class IngresoConciliadoController extends Controller
 
     public function indexSaldos()
     {
-        $saldos = SaldoFavor::join('empresas', 'saldos_favor.cliente_id', '=', 'empresas.id')
-            ->select('saldos_favor.*', 'empresas.nombre as cliente')
+        $saldos = SaldoFavor::leftJoin('empresas', 'saldos_favor.cliente_id', '=', 'empresas.id')
+            ->select(
+                'saldos_favor.*',
+                DB::raw('COALESCE(empresas.nombre, saldos_favor.cliente) as cliente')
+            )
             ->orderBy('saldos_favor.created_at', 'desc')
             ->get();
 
@@ -3056,27 +3106,45 @@ class IngresoConciliadoController extends Controller
         $destinatarios = array_filter($destinatarios); // Quitamos espacios en blanco accidentales
 
         if (empty($destinatarios)) {
-            Log::warning("Intento de envío fallido: No hay destinatarios válidos para el Saldo a Favor ID {$id}.");
+            Log::warning("Intento de envío fallido: No hay destinatarios válidos para el Saldo (ID {$id}).");
             return response()->json(['error' => 'No hay correos válidos para enviar'], 400);
         }
 
         // ==========================================
-        // 4. INICIO DE LOGS Y ENVÍO DE CORREO
+        // 4. DETECCIÓN DEL TIPO DE SALDO (A FAVOR / EN CONTRA)
+        // ==========================================
+        $montoNum = (float) $saldo->monto;
+        $conceptoUpper = strtoupper($saldo->concepto ?? '');
+        $tipoSaldoStr = strtoupper($saldo->tipo ?? '');
+
+        // Validamos si es Negativo, dice "MENOS" o tiene la columna tipo en "EN CONTRA"
+        $esSaldoEnContra = $montoNum < 0 || str_contains($conceptoUpper, 'MENOS') || str_contains($conceptoUpper, 'CONTRA') || $tipoSaldoStr === 'EN CONTRA';
+
+        $etiquetaLog = $esSaldoEnContra ? 'EN CONTRA' : 'A FAVOR';
+
+        // ==========================================
+        // 5. INICIO DE LOGS Y ENVÍO DE CORREO
         // ==========================================
 
-        Log::info("Iniciando envío de correo de saldo a favor (ID: {$id}).", [
-            'cliente'       => $saldo->cliente->nombre ?? 'Desconocido',
+        Log::info("Iniciando envío de correo de saldo {$etiquetaLog} (ID: {$id}).", [
+            'cliente'       => $saldo->cliente->nombre ?? $saldo->cliente ?? 'Desconocido',
             'destinatarios' => $destinatarios,
             'emailUsuario'  => $remitente->email ?? 'no-reply@intactics.com'
         ]);
         Log::info('Datos empaquetados para la vista del correo:', $datosFirma);
 
         try {
-            // Intentamos enviar el correo a la lista de destinatarios
-            Mail::to($destinatarios)->send(new NotificacionSaldoFavorMail($saldo, $datosFirma));
+            // Decidimos la plantilla basándonos en la validación
+            if ($esSaldoEnContra) {
+                // Instanciamos el Mail de Saldo en Contra que creamos
+                Mail::to($destinatarios)->send(new NotificacionSaldoContraMail($saldo, $datosFirma));
+            } else {
+                // Instanciamos tu Mail original de Saldo a Favor
+                Mail::to($destinatarios)->send(new NotificacionSaldoFavorMail($saldo, $datosFirma));
+            }
 
             // Si llega a esta línea, significa que Laravel entregó el correo al servidor SMTP con éxito
-            Log::info("EXITO: El correo de saldo a favor (ID: {$id}) fue procesado y enviado a los destinatarios correctamente.");
+            Log::info("EXITO: El correo de saldo {$etiquetaLog} (ID: {$id}) fue procesado y enviado a los destinatarios correctamente.");
 
             return response()->json([
                 'success' => true,
@@ -3084,7 +3152,7 @@ class IngresoConciliadoController extends Controller
             ]);
         } catch (\Exception $e) {
             // Si el servidor de correos falla (credenciales inválidas, rechazo de spam, etc.), lo atrapamos aquí
-            Log::error("ERROR CRÍTICO al enviar correo de saldo a favor (ID: {$id}): " . $e->getMessage(), [
+            Log::error("ERROR CRÍTICO al enviar correo de saldo {$etiquetaLog} (ID: {$id}): " . $e->getMessage(), [
                 'destinatarios' => $destinatarios,
                 'archivo_error' => $e->getFile(),
                 'linea_error' => $e->getLine()
