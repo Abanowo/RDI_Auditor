@@ -6351,15 +6351,17 @@ class AuditoriaImpuestosController extends Controller
         // 1. Intentar con XML (Suele ser más preciso)
         if (!empty($rutaXml)) {
             $xmlData = $this->parsearXmlFlete($rutaXml);
-            if ($xmlData && $xmlData['total'] != -1) {
-                $monto = ($xmlData['moneda'] === "USD") ? round($xmlData['total'] * 1.0, 2) : $xmlData['total'];
+            if ($xmlData) {
                 $naviera = $xmlData['emisor'] ?? '';
-                $fecha = $xmlData['fecha'] ?? null;
+                
+                if ($xmlData['total'] != -1) {
+                    $monto = ($xmlData['moneda'] === "USD") ? round($xmlData['total'] * 1.0, 2) : $xmlData['total'];
+                    $fecha = $xmlData['fecha'] ?? null;
+                }
             }
         }
 
-        // 2. Fallback a PDF (Si no hay XML o falló)
-        if ($monto === -1 && !empty($rutaPdf)) {
+        if ($monto <= 0 && !empty($rutaPdf)) {
             $pdfData = $this->extraerTotalDesdePdfProveedor($rutaPdf);
             if ($pdfData !== null && $pdfData['monto'] !== null) { 
                 $monto = $pdfData['monto']; 

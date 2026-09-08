@@ -6,9 +6,9 @@ Vue.component('filtro-auditorias', require('./components/FilterBar.vue').default
 Vue.component('paginacion', require('./components/Pagination.vue').default);
 Vue.component('upload-form', require('./components/UploadForm.vue').default);
 
-//Vue.component('lista-auditorias', require('./components/AuditPage.vue').default);
+Vue.component('lista-auditorias', require('./components/AuditPage.vue').default);
 
-Vue.component('lista-auditorias', require('./components/VistaPrincipal.vue').default);
+//Vue.component('lista-auditorias', require('./components/VistaPrincipal.vue').default);
 
 /**
  * Filtro global para formatear números como moneda
