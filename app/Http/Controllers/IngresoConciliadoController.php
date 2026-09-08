@@ -230,7 +230,9 @@ class IngresoConciliadoController extends Controller
             $nombrePestanaCodificado = 'ZLO';
         } else {
             $sheetId = app()->environment('production') ? '1f_I9miUfQb5Xl379DNP1fciHUEYAU6MrM832Z6QqSi0' : '17hBoRx5u5jxi2hqHiC98zX-3lqF0w5tTkHBzElCHwDM';
-            $nombrePestanaCodificado = rawurlencode($sucursal);
+            
+            $sucursalLimpiaPestana = trim(str_replace(['TRANSPORTACTICS', 'INTSHIPPERTS'], '', $sucursal));
+            $nombrePestanaCodificado = rawurlencode($sucursalLimpiaPestana);
         }
 
         $csvUrl = "https://docs.google.com/spreadsheets/d/{$sheetId}/gviz/tq?tqx=out:csv&sheet={$nombrePestanaCodificado}";
@@ -275,17 +277,10 @@ class IngresoConciliadoController extends Controller
                 }
 
                 $clienteCeldaOriginal   = trim(preg_replace('/\s+/', ' ', $cols[$idxCliente] ?? ''));
-                $pedimentoCeldaCrudo    = trim(preg_replace('/\s+/', ' ', $cols[$idxPedimento] ?? '')); // Cadena original intacta
-                
-                $facturaSCCeldaOriginal = trim(preg_replace('/\s+/', ' ', $cols[$idxFacturaSC] ?? ''));
-                $facturaPCeldaOriginal  = trim(preg_replace('/\s+/', ' ', $cols[$idxFacturaP] ?? ''));
-                $proveedorCeldaOriginal = strtoupper(trim($cols[$idxProveedor] ?? ''));
-
-                if ($esTransportactics && $facturaPCeldaOriginal !== '') {
-                    if ($proveedorCeldaOriginal === 'TRANSPORTACTICS' || str_contains($proveedorCeldaOriginal, 'TRANSPORTACTICS')) {
-                        $pedimentoCeldaCrudo = $facturaPCeldaOriginal;
-                    }
-                }
+                $pedimentoCeldaCrudo    = trim(preg_replace('/\s+/', ' ', $cols[$idxPedimento] ?? '')); // Columna C
+                $facturaSCCeldaOriginal = trim(preg_replace('/\s+/', ' ', $cols[$idxFacturaSC] ?? '')); // Columna I
+                $facturaPCeldaOriginal  = trim(preg_replace('/\s+/', ' ', $cols[$idxFacturaP] ?? ''));  // Columna F
+                $proveedorCeldaOriginal = strtoupper(trim($cols[$idxProveedor] ?? ''));                  // Columna E
 
                 // HERENCIA VERTICAL
                 if ($clienteCeldaOriginal !== '') {
@@ -310,13 +305,13 @@ class IngresoConciliadoController extends Controller
 
                 $montoCelda = (float) filter_var(trim($cols[$idxMonto] ?? '0'), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
 
-                if ($pedimentoCrudo !== '' && $clienteCelda !== '') {
+                if ($clienteCelda !== '') {
                     if (strtoupper($clienteCelda) === 'CLIENTE' || strtoupper($pedimentoCrudo) === 'PEDIMENTO') {
                         continue;
                     }
 
                     if ($esTransportactics) {
-                        if (!str_contains($proveedorCeldaOriginal, 'TRANSPORTACTICS') || $montoCelda <= 0) {
+                        if (!str_contains($proveedorCeldaOriginal, 'TRANSPORTACTIC') || $montoCelda <= 0) {
                             continue;
                         }
                     }
@@ -328,84 +323,62 @@ class IngresoConciliadoController extends Controller
                         $folioIntshipperts = strtoupper(str_replace(' ', '', $matches[1]));
                     }
 
-                    $folioZloNormal = '';
-                    if (preg_match('/(ZLO(?!I)\s*[0-9]+)/i', $pedimentoCrudo, $matches)) {
-                        $folioZloNormal = strtoupper(str_replace(' ', '', $matches[1]));
-                    } elseif (preg_match('/(ZLO(?!I)\s*[0-9]+)/i', $facturaSC, $matches)) {
-                        $folioZloNormal = strtoupper(str_replace(' ', '', $matches[1]));
-                    }
-
                     if ($esIntshipperts && $folioIntshipperts === '') {
                         continue;
                     }
 
                     // Determinar el folio secundario visual para no-Intshipperts
                     $folioSecundario = '';
-                    if ($folioZloNormal !== '') {
-                        $folioSecundario = $folioZloNormal;
-                    } elseif ($facturaSC !== '' && !str_contains($facturaSC, '$') && $facturaSC !== $pedimentoCrudo) {
+                    if ($facturaSC !== '' && !str_contains($facturaSC, '$') && $facturaSC !== $pedimentoCrudo) {
                         $folioSecundario = $facturaSC;
                     }
 
-                    // 1. DETECTAR SI HAY PATENTE AL INICIO (ej: "3711-")
-                    $patentePrefijo = '';
-                    if (preg_match('/^(\d{4})\s*[-_]/', $pedimentoCrudo, $mPatente)) {
-                        $patentePrefijo = $mPatente[1] . '-';
-                    }
-
-                    // 2. SEPARACIÓN FLEXIBLE POR DIAGONAL (/), COMA (,) O SALTO DE LÍNEA
-                    $subPedimentosRaw = preg_split('/[\/;,]+|\r\n|\n/', $pedimentoCrudo);
+                    // DESGLOSE Y LIMPIEZA DE PEDIMENTOS DE COLUMNA C
+                    $subPedimentosRaw = !empty($pedimentoCrudo) ? preg_split('/[\/;,]+|\r\n|\n/', $pedimentoCrudo) : [''];
 
                     foreach ($subPedimentosRaw as $subItem) {
                         $subItem = trim($subItem);
-                        if (empty($subItem)) {
-                            continue;
-                        }
-
-                        // Limpiamos folios tipo ZLO6651 o ZLOI532 del texto individual
+                        
                         $subLimpio = trim(preg_replace('/ZLO[A-Z]*\s*[0-9]*/i', '', $subItem));
                         $subLimpio = trim($subLimpio, ' -/');
 
-                        if (empty($subLimpio)) {
-                            continue;
-                        }
-
-                        // 3. EXTRACCIÓN FLEXIBLE DEL NÚMERO (Soporta de 4 a 8 dígitos)
                         $pedimentoLimpio = '';
-                        if (preg_match('/(?:\d{4})\s*[-_\/\s]\s*(\d{7})/', $subLimpio, $matches)) {
-                            $pedimentoLimpio = $matches[1];
-                        } elseif (preg_match('/\b\d{7}\b/', $subLimpio, $matches)) {
-                            $pedimentoLimpio = $matches[0];
-                        } elseif (preg_match('/\b\d{4,8}\b/', $subLimpio, $matches)) {
-                            $pedimentoLimpio = $matches[0];
-                        } else {
-                            $pedimentoLimpio = $subLimpio;
-                        }
-
-                        // 4. HERENCIA DE PATENTE (Si el primer elemento tenía 3711-, asignarlo a los demás)
-                        $subDisplay = $subLimpio;
-                        if ($patentePrefijo !== '' && !str_contains($subDisplay, '-') && is_numeric($pedimentoLimpio)) {
-                            $subDisplay = $patentePrefijo . $pedimentoLimpio;
+                        if (!empty($subLimpio)) {
+                            if (preg_match('/(?:\d{4})\s*[-_\/\s]\s*(\d{7})/', $subLimpio, $matches)) {
+                                $pedimentoLimpio = $matches[1];
+                            } elseif (preg_match('/\b\d{7}\b/', $subLimpio, $matches)) {
+                                $pedimentoLimpio = $matches[0];
+                            } elseif (preg_match('/\b\d{4,8}\b/', $subLimpio, $matches)) {
+                                $pedimentoLimpio = $matches[0];
+                            } else {
+                                $pedimentoLimpio = $subLimpio;
+                            }
                         }
 
                         // Armado de etiqueta por pedimento individual
                         $etiqueta = '';
 
-                        if ($esTransportactics && $folioTR !== '') {
-                            $etiqueta .= 'TR: ' . $folioTR . ' - ';
+                        if ($esTransportactics) {
+                            $etiqueta .= 'TR: ' . ($folioTR !== '' ? $folioTR : 'S/F');
+                            // Muestra el pedimento de Col C si existe y no es idéntico al folio TR
+                            if (!empty($pedimentoLimpio) && $pedimentoLimpio !== $folioTR) {
+                                $etiqueta .= ' - ' . $pedimentoLimpio;
+                            }
+                            $etiqueta .= ' - ' . $clienteCelda;
                         } elseif ($esIntshipperts && $folioIntshipperts !== '') {
-                            $etiqueta .= 'INT: ' . $folioIntshipperts . ' - ';
-                        } elseif (!$esIntshipperts && !$esTransportactics && $folioSecundario !== '') {
-                            $etiqueta .= $folioSecundario . ' - ';
+                            $etiqueta .= 'INT: ' . $folioIntshipperts . ' - ' . $pedimentoLimpio . ' - ' . $clienteCelda;
+                        } else {
+                            if ($folioSecundario !== '') {
+                                $etiqueta .= $folioSecundario . ' - ';
+                            }
+                            $etiqueta .= $pedimentoLimpio . ' - ' . $clienteCelda;
                         }
-
-                        $etiqueta .= $subDisplay . ' - ' . $clienteCelda;
 
                         $pedimentos[] = [
                             'label'     => $etiqueta,
                             'folio'     => $etiqueta,
                             'cliente'   => strtoupper($clienteCelda),
-                            'pedimento' => $pedimentoLimpio,
+                            'pedimento' => $pedimentoLimpio !== '' ? $pedimentoLimpio : ($folioTR !== '' ? $folioTR : $subLimpio),
                             'folio_tr'  => $folioTR                                                      
                         ];
                     }
@@ -422,8 +395,10 @@ class IngresoConciliadoController extends Controller
     public function buscarEnSheet(Request $request)
     {
         $terminosCrudos = $request->input('pedimentos', []);
-        $sucursalBuscada = strtoupper(trim($request->input('sucursal')));
+        $sucursalBuscada = strtoupper(trim($request->input('sucursal', '')));
         $tiposComprobante = $request->input('tipo_comprobante', []);
+
+        $sucursalLimpia = trim(str_replace(['TRANSPORTACTICS', 'INTSHIPPERTS'], '', $sucursalBuscada));
 
         $terminosBuscados = [];
         foreach ($terminosCrudos as $term) {
@@ -451,14 +426,14 @@ class IngresoConciliadoController extends Controller
             return response()->json(['error' => 'Faltan datos para buscar.'], 400);
         }
 
-        // Si detecta Transportactics, cancela el Excel y se va a la API
+        // Si detecta Transportactics, redirige a la API usando la sucursal limpia
         if (str_contains($sucursalBuscada, 'TRANSPORTACTICS')) {
-            return $this->procesarIngresoTransportactics($terminosBuscados);
+            return $this->procesarIngresoTransportactics($terminosBuscados, $sucursalLimpia);
         }
 
-        // Si detecta Intshipperts, se va a su lógica especial (API + hoja ALMAN)
+        // Si detecta Intshipperts, redirige usando la sucursal limpia
         if (str_contains($sucursalBuscada, 'INTSHIPPERTS')) {
-            return $this->procesarIngresoIntshipperts($terminosBuscados);
+            return $this->procesarIngresoIntshipperts($terminosBuscados, $sucursalLimpia);
         }
 
         $quiereCFDI = in_array('CFDI', $tiposComprobante);
@@ -472,7 +447,8 @@ class IngresoConciliadoController extends Controller
             $nombrePestanaCodificado = 'ZLO';
         } else {
             $spreadsheetId = app()->environment('production') ? '1f_I9miUfQb5Xl379DNP1fciHUEYAU6MrM832Z6QqSi0' : '17hBoRx5u5jxi2hqHiC98zX-3lqF0w5tTkHBzElCHwDM';
-            $nombrePestanaCodificado = rawurlencode($sucursalBuscada);
+            // Usamos la sucursal limpia para consultar la pestaña correcta en Google Sheets
+            $nombrePestanaCodificado = rawurlencode($sucursalLimpia);
         }
 
         $csvUrl = "https://docs.google.com/spreadsheets/d/{$spreadsheetId}/gviz/tq?tqx=out:csv&sheet={$nombrePestanaCodificado}";
@@ -670,12 +646,12 @@ class IngresoConciliadoController extends Controller
 
                                     $todasLasDescripciones = '';
 
-                                    $folioPref = $prefactura['encabezado']['folio'] ?? $prefactura['encabezado']['factura'] ?? $prefactura['encabezado']['serie_folio'] ?? '';
-                                    if (!empty($folioPref)) {
-                                        $resultados['folio_sc'][] = preg_replace('/[^0-9]/', '', $folioPref);
-                                    }
-
                                     foreach ($respPrefactura->json() as $prefactura) {
+                                        $folioPref = $prefactura['encabezado']['folio'] ?? $prefactura['encabezado']['factura'] ?? $prefactura['encabezado']['serie_folio'] ?? '';
+                                        if (!empty($folioPref)) {
+                                            $resultados['folio_sc'][] = preg_replace('/[^0-9]/', '', $folioPref);
+                                        }
+
                                         $clientePrefactura = strtoupper($prefactura['encabezado']['cliente'] ?? $clientePrefactura);
                                         $totalPrefactura += (float) ($prefactura['totales']['total'] ?? 0);
 
@@ -852,7 +828,7 @@ class IngresoConciliadoController extends Controller
                             $op_cfdi = $op_honorariosXML;
 
                             $folioLimpio = '';
-                            if (!empty($folioPref)) {
+                            if (isset($folioPref) && !empty($folioPref)) {
                                 $folioLimpio = preg_replace('/[^0-9]/', '', $folioPref);
                             }
 
@@ -1171,7 +1147,6 @@ class IngresoConciliadoController extends Controller
                         $ciudad = explode(' ', $sucursalBuscada)[0];
                         $prefijo = $prefijos[$ciudad] ?? 'NOG';
                         $folioLimpio = preg_replace('/[^0-9]/', '', $folioFacturaEnSheet);
-                        $nombreBaseBuscado = $prefijo . $folioLimpio;
 
                         if ($pedimentoDB && $idOp) {
                             $archivos = [];
@@ -1513,7 +1488,7 @@ class IngresoConciliadoController extends Controller
         }
     }
 
-    private function procesarIngresoTransportactics(array $terminosBuscados)
+    private function procesarIngresoTransportactics(array $terminosBuscados, $sucursalLimpia = null)
     {
         $resultados = [
             'honorarios' => 0,
@@ -1608,6 +1583,8 @@ class IngresoConciliadoController extends Controller
 
             foreach ($archivos as $archivo) {
                 $ext = strtolower(pathinfo($archivo['name'] ?? '', PATHINFO_EXTENSION));
+                $nombreArchivoMayus = strtoupper($archivo['name'] ?? '');
+
                 if ($ext === 'xml') {
                     $xmlCount++;
                     $urlXml = $archivo['url']['normal'] ?? null;
@@ -1619,11 +1596,41 @@ class IngresoConciliadoController extends Controller
                         $logDebug[] = "XML '{$archivo['name']}': Emisor '{$nombreEmisor}' -> \${$montoXML}";
 
                         if ($montoXML > 0 && str_contains($nombreEmisor, 'TRANSPORTACTICS')) {
-                            $totalFacturasXML += $montoXML;
-                            $montoCfdiOp += $montoXML; // Sumamos a la operación individual
+                            
+                            // Verificamos si la sucursal actual coincide con el prefijo o nombre en la factura
+                            $perteneceASucursal = true;
 
-                            if (!empty($datosFactura['folio'])) {
-                                $resultados['folio_sc'][] = $datosFactura['folio'];
+                            if (!empty($sucursalLimpia) && !empty($datosFactura['folio'])) {
+                                $folioUpper = strtoupper($datosFactura['folio']);
+                                $sucursalUpper = strtoupper($sucursalLimpia);
+                                
+                                // Definimos los prefijos esperados por cada sucursal
+                                $prefijosTr = [
+                                    'NOGALES' => 'NOG',
+                                    'LAREDO' => 'NL',
+                                    'TIJUANA' => 'TIJ',
+                                    'MEXICALI' => 'MXL'
+                                ];
+
+                                // Si existe un prefijo para esta sucursal, validamos que el folio lo contenga
+                                // Ejemplo: Si estamos en NOGALES, el folio debe contener NOG
+                                if (isset($prefijosTr[$sucursalUpper])) {
+                                    $prefijoEsperado = $prefijosTr[$sucursalUpper];
+                                    if (!str_contains($folioUpper, $prefijoEsperado) && !str_contains($nombreArchivoMayus, $prefijoEsperado)) {
+                                        $perteneceASucursal = false;
+                                        $logDebug[] = "DESCARTADO: El folio '{$folioUpper}' no es de la sucursal {$sucursalUpper}";
+                                    }
+                                }
+                            }
+
+                            // Si pertenece a la sucursal, lo sumamos
+                            if ($perteneceASucursal) {
+                                $totalFacturasXML += $montoXML;
+                                $montoCfdiOp += $montoXML;
+
+                                if (!empty($datosFactura['folio'])) {
+                                    $resultados['folio_sc'][] = $datosFactura['folio'];
+                                }
                             }
                         }
                     }
