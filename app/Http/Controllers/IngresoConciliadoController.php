@@ -266,7 +266,6 @@ class IngresoConciliadoController extends Controller
             $idxFacturaSC = 8; // Columna I (Factura / SC)
 
             $ultimoCliente = '';
-            $ultimoPedimento = '';
             $ultimoPedimentoCrudo = '';
             $ultimaFacturaSC = '';
 
@@ -277,7 +276,6 @@ class IngresoConciliadoController extends Controller
 
                 $clienteCeldaOriginal   = trim(preg_replace('/\s+/', ' ', $cols[$idxCliente] ?? ''));
                 $pedimentoCeldaCrudo    = trim(preg_replace('/\s+/', ' ', $cols[$idxPedimento] ?? '')); // Cadena original intacta
-                $pedimentoCeldaOriginal = $pedimentoCeldaCrudo; 
                 
                 $facturaSCCeldaOriginal = trim(preg_replace('/\s+/', ' ', $cols[$idxFacturaSC] ?? ''));
                 $facturaPCeldaOriginal  = trim(preg_replace('/\s+/', ' ', $cols[$idxFacturaP] ?? ''));
@@ -285,29 +283,19 @@ class IngresoConciliadoController extends Controller
 
                 if ($esTransportactics && $facturaPCeldaOriginal !== '') {
                     if ($proveedorCeldaOriginal === 'TRANSPORTACTICS' || str_contains($proveedorCeldaOriginal, 'TRANSPORTACTICS')) {
-                        $pedimentoCeldaOriginal = $facturaPCeldaOriginal;
                         $pedimentoCeldaCrudo = $facturaPCeldaOriginal;
                     }
                 }
 
-                if (str_contains($pedimentoCeldaOriginal, '/')) {
-                    $pedimentoCeldaOriginal = trim(explode('/', $pedimentoCeldaOriginal)[0]);
-                }
-                $pedimentoCeldaOriginal = trim(preg_replace('/ZLO[A-Z]*\s*[0-9]*/i', '', $pedimentoCeldaOriginal));
-                $pedimentoCeldaOriginal = trim($pedimentoCeldaOriginal, ' -/');
-
+                // HERENCIA VERTICAL
                 if ($clienteCeldaOriginal !== '') {
                     if ($clienteCeldaOriginal !== $ultimoCliente) {
-                        $ultimoPedimento = '';
                         $ultimoPedimentoCrudo = '';
                         $ultimaFacturaSC = '';
                     }
                     $ultimoCliente = $clienteCeldaOriginal;
                 }
 
-                if ($pedimentoCeldaOriginal !== '') {
-                    $ultimoPedimento = $pedimentoCeldaOriginal;
-                }
                 if ($pedimentoCeldaCrudo !== '') {
                     $ultimoPedimentoCrudo = $pedimentoCeldaCrudo;
                 }
@@ -316,15 +304,14 @@ class IngresoConciliadoController extends Controller
                 }
 
                 $clienteCelda   = $ultimoCliente;
-                $pedimentoCelda = $ultimoPedimento;            // Pedimento visual limpio (ej: "3711-6031512")
                 $pedimentoCrudo = $ultimoPedimentoCrudo;       // Cadena completa (ej: "3711-6031512 ZLO6651 / ZLOI532")
                 $folioTR        = $facturaPCeldaOriginal;      
                 $facturaSC      = $ultimaFacturaSC;            
 
                 $montoCelda = (float) filter_var(trim($cols[$idxMonto] ?? '0'), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
 
-                if ($pedimentoCelda !== '' && $clienteCelda !== '') {
-                    if (strtoupper($clienteCelda) === 'CLIENTE' || strtoupper($pedimentoCelda) === 'PEDIMENTO') {
+                if ($pedimentoCrudo !== '' && $clienteCelda !== '') {
+                    if (strtoupper($clienteCelda) === 'CLIENTE' || strtoupper($pedimentoCrudo) === 'PEDIMENTO') {
                         continue;
                     }
 
@@ -356,40 +343,72 @@ class IngresoConciliadoController extends Controller
                     $folioSecundario = '';
                     if ($folioZloNormal !== '') {
                         $folioSecundario = $folioZloNormal;
-                    } elseif ($facturaSC !== '' && !str_contains($facturaSC, '$') && $facturaSC !== $pedimentoCelda) {
+                    } elseif ($facturaSC !== '' && !str_contains($facturaSC, '$') && $facturaSC !== $pedimentoCrudo) {
                         $folioSecundario = $facturaSC;
                     }
 
-                    $pedimentoLimpio = $pedimentoCelda;
-                    if (preg_match('/(?:\d{4})\s*[-_\/\s]\s*(\d{7})/', $pedimentoCelda, $matches)) {
-                        $pedimentoLimpio = $matches[1];
-                    } elseif (preg_match('/\b\d{7}\b/', $pedimentoCelda, $matches)) {
-                        $pedimentoLimpio = $matches[0];
+                    // 1. DETECTAR SI HAY PATENTE AL INICIO (ej: "3711-")
+                    $patentePrefijo = '';
+                    if (preg_match('/^(\d{4})\s*[-_]/', $pedimentoCrudo, $mPatente)) {
+                        $patentePrefijo = $mPatente[1] . '-';
                     }
 
-                    $etiqueta = '';
+                    // 2. SEPARACIÓN FLEXIBLE POR DIAGONAL (/), COMA (,) O SALTO DE LÍNEA
+                    $subPedimentosRaw = preg_split('/[\/;,]+|\r\n|\n/', $pedimentoCrudo);
 
-                    if ($esTransportactics && $folioTR !== '') {
-                        $etiqueta .= 'TR: ' . $folioTR . ' - ';
-                    } elseif ($esIntshipperts && $folioIntshipperts !== '') {
-                        $etiqueta .= 'INT: ' . $folioIntshipperts . ' - ';
-                    } elseif (!$esIntshipperts && !$esTransportactics && $folioSecundario !== '') {
-                        $etiqueta .= $folioSecundario . ' - ';
+                    foreach ($subPedimentosRaw as $subItem) {
+                        $subItem = trim($subItem);
+                        if (empty($subItem)) {
+                            continue;
+                        }
+
+                        // Limpiamos folios tipo ZLO6651 o ZLOI532 del texto individual
+                        $subLimpio = trim(preg_replace('/ZLO[A-Z]*\s*[0-9]*/i', '', $subItem));
+                        $subLimpio = trim($subLimpio, ' -/');
+
+                        if (empty($subLimpio)) {
+                            continue;
+                        }
+
+                        // 3. EXTRACCIÓN FLEXIBLE DEL NÚMERO (Soporta de 4 a 8 dígitos)
+                        $pedimentoLimpio = '';
+                        if (preg_match('/(?:\d{4})\s*[-_\/\s]\s*(\d{7})/', $subLimpio, $matches)) {
+                            $pedimentoLimpio = $matches[1];
+                        } elseif (preg_match('/\b\d{7}\b/', $subLimpio, $matches)) {
+                            $pedimentoLimpio = $matches[0];
+                        } elseif (preg_match('/\b\d{4,8}\b/', $subLimpio, $matches)) {
+                            $pedimentoLimpio = $matches[0];
+                        } else {
+                            $pedimentoLimpio = $subLimpio;
+                        }
+
+                        // 4. HERENCIA DE PATENTE (Si el primer elemento tenía 3711-, asignarlo a los demás)
+                        $subDisplay = $subLimpio;
+                        if ($patentePrefijo !== '' && !str_contains($subDisplay, '-') && is_numeric($pedimentoLimpio)) {
+                            $subDisplay = $patentePrefijo . $pedimentoLimpio;
+                        }
+
+                        // Armado de etiqueta por pedimento individual
+                        $etiqueta = '';
+
+                        if ($esTransportactics && $folioTR !== '') {
+                            $etiqueta .= 'TR: ' . $folioTR . ' - ';
+                        } elseif ($esIntshipperts && $folioIntshipperts !== '') {
+                            $etiqueta .= 'INT: ' . $folioIntshipperts . ' - ';
+                        } elseif (!$esIntshipperts && !$esTransportactics && $folioSecundario !== '') {
+                            $etiqueta .= $folioSecundario . ' - ';
+                        }
+
+                        $etiqueta .= $subDisplay . ' - ' . $clienteCelda;
+
+                        $pedimentos[] = [
+                            'label'     => $etiqueta,
+                            'folio'     => $etiqueta,
+                            'cliente'   => strtoupper($clienteCelda),
+                            'pedimento' => $pedimentoLimpio,
+                            'folio_tr'  => $folioTR                                                      
+                        ];
                     }
-
-                    if ($pedimentoCelda !== '') {
-                        $etiqueta .= $pedimentoCelda . ' - ';
-                    }
-
-                    $etiqueta .= $clienteCelda;
-
-                    $pedimentos[] = [
-                        'label'     => $etiqueta,
-                        'folio'     => $etiqueta,
-                        'cliente'   => strtoupper($clienteCelda),
-                        'pedimento' => $pedimentoLimpio !== '' ? $pedimentoLimpio : $pedimentoCelda, 
-                        'folio_tr'  => $folioTR                                                      
-                    ];
                 }
             }
 
