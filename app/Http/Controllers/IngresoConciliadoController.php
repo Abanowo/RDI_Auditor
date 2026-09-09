@@ -249,7 +249,6 @@ class IngresoConciliadoController extends Controller
 
             if ($res->successful()) {
                 $body = $res->body();
-                
                 $esErrorGoogle = str_contains($body, 'google.visualization.Query')
                               || str_contains($body, 'invalid_query')
                               || str_contains($body, 'Invalid sheet name')
@@ -263,9 +262,7 @@ class IngresoConciliadoController extends Controller
         }
 
         if (!$responseBody) {
-            return response()->json([
-                'error' => "No se encontró una pestaña válida para '{$sucursalRaw}' en Google Sheets."
-            ], 404);
+            return response()->json(['error' => "No se encontró una pestaña válida para '{$sucursalRaw}'."], 404);
         }
 
         $stream = fopen('php://memory', 'r+');
@@ -298,7 +295,6 @@ class IngresoConciliadoController extends Controller
         foreach (array_slice($rows, 0, 5) as $filaHeader) {
             foreach ($filaHeader as $i => $col) {
                 $txt = strtolower(trim($col));
-
                 if (str_contains($txt, 'sucursal') || str_contains($txt, 'aduana') || str_contains($txt, 'origen')) {
                     $idxSucursal = $i;
                 }
@@ -331,6 +327,7 @@ class IngresoConciliadoController extends Controller
             }
         }
 
+        // AGRUPAMIENTO POR BLOQUES OPERATIVOS
         $bloques = [];
         $bloqueActual = [];
 
@@ -399,7 +396,6 @@ class IngresoConciliadoController extends Controller
                     $facturaSCBlock = $sc;
                 }
 
-                // Extracción estricta del Folio TR únicamente desde la fila del proveedor Transportactics
                 if (str_contains($prov, 'TRANSPORTACTIC')) {
                     $proveedorBlock = $prov;
                     if (!empty($tr)) {
@@ -436,11 +432,19 @@ class IngresoConciliadoController extends Controller
                 }
             }
 
+            // EXTRACCIÓN DE FOLIOS EN CELDAS (ZLOI, ZLO NORMAL)
             $folioIntshipperts = '';
             if (preg_match('/(ZLOI\s*[0-9]+)/i', $facturaSCBlock, $matches)) {
                 $folioIntshipperts = strtoupper(str_replace(' ', '', $matches[1]));
             } elseif (preg_match('/(ZLOI\s*[0-9]+)/i', $pedimentoBlock, $matches)) {
                 $folioIntshipperts = strtoupper(str_replace(' ', '', $matches[1]));
+            }
+
+            $folioZloNormal = '';
+            if (preg_match('/(ZLO(?!I)\s*[0-9]+)/i', $facturaSCBlock, $matches)) {
+                $folioZloNormal = strtoupper(str_replace(' ', '', $matches[1]));
+            } elseif (preg_match('/(ZLO(?!I)\s*[0-9]+)/i', $pedimentoBlock, $matches)) {
+                $folioZloNormal = strtoupper(str_replace(' ', '', $matches[1]));
             }
 
             if ($esIntshipperts && $folioIntshipperts === '') {
@@ -452,6 +456,7 @@ class IngresoConciliadoController extends Controller
                 $folioSecundario = $facturaSCBlock;
             }
 
+            // LIMPIEZA DEL PEDIMENTO (Remueve etiquetas ZLO/ZLOI del texto numérico)
             $pedimentoLimpioBase = trim(preg_replace('/ZLO[A-Z]*\s*[0-9]*/i', '', $pedimentoBlock));
             $pedimentoLimpioBase = trim($pedimentoLimpioBase, ' -/');
 
@@ -487,30 +492,40 @@ class IngresoConciliadoController extends Controller
                 }
             }
 
+            // GENERACIÓN DE OPCIONES ESTRUCTURADAS
             foreach ($pedimentosDesglosados as $itemPed) {
                 $pedClean = $itemPed['clean'];
                 $pedDisplay = $itemPed['display'];
 
-                $folioSecundarioLimpio = '';
-                if (!empty($folioSecundario) && $folioSecundario !== $patentePrefijo && $folioSecundario !== $pedClean && !str_contains($pedDisplay, $folioSecundario)) {
-                    $folioSecundarioLimpio = $folioSecundario;
+                // Determina el Folio SC Principal (Prioridades: ZLO Normal / ZLOI / TR / Folio SC)
+                $folioSCPrincipal = '';
+                if (!empty($folioZloNormal)) {
+                    $folioSCPrincipal = $folioZloNormal;
+                } elseif (!empty($folioIntshipperts)) {
+                    $folioSCPrincipal = $folioIntshipperts;
+                } elseif ($esTransportactics && !empty($folioTRBlock)) {
+                    $folioSCPrincipal = $folioTRBlock;
+                } elseif (!empty($folioSecundario) && $folioSecundario !== $patentePrefijo && $folioSecundario !== $pedClean) {
+                    $folioSCPrincipal = $folioSecundario;
                 }
 
                 $partesEtiqueta = [];
 
+                // 1. Folio SC / TR / INT (Si existe, va PRIMERO)
                 if ($esTransportactics) {
                     $partesEtiqueta[] = 'TR: ' . ($folioTRBlock !== '' ? $folioTRBlock : 'S/F');
                 } elseif ($esIntshipperts && $folioIntshipperts !== '') {
                     $partesEtiqueta[] = 'INT: ' . $folioIntshipperts;
-                } elseif (!$esIntshipperts && !$esTransportactics && $folioSecundarioLimpio !== '') {
-                    $partesEtiqueta[] = $folioSecundarioLimpio;
+                } elseif (!empty($folioSCPrincipal)) {
+                    $partesEtiqueta[] = $folioSCPrincipal;
                 }
 
-                // Evita incluir el pedimento si resulta ser exactamente idéntico al Folio TR
-                if (!empty($pedDisplay) && $pedDisplay !== $folioTRBlock) {
+                // 2. Pedimento (Se incluye si existe y no es idéntico al Folio SC)
+                if (!empty($pedDisplay) && $pedDisplay !== $folioSCPrincipal) {
                     $partesEtiqueta[] = $pedDisplay;
                 }
 
+                // 3. Cliente
                 if (!empty($clienteBlock) && $clienteBlock !== 'CLIENTE') {
                     $partesEtiqueta[] = $clienteBlock;
                 }
@@ -525,6 +540,7 @@ class IngresoConciliadoController extends Controller
                         'folio'     => $etiqueta,
                         'cliente'   => strtoupper($clienteBlock),
                         'pedimento' => $pedClean,
+                        'folio_sc'  => !empty($folioSCPrincipal) ? $folioSCPrincipal : $pedClean,
                         'folio_tr'  => $folioTRBlock
                     ];
                 }
@@ -2712,11 +2728,9 @@ class IngresoConciliadoController extends Controller
             $clienteNombre = '';
 
             if (empty($clienteId) && $request->filled('nuevo_cliente_nombre')) {
-                // Es un cliente escrito manualmente (no existe en la tabla empresas)
                 $clienteManual = strtoupper(trim($request->nuevo_cliente_nombre));
-                $clienteNombre = $clienteManual; // Lo usamos para validar Transportactics abajo
+                $clienteNombre = $clienteManual;
             } else {
-                // Es un cliente del catálogo normal
                 $empresa = Empresas::find($clienteId);
                 $clienteNombre = $empresa ? strtoupper($empresa->nombre) : '';
             }
@@ -2725,7 +2739,7 @@ class IngresoConciliadoController extends Controller
             $isTransportactics = str_contains($clienteNombre, 'TRANSPORTACTICS') || str_contains($sucursal, 'TRANSPORTACTIC');
             $esManzanillo = str_contains($sucursal, 'MANZANILLO') || str_contains($sucursal, 'ZLO') || str_contains($sucursal, 'INTSHIPPERT');
 
-            // BLINDAJE: Limpiamos y forzamos a que sean números reales
+            // Limpieza de montos
             $fleteReal = (float) str_replace(['$', ','], '', $request->flete ?? 0);
             $pagoProvReal = (float) str_replace(['$', ','], '', $request->pago_proveedor ?? 0);
             $honorariosReal = (float) str_replace(['$', ','], '', $request->honorarios ?? 0);
@@ -2736,7 +2750,7 @@ class IngresoConciliadoController extends Controller
             $monto_gpc = 0;
 
             if ($isTransportactics) {
-                $monto_gpc = 0; // En transportactics todo es CFDI
+                $monto_gpc = 0;
             } elseif ($esManzanillo) {
                 $monto_gpc = (float)($request->anticipo ?? 0) + (float)($request->garantias ?? 0) +
                     (float)($request->desglose_naviera ?? 0) + (float)($request->impuestos ?? 0) + $fleteReal;
@@ -2758,7 +2772,7 @@ class IngresoConciliadoController extends Controller
             $ingreso->monto_deposito = (float) str_replace(['$', ','], '', $request->monto_deposito ?? 0);
             $ingreso->total_gpc = $monto_gpc;
 
-            // Resto de campos
+            // Conceptos de desglose
             $ingreso->impuestos = $request->impuestos ?? 0;
             $ingreso->eci = $request->eci ?? 0;
             $ingreso->maniobras = $request->maniobras ?? 0;
@@ -2775,9 +2789,7 @@ class IngresoConciliadoController extends Controller
             $ingreso->garantias = $request->garantias ?? 0;
             $ingreso->desglose_naviera = $request->desglose_naviera ?? 0;
             $ingreso->pago_proveedor = $pagoProvReal;
-
             $ingreso->honorarios = $honorariosReal;
-
             $ingreso->metodo_pago = $request->metodo_pago ?? 'PUE';
 
             if ($isTransportactics) {
@@ -2786,25 +2798,26 @@ class IngresoConciliadoController extends Controller
                 $ingreso->ganancia = $gananciaReal;
             }
 
-            // Textos
-            $textoLibre = $request->referencia ?? $request->folio_sc;
-            $ingreso->folio_sc = $textoLibre;
-            $ingreso->referencia = $textoLibre;
-            $ingreso->tipo_comprobante = $request->tipo_comprobante;
+            // ASIGNACIÓN DE FOLIO / REFERENCIA
+            // Guarda Folio SC si existe; si no, respalda con el Pedimento
+            $pedimentoVal = $request->pedimento ?? $request->pedimento_detectado ?? null;
+            $folioScVal   = $request->folio_sc ?? $request->referencia ?? null;
+
+            $folioFinal = !empty($folioScVal) ? $folioScVal : $pedimentoVal;
+
+            $ingreso->folio_sc         = $folioFinal;
+            $ingreso->referencia       = $folioFinal;
+            $ingreso->tipo_comprobante = $request->tipo_comprobante ?? 'CFDI';
 
             $ingreso->save();
 
-            // ==========================================
-            // 2. GUARDAR EL PIVOTE (OPERACIONES)
-            // ==========================================
-            // 1. Validamos que el request traiga operaciones
+            // PIVOTE (ingreso_operacion)
             if ($request->has('operaciones') && is_array($request->operaciones)) {
                 DB::table('ingreso_operacion')->where('ingreso_id', $ingreso->id)->delete();
 
                 $pivotData = [];
-                $totalElementos = count($request->operaciones); // Incluye reales y genéricas
+                $totalElementos = count($request->operaciones);
 
-                // 1. Sumatoria de Flete para Transportactics
                 $sumaFleteXml = 0;
                 foreach ($request->operaciones as $op) {
                     $sumaFleteXml += (float) ($op['monto_cfdi'] ?? $op['flete'] ?? 0);
@@ -2818,13 +2831,11 @@ class IngresoConciliadoController extends Controller
                     $anticipoUnitario = round($anticipoGlobal / $totalElementos, 2);
                 }
 
-                // 3. Inserción en Pivote (Admite con o sin operacion_id)
                 foreach ($request->operaciones as $op) {
                     $fleteOperacion = (float) ($op['monto_cfdi'] ?? $op['flete'] ?? 0);
                     $montoGpcVal    = (float) ($op['monto_gpc'] ?? $op['total_gpc'] ?? 0);
                     $montoCfdiFinal = $fleteOperacion;
 
-                    // Cálculo proporcional exclusivo para Transportactics
                     if ($isTransportactics && $totalFlete > 0) {
                         $proporcion = $fleteOperacion / $totalFlete;
                         $montoCfdiFinal = $fleteOperacion - ($pagoProvReal * $proporcion);
@@ -2859,9 +2870,7 @@ class IngresoConciliadoController extends Controller
                 }
             }
 
-            // ==========================================
-            // 3. CÁLCULO Y REGISTRO AUTOMÁTICO DE SALDO
-            // ==========================================
+            // SALDO A FAVOR
             $montoDeposito = round((float) $ingreso->monto_deposito, 2);
             $totalGpc      = round((float) $ingreso->total_gpc, 2);
             $honorarios    = round((float) $ingreso->honorarios, 2);
@@ -2913,10 +2922,8 @@ class IngresoConciliadoController extends Controller
     {
         DB::beginTransaction();
         try {
-            // 1. Encontrar el ingreso que estamos editando
             $ingreso = IngresoConciliado::findOrFail($id);
 
-            // Actualizar los campos principales
             $ingreso->sucursal_origen = $request->sucursal_origen ?? $ingreso->sucursal_origen;
             $ingreso->banco_receptor = $request->banco_receptor ?? $ingreso->banco_receptor;
             $ingreso->fecha = $request->fecha ?? $ingreso->fecha;
@@ -2924,19 +2931,16 @@ class IngresoConciliadoController extends Controller
             $clienteNombre = '';
 
             if (empty($request->cliente_id) && $request->filled('nuevo_cliente_nombre')) {
-                // A. Es un cliente escrito manualmente
                 $ingreso->cliente_id = null;
                 $ingreso->cliente = strtoupper(trim($request->nuevo_cliente_nombre));
                 $clienteNombre = $ingreso->cliente;
             } elseif ($request->has('cliente_id') && !empty($request->cliente_id)) {
-                // B. Es un cliente válido del catálogo
                 $ingreso->cliente_id = $request->cliente_id;
                 $ingreso->cliente = null;
 
                 $empresa = Empresas::find($ingreso->cliente_id);
                 $clienteNombre = $empresa ? strtoupper($empresa->nombre) : '';
             } else {
-                // C. Si no mandaron cambios de cliente, usamos lo que ya tiene la BD
                 if ($ingreso->cliente_id) {
                     $empresa = Empresas::find($ingreso->cliente_id);
                     $clienteNombre = $empresa ? strtoupper($empresa->nombre) : '';
@@ -2949,7 +2953,6 @@ class IngresoConciliadoController extends Controller
             $isTransportactics = str_contains($clienteNombre, 'TRANSPORTACTICS') || str_contains($sucursalUpper, 'TRANSPORTACTIC');
             $esManzanillo = str_contains($sucursalUpper, 'MANZANILLO') || str_contains($sucursalUpper, 'ZLO') || str_contains($sucursalUpper, 'INTSHIPPERT');
 
-            // BLINDAJE: Limpiamos y forzamos a que sean números reales
             $fleteReal = (float) str_replace(['$', ','], '', $request->flete ?? $ingreso->flete);
             $pagoProvReal = (float) str_replace(['$', ','], '', $request->pago_proveedor ?? $ingreso->pago_proveedor);
             $honorariosReal = (float) str_replace(['$', ','], '', $request->honorarios ?? $ingreso->honorarios);
@@ -2985,7 +2988,6 @@ class IngresoConciliadoController extends Controller
             $ingreso->muestras = $request->muestras ?? $ingreso->muestras;
             $ingreso->llc = $request->llc ?? $ingreso->llc;
 
-            // CANDADO: ALMACENADORAS Y MAQUILAS es exento de anticipo
             if (str_contains($clienteNombre, 'ALMACENADORA')) {
                 $ingreso->anticipo = 0;
             } else {
@@ -2995,7 +2997,6 @@ class IngresoConciliadoController extends Controller
             $ingreso->garantias = $request->garantias ?? $ingreso->garantias;
             $ingreso->desglose_naviera = $request->desglose_naviera ?? $ingreso->desglose_naviera;
             $ingreso->pago_proveedor = $pagoProvReal;
-
             $ingreso->honorarios = $honorariosReal;
 
             if ($isTransportactics) {
@@ -3004,29 +3005,31 @@ class IngresoConciliadoController extends Controller
                 $ingreso->ganancia = $gananciaReal;
             }
 
-            // TEXTOS: Priorizamos $request->referencia enviada desde Vue
-            $textoLibre = $request->referencia ?? $request->folio_sc ?? $ingreso->referencia;
-            $ingreso->referencia = $textoLibre;
-            $ingreso->folio_sc = $textoLibre;
+            // ASIGNACIÓN DE FOLIO / REFERENCIA
+            $pedimentoVal = $request->pedimento ?? $request->pedimento_detectado ?? null;
+            $folioScVal   = $request->folio_sc ?? $request->referencia ?? null;
+
+            $folioFinal = !empty($folioScVal) ? $folioScVal : ($pedimentoVal ?? $ingreso->folio_sc);
+
+            $ingreso->referencia       = $folioFinal;
+            $ingreso->folio_sc         = $folioFinal;
             $ingreso->tipo_comprobante = $request->tipo_comprobante ?? $ingreso->tipo_comprobante;
 
             $ingreso->save();
 
-            // Insertamos las operaciones actualizadas en el pivote
+            // PIVOTE (ingreso_operacion)
             if ($request->has('operaciones') && is_array($request->operaciones)) {
                 DB::table('ingreso_operacion')->where('ingreso_id', $ingreso->id)->delete();
 
                 $pivotData = [];
                 $totalElementos = count($request->operaciones);
 
-                // 1. Sumatoria de Flete para Transportactics
                 $sumaFleteXml = 0;
                 foreach ($request->operaciones as $op) {
                     $sumaFleteXml += (float) ($op['monto_cfdi'] ?? $op['flete'] ?? 0);
                 }
                 $totalFlete = $sumaFleteXml > 0 ? $sumaFleteXml : 1;
 
-                // Toma el anticipo definitivo ya procesado del modelo $ingreso
                 $anticipoGlobal = (float) $ingreso->anticipo;
                 $anticipoUnitario = 0;
 
@@ -3034,7 +3037,6 @@ class IngresoConciliadoController extends Controller
                     $anticipoUnitario = round($anticipoGlobal / $totalElementos, 2);
                 }
 
-                // 3. Inserción en Pivote
                 foreach ($request->operaciones as $op) {
                     $fleteOperacion = (float) ($op['monto_cfdi'] ?? $op['flete'] ?? 0);
                     $montoGpcVal    = (float) ($op['monto_gpc'] ?? $op['total_gpc'] ?? 0);
@@ -3074,9 +3076,7 @@ class IngresoConciliadoController extends Controller
                 }
             }
 
-            // ==========================================
-            // CÁLCULO Y REGISTRO AUTOMÁTICO DE SALDO
-            // ==========================================
+            // SALDO A FAVOR
             $montoDeposito = round((float) $ingreso->monto_deposito, 2);
             $totalGpc      = round((float) $ingreso->total_gpc, 2);
             $honorarios    = round((float) $ingreso->honorarios, 2);
