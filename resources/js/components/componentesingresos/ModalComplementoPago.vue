@@ -5,9 +5,8 @@
       class="bg-white rounded-xl shadow-2xl w-full max-w-7xl overflow-hidden flex flex-col max-h-[calc(100vh-4rem)] mx-4">
 
       <!-- Header -->
-      <div class="px-8 py-6 flex justify-between items-center shrink-0"style="background-color: #2A3A4D;">
+      <div class="px-8 py-6 flex justify-between items-center shrink-0" style="background-color: #2A3A4D;">
         <h3 class="text-white font-bold text-2xl tracking-wide flex items-center gap-3">
-          <!-- Ícono de Engranaje / Procesamiento SVG -->
           <svg class="w-7 h-7 shrink-0 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
@@ -27,9 +26,7 @@
       <!-- Body -->
       <div class="p-8 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-3 gap-8">
 
-        <!-- ========================================== -->
-        <!-- DATOS GENERALES (AQUÍ AGREGAMOS BANCO Y FECHA) -->
-        <!-- ========================================== -->
+        <!-- DATOS GENERALES -->
         <div class="col-span-1 md:col-span-2">
           <label class="block text-lg font-bold text-gray-700 mb-2 uppercase">Cliente</label>
           <input type="text" :value="ingreso.cliente" disabled
@@ -54,10 +51,9 @@
             class="w-full border-gray-300 bg-gray-100 rounded-lg shadow-sm px-5 py-4 text-xl text-gray-700 font-semibold cursor-not-allowed">
         </div>
 
-        <!-- SECCIÓN DE MONTOS SEPARADOS -->
+        <!-- SECCIÓN DE MONTO EXCLUSIVO DE CFDI -->
         <div
-          class="col-span-1 md:col-span-3 border-2 border-indigo-200 bg-indigo-100 rounded-xl p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-
+          class="col-span-1 md:col-span-3 border-2 border-indigo-200 bg-indigo-100 rounded-xl p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
           <div>
             <label class="block text-sm font-bold text-indigo-800 mb-2 uppercase tracking-wide">Monto CFDI
               (Honorarios)</label>
@@ -69,24 +65,13 @@
           </div>
 
           <div>
-            <label class="block text-sm font-bold text-pink-700 mb-2 uppercase tracking-wide">Monto GPC (Nota
-              Cargo)</label>
-            <div class="relative">
-              <span class="absolute left-4 top-1/2 transform -translate-y-1/2 text-xl font-bold text-gray-500">$</span>
-              <input type="number" step="0.01" v-model="form.monto_gpc"
-                class="w-full border-pink-200 rounded-lg shadow-sm pl-10 pr-5 py-4 text-2xl font-black text-pink-700 outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-500 bg-white">
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-sm font-bold text-gray-600 mb-2 uppercase tracking-wide">Total Depositado</label>
+            <label class="block text-sm font-bold text-gray-600 mb-2 uppercase tracking-wide">Total Complemento</label>
             <div class="relative">
               <span class="absolute left-4 top-1/2 transform -translate-y-1/2 text-xl font-bold text-gray-500">$</span>
               <input type="number" :value="sumaTotal" disabled
                 class="w-full border-gray-300 rounded-lg shadow-sm pl-10 pr-5 py-4 text-2xl font-black text-gray-800 bg-gray-200 cursor-not-allowed">
             </div>
           </div>
-
         </div>
 
         <!-- Configuraciones del Complemento -->
@@ -123,8 +108,10 @@
         </div>
 
         <div class="col-span-1 md:col-span-3">
-          <label class="block text-lg font-bold text-gray-700 mb-2">Observaciones</label>
+          <label class="block text-lg font-bold text-gray-700 mb-2">Observaciones <span
+              class="text-sm font-normal text-gray-500">(Opcional)</span></label>
           <textarea v-model="form.observaciones" rows="3"
+            placeholder="Añade algún comentario o nota interna (opcional)..."
             class="w-full border-gray-300 rounded-lg shadow-sm px-5 py-4 text-xl outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-none"></textarea>
         </div>
       </div>
@@ -136,24 +123,20 @@
           Cancelar
         </button>
 
-        <button @click="enviarComplemento" :disabled="!!ingreso.folio_complemento"
-          :class="[
-            'px-6 py-4 rounded-lg font-bold transition-colors flex items-center text-xl shadow-sm',
-            !!ingreso.folio_complemento 
-              ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
-              : 'bg-indigo-600 text-white hover:bg-indigo-700'
-          ]"
-          :title="!!ingreso.folio_complemento ? 'El complemento ya fue generado' : 'Generar Complemento'">
+        <button @click="enviarComplemento" :disabled="!!ingreso.folio_complemento" :class="[
+          'px-6 py-4 rounded-lg font-bold transition-colors flex items-center text-xl shadow-sm',
+          !!ingreso.folio_complemento
+            ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+            : 'bg-indigo-600 text-white hover:bg-indigo-700'
+        ]" :title="!!ingreso.folio_complemento ? 'El complemento ya fue generado' : 'Generar Complemento'">
           Generar Complemento
         </button>
 
-        <!-- BOTÓN TIMBRAR ACTUALIZADO CON PROTECCIÓN -->
-        <button @click="timbrarComplemento" 
-          :disabled="!ingreso.folio_complemento || ingreso.timbrado || ingreso.estado_envio === 'ENVIADO'"
-          :class="[
+        <button @click="timbrarComplemento"
+          :disabled="!ingreso.folio_complemento || ingreso.timbrado || ingreso.estado_envio === 'ENVIADO'" :class="[
             'px-6 py-4 rounded-lg font-bold transition-colors flex items-center text-xl shadow-sm',
             !ingreso.folio_complemento || ingreso.timbrado || ingreso.estado_envio === 'ENVIADO'
-              ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+              ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
               : 'bg-green-600 text-white hover:bg-green-700'
           ]"
           :title="!ingreso.folio_complemento ? 'Primero debes generar el complemento' : (ingreso.timbrado || ingreso.estado_envio === 'ENVIADO' ? 'El complemento ya fue timbrado' : 'Timbrar ante el SAT')">
@@ -189,7 +172,6 @@ export default {
     return {
       form: {
         monto_cfdi: 0,
-        monto_gpc: 0,
         metodoPagoObj: { value: 'PPD', label: 'PPD - Pago en parcialidades o diferido' },
         monedaObj: { value: 'MXN', label: 'MXN - Peso Mexicano' },
         tipo_cambio: 1,
@@ -228,7 +210,8 @@ export default {
   },
   computed: {
     sumaTotal() {
-      return (Number(this.form.monto_cfdi) + Number(this.form.monto_gpc)).toFixed(2);
+      // Refleja de forma idéntica el monto del CFDI a complementar
+      return Number(this.form.monto_cfdi || 0).toFixed(2);
     }
   },
   watch: {
@@ -247,28 +230,16 @@ export default {
       const nombreCliente = String(item.cliente || '').toUpperCase();
 
       const isTransportactics = nombreCliente.includes('TRANSPORTACTICS') || sucursal.includes('TRANSPORTACTIC');
-      const esManzanilloRow = sucursal.includes('MANZANILLO') || sucursal.includes('INTSHIPPERT');
 
       let cfdi = 0;
-      let gpc = 0;
 
       if (isTransportactics) {
         cfdi = Number(item.flete) || 0;
-        gpc = 0;
-      } else if (esManzanilloRow) {
-        cfdi = Number(item.honorarios) || 0;
-        gpc = (Number(item.anticipo) || 0) + (Number(item.garantias) || 0) +
-          (Number(item.desglose_naviera) || 0) + (Number(item.impuestos) || 0) +
-          (Number(item.flete) || 0);
       } else {
         cfdi = Number(item.honorarios) || 0;
-        gpc = (Number(item.impuestos) || 0) + (Number(item.eci) || 0) +
-          (Number(item.maniobras) || 0) + (Number(item.flete) || 0) +
-          (Number(item.muestras) || 0) + (Number(item.llc) || 0);
       }
 
       this.form.monto_cfdi = cfdi.toFixed(2);
-      this.form.monto_gpc = gpc.toFixed(2);
       this.form.referencia = item.folio_sc || item.folio_complemento || '';
     },
     cerrar() {
@@ -282,7 +253,7 @@ export default {
         moneda: this.form.monedaObj && this.form.monedaObj.value === 'USD' ? 2 : 1,
         tipo_cambio: this.form.tipo_cambio,
         referencia: this.form.referencia,
-        observaciones: this.form.observaciones,
+        observaciones: this.form.observaciones || '',
         total: this.sumaTotal,
         forma_pago: this.form.formaPagoObj ? this.form.formaPagoObj.value : '',
         metodo_pago: 'PPD',
