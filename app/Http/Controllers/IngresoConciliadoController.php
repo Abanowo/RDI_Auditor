@@ -557,7 +557,8 @@ class IngresoConciliadoController extends Controller
         $sucursalBuscada = strtoupper(trim($request->input('sucursal', '')));
         $tiposComprobante = $request->input('tipo_comprobante', []);
 
-        $sucursalLimpia = trim(str_replace(['TRANSPORTACTICS', 'INTSHIPPERTS'], '', $sucursalBuscada));
+        $sucursalLimpia = trim(str_replace(['TRANSPORTACTICS', 'INTSHIPPERTS', 'IMPO', 'EXPO'], '', $sucursalBuscada));
+        $ciudadBase = trim(explode(' ', $sucursalLimpia)[0]); // Ej: "LAREDO"
 
         $terminosBuscados = [];
         foreach ($terminosCrudos as $term) {
@@ -587,39 +588,60 @@ class IngresoConciliadoController extends Controller
 
         // Si detecta Transportactics, redirige a la API usando la sucursal limpia
         if (str_contains($sucursalBuscada, 'TRANSPORTACTICS')) {
-            return $this->procesarIngresoTransportactics($terminosBuscados, $sucursalLimpia);
+            return $this->procesarIngresoTransportactics($terminosBuscados, $ciudadBase);
         }
 
         // Si detecta Intshipperts, redirige usando la sucursal limpia
         if (str_contains($sucursalBuscada, 'INTSHIPPERTS')) {
-            return $this->procesarIngresoIntshipperts($terminosBuscados, $sucursalLimpia);
+            return $this->procesarIngresoIntshipperts($terminosBuscados, $ciudadBase);
         }
 
         $quiereCFDI = in_array('CFDI', $tiposComprobante);
         $quiereNotaCargo = in_array('Nota Cargo', $tiposComprobante);
-
         $esManzanillo = str_contains($sucursalBuscada, 'MANZANILLO');
         $isTransportacticsGlobal = str_contains($sucursalBuscada, 'TRANSPORTACTICS');
 
         if ($esManzanillo) {
             $spreadsheetId = app()->environment('production') ? '18-5okzV-vw35V0Ugjn5KjNcWgHyZ9Qfc6pf5w4VU-2I' : '1zHUYpViLZyu_KPkNCUEx37WjoK0lVt7F0bC1B9Jo8s0';
-            $nombrePestanaCodificado = 'ZLO';
+            $pestanasAProbar = ['ZLO'];
         } else {
             $spreadsheetId = app()->environment('production') ? '1f_I9miUfQb5Xl379DNP1fciHUEYAU6MrM832Z6QqSi0' : '17hBoRx5u5jxi2hqHiC98zX-3lqF0w5tTkHBzElCHwDM';
-            // Usamos la sucursal limpia para consultar la pestaña correcta en Google Sheets
-            $nombrePestanaCodificado = rawurlencode($sucursalLimpia);
+            $pestanasAProbar = array_unique(array_filter([
+                $sucursalBuscada,
+                $sucursalLimpia,
+                $ciudadBase,
+                $ciudadBase . ' IMPO',
+                $ciudadBase . ' EXPO'
+            ]));
         }
 
-        $csvUrl = "https://docs.google.com/spreadsheets/d/{$spreadsheetId}/gviz/tq?tqx=out:csv&sheet={$nombrePestanaCodificado}";
+        // 1. OBTENCIÓN ROBUSTA DEL CSV DE GOOGLE SHEETS
+        $responseBody = null;
+        foreach ($pestanasAProbar as $pestana) {
+            $csvUrl = "https://docs.google.com/spreadsheets/d/{$spreadsheetId}/gviz/tq?tqx=out:csv&sheet=" . rawurlencode($pestana);
+            $res = Http::withoutVerifying()->timeout(15)->get($csvUrl);
+
+            if ($res->successful()) {
+                $body = $res->body();
+                $esErrorGoogle = str_contains($body, 'google.visualization.Query')
+                              || str_contains($body, 'invalid_query')
+                              || str_contains($body, 'Invalid sheet name')
+                              || str_contains($body, '<html');
+
+                if (!$esErrorGoogle && !empty(trim($body))) {
+                    $responseBody = $body;
+                    break;
+                }
+            }
+        }
+
+        if (!$responseBody) {
+            return response()->json(['error' => "No se encontró una pestaña válida para '{$sucursalBuscada}' en Google Sheets."], 404);
+        }
 
         try {
-            $response = Http::withoutVerifying()->timeout(30)->get($csvUrl);
-            if (!$response->successful()) {
-                return response()->json(['error' => 'Google Sheets rechazó la conexión.'], 500);
-            }
-
             $stream = fopen('php://memory', 'r+');
-            fwrite($stream, $response->body());
+            fwrite($stream, $responseBody);
             rewind($stream);
 
             if ($esManzanillo) {
@@ -751,258 +773,236 @@ class IngresoConciliadoController extends Controller
                         }
                     }
 
-                    $pedimentoDB = DB::table('pedimiento')
-                        ->where('num_pedimiento', 'LIKE', "%{$pedimentoBusqueda}%")
-                        ->orderBy('id_pedimiento', 'desc')
+                    // BÚSQUEDA MANZANILLO FILTRADA POR SUCURSAL
+                    $impo = DB::table('operaciones_importacion')
+                        ->join('pedimiento', 'operaciones_importacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
+                        ->where('pedimiento.num_pedimiento', 'LIKE', "%{$pedimentoBusqueda}%")
+                        ->where('operaciones_importacion.sucursal', 'LIKE', "%{$ciudadBase}%")
+                        ->select('operaciones_importacion.*')
+                        ->orderBy('operaciones_importacion.id_importacion', 'desc')
                         ->first();
 
-                    if ($pedimentoDB) {
+                    $expo = null;
+                    if (!$impo) {
+                        $expo = DB::table('operaciones_exportacion')
+                            ->join('pedimiento', 'operaciones_exportacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
+                            ->where('pedimiento.num_pedimiento', 'LIKE', "%{$pedimentoBusqueda}%")
+                            ->where('operaciones_exportacion.sucursal', 'LIKE', "%{$ciudadBase}%")
+                            ->select('operaciones_exportacion.*')
+                            ->orderBy('operaciones_exportacion.id_exportacion', 'desc')
+                            ->first();
+                    }
+
+                    if ($impo || $expo) {
                         $encontroAlgo = true;
 
                         if (!in_array($pedimentoReal, $resultados['pedimento_detectado'])) {
                             $resultados['pedimento_detectado'][] = $pedimentoReal;
                         }
 
-                        $impo = DB::table('operaciones_importacion')->where('id_pedimiento', $pedimentoDB->id_pedimiento)->first();
-                        $expo = DB::table('operaciones_exportacion')->where('id_pedimiento', $pedimentoDB->id_pedimiento)->first();
-
-                        $idOp = null;
-                        $tipoApi = null;
-                        $idPadre = null;
-                        $opType = null;
+                        $idOp = $impo ? $impo->id_importacion : $expo->id_exportacion;
+                        $tipoApi = $impo ? 'importaciones' : 'exportaciones';
+                        $idPadre = $impo ? ($impo->parent ?? null) : ($expo->parent ?? null);
+                        $opType = $impo ? 'App\Models\OperacionImportacion' : 'App\Models\OperacionExportacion';
 
                         $op_cfdi = 0;
                         $op_gpc = 0;
                         $op_honorariosXML = 0;
 
-                        if ($impo) {
-                            $idOp = $impo->id_importacion;
-                            $tipoApi = 'importaciones';
-                            $idPadre = $impo->parent ?? null;
-                            $opType = 'App\Models\OperacionImportacion';
-                        } elseif ($expo) {
-                            $idOp = $expo->id_exportacion;
-                            $tipoApi = 'exportaciones';
-                            $idPadre = $expo->parent ?? null;
-                            $opType = 'App\Models\OperacionExportacion';
-                        }
+                        $impuestosPref = 0;
+                        $garantiasPref = 0;
+                        $navieraPref = 0;
+                        $anticipoPref = 0;
 
-                        if ($idOp) {
-                            $impuestosPref = 0;
-                            $garantiasPref = 0;
-                            $navieraPref = 0;
-                            $anticipoPref = 0;
+                        if ($quiereNotaCargo) {
+                            $urlPrefactura = "https://sistema.intactics.com/v3/operaciones/{$tipoApi}/{$idOp}/prefacturas-momentaneo";
+                            $respPrefactura = Http::withoutVerifying()->timeout(10)->get($urlPrefactura);
 
-                            if ($quiereNotaCargo) {
-                                $urlPrefactura = "https://sistema.intactics.com/v3/operaciones/{$tipoApi}/{$idOp}/prefacturas-momentaneo";
-                                $respPrefactura = Http::withoutVerifying()->timeout(10)->get($urlPrefactura);
+                            if ($respPrefactura->successful() && is_array($respPrefactura->json())) {
+                                $anticipoAcumulado = 0;
+                                $totalPrefactura = 0;
+                                $clientePrefactura = '';
+                                $todasLasDescripciones = '';
 
-                                if ($respPrefactura->successful() && is_array($respPrefactura->json())) {
+                                foreach ($respPrefactura->json() as $prefactura) {
+                                    $folioPref = $prefactura['encabezado']['folio'] ?? $prefactura['encabezado']['factura'] ?? $prefactura['encabezado']['serie_folio'] ?? '';
+                                    if (!empty($folioPref)) {
+                                        $resultados['folio_sc'][] = preg_replace('/[^0-9]/', '', $folioPref);
+                                    }
 
-                                    $anticipoAcumulado = 0;
-                                    $totalPrefactura = 0;
-                                    $clientePrefactura = '';
+                                    $clientePrefactura = strtoupper($prefactura['encabezado']['cliente'] ?? $clientePrefactura);
+                                    $totalPrefactura += (float) ($prefactura['totales']['total'] ?? 0);
 
-                                    $todasLasDescripciones = '';
+                                    foreach ($prefactura['secciones'] ?? [] as $seccion) {
+                                        $key = strtolower($seccion['key'] ?? '');
+                                        $titulo = strtoupper($seccion['titulo'] ?? '');
+                                        $totalSeccion = floatval($seccion['total'] ?? 0);
+                                        $garantiasEnEstaSeccion = 0;
 
-                                    foreach ($respPrefactura->json() as $prefactura) {
-                                        $folioPref = $prefactura['encabezado']['folio'] ?? $prefactura['encabezado']['factura'] ?? $prefactura['encabezado']['serie_folio'] ?? '';
-                                        if (!empty($folioPref)) {
-                                            $resultados['folio_sc'][] = preg_replace('/[^0-9]/', '', $folioPref);
-                                        }
+                                        if (isset($seccion['items']) && is_array($seccion['items'])) {
+                                            foreach ($seccion['items'] as $item) {
+                                                $desc = strtoupper($item['descripcion'] ?? '');
+                                                $pesos = floatval($item['pesos'] ?? 0);
+                                                $todasLasDescripciones .= $desc . ' ';
 
-                                        $clientePrefactura = strtoupper($prefactura['encabezado']['cliente'] ?? $clientePrefactura);
-                                        $totalPrefactura += (float) ($prefactura['totales']['total'] ?? 0);
-
-                                        foreach ($prefactura['secciones'] ?? [] as $seccion) {
-                                            $key = strtolower($seccion['key'] ?? '');
-                                            $titulo = strtoupper($seccion['titulo'] ?? '');
-                                            $totalSeccion = floatval($seccion['total'] ?? 0);
-
-                                            $garantiasEnEstaSeccion = 0;
-
-                                            if (isset($seccion['items']) && is_array($seccion['items'])) {
-                                                foreach ($seccion['items'] as $item) {
-                                                    $desc = strtoupper($item['descripcion'] ?? '');
-                                                    $pesos = floatval($item['pesos'] ?? 0);
-
-                                                    // Guardamos el texto para la "Lupa de Navieras"
-                                                    $todasLasDescripciones .= $desc . ' ';
-
-                                                    if ((str_contains($desc, 'GARANTIA') || str_contains($desc, 'GARANTÍA')) && !str_contains($desc, 'RECUPERACION')) {
-                                                        $garantiasEnEstaSeccion += $pesos;
-                                                    }
-                                                }
-                                            }
-
-                                            $garantiasPref += $garantiasEnEstaSeccion;
-
-                                            $totalEfectivo = $totalSeccion - $garantiasEnEstaSeccion;
-                                            if ($totalEfectivo < 0) {
-                                                $totalEfectivo = 0;
-                                            }
-
-                                            $clienteEvaluar = strtoupper(!empty($clientePrefactura) ? $clientePrefactura : ($resultados['cliente_detectado'] ?? ''));
-                                            $esAlmacenadoras = str_contains($clienteEvaluar, 'ALMACENADORA');
-
-                                            if ($key === 'impuestos' || str_contains($titulo, 'IMPUEST')) {
-                                                $impuestosPref += $totalEfectivo;
-                                            } elseif ($key === 'muestra' || str_contains($titulo, 'MUESTRA')) {
-                                                $navieraPref += $totalEfectivo;
-                                            } elseif ($key === 'naviera' || str_contains($titulo, 'NAVIERA') || $key === 'desglose_naviera') {
-                                                $navieraPref += $totalEfectivo;
-                                            } elseif ($key === 'honorarios' || str_contains($titulo, 'HONORARIO')) {
-                                                // Nada
-                                            } else {
-                                                // Si no es ninguno de los anteriores y NO es Almacenadoras, se toma como anticipo
-                                                if (!$esAlmacenadoras) {
-                                                    $anticipoPref += $totalEfectivo;
+                                                if ((str_contains($desc, 'GARANTIA') || str_contains($desc, 'GARANTÍA')) && !str_contains($desc, 'RECUPERACION')) {
+                                                    $garantiasEnEstaSeccion += $pesos;
                                                 }
                                             }
                                         }
-                                    }
 
-                                    $clienteEvaluar = strtoupper(!empty($clientePrefactura) ? $clientePrefactura : ($resultados['cliente_detectado'] ?? ''));
+                                        $garantiasPref += $garantiasEnEstaSeccion;
+                                        $totalEfectivo = max(0, $totalSeccion - $garantiasEnEstaSeccion);
+                                        $clienteEvaluar = strtoupper(!empty($clientePrefactura) ? $clientePrefactura : ($resultados['cliente_detectado'] ?? ''));
+                                        $esAlmacenadoras = str_contains($clienteEvaluar, 'ALMACENADORA');
 
-                                    if (str_contains($clienteEvaluar, 'G Y S') || str_contains($clienteEvaluar, 'GYS')) {
-                                        $mod = fmod($totalPrefactura, 100);
-                                        $ajusteRedondeo = ($mod < 10) ? -$mod : (100 - $mod);
-                                        $totalPrefactura += $ajusteRedondeo;
-                                        $anticipoAcumulado += $ajusteRedondeo;
-                                    }
-
-                                    if ($anticipoAcumulado > 0) {
-                                        $anticipoPref = $anticipoAcumulado;
-                                    }
-
-                                    $esClienteTransito = str_contains($clienteEvaluar, 'COPSAYS') || str_contains($clienteEvaluar, 'ACUMEN') || str_contains($clienteEvaluar, 'MAYOUT');
-
-                                    if ($esClienteTransito) {
-
-                                        $estaEnTransito = method_exists($this, 'existeEnTransito') && $this->existeEnTransito($terminosParaTransito);
-                                        if ($estaEnTransito) {
-                                            // 1. Corregir el error de la API (Mueve el dinero de Impuestos al Anticipo)
-                                            if ($impuestosPref > 0) {
-                                                $anticipoPref += $impuestosPref;
-                                                $impuestosPref = 0;
-                                            }
-
-                                            // 2. Garantía Fija basada en Naviera
-                                            $textoNaviera = (isset($impo) && !empty($impo->viaje) ? strtoupper($impo->viaje) : '') . ' ' . $todasLasDescripciones;
-
-                                            $tc = 18.50;
-                                            $nuevaGarantia = null;
-
-                                            // Formato exacto solicitado:
-                                            if (str_contains($textoNaviera, 'CMA')) {
-                                                $nuevaGarantia = 66000;
-                                            } elseif (str_contains($textoNaviera, 'COSCO')) {
-                                                $nuevaGarantia = 25000;
-                                            } elseif (str_contains($textoNaviera, 'EVERGREEN')) {
-                                                $nuevaGarantia = 21000;
-                                            } elseif (str_contains($textoNaviera, 'HAPAG')) {
-                                                $nuevaGarantia = 25000;
-                                            } elseif (str_contains($textoNaviera, 'MAERSK')) {
-                                                $nuevaGarantia = 1000 * $tc;
-                                            } elseif (str_contains($textoNaviera, 'MSC')) {
-                                                $nuevaGarantia = 2000 * $tc;
-                                            } elseif (str_contains($textoNaviera, 'NORTON')) {
-                                                $nuevaGarantia = 1000 * $tc;
-                                            } elseif (str_contains($textoNaviera, 'ONE')) {
-                                                $nuevaGarantia = 1000 * $tc;
-                                            } elseif (str_contains($textoNaviera, 'PIL')) {
-                                                $nuevaGarantia = 1000 * $tc;
-                                            } elseif (str_contains($textoNaviera, 'WAN')) {
-                                                $nuevaGarantia = 30000;
-                                            } elseif (str_contains($textoNaviera, 'ALTAMARITIMA')) {
-                                                $nuevaGarantia = 50000;
-                                            }
-
-                                            // Sobrescribimos el valor de la Garantía
-                                            if ($nuevaGarantia !== null) {
-                                                $garantiasPref = $nuevaGarantia;
+                                        if ($key === 'impuestos' || str_contains($titulo, 'IMPUEST')) {
+                                            $impuestosPref += $totalEfectivo;
+                                        } elseif ($key === 'muestra' || str_contains($titulo, 'MUESTRA') || $key === 'naviera' || str_contains($titulo, 'NAVIERA') || $key === 'desglose_naviera') {
+                                            $navieraPref += $totalEfectivo;
+                                        } elseif ($key !== 'honorarios' && !str_contains($titulo, 'HONORARIO')) {
+                                             // Si no es ninguno de los anteriores y NO es Almacenadoras, se toma como anticipo
+                                            if (!$esAlmacenadoras) {
+                                                $anticipoPref += $totalEfectivo;
                                             }
                                         }
                                     }
-
-                                    // Sumatoria final para enviar al frontend
-                                    $apiImpuestos += $impuestosPref;
-                                    $apiGarantias += $garantiasPref;
-                                    $apiNaviera += $navieraPref;
-                                    $apiAnticipo += $anticipoPref;
-                                }
-                            }
-
-                            if ($quiereCFDI) {
-                                $archivos = [];
-                                $urlApi = "https://sistema.intactics.com/v3/operaciones/{$tipoApi}/{$idOp}/get-files-momentaneo";
-                                $respOp = Http::withoutVerifying()->timeout(10)->get($urlApi);
-                                if ($respOp->successful() && is_array($respOp->json())) {
-                                    $archivos = array_merge($archivos, $respOp->json());
                                 }
 
-                                if (!empty($idPadre)) {
-                                    $urlApiPadre = "https://sistema.intactics.com/v3/operaciones/{$tipoApi}/{$idPadre}/get-files-momentaneo";
-                                    $respPadre = Http::withoutVerifying()->timeout(10)->get($urlApiPadre);
-                                    if ($respPadre->successful() && is_array($respPadre->json())) {
-                                        $archivos = array_merge($archivos, $respPadre->json());
-                                    }
+                                $clienteEvaluar = strtoupper(!empty($clientePrefactura) ? $clientePrefactura : ($resultados['cliente_detectado'] ?? ''));
+
+                                if (str_contains($clienteEvaluar, 'G Y S') || str_contains($clienteEvaluar, 'GYS')) {
+                                    $mod = fmod($totalPrefactura, 100);
+                                    $ajusteRedondeo = ($mod < 10) ? -$mod : (100 - $mod);
+                                    $totalPrefactura += $ajusteRedondeo;
+                                    $anticipoAcumulado += $ajusteRedondeo;
                                 }
 
-                                if (!empty($archivos)) {
-                                    $urlXmlReal = null;
-                                    foreach ($archivos as $archivo) {
-                                        $ext = strtolower(pathinfo($archivo['name'] ?? '', PATHINFO_EXTENSION));
-                                        $tipoPivot = strtolower($archivo['pivot']['type'] ?? '');
-                                        $nombreMayus = strtoupper($archivo['name'] ?? '');
+                                if ($anticipoAcumulado > 0) {
+                                    $anticipoPref = $anticipoAcumulado;
+                                }
 
-                                        $esTipoSC = in_array($tipoPivot, ['sc', 'honorarios-sc']);
-                                        $esNombreSC = !empty($folioFacturaZlo)
-                                            ? (str_contains($nombreMayus, 'ZLO' . $folioFacturaZlo) || str_contains($nombreMayus, $folioFacturaZlo))
-                                            : (str_contains($nombreMayus, $pedimentoBusqueda) || (str_contains($nombreMayus, 'ZLO') && !str_contains($nombreMayus, 'PEDIMENTO')));
+                                if (str_contains($clienteEvaluar, 'COPSAYS') || str_contains($clienteEvaluar, 'ACUMEN') || str_contains($clienteEvaluar, 'MAYOUT')) {
+                                    if (method_exists($this, 'existeEnTransito') && $this->existeEnTransito($terminosParaTransito)) {
+                                         // 1. Corregir el error de la API (Mueve el dinero de Impuestos al Anticipo)
+                                        if ($impuestosPref > 0) {
+                                            $anticipoPref += $impuestosPref;
+                                            $impuestosPref = 0;
+                                        }
 
-                                        if ($ext === 'xml' && ($esTipoSC || $esNombreSC)) {
-                                            $urlXmlReal = $archivo['url']['normal'] ?? null;
-                                            break;
+                                        // 2. Garantía Fija basada en Naviera
+                                        $textoNaviera = (isset($impo) && !empty($impo->viaje) ? strtoupper($impo->viaje) : '') . ' ' . $todasLasDescripciones;
+                                        $tc = 18.50;
+                                        $nuevaGarantia = null;
+
+                                        // Formato exacto solicitado:
+                                        if (str_contains($textoNaviera, 'CMA')) {
+                                            $nuevaGarantia = 66000;
+                                        } elseif (str_contains($textoNaviera, 'COSCO')) {
+                                            $nuevaGarantia = 25000;
+                                        } elseif (str_contains($textoNaviera, 'EVERGREEN')) {
+                                            $nuevaGarantia = 21000;
+                                        } elseif (str_contains($textoNaviera, 'HAPAG')) {
+                                            $nuevaGarantia = 25000;
+                                        } elseif (str_contains($textoNaviera, 'MAERSK')) {
+                                            $nuevaGarantia = 1000 * $tc;
+                                        } elseif (str_contains($textoNaviera, 'MSC')) {
+                                            $nuevaGarantia = 2000 * $tc;
+                                        } elseif (str_contains($textoNaviera, 'NORTON')) {
+                                            $nuevaGarantia = 1000 * $tc;
+                                        } elseif (str_contains($textoNaviera, 'ONE')) {
+                                            $nuevaGarantia = 1000 * $tc;
+                                        } elseif (str_contains($textoNaviera, 'PIL')) {
+                                            $nuevaGarantia = 1000 * $tc;
+                                        } elseif (str_contains($textoNaviera, 'WAN')) {
+                                            $nuevaGarantia = 30000;
+                                        } elseif (str_contains($textoNaviera, 'ALTAMARITIMA')) {
+                                            $nuevaGarantia = 50000;
+                                        }
+
+                                        // Sobrescribimos el valor de la Garantía
+                                        if ($nuevaGarantia !== null) {
+                                            $garantiasPref = $nuevaGarantia;
                                         }
                                     }
-
-                                    if ($urlXmlReal && method_exists($this, 'extraerHonorariosAgenciaXML')) {
-                                        $resultadoXML = $this->extraerHonorariosAgenciaXML($urlXmlReal);
-                                        if ($resultadoXML['honorarios'] > 0) {
-                                            $op_honorariosXML = $resultadoXML['honorarios'];
-                                            $apiHonorarios += $op_honorariosXML;
-                                        }
-                                        if (!empty($resultadoXML['folio'])) {
-                                            $resultados['folio_sc'][] = $resultadoXML['folio'];
-                                        }
-                                        if (!empty($resultadoXML['metodo_pago']) && strtoupper($resultadoXML['metodo_pago']) === 'PPD') {
-                                            $resultados['metodo_pago'] = 'PPD';
-                                        }
-                                    }
                                 }
+
+                                // Sumatoria final para enviar al frontend
+                                $apiImpuestos += $impuestosPref;
+                                $apiGarantias += $garantiasPref;
+                                $apiNaviera += $navieraPref;
+                                $apiAnticipo += $anticipoPref;
                             }
-
-                            $op_gpc = $anticipoPref + $garantiasPref + $navieraPref + $impuestosPref;
-                            $op_cfdi = $op_honorariosXML;
-
-                            $folioLimpio = '';
-                            if (isset($folioPref) && !empty($folioPref)) {
-                                $folioLimpio = preg_replace('/[^0-9]/', '', $folioPref);
-                            }
-
-                            if (empty($folioLimpio) && !empty($folioFacturaZlo)) {
-                                $folioLimpio = $folioFacturaZlo;
-                            }
-
-                            $resultados['operaciones'][] = [
-                                'id'         => $idOp,
-                                'type'       => $opType,
-                                'folio'      => $folioLimpio,
-                                'monto_cfdi' => round($op_cfdi, 2),
-                                'monto_gpc'  => round($op_gpc, 2)
-                            ];
                         }
+
+                        if ($quiereCFDI) {
+                            $archivos = [];
+                            $urlApi = "https://sistema.intactics.com/v3/operaciones/{$tipoApi}/{$idOp}/get-files-momentaneo";
+                            $respOp = Http::withoutVerifying()->timeout(10)->get($urlApi);
+                            if ($respOp->successful() && is_array($respOp->json())) {
+                                $archivos = array_merge($archivos, $respOp->json());
+                            }
+
+                            if (!empty($idPadre)) {
+                                $urlApiPadre = "https://sistema.intactics.com/v3/operaciones/{$tipoApi}/{$idPadre}/get-files-momentaneo";
+                                $respPadre = Http::withoutVerifying()->timeout(10)->get($urlApiPadre);
+                                if ($respPadre->successful() && is_array($respPadre->json())) {
+                                    $archivos = array_merge($archivos, $respPadre->json());
+                                }
+                            }
+
+                            if (!empty($archivos)) {
+                                $urlXmlReal = null;
+                                foreach ($archivos as $archivo) {
+                                    $ext = strtolower(pathinfo($archivo['name'] ?? '', PATHINFO_EXTENSION));
+                                    $tipoPivot = strtolower($archivo['pivot']['type'] ?? '');
+                                    $nombreMayus = strtoupper($archivo['name'] ?? '');
+
+                                    $esTipoSC = in_array($tipoPivot, ['sc', 'honorarios-sc']);
+                                    $esNombreSC = !empty($folioFacturaZlo)
+                                        ? (str_contains($nombreMayus, 'ZLO' . $folioFacturaZlo) || str_contains($nombreMayus, $folioFacturaZlo))
+                                        : (str_contains($nombreMayus, $pedimentoBusqueda) || (str_contains($nombreMayus, 'ZLO') && !str_contains($nombreMayus, 'PEDIMENTO')));
+
+                                    if ($ext === 'xml' && ($esTipoSC || $esNombreSC)) {
+                                        $urlXmlReal = $archivo['url']['normal'] ?? null;
+                                        break;
+                                    }
+                                }
+
+                                if ($urlXmlReal && method_exists($this, 'extraerHonorariosAgenciaXML')) {
+                                    $resultadoXML = $this->extraerHonorariosAgenciaXML($urlXmlReal, $folioFacturaZlo, $sucursalBuscada);
+                                    if ($resultadoXML['honorarios'] > 0) {
+                                        $op_honorariosXML = $resultadoXML['honorarios'];
+                                        $apiHonorarios += $op_honorariosXML;
+                                    }
+                                    if (!empty($resultadoXML['folio'])) {
+                                        $resultados['folio_sc'][] = $resultadoXML['folio'];
+                                    }
+                                    if (!empty($resultadoXML['metodo_pago']) && strtoupper($resultadoXML['metodo_pago']) === 'PPD') {
+                                        $resultados['metodo_pago'] = 'PPD';
+                                    }
+                                }
+                            }
+                        }
+
+                        $op_gpc = $anticipoPref + $garantiasPref + $navieraPref + $impuestosPref;
+                        $op_cfdi = $op_honorariosXML;
+
+                        $folioLimpio = '';
+                        if (isset($folioPref) && !empty($folioPref)) {
+                            $folioLimpio = preg_replace('/[^0-9]/', '', $folioPref);
+                        }
+                        if (empty($folioLimpio) && !empty($folioFacturaZlo)) {
+                            $folioLimpio = $folioFacturaZlo;
+                        }
+
+                        $resultados['operaciones'][] = [
+                            'id'         => $idOp,
+                            'type'       => $opType,
+                            'folio'      => $folioLimpio,
+                            'monto_cfdi' => round($op_cfdi, 2),
+                            'monto_gpc'  => round($op_gpc, 2)
+                        ];
                     }
                 }
 
@@ -1020,8 +1020,6 @@ class IngresoConciliadoController extends Controller
                 $nombreClienteFinal = strtoupper($resultados['cliente_detectado'] ?? '');
 
                 if (str_contains($nombreClienteFinal, 'ALMACENADORA')) {
-                    $apiAnticipo = 0;
-                    $excelAnticipo = 0;
                     $resultados['anticipo'] = 0;
                 }
 
@@ -1164,12 +1162,7 @@ class IngresoConciliadoController extends Controller
                     $colPedimento = strtoupper(trim($fila[2] ?? ''));
                     $colRefProv = strtoupper(trim($fila[5] ?? ''));
 
-                    $candidato = '';
-                    if (!empty($colPedimento)) {
-                        $candidato = $colPedimento;
-                    } elseif (!empty($colRefProv) && is_numeric($colRefProv)) {
-                        $candidato = $colRefProv;
-                    }
+                    $candidato = !empty($colPedimento) ? $colPedimento : (is_numeric($colRefProv) ? $colRefProv : '');
 
                     if (!empty($candidato)) {
                         // Cortamos todo lo que esté después de la primera diagonal
@@ -1189,13 +1182,73 @@ class IngresoConciliadoController extends Controller
                     $resultados['folio_sc'][] = $folioFacturaEnSheet;
                 }
 
-                // Búsqueda exacta y limpia en la base de datos
-                $pedimentoDB = null;
+                $impo = null;
+                $expo = null;
+
                 if (!empty($pedimentoReal)) {
-                    $pedimentoDB = DB::table('pedimiento')
-                        ->where('num_pedimiento', 'LIKE', "%{$pedimentoReal}%")
-                        ->orderBy('id_pedimiento', 'desc')
-                        ->first();
+                    $terminosSucursal = [];
+                    if (str_contains($ciudadBase, 'LAREDO')) {
+                        $terminosSucursal = ['LAREDO', 'NL', 'NUEVO LAREDO', 'NLD', 'LRD'];
+                    } elseif (str_contains($ciudadBase, 'NOGALES')) {
+                        $terminosSucursal = ['NOGALES', 'NOG'];
+                    } elseif (str_contains($ciudadBase, 'TIJUANA')) {
+                        $terminosSucursal = ['TIJUANA', 'TIJ'];
+                    } elseif (str_contains($ciudadBase, 'MEXICALI')) {
+                        $terminosSucursal = ['MEXICALI', 'MXL'];
+                    } else {
+                        $terminosSucursal = [$ciudadBase];
+                    }
+
+                    // Descargamos TODAS las importaciones y exportaciones relacionadas al pedimento
+                    $imposCandidatas = DB::table('operaciones_importacion')
+                        ->join('pedimiento', 'operaciones_importacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
+                        ->where('pedimiento.num_pedimiento', 'LIKE', "%{$pedimentoReal}%")
+                        ->select('operaciones_importacion.*')
+                        ->orderBy('operaciones_importacion.id_importacion', 'desc')
+                        ->get();
+
+                    $exposCandidatas = DB::table('operaciones_exportacion')
+                        ->join('pedimiento', 'operaciones_exportacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
+                        ->where('pedimiento.num_pedimiento', 'LIKE', "%{$pedimentoReal}%")
+                        ->select('operaciones_exportacion.*')
+                        ->orderBy('operaciones_exportacion.id_exportacion', 'desc')
+                        ->get();
+
+                    // 1. PRIORIDAD ALTA: Importación con coincidencia exacta de sucursal/aduana
+                    foreach ($imposCandidatas as $cand) {
+                        $textoUbicacion = strtoupper(($cand->sucursal ?? '') . ' ' . ($cand->aduana ?? ''));
+                        foreach ($terminosSucursal as $term) {
+                            if (str_contains($textoUbicacion, $term)) {
+                                $impo = $cand;
+                                break 2;
+                            }
+                        }
+                    }
+
+                    // 2. PRIORIDAD MEDIA: Si NO hubo coincidencia exacta de sucursal, PERO existe una Importación,
+                    // tomamos la más reciente. Esto evita que salte erróneamente a Exportación solo 
+                    // porque en la base de datos la sucursal estaba vacía o mal escrita.
+                    if (!$impo && $imposCandidatas->isNotEmpty()) {
+                        $impo = $imposCandidatas->first();
+                    }
+
+                    // 3. PRIORIDAD BAJA: Exportación con coincidencia de sucursal
+                    if (!$impo) {
+                        foreach ($exposCandidatas as $cand) {
+                            $textoUbicacion = strtoupper($cand->sucursal ?? '');
+                            foreach ($terminosSucursal as $term) {
+                                if (str_contains($textoUbicacion, $term)) {
+                                    $expo = $cand;
+                                    break 2;
+                                }
+                            }
+                        }
+                    }
+
+                    // 4. ÚLTIMO RECURSO: Cualquier Exportación
+                    if (!$impo && !$expo && $exposCandidatas->isNotEmpty()) {
+                        $expo = $exposCandidatas->first();
+                    }
                 }
 
                 $idOp = null;
@@ -1203,21 +1256,16 @@ class IngresoConciliadoController extends Controller
                 $idPadre = null;
                 $opType = null;
 
-                if ($pedimentoDB) {
-                    $impo = DB::table('operaciones_importacion')->where('id_pedimiento', $pedimentoDB->id_pedimiento)->first();
-                    $expo = DB::table('operaciones_exportacion')->where('id_pedimiento', $pedimentoDB->id_pedimiento)->first();
-
-                    if ($impo) {
-                        $idOp = $impo->id_importacion;
-                        $tipoApi = 'importaciones';
-                        $idPadre = $impo->parent ?? null;
-                        $opType = 'App\Models\OperacionImportacion';
-                    } elseif ($expo) {
-                        $idOp = $expo->id_exportacion;
-                        $tipoApi = 'exportaciones';
-                        $idPadre = $expo->parent ?? null;
-                        $opType = 'App\Models\OperacionExportacion';
-                    }
+                if ($impo) {
+                    $idOp = $impo->id_importacion;
+                    $tipoApi = 'importaciones';
+                    $idPadre = $impo->parent ?? null;
+                    $opType = 'App\Models\OperacionImportacion';
+                } elseif ($expo) {
+                    $idOp = $expo->id_exportacion;
+                    $tipoApi = 'exportaciones';
+                    $idPadre = $expo->parent ?? null;
+                    $opType = 'App\Models\OperacionExportacion';
                 }
 
                 $op_honorarios = 0;
@@ -1302,12 +1350,9 @@ class IngresoConciliadoController extends Controller
 
                 if ($quiereCFDI) {
                     if (!empty($folioFacturaEnSheet) || !empty($pedimentoReal)) {
-                        $prefijos = ['NOGALES' => 'NOG', 'LAREDO' => 'NL', 'TIJUANA' => 'TIJ', 'MEXICALI' => 'MXL'];
-                        $ciudad = explode(' ', $sucursalBuscada)[0];
-                        $prefijo = $prefijos[$ciudad] ?? 'NOG';
                         $folioLimpio = preg_replace('/[^0-9]/', '', $folioFacturaEnSheet);
 
-                        if ($pedimentoDB && $idOp) {
+                        if ($idOp) {
                             $archivos = [];
 
                             $urlApi = "https://sistema.intactics.com/v3/operaciones/{$tipoApi}/{$idOp}/get-files-momentaneo";
@@ -1342,7 +1387,7 @@ class IngresoConciliadoController extends Controller
                                 }
 
                                 if ($urlXmlReal && method_exists($this, 'extraerHonorariosAgenciaXML')) {
-                                    $resultadoXML = $this->extraerHonorariosAgenciaXML($urlXmlReal);
+                                    $resultadoXML = $this->extraerHonorariosAgenciaXML($urlXmlReal, $folioLimpio, $sucursalBuscada);
                                     if ($resultadoXML['honorarios'] > 0) {
                                         $resultados['honorarios'] += $resultadoXML['honorarios'];
                                         $op_honorarios += $resultadoXML['honorarios'];
@@ -1369,11 +1414,11 @@ class IngresoConciliadoController extends Controller
                     }
 
                     $resultados['operaciones'][] = [
-                        'id' => $idOp,
-                        'type' => $opType,
-                        'folio' => $folioFacturaEnSheet,
+                        'id'         => $idOp,
+                        'type'       => $opType,
+                        'folio'      => $folioFacturaEnSheet,
                         'monto_cfdi' => round($op_cfdi, 2),
-                        'monto_gpc' => round($op_gpc, 2)
+                        'monto_gpc'  => round($op_gpc, 2)
                     ];
                 }
             }
@@ -1556,7 +1601,7 @@ class IngresoConciliadoController extends Controller
         return $montoFlete;
     }
 
-    private function extraerHonorariosAgenciaXML(string $urlCompleta): array
+    private function extraerHonorariosAgenciaXML(string $urlCompleta, ?string $folioEsperado = null, ?string $sucursalBuscada = null): array
     {
         $debug = [
             'intento_1' => $urlCompleta,
@@ -1564,6 +1609,7 @@ class IngresoConciliadoController extends Controller
             'xml_encontrado' => false,
             'honorarios_extraidos' => 0,
             'folio_extraido' => null,
+            'serie_extraida' => null,
             'metodo_pago_extraido' => null
         ];
 
@@ -1592,20 +1638,32 @@ class IngresoConciliadoController extends Controller
             $debug['xml_encontrado'] = true;
             $honorarios = 0.0;
             $folio = null;
+            $serie = null;
             $metodoPago = null; // Inicializamos nulo para saber si lo encontramos
 
             // 1. Intentamos leer con SimpleXML
             try {
                 $xmlObj = @simplexml_load_string($xmlString);
                 if ($xmlObj !== false) {
-                    if (isset($xmlObj['Total'])) {
-                        $honorarios = (float) $xmlObj['Total'];
+                    // Registro de namespaces para cfdi:Comprobante
+                    $namespaces = $xmlObj->getDocNamespaces(true);
+                    if (isset($namespaces['cfdi'])) {
+                        $xmlObj->registerXPathNamespace('cfdi', $namespaces['cfdi']);
                     }
-                    if (isset($xmlObj['Folio'])) {
-                        $folio = (string) $xmlObj['Folio'];
+
+                    $atributos = $xmlObj->attributes();
+
+                    if (isset($atributos['Total'])) {
+                        $honorarios = (float) $atributos['Total'];
                     }
-                    if (isset($xmlObj['MetodoPago'])) {
-                        $metodoPago = (string) $xmlObj['MetodoPago'];
+                    if (isset($atributos['Folio'])) {
+                        $folio = (string) $atributos['Folio'];
+                    }
+                    if (isset($atributos['Serie'])) {
+                        $serie = strtoupper((string) $atributos['Serie']);
+                    }
+                    if (isset($atributos['MetodoPago'])) {
+                        $metodoPago = (string) $atributos['MetodoPago'];
                     }
                 }
             } catch (\Throwable $th) {
@@ -1622,6 +1680,11 @@ class IngresoConciliadoController extends Controller
                     $folio = $matchesFolio[1];
                 }
             }
+            if (empty($serie)) {
+                if (preg_match('/Comprobante[^>]+Serie=["\']([^"\']+)["\']/i', $xmlString, $matchesSerie)) {
+                    $serie = strtoupper($matchesSerie[1]);
+                }
+            }
             // Regex para buscar MetodoPago="PPD" o "PUE"
             if (empty($metodoPago)) {
                 if (preg_match('/MetodoPago=["\'](PUE|PPD)["\']/i', $xmlString, $matchesMetodo)) {
@@ -1631,8 +1694,49 @@ class IngresoConciliadoController extends Controller
                 }
             }
 
+            // 3. VALIDACIÓN DE SUCURSAL Y SERIE DEL CFDI
+            if (!empty($sucursalBuscada)) {
+                $prefijosSucursal = [
+                    'LAREDO'   => ['NL', 'LAR'],
+                    'NOGALES'  => ['NOG'],
+                    'TIJUANA'  => ['TIJ', 'TJ'],
+                    'MEXICALI' => ['MXL']
+                ];
+
+                $ciudad = strtoupper(trim(explode(' ', $sucursalBuscada)[0]));
+                $prefijosEsperados = $prefijosSucursal[$ciudad] ?? [];
+
+                // Si el XML trae una Serie explícita que pertenece a OTRA sucursal, se descarta
+                if (!empty($serie) && !empty($prefijosEsperados)) {
+                    $serieValida = false;
+                    foreach ($prefijosEsperados as $pref) {
+                        if (str_contains($serie, $pref)) {
+                            $serieValida = true;
+                            break;
+                        }
+                    }
+
+                    if (!$serieValida) {
+                        $debug['error_sucursal'] = "XML descartado: Serie '{$serie}' no pertenece a {$ciudad}";
+                        return ['honorarios' => 0.0, 'folio' => null, 'metodo_pago' => 'PUE', 'debug' => $debug];
+                    }
+                }
+            }
+
+            // 4. VALIDACIÓN DE FOLIO ESPERADO
+            if (!empty($folioEsperado) && !empty($folio)) {
+                $folioLimpioBusqueda = preg_replace('/[^0-9]/', '', $folioEsperado);
+                $folioLimpioXml = preg_replace('/[^0-9]/', '', $folio);
+
+                if (!empty($folioLimpioBusqueda) && $folioLimpioXml !== $folioLimpioBusqueda && !str_contains($folioLimpioXml, $folioLimpioBusqueda)) {
+                    $debug['error_folio'] = "XML descartado: Folio XML '{$folioLimpioXml}' no coincide con el buscado '{$folioLimpioBusqueda}'";
+                    return ['honorarios' => 0.0, 'folio' => null, 'metodo_pago' => 'PUE', 'debug' => $debug];
+                }
+            }
+
             $debug['honorarios_extraidos'] = $honorarios;
             $debug['folio_extraido'] = $folio;
+            $debug['serie_extraida'] = $serie;
             $debug['metodo_pago_extraido'] = $metodoPago;
 
             return [
