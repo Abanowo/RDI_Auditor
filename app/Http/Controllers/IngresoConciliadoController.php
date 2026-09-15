@@ -1759,6 +1759,7 @@ class IngresoConciliadoController extends Controller
             'eci' => 0,
             'maniobras' => 0,
             'flete' => 0,
+            'pago_proveedor' => 0,
             'muestras' => 0,
             'llc' => 0,
             'anticipo' => 0,
@@ -1769,8 +1770,16 @@ class IngresoConciliadoController extends Controller
             'operaciones' => []
         ];
 
-        $logDebug = [];
-        $totalFacturasXML = 0;
+        $totalFleteCfdi = 0;
+        $totalGpc = 0;
+        $totalPagoProveedor = 0;
+        $urlsProcesadas = [];
+
+        $tiposComprobante = (array) (request()->input('TIPO_COMPROBANTE') ?? request()->input('tipo_comprobante') ?? []);
+        $tiposUpper = array_map('strtoupper', $tiposComprobante);
+        
+        $permiteCfdi = empty($tiposUpper) || in_array('CFDI', $tiposUpper);
+        $permiteGpc = empty($tiposUpper) || in_array('NOTA CARGO', $tiposUpper) || in_array('NOTACARGO', $tiposUpper) || in_array('GPC', $tiposUpper);
 
         foreach ($terminosBuscados as $termino) {
             $termLimpio = strtoupper(trim($termino));
@@ -1786,138 +1795,188 @@ class IngresoConciliadoController extends Controller
             }
 
             $pedimentoBusqueda = trim($pedimentoBusqueda);
-            $logDebug[] = "Buscando: {$pedimentoBusqueda}";
 
-            $pedimentoDB = DB::table('pedimiento')
+            $pedimentosDB = DB::table('pedimiento')
                 ->where('num_pedimiento', 'LIKE', "%{$pedimentoBusqueda}%")
                 ->orderBy('id_pedimiento', 'desc')
-                ->first();
+                ->get();
 
-            if (!$pedimentoDB) {
-                $logDebug[] = "Pedimento NO existe en BD.";
+            if ($pedimentosDB->isEmpty()) {
                 continue;
             }
 
-            $resultados['pedimento_detectado'][] = $pedimentoDB->num_pedimiento;
-            $impo = DB::table('operaciones_importacion')->where('id_pedimiento', $pedimentoDB->id_pedimiento)->first();
-            $expo = DB::table('operaciones_exportacion')->where('id_pedimiento', $pedimentoDB->id_pedimiento)->first();
+            $operacionesAExaminar = [];
 
-            $idOp = null;
-            $tipoApi = null;
-            $idPadre = null;
-            $opType = null;
+            foreach ($pedimentosDB as $pedDB) {
+                $resultados['pedimento_detectado'][] = $pedDB->num_pedimiento;
 
-            if ($impo) {
-                $idOp = $impo->id_importacion;
-                $tipoApi = 'importaciones';
-                $idPadre = $impo->parent ?? null;
-                $opType = 'App\Models\OperacionImportacion';
-            } elseif ($expo) {
-                $idOp = $expo->id_exportacion;
-                $tipoApi = 'exportaciones';
-                $idPadre = $expo->parent ?? null;
-                $opType = 'App\Models\OperacionExportacion';
-            }
+                // Importaciones
+                $impos = DB::table('operaciones_importacion')->where('id_pedimiento', $pedDB->id_pedimiento)->get();
+                foreach ($impos as $imp) {
+                    $operacionesAExaminar[] = ['id' => $imp->id_importacion, 'tipo' => 'importaciones', 'clase' => 'App\Models\OperacionImportacion'];
+                    if (!empty($imp->parent)) {
+                        $operacionesAExaminar[] = ['id' => $imp->parent, 'tipo' => 'importaciones', 'clase' => 'App\Models\OperacionImportacion'];
+                    }
+                }
 
-            if (!$idOp) {
-                $logDebug[] = "El pedimento existe, pero NO está ligado a una Impo/Expo ($impo / $expo).";
-                continue;
-            }
-
-            $logDebug[] = "✅ Op: {$idOp} | Padre: " . ($idPadre ?: 'Nulo');
-
-            $archivos = [];
-            // 1. Archivos del hijo
-            $respOp = Http::withoutVerifying()->timeout(10)->get("https://sistema.intactics.com/v3/operaciones/{$tipoApi}/{$idOp}/get-files-momentaneo");
-            if ($respOp->successful() && is_array($respOp->json())) {
-                $archivos = array_merge($archivos, $respOp->json());
-            }
-
-            // 2. Archivos del Padre (donde suele estar el flete)
-            if (!empty($idPadre)) {
-                $respPadre = Http::withoutVerifying()->timeout(10)->get("https://sistema.intactics.com/v3/operaciones/{$tipoApi}/{$idPadre}/get-files-momentaneo");
-                if ($respPadre->successful() && is_array($respPadre->json())) {
-                    $archivos = array_merge($archivos, $respPadre->json());
+                // Exportaciones
+                $expos = DB::table('operaciones_exportacion')->where('id_pedimiento', $pedDB->id_pedimiento)->get();
+                foreach ($expos as $exp) {
+                    $operacionesAExaminar[] = ['id' => $exp->id_exportacion, 'tipo' => 'exportaciones', 'clase' => 'App\Models\OperacionExportacion'];
+                    if (!empty($exp->parent)) {
+                        $operacionesAExaminar[] = ['id' => $exp->parent, 'tipo' => 'exportaciones', 'clase' => 'App\Models\OperacionExportacion'];
+                    }
                 }
             }
 
-            $xmlCount = 0;
-            $montoCfdiOp = 0; // Guardará el total del flete de ESTA operación
+            $operacionesAExaminar = collect($operacionesAExaminar)->unique('id')->values()->all();
 
-            foreach ($archivos as $archivo) {
-                $ext = strtolower(pathinfo($archivo['name'] ?? '', PATHINFO_EXTENSION));
-                $nombreArchivoMayus = strtoupper($archivo['name'] ?? '');
+            foreach ($operacionesAExaminar as $op) {
+                $idOp = $op['id'];
+                $tipoApi = $op['tipo'];
+                $opType = $op['clase'];
 
-                if ($ext === 'xml') {
-                    $xmlCount++;
-                    $urlXml = $archivo['url']['normal'] ?? null;
-                    if ($urlXml) {
-                        $datosFactura = $this->parsearXmlFlete($urlXml);
-                        $nombreEmisor = strtoupper($datosFactura['emisor']);
-                        $montoXML = $datosFactura['total'];
+                $montoCfdiOp = 0;
+                $montoGpcOp = 0;
+                $bloquesArchivos = [];
 
-                        $logDebug[] = "XML '{$archivo['name']}': Emisor '{$nombreEmisor}' -> \${$montoXML}";
+                // 1. Archivos UI normal (Ingresos)
+                $urlApiNormal = "https://sistema.intactics.com/v3/operaciones/{$tipoApi}/{$idOp}/get-files-momentaneo";
+                $respNormal = Http::withoutVerifying()->timeout(10)->get($urlApiNormal);
+                if ($respNormal->successful() && is_array($respNormal->json())) {
+                    $bloquesArchivos[] = $respNormal->json();
+                }
 
-                        if ($montoXML > 0 && str_contains($nombreEmisor, 'TRANSPORTACTICS')) {
-                            
-                            // Verificamos si la sucursal actual coincide con el prefijo o nombre en la factura
-                            $perteneceASucursal = true;
+                // 2. Archivos Extras (TXT y Cuentas por Pagar) 💰 NECESARIO PARA PROVEEDORES
+                $urlApiTxt = "https://sistema.intactics.com/v3/operaciones/{$tipoApi}/{$idOp}/get-files-txt-momentaneo";
+                $respTxt = Http::withoutVerifying()->timeout(10)->get($urlApiTxt);
+                if ($respTxt->successful() && is_array($respTxt->json())) {
+                    $bloquesArchivos[] = $respTxt->json();
+                }
 
-                            if (!empty($sucursalLimpia) && !empty($datosFactura['folio'])) {
-                                $folioUpper = strtoupper($datosFactura['folio']);
-                                $sucursalUpper = strtoupper($sucursalLimpia);
-                                
-                                // Definimos los prefijos esperados por cada sucursal
-                                $prefijosTr = [
-                                    'NOGALES' => 'NOG',
-                                    'LAREDO' => 'NL',
-                                    'TIJUANA' => 'TIJ',
-                                    'MEXICALI' => 'MXL'
-                                ];
+                $archivosPlanos = [];
 
-                                // Si existe un prefijo para esta sucursal, validamos que el folio lo contenga
-                                // Ejemplo: Si estamos en NOGALES, el folio debe contener NOG
-                                if (isset($prefijosTr[$sucursalUpper])) {
-                                    $prefijoEsperado = $prefijosTr[$sucursalUpper];
-                                    if (!str_contains($folioUpper, $prefijoEsperado) && !str_contains($nombreArchivoMayus, $prefijoEsperado)) {
-                                        $perteneceASucursal = false;
-                                        $logDebug[] = "DESCARTADO: El folio '{$folioUpper}' no es de la sucursal {$sucursalUpper}";
+                // Aplanado de ambos endpoints
+                foreach ($bloquesArchivos as $bloque) {
+                    foreach ($bloque as $keySeccion => $contenido) {
+                        if (is_array($contenido)) {
+                            if (isset($contenido['name']) || isset($contenido['filename']) || isset($contenido['url'])) {
+                                if (!isset($contenido['pivot']['type'])) $contenido['pivot'] = ['type' => $keySeccion];
+                                $archivosPlanos[] = $contenido;
+                            } else {
+                                foreach ($contenido as $subItem) {
+                                    if (is_array($subItem)) {
+                                        if (!isset($subItem['pivot']['type'])) {
+                                            $subItem['pivot'] = ['type' => is_string($keySeccion) ? $keySeccion : 'DESCONOCIDO'];
+                                        }
+                                        $archivosPlanos[] = $subItem;
                                     }
                                 }
                             }
+                        }
+                    }
+                }
 
-                            // Si pertenece a la sucursal, lo sumamos
-                            if ($perteneceASucursal) {
-                                $totalFacturasXML += $montoXML;
-                                $montoCfdiOp += $montoXML;
+                foreach ($archivosPlanos as $archivo) {
+                    $nombreReal = $archivo['name'] ?? $archivo['filename'] ?? $archivo['file_name'] ?? $archivo['original_name'] ?? '';
+                    if (empty($nombreReal)) {
+                        continue;
+                    }
 
-                                if (!empty($datosFactura['folio'])) {
+                    $ext = strtolower(pathinfo($nombreReal, PATHINFO_EXTENSION));
+                    $nombreArchivo = strtoupper($nombreReal);
+                    $pivotType = strtoupper($archivo['pivot']['type'] ?? '');
+
+                    $urlNormal = null;
+                    $rawUrl = $archivo['url'] ?? $archivo['newUrl'] ?? $archivo['path'] ?? null;
+                    if (is_array($rawUrl)) {
+                        $urlNormal = $rawUrl['normal'] ?? $rawUrl['medium'] ?? reset($rawUrl);
+                    } elseif (is_string($rawUrl) && str_starts_with($rawUrl, 'http')) {
+                        $urlNormal = $rawUrl;
+                    }
+
+                    if (!$urlNormal) {
+                        $urlNormal = "https://sistema.intactics.com/v2/uploads/{$nombreReal}";
+                    }
+
+                    if (in_array($urlNormal, $urlsProcesadas)) {
+                        continue;
+                    }
+
+                    $pivotNormalizado = str_replace([' ', '-', '_'], '', $pivotType);
+
+                    $esCarpetaCuentasPagar = str_contains($pivotNormalizado, 'CUENTASPORPAGAR') 
+                                          || str_contains($pivotNormalizado, 'CUENTASPAGAR')
+                                          || str_starts_with($nombreArchivo, 'FN');
+
+                    $esCarpetaTransportactics = str_contains($pivotNormalizado, 'TRANSPORTACTICS') && !$esCarpetaCuentasPagar;
+
+                    if ($ext === 'xml' && ($esCarpetaTransportactics || $esCarpetaCuentasPagar)) {
+                        $datosFactura = $this->extraerDatosXML($urlNormal);
+                        $montoXML = (float) ($datosFactura['total'] ?? 0);
+
+                        $esGpcODocumento = $datosFactura['es_gpc'] 
+                                        || str_contains($nombreArchivo, 'NOTACARGO') 
+                                        || str_contains($nombreArchivo, 'NOTA_CARGO') 
+                                        || str_contains($nombreArchivo, 'GPC')
+                                        || str_contains($pivotNormalizado, 'NOTACARGO')
+                                        || str_contains($pivotNormalizado, 'GPC');
+
+                        if ($montoXML > 0) {
+                            // 1. Ingresos
+                            if ($esCarpetaTransportactics) {
+                                if ($esGpcODocumento) {
+                                    if (!$permiteGpc) {
+                                        continue;
+                                    }
+                                    $urlsProcesadas[] = $urlNormal;
+                                    $totalGpc += $montoXML;
+                                    $montoGpcOp += $montoXML;
+                                } else {
+                                    if (!$permiteCfdi) {
+                                        continue;
+                                    }
+                                    $urlsProcesadas[] = $urlNormal;
+                                    $totalFleteCfdi += $montoXML;
+                                    $montoCfdiOp += $montoXML;
+                                }
+
+                                if (!empty($datosFactura['folio']) && !in_array($datosFactura['folio'], $resultados['folio_sc'])) {
+                                    $resultados['folio_sc'][] = $datosFactura['folio'];
+                                }
+                            }
+
+                            // 2. Costos (Proveedor)
+                            if ($esCarpetaCuentasPagar) {
+                                $urlsProcesadas[] = $urlNormal;
+                                $totalPagoProveedor += $montoXML;
+                                
+                                if (!empty($datosFactura['folio']) && !in_array($datosFactura['folio'], $resultados['folio_sc'])) {
                                     $resultados['folio_sc'][] = $datosFactura['folio'];
                                 }
                             }
                         }
                     }
                 }
-            }
 
-            // Guardamos la operación con su monto para la tabla pivote
-            $resultados['operaciones'][] = [
-                'id' => $idOp,
-                'type' => $opType,
-                'monto_cfdi' => round($montoCfdiOp, 2),
-                'monto_gpc' => 0
-            ];
-
-            if ($xmlCount === 0) {
-                $logDebug[] = "Se descargaron " . count($archivos) . " archivos, pero NINGUNO era .xml";
+                // Guardamos la operación con su monto para la tabla pivote
+                $resultados['operaciones'][] = [
+                    'id' => $idOp,
+                    'type' => $opType,
+                    'monto_cfdi' => round($montoCfdiOp, 2),
+                    'monto_gpc'  => round($montoGpcOp, 2)
+                ];
             }
         }
 
-        $resultados['flete'] = $totalFacturasXML;
+        $montoFleteFinal = $totalFleteCfdi > 0 ? $totalFleteCfdi : $totalGpc;
+        
+        $resultados['flete']          = $montoFleteFinal; 
+        $resultados['honorarios']     = 0;
+        $resultados['pago_proveedor'] = round($totalPagoProveedor, 2);
 
-        // TRAMPA DE DIAGNÓSTICO: Si el flete es 0, forzamos un error mostrando TODO el recorrido
-        if ($totalFacturasXML == 0) {
-            return response()->json(['error' => 'Análisis Detallado: ' . implode(' | ', $logDebug)], 404);
+        if ($montoFleteFinal == 0 && $totalPagoProveedor == 0) {
+            return response()->json(['error' => 'No se logró extraer ningún XML admisible con los filtros seleccionados.'], 404);
         }
 
         $resultados['pedimento_detectado'] = implode(', ', array_unique($resultados['pedimento_detectado']));
@@ -1925,114 +1984,6 @@ class IngresoConciliadoController extends Controller
         $resultados['operaciones'] = collect($resultados['operaciones'])->unique('id')->values()->all();
 
         return response()->json($resultados);
-    }
-
-    /**
-     * Extrae información del XML utilizando SimpleXML y Regex como respaldo,
-     * conectándose al CDN de DigitalOcean si el archivo original no existe.
-     */
-    private function parsearXmlFlete(?string $rutaXml): ?array
-    {
-        $defaultReturn = ['total' => 0, 'moneda' => 'N/A', 'emisor' => '', 'fecha' => null, 'folio' => null];
-
-        if (!$rutaXml) {
-            return $defaultReturn;
-        }
-
-        try {
-            // Usamos el motor HTTP de Laravel (cURL) en lugar de file_get_contents
-            $response = Http::withoutVerifying()
-                ->timeout(10)
-                ->get($rutaXml);
-
-            $xmlString = $response->successful() ? $response->body() : null;
-
-            // Si falla o da error 404, intentamos la ruta alternativa
-            if (!$xmlString) {
-                $rutaAlternativa = 'https://intactics.nyc3.cdn.digitaloceanspaces.com/production/uploads/' . basename($rutaXml);
-
-                $respAlt = Http::withoutVerifying()
-                    ->timeout(10)
-                    ->get($rutaAlternativa);
-
-                $xmlString = $respAlt->successful() ? $respAlt->body() : null;
-            }
-
-            // Si ambos fallaron, regresamos 0
-            if (!$xmlString) {
-                Log::warning("No se pudo descargar el XML de ninguna ruta: {$rutaXml}");
-                return $defaultReturn;
-            }
-
-            $total = null;
-            $moneda = null;
-            $emisor = null;
-            $fecha = null;
-            $folio = null;
-
-            // INTENTO 1: Lector XML Nativo de PHP
-            try {
-                $xmlObj = @simplexml_load_string($xmlString);
-                if ($xmlObj !== false) {
-                    $total = isset($xmlObj['Total']) ? (float) $xmlObj['Total'] : null;
-                    $moneda = isset($xmlObj['Moneda']) ? strtoupper((string) $xmlObj['Moneda']) : null;
-                    $fecha = isset($xmlObj['Fecha']) ? explode('T', (string) $xmlObj['Fecha'])[0] : null;
-
-                    if (isset($xmlObj['Folio'])) {
-                        $folioRaw = (string) $xmlObj['Folio'];
-                        $folio = str_contains($folioRaw, '_') ? last(explode('_', $folioRaw)) : $folioRaw;
-                    }
-
-                    $namespaces = $xmlObj->getNamespaces(true);
-                    if (isset($namespaces['cfdi'])) {
-                        $emisorObj = $xmlObj->children($namespaces['cfdi'])->Emisor;
-                        if ($emisorObj && isset($emisorObj['Nombre'])) {
-                            $emisor = trim((string) $emisorObj['Nombre']);
-                        }
-                    }
-                }
-            } catch (\Throwable $th) {
-                // Fallo silencioso, pasamos al regex
-            }
-
-            // INTENTO 2: Fallback Regex Aislado (Solo busca en la cabecera)
-            if (preg_match('/<[^:]*:?Comprobante([^>]+)>/is', $xmlString, $comprobanteMatch)) {
-                $comprobanteAttrs = $comprobanteMatch[1];
-
-                if ($total === null && preg_match('/Total=["\']([0-9\,\.]+)["\']/is', $comprobanteAttrs, $mTotal)) {
-                    $total = (float) str_replace(',', '', $mTotal[1]);
-                }
-
-                if ($fecha === null && preg_match('/Fecha=["\']([^"\']+)["\']/is', $comprobanteAttrs, $mFecha)) {
-                    $fecha = explode('T', $mFecha[1])[0];
-                }
-
-                if ($moneda === null && preg_match('/Moneda=["\']([A-Z]{3})["\']/is', $comprobanteAttrs, $mMoneda)) {
-                    $moneda = strtoupper($mMoneda[1]);
-                }
-
-                if ($folio === null && preg_match('/Folio=["\']([^"\']+)["\']/is', $comprobanteAttrs, $mFolio)) {
-                    $folioRaw = $mFolio[1];
-                    $folio = str_contains($folioRaw, '_') ? last(explode('_', $folioRaw)) : $folioRaw;
-                }
-            }
-
-            // Regex del Emisor
-            if (empty($emisor) && preg_match('/Emisor[^>]+Nombre=["\']([^"\']+)["\']/is', $xmlString, $mEmisor)) {
-                $emisor = trim($mEmisor[1]);
-            }
-
-            return [
-                'total'  => (float) $total,
-                'moneda' => $moneda ?: 'MXN',
-                'emisor' => $emisor ?: '',
-                'fecha'  => $fecha,
-                'folio'  => $folio
-            ];
-        } catch (\Throwable $e) {
-            Log::error("Error parseando XML {$rutaXml}: " . $e->getMessage());
-            return $defaultReturn;
-        }
     }
 
     private function procesarIngresoIntshipperts(array $terminosBuscados)
@@ -2057,6 +2008,9 @@ class IngresoConciliadoController extends Controller
         $totalFacturasXML = 0; // Aquí sumaremos el total de Intshipperts
         $pedimentosLimpios = []; // Guardaremos los números de pedimento para buscar en el Excel
 
+        Log::info("=========================================================================");
+        Log::info("🚀 [INTSHIPPERTS] Inicio de proceso.");
+
         foreach ($terminosBuscados as $termino) {
             $termLimpio = strtoupper(trim($termino));
             if (empty($termLimpio)) {
@@ -2071,7 +2025,7 @@ class IngresoConciliadoController extends Controller
             }
 
             $pedimentoBusqueda = trim($pedimentoBusqueda);
-            $pedimentosLimpios[] = $pedimentoBusqueda; // Lo guardamos para el paso 2
+            $pedimentosLimpios[] = $pedimentoBusqueda;
 
             $logDebug[] = "1. Buscando pedimento: {$pedimentoBusqueda}";
 
@@ -2088,15 +2042,16 @@ class IngresoConciliadoController extends Controller
 
                 $idOp = null;
                 $tipoApi = null;
+                $opType = null;
 
                 if ($impo) {
                     $idOp = $impo->id_importacion;
                     $tipoApi = 'importaciones';
-                    $resultados['operaciones'][] = ['id' => $idOp, 'type' => 'App\Models\OperacionImportacion'];
+                    $opType = 'App\Models\OperacionImportacion';
                 } elseif ($expo) {
                     $idOp = $expo->id_exportacion;
                     $tipoApi = 'exportaciones';
-                    $resultados['operaciones'][] = ['id' => $idOp, 'type' => 'App\Models\OperacionExportacion'];
+                    $opType = 'App\Models\OperacionExportacion';
                 }
 
                 if ($idOp) {
@@ -2108,16 +2063,21 @@ class IngresoConciliadoController extends Controller
                         $archivos = array_merge($archivos, $respOp->json());
                     }
 
+                    $montoCfdiOp = 0;
+
                     foreach ($archivos as $archivo) {
                         $ext = strtolower(pathinfo($archivo['name'] ?? '', PATHINFO_EXTENSION));
 
                         if ($ext === 'xml') {
                             $urlXml = $archivo['url']['normal'] ?? null;
                             if ($urlXml) {
-                                $datosFactura = $this->parsearXmlFlete($urlXml);
+                                // Aquí asumo que utilizas el mismo parsearXmlFlete/extraerDatosXML modificado anteriormente
+                                $datosFactura = $this->extraerDatosXML($urlXml);
 
                                 if ($datosFactura['total'] > 0 && str_contains(strtoupper($datosFactura['emisor']), 'INTSHIPPERT')) {
-                                    $totalFacturasXML += $datosFactura['total'];
+                                    $montoItem = (float) $datosFactura['total'];
+                                    $totalFacturasXML += $montoItem;
+                                    $montoCfdiOp += $montoItem;
 
                                     if (!empty($datosFactura['folio'])) {
                                         $resultados['folio_sc'][] = $datosFactura['folio'];
@@ -2126,6 +2086,13 @@ class IngresoConciliadoController extends Controller
                             }
                         }
                     }
+
+                    $resultados['operaciones'][] = [
+                        'id'         => $idOp,
+                        'type'       => $opType,
+                        'monto_cfdi' => round($montoCfdiOp, 2),
+                        'monto_gpc'  => 0 // Intshipperts no es GPC
+                    ];
                 }
             }
         }
@@ -2154,18 +2121,15 @@ class IngresoConciliadoController extends Controller
                     $montoCelda = isset($cols[2]) ? trim($cols[2]) : '0';
                     $pedimentoCelda = isset($cols[4]) ? trim($cols[4]) : '';
 
-                    // Si está vacía, "heredamos" el último que vimos (porque es una celda combinada hacia abajo)
                     if ($pedimentoCelda !== '') {
                         $ultimoPedimento = $pedimentoCelda;
                     } else {
                         $pedimentoCelda = $ultimoPedimento;
                     }
 
-                    // Solo revisamos si realmente hay un monto (para ignorar filas totalmente vacías)
                     if ($montoCelda !== '' && $montoCelda !== '0') {
                         foreach ($pedimentosLimpios as $pedLimpio) {
                             if (str_contains($pedimentoCelda, $pedLimpio)) {
-                                // Limpiamos los signos de $ y comas del Excel para poder sumar
                                 $montoLimpio = (float) str_replace(['$', ',', ' '], '', $montoCelda);
                                 $almanFleteTotal += $montoLimpio;
                                 $logDebug[] = "Suma ALMAN: Pedimento {$pedLimpio} sumó \${$montoLimpio}";
@@ -2180,20 +2144,174 @@ class IngresoConciliadoController extends Controller
             Log::error('Error leyendo ALMAN: ' . $e->getMessage());
         }
 
-        // 1. Flete / ALMAN: La sumatoria que extrajimos del Google Sheets ($81,896.00)
-        $resultados['flete'] = round($almanFleteTotal, 2);
+        // 🎯 MAPEO PARA VUE E INTERFAZ (Igual que Transportactics)
+        
+        // El Flete (Costo de ALMAN) será usado como anticipo (como lo tenías programado en tu Vue anterior)
+        $resultados['anticipo']   = round($almanFleteTotal, 2); 
+        
+        // El Flete visual (la caja de texto "Flete XML") y el Ingreso Principal reciben el total facturado
+        $resultados['flete']      = round($totalFacturasXML, 2);
+        $resultados['honorarios'] = round($totalFacturasXML, 2);
 
-        // 2. Anticipo: (Total de XMLs de INTSHIPPERTS) - (ALMAN/Flete)
-        $resultados['anticipo'] = round($totalFacturasXML - $almanFleteTotal, 2);
+        Log::info("🎯 [INTSHIPPERTS FIN] Flete Input: \${$resultados['flete']} | Anticipo (ALMAN): \${$resultados['anticipo']}");
+        Log::info("=========================================================================");
 
-        // 3. Honorarios no se usa en este caso, lo forzamos a 0
-        $resultados['honorarios'] = 0;
+        if ($totalFacturasXML == 0 && $almanFleteTotal == 0) {
+            return response()->json(['error' => 'No se logró extraer facturas de Intshipperts ni registros en ALMAN.'], 404);
+        }
 
         $resultados['pedimento_detectado'] = implode(', ', array_unique($resultados['pedimento_detectado']));
         $resultados['folio_sc'] = implode(', ', array_unique($resultados['folio_sc']));
         $resultados['operaciones'] = collect($resultados['operaciones'])->unique('id')->values()->all();
 
         return response()->json($resultados);
+    }
+    /**
+     * Extrae información del XML utilizando SimpleXML y Regex como respaldo,
+     * conectándose al CDN de DigitalOcean si el archivo original no existe.
+     * Incluye detección interna de Serie y Descripción para clasificar GPC vs CFDI.
+     */
+    private function extraerDatosXML(?string $rutaXml): array
+    {
+        $defaultReturn = [
+            'total'       => 0,
+            'moneda'      => 'N/A',
+            'emisor'      => '',
+            'fecha'       => null,
+            'folio'       => null,
+            'serie'       => '',
+            'descripcion' => '',
+            'es_gpc'      => false
+        ];
+
+        if (!$rutaXml) {
+            return $defaultReturn;
+        }
+
+        try {
+            // Usamos el motor HTTP de Laravel (cURL) en lugar de file_get_contents
+            $headers = ['User-Agent' => 'Mozilla/5.0'];
+            $response = Http::withoutVerifying()->withHeaders($headers)->timeout(10)->get($rutaXml);
+            $xmlString = $response->successful() ? $response->body() : null;
+
+            // Si falla o da error 404, intentamos la ruta alternativa
+            if (!$xmlString) {
+                $rutaAlternativa = 'https://intactics.nyc3.cdn.digitaloceanspaces.com/production/uploads/' . basename($rutaXml);
+                $respAlt = Http::withoutVerifying()->withHeaders($headers)->timeout(10)->get($rutaAlternativa);
+                $xmlString = $respAlt->successful() ? $respAlt->body() : null;
+            }
+
+            if (!$xmlString) {
+                Log::warning("No se pudo descargar el XML de ninguna ruta: {$rutaXml}");
+                return $defaultReturn;
+            }
+
+            $total = null;
+            $moneda = null;
+            $emisor = null;
+            $fecha = null;
+            $folio = null;
+            $serie = null;
+            $descripcion = '';
+
+            // INTENTO 1: Lector XML Nativo de PHP
+            try {
+                $xmlObj = @simplexml_load_string($xmlString);
+                if ($xmlObj !== false) {
+                    $total = isset($xmlObj['Total']) ? (float) $xmlObj['Total'] : null;
+                    $moneda = isset($xmlObj['Moneda']) ? strtoupper((string) $xmlObj['Moneda']) : null;
+                    $fecha = isset($xmlObj['Fecha']) ? explode('T', (string) $xmlObj['Fecha'])[0] : null;
+
+                    if (isset($xmlObj['Serie'])) {
+                        $serie = strtoupper((string) $xmlObj['Serie']);
+                    }
+
+                    if (isset($xmlObj['Folio'])) {
+                        $folioRaw = (string) $xmlObj['Folio'];
+                        $folio = str_contains($folioRaw, '_') ? last(explode('_', $folioRaw)) : $folioRaw;
+                    }
+
+                    $namespaces = $xmlObj->getNamespaces(true);
+                    if (isset($namespaces['cfdi'])) {
+                        $cfdiChildren = $xmlObj->children($namespaces['cfdi']);
+                        
+                        if (isset($cfdiChildren->Emisor['Nombre'])) {
+                            $emisor = trim((string) $cfdiChildren->Emisor['Nombre']);
+                        }
+
+                        if (isset($cfdiChildren->Conceptos)) {
+                            foreach ($cfdiChildren->Conceptos->Concepto as $concepto) {
+                                if (isset($concepto['Descripcion'])) {
+                                    $descripcion .= ' ' . strtoupper((string) $concepto['Descripcion']);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (\Throwable $th) {
+                // Fallo silencioso, pasamos a Regex
+            }
+
+            // INTENTO 2: Fallback Regex (Busca en cabecera del Comprobante)
+            if (preg_match('/<[^:]*:?Comprobante([^>]+)>/is', $xmlString, $comprobanteMatch)) {
+                $comprobanteAttrs = $comprobanteMatch[1];
+
+                if ($total === null && preg_match('/Total=["\']([0-9\,\.]+)["\']/is', $comprobanteAttrs, $mTotal)) {
+                    $total = (float) str_replace(',', '', $mTotal[1]);
+                }
+
+                if ($fecha === null && preg_match('/Fecha=["\']([^"\']+)["\']/is', $comprobanteAttrs, $mFecha)) {
+                    $fecha = explode('T', $mFecha[1])[0];
+                }
+
+                if ($moneda === null && preg_match('/Moneda=["\']([A-Z]{3})["\']/is', $comprobanteAttrs, $mMoneda)) {
+                    $moneda = strtoupper($mMoneda[1]);
+                }
+
+                if ($serie === null && preg_match('/Serie=["\']([^"\']+)["\']/is', $comprobanteAttrs, $mSerie)) {
+                    $serie = strtoupper($mSerie[1]);
+                }
+
+                if ($folio === null && preg_match('/Folio=["\']([^"\']+)["\']/is', $comprobanteAttrs, $mFolio)) {
+                    $folioRaw = $mFolio[1];
+                    $folio = str_contains($folioRaw, '_') ? last(explode('_', $folioRaw)) : $folioRaw;
+                }
+            }
+
+            // Regex del Emisor
+            if (empty($emisor) && preg_match('/Emisor[^>]+Nombre=["\']([^"\']+)["\']/is', $xmlString, $mEmisor)) {
+                $emisor = trim($mEmisor[1]);
+            }
+
+            // Regex de Conceptos
+            if (empty($descripcion) && preg_match_all('/Concepto[^>]+Descripcion=["\']([^"\']+)["\']/is', $xmlString, $mDesc)) {
+                $descripcion = strtoupper(implode(' ', $mDesc[1]));
+            }
+
+            // Clasificación por atributos internos (Detecta si es Nota de Cargo o GPC)
+            $serieUpper = $serie ?? '';
+            $esGpc = str_contains($serieUpper, 'NC') 
+                  || str_contains($serieUpper, 'GPC') 
+                  || str_contains($serieUpper, 'ND') 
+                  || str_contains($descripcion, 'GASTOS POR CUENTA') 
+                  || str_contains($descripcion, 'NOTA DE CARGO') 
+                  || str_contains($descripcion, 'GPC') 
+                  || str_contains($descripcion, 'REEMBOLSO');
+
+            return [
+                'total'       => (float) $total,
+                'moneda'      => $moneda ?: 'MXN',
+                'emisor'      => $emisor ?: '',
+                'fecha'       => $fecha,
+                'folio'       => $folio,
+                'serie'       => $serieUpper,
+                'descripcion' => trim($descripcion),
+                'es_gpc'      => $esGpc
+            ];
+        } catch (\Throwable $e) {
+            Log::error("Error parseando XML {$rutaXml}: " . $e->getMessage());
+            return $defaultReturn;
+        }
     }
 
     public function generarComplemento(Request $request)

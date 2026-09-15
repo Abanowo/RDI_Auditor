@@ -321,12 +321,17 @@ export default {
 
             return Array.from(mapaUnicos.values());
         },
+
+        totalHonorarios() {
+            // Como usamos observadores para llenar form.honorarios automáticamente, 
+            // esta computada solo suma lo que haya visualmente.
+            return (parseFloat(this.form.honorarios) || 0) + (parseFloat(this.form.maniobras) || 0);
+        },
+
         totalGPC() {
-            if (this.esTransportactics) {
-                return parseFloat(this.form.flete) || 0;
-            }
-            if (this.esIntshipperts) {
-                return (parseFloat(this.form.anticipo) || 0) + (parseFloat(this.form.flete) || 0);
+            // 🎯 Para Transportactics e Intshipperts SIEMPRE es $0.00
+            if (this.esTransportactics || this.esIntshipperts) {
+                return 0;
             }
             if (this.esManzanillo) {
                 return (parseFloat(this.form.impuestos) || 0) +
@@ -339,8 +344,9 @@ export default {
                 (parseFloat(this.form.maniobras) || 0) + (parseFloat(this.form.flete) || 0) +
                 (parseFloat(this.form.muestras) || 0) + (parseFloat(this.form.llc) || 0);
         },
+
         sumaTotal() {
-            return this.totalGPC + (parseFloat(this.form.honorarios) || 0);
+            return this.totalGPC + this.totalHonorarios;
         },
         opcionesReferenciasCombinadas() {
             let mapa = new Map();
@@ -425,6 +431,19 @@ export default {
                 this.cargarListaPedimentos();
             }
         },
+        // 🎯 Mantiene los honorarios actualizados en tiempo real si el usuario teclea en las casillas
+        'form.flete': function(newVal) {
+            if (this.esTransportactics) {
+                this.form.honorarios = Number(newVal) || 0;
+            } else if (this.esIntshipperts) {
+                this.form.honorarios = (Number(newVal) || 0) + (Number(this.form.anticipo) || 0);
+            }
+        },
+        'form.anticipo': function(newVal) {
+            if (this.esIntshipperts) {
+                this.form.honorarios = (Number(this.form.flete) || 0) + (Number(newVal) || 0);
+            }
+        },
         'form.referenciasObj': function (newVal) {
             if (!this.form.cliente && newVal && newVal.length > 0) {
                 // Tomamos la última referencia seleccionada
@@ -479,6 +498,16 @@ export default {
             this.checkTransportactics = true;
         } else if (sucursalBaseStr.includes('INTSHIPPERT')) {
             this.checkIntshipperts = true;
+        }
+
+        // 🎯 Llenar casillas al abrir el modal (garantiza el color verde en Total Honorarios)
+        if (this.checkTransportactics) {
+            this.form.flete = Number(this.ingresoBase.flete) || 0;
+            this.form.honorarios = this.form.flete; 
+        } else if (this.checkIntshipperts) {
+            this.form.flete = Number(this.ingresoBase.flete) || 0;
+            this.form.anticipo = Number(this.ingresoBase.anticipo) || 0;
+            this.form.honorarios = this.form.flete + this.form.anticipo;
         }
 
         if (this.form.cliente) {
@@ -658,14 +687,32 @@ export default {
                 const datos = response.data;
 
                 this.$set(this.form, 'metodo_pago', datos.metodo_pago || 'PUE');
-                this.$set(this.form, 'honorarios', Number(datos.honorarios) || 0);
+
+                // 🎯 PROTECCIÓN PARA NO BORRAR DATOS MANUALES (Fija el problema de la Imagen 2)
+                if (this.esTransportactics) {
+                    const serverFlete = Number(datos.flete || datos.honorarios || 0);
+                    if (serverFlete > 0) this.$set(this.form, 'flete', serverFlete);
+                    
+                    this.$set(this.form, 'honorarios', Number(this.form.flete) || 0);
+                } else if (this.esIntshipperts) {
+                    const serverFlete = Number(datos.flete) || 0;
+                    const serverAnticipo = Number(datos.anticipo) || 0;
+
+                    if (serverFlete > 0) this.$set(this.form, 'flete', serverFlete);
+                    if (serverAnticipo > 0) this.$set(this.form, 'anticipo', serverAnticipo);
+                    
+                    this.$set(this.form, 'honorarios', (Number(this.form.flete) || 0) + (Number(this.form.anticipo) || 0));
+                } else {
+                    if (datos.honorarios !== undefined) this.$set(this.form, 'honorarios', Number(datos.honorarios));
+                    if (datos.flete !== undefined) this.$set(this.form, 'flete', Number(datos.flete));
+                    if (datos.anticipo !== undefined) this.$set(this.form, 'anticipo', Number(datos.anticipo));
+                }
+
                 this.$set(this.form, 'impuestos', Number(datos.impuestos) || 0);
                 this.$set(this.form, 'eci', Number(datos.eci) || 0);
                 this.$set(this.form, 'maniobras', Number(datos.maniobras) || 0);
-                this.$set(this.form, 'flete', Number(datos.flete) || 0);
                 this.$set(this.form, 'muestras', Number(datos.muestras) || 0);
                 this.$set(this.form, 'llc', Number(datos.llc) || 0);
-                this.$set(this.form, 'anticipo', Number(datos.anticipo) || 0);
                 this.$set(this.form, 'garantias', Number(datos.garantias) || 0);
                 this.$set(this.form, 'desglose_naviera', Number(datos.desglose_naviera) || 0);
                 this.$set(this.form, 'proveedor_maniobras', datos.proveedor_maniobras || null);
@@ -681,20 +728,11 @@ export default {
                 this.$set(this.form, 'operation_type', datos.operation_type || null);
                 this.$set(this.form, 'pedimento_detectado', datos.pedimento_detectado || null);
                 this.$set(this.form, 'operaciones', datos.operaciones || []);
+                this.$set(this.form, 'pago_proveedor', Number(datos.pago_proveedor) || 0);
 
-                const sumatoriaTotal = this.form.honorarios +
-                    this.form.impuestos +
-                    this.form.eci +
-                    this.form.maniobras +
-                    this.form.flete +
-                    this.form.muestras +
-                    this.form.llc +
-                    this.form.anticipo +
-                    this.form.garantias +
-                    this.form.desglose_naviera;
-
-                if (sumatoriaTotal > 0) {
-                    this.$set(this.form, 'monto_deposito', Number(sumatoriaTotal.toFixed(2)));
+                // Recálculo del depósito
+                if (this.sumaTotal > 0) {
+                    this.$set(this.form, 'monto_deposito', Number(this.sumaTotal.toFixed(2)));
                 }
 
                 if (datos.cliente_detectado) {
@@ -741,7 +779,7 @@ export default {
                 showCancelButton: true,
                 confirmButtonColor: '#2563eb',
                 cancelButtonColor: '#9ca3af',
-                confirmButtonText: 'Sí, actualizar',
+                confirmButtonText: 'Sí, guardar',
                 cancelButtonText: 'Cancelar',
                 reverseButtons: true
             });
@@ -753,6 +791,20 @@ export default {
             this.isSubmitting = true;
             const payload = { ...this.form };
 
+            // 🎯 REGLAS SEPARADAS PARA EVITAR SALDOS A FAVOR Y DUPLICADOS
+            if (this.esTransportactics) {
+                // Transportactics requiere que Honorarios lleve el monto para que el SC(CALC) cuadre
+                const montoIngreso = Number(this.form.flete || 0);
+                payload.flete = montoIngreso;
+                payload.honorarios = montoIngreso;
+            } else if (this.esIntshipperts) {
+                // Intshipperts ya suma flete + anticipo en el backend. 
+                // Enviamos honorarios en 0 para que no duplique la cifra a $106,000
+                payload.honorarios = 0;
+                payload.flete = Number(this.form.flete || 0);
+                payload.anticipo = Number(this.form.anticipo || 0);
+            }
+
             // 1. Manejo de Cliente
             if (payload.cliente && String(payload.cliente.id).startsWith('nuevo_')) {
                 payload.cliente_id = null;
@@ -763,9 +815,10 @@ export default {
                 payload.cliente_id = null;
             }
 
-            payload.anticipo = Number(this.form.anticipo || 0);
+            // Validamos GPC y variables default
             payload.sucursal_origen = this.sucursalReal;
-            payload.total_gpc = this.totalGPC;
+            payload.total_gpc = this.totalGPC; 
+            payload.anticipo = Number(payload.anticipo || this.form.anticipo || 0);
 
             delete payload.cliente;
             delete payload._original;
@@ -785,24 +838,13 @@ export default {
 
             // 3. CONSTRUCCIÓN DE 'OPERACIONES' PARA LA TABLA PIVOTE (ingreso_operacion)
             if (this.form.referenciasObj && Array.isArray(this.form.referenciasObj) && this.form.referenciasObj.length > 0) {
-                // Función auxiliar para extraer el número de folio limpio
                 const obtenerFolioLimpio = (val) => {
-                    if (!val) {
-                        return '';
-                    }
+                    if (!val) return '';
                     let str = String(val).trim().toUpperCase();
 
-                    // 1. Buscamos específicamente un formato de pedimento de 7 dígitos
-                    // Puede venir solo "6000464" o con patente "3711-6000464" o "3739 - 6000464"
                     const matchPedimento = str.match(/(?:\d{4}\s*-\s*)?(\d{7})/);
+                    if (matchPedimento) return matchPedimento[1];
 
-                    if (matchPedimento) {
-                        // matchPedimento[1] contiene siempre los 7 dígitos del pedimento
-                        return matchPedimento[1];
-                    }
-
-                    // 2. Si no es un pedimento de 7 dígitos (ej. Transportactics o Folios Manuales)
-                    // Mantenemos la lógica de limpieza básica
                     str = str.replace('F-', '');
                     let partes = str.split(' - ');
                     if (partes.length >= 3) {
@@ -810,9 +852,7 @@ export default {
                     } else if (partes.length === 2) {
                         str = partes[0].trim();
                     }
-                    if (str.includes('/')) {
-                        str = str.split('/')[0].trim();
-                    }
+                    if (str.includes('/')) str = str.split('/')[0].trim();
 
                     return str;
                 };
@@ -828,11 +868,8 @@ export default {
                     const folioLimpio = obtenerFolioLimpio(textoOriginal);
                     const textoUpper = String(textoOriginal).toUpperCase().trim();
 
-                    // Buscamos coincidencia en form.operaciones o en pedimentosSheet
                     const esCoincidencia = (o) => {
-                        if (!o) {
-                            return false;
-                        }
+                        if (!o) return false;
                         const oFolioLimpio = obtenerFolioLimpio(o.folio || o.referencia || o.pedimento || o.id);
                         const oFolioRaw = String(o.folio || o.referencia || o.label || '').toUpperCase().trim();
 
@@ -842,17 +879,34 @@ export default {
 
                     let op = opsBuscadas.find(esCoincidencia) || pedimentosSheet.find(esCoincidencia);
 
-                    // Extraemos ID, TYPE, MONTO_CFDI y MONTO_GPC reales
                     const opId = op ? (op.operacion_id || op.id || op.pedimento_id || null) : null;
                     const opType = op ? (op.operation_type || op.operacion_type || op.type || 'GENERICO') : 'GENERICO';
 
-                    // Fallback de montos: lee desde la operación o desde los totales del formulario
-                    const montoCfdi = op ? Number(op.monto_cfdi ?? op.flete ?? op.monto_flete ?? 0) : Number(this.form.flete || 0);
-                    const montoGpc = op ? Number(op.monto_gpc ?? op.total_gpc ?? op.gpc ?? 0) : Number(this.totalGPC || 0);
+                    let montoCfdi = op ? Number(op.monto_cfdi ?? op.flete ?? op.monto_flete ?? 0) : Number(this.form.flete || this.form.honorarios || 0);
+                    let montoGpc = op ? Number(op.monto_gpc ?? op.total_gpc ?? op.gpc ?? 0) : Number(this.totalGPC || 0);
+
+                    // Reajuste para evitar registro de GPC en tabla pivote para estas entidades
+                    if (this.esTransportactics) {
+                        montoCfdi = Number(this.form.flete || 0);
+                        montoGpc = 0;
+                    } else if (this.esIntshipperts) {
+                        montoCfdi = (Number(this.form.flete) || 0) + (Number(this.form.anticipo) || 0);
+                        montoGpc = 0;
+                    }
+
+                    // Determinar el modelo dinámico
+                    let pivoteType = opType;
+                    if (pivoteType === 'GENERICO') {
+                        if (this.esTransportactics) {
+                            pivoteType = 'App\\Models\\OperacionTransportactics';
+                        } else if (this.esIntshipperts) {
+                            pivoteType = 'App\\Models\\OperacionIntshipperts';
+                        }
+                    }
 
                     return {
                         id: (opId && !isNaN(opId)) ? Number(opId) : null,
-                        type: opType !== 'GENERICO' ? opType : (this.esTransportactics ? 'App\\Models\\OperacionTransportactics' : 'GENERICO'),
+                        type: pivoteType,
                         folio: textoOriginal,
                         referencia: textoOriginal,
                         monto_cfdi: montoCfdi,
@@ -873,20 +927,28 @@ export default {
                 payload.tipo_comprobante = this.tiposComprobanteArray[0] || 'N/A';
             }
 
+            // 5. Detectar si estamos creando o actualizando
             try {
-                const response = await axios.put(`/ingresos-conciliados/${this.form.id}`, payload);
+                let response;
+                if (this.form.id) {
+                    // MODO EDITAR
+                    response = await axios.put(`/ingresos-conciliados/${this.form.id}`, payload);
+                } else {
+                    // MODO NUEVO
+                    response = await axios.post(`/ingresos-conciliados`, payload);
+                }
 
-                if (response.status === 200 || response.data) {
+                if (response.status === 200 || response.status === 201 || response.data) {
                     Swal.fire({
-                        title: '¡Actualizado!',
-                        text: response.data.message || 'Ingreso modificado correctamente.',
+                        title: '¡Guardado!',
+                        text: response.data.message || 'Ingreso registrado correctamente.',
                         icon: 'success',
                         toast: true,
                         position: 'top-end',
                         timer: 3000,
                         showConfirmButton: false
                     });
-                    this.$emit('ingreso-actualizado');
+                    this.$emit(this.form.id ? 'ingreso-actualizado' : 'ingreso-guardado');
                 }
             } catch (error) {
                 console.error("🔍 ERROR CRUDO:", error);
@@ -894,6 +956,8 @@ export default {
 
                 if (error.response && error.response.data && error.response.data.error) {
                     mensajeReal = error.response.data.error;
+                } else if (error.response && error.response.data && error.response.data.message) {
+                    mensajeReal = error.response.data.message;
                 }
 
                 Swal.fire('Error', mensajeReal, 'error');

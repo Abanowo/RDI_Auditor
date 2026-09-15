@@ -215,12 +215,16 @@
             class="col-span-full mt-6 p-5 bg-white border border-gray-200 rounded-xl flex flex-wrap items-center justify-between shadow-sm">
             <div class="flex items-center gap-4 px-3">
               <span class="text-base text-gray-500 font-bold uppercase">Total GPC:</span>
-              <span class="text-2xl font-black text-blue-600">{{ formatearDinero(totalGPC) }}</span>
+              <span class="text-2xl font-black text-blue-600">
+                <strong style="color:#2a5bd7;">{{ formatearDinero(totalGPC) }}</strong>
+              </span>
             </div>
             <div class="hidden md:block w-px h-10 bg-gray-200"></div>
             <div class="flex items-center gap-4 px-3">
               <span class="text-base text-gray-500 font-bold uppercase">Total Honorarios:</span>
-              <span class="text-2xl font-black" style="color: #00C09F;">{{ formatearDinero(form.honorarios) }}</span>
+              <span class="text-2xl font-black" style="color: #00C09F;">
+                <strong style="color:#00b786;">{{ formatearDinero(totalHonorarios) }}</strong>
+              </span>
             </div>
             <div class="flex items-center gap-4 bg-yellow-100 border border-yellow-200 px-6 py-3 rounded-lg ml-auto">
               <span class="text-base text-yellow-700 font-bold uppercase">Suma Total:</span>
@@ -364,12 +368,22 @@ export default {
         return p.cliente.includes(clienteSeleccionado) || clienteSeleccionado.includes(p.cliente);
       });
     },
-    totalGPC() {
+
+    totalHonorarios() {
       if (this.esTransportactics) {
-        return parseFloat(this.form.flete) || 0;
+        return (parseFloat(this.form.flete) || 0) + (parseFloat(this.form.maniobras) || 0);
       }
       if (this.esIntshipperts) {
-        return (parseFloat(this.form.anticipo) || 0) + (parseFloat(this.form.flete) || 0);
+        // 🎯 En Intshipperts, el Flete (ALMAN) + Anticipo forman el Total Facturado (Honorarios)
+        return (parseFloat(this.form.flete) || 0) + (parseFloat(this.form.anticipo) || 0) + (parseFloat(this.form.maniobras) || 0);
+      }
+      return (parseFloat(this.form.honorarios) || 0) + (parseFloat(this.form.maniobras) || 0);
+    },
+
+    totalGPC() {
+      // 🎯 Ni Transportactics ni Intshipperts llevan GPC ($0.00)
+      if (this.esTransportactics || this.esIntshipperts) {
+        return 0;
       }
       if (this.esManzanillo) {
         return (parseFloat(this.form.impuestos) || 0) +
@@ -394,7 +408,7 @@ export default {
       return s;
     },
     sumaTotal() {
-      return this.totalGPC + (parseFloat(this.form.honorarios) || 0);
+      return this.totalGPC + this.totalHonorarios;
     },
     opcionesReferenciasCombinadas() {
       let mapa = new Map();
@@ -529,8 +543,8 @@ export default {
         if (ref.pedimento) {
           return String(ref.pedimento).trim();
         }
-        if (ref.num_pedimento) {
-          return String(ref.num_pedimento).trim();
+        if (ref.num_pedimiento) {
+          return String(ref.num_pedimiento).trim();
         }
         ref = ref.folio || ref.label || ref.value || ref.text || '';
       }
@@ -657,14 +671,26 @@ export default {
         const datos = response.data;
         this.$set(this.form, 'metodo_pago', datos.metodo_pago || 'PUE');
 
-        this.form.honorarios = datos.honorarios !== undefined ? Number(datos.honorarios) : 0;
+        // 🎯 ASIGNACIÓN ESPECÍFICA SEGÚN EL TIPO DE OPERACIÓN
+        if (this.esTransportactics) {
+          const montoTransportactics = Number(datos.flete || datos.honorarios || 0);
+          this.form.flete = montoTransportactics;
+          this.form.honorarios = 0;
+        } else if (this.esIntshipperts) {
+          this.form.flete = Number(datos.flete) || 0;
+          this.form.anticipo = Number(datos.anticipo) || 0;
+          this.form.honorarios = 0;
+        } else {
+          this.form.honorarios = datos.honorarios !== undefined ? Number(datos.honorarios) : 0;
+          this.form.flete = datos.flete !== undefined ? Number(datos.flete) : 0;
+          this.form.anticipo = datos.anticipo !== undefined ? Number(datos.anticipo) : 0;
+        }
+
         this.form.impuestos = datos.impuestos !== undefined ? Number(datos.impuestos) : 0;
         this.form.eci = datos.eci !== undefined ? Number(datos.eci) : 0;
         this.form.maniobras = datos.maniobras !== undefined ? Number(datos.maniobras) : 0;
-        this.form.flete = datos.flete !== undefined ? Number(datos.flete) : 0;
         this.form.muestras = datos.muestras !== undefined ? Number(datos.muestras) : 0;
         this.form.llc = datos.llc !== undefined ? Number(datos.llc) : 0;
-        this.form.anticipo = datos.anticipo !== undefined ? Number(datos.anticipo) : 0;
         this.form.garantias = datos.garantias !== undefined ? Number(datos.garantias) : 0;
         this.form.desglose_naviera = datos.desglose_naviera !== undefined ? Number(datos.desglose_naviera) : 0;
 
@@ -681,13 +707,11 @@ export default {
         this.form.operation_type = datos.operation_type || null;
         this.form.pedimento_detectado = datos.pedimento_detectado || null;
         this.form.operaciones = datos.operaciones || [];
+        this.$set(this.form, 'pago_proveedor', Number(datos.pago_proveedor) || 0);
 
-        const sumatoriaTotal = this.form.honorarios + this.form.impuestos + this.form.eci +
-          this.form.maniobras + this.form.flete + this.form.muestras + this.form.llc +
-          this.form.anticipo + this.form.garantias + this.form.desglose_naviera;
-
-        if (sumatoriaTotal > 0) {
-          this.form.monto_deposito = Number(sumatoriaTotal.toFixed(2));
+        // 🎯 CÁLCULO LIMPIO DEL MONTO DEPÓSITO
+        if (this.sumaTotal > 0) {
+          this.form.monto_deposito = Number(this.sumaTotal.toFixed(2));
         }
 
         if (datos.cliente_detectado) {
@@ -716,72 +740,145 @@ export default {
         return Swal.fire('Atención', 'Completa la fecha, cliente y el monto de depósito.', 'warning');
       }
 
+      if (!this.form.referenciasObj || this.form.referenciasObj.length === 0) {
+        return Swal.fire('Atención', 'Selecciona o escribe al menos una referencia/pedimento.', 'warning');
+      }
+
+      const confirmacion = await Swal.fire({
+        title: '¿Guardar cambios?',
+        text: "¿Estás seguro de que deseas actualizar este ingreso? Esta acción modificará los montos registrados.",
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#2563eb',
+        cancelButtonColor: '#9ca3af',
+        confirmButtonText: 'Sí, guardar',
+        cancelButtonText: 'Cancelar',
+        reverseButtons: true
+      });
+
+      if (!confirmacion.isConfirmed) {
+        return;
+      }
+
       this.isSubmitting = true;
       const payload = { ...this.form };
 
+      // 🎯 REGLAS SEPARADAS PARA EVITAR SALDOS A FAVOR Y DUPLICADOS
+      if (this.esTransportactics) {
+        // Transportactics requiere que Honorarios lleve el monto para que el SC(CALC) cuadre
+        const montoIngreso = Number(this.form.flete || 0);
+        payload.flete = montoIngreso;
+        payload.honorarios = montoIngreso;
+      } else if (this.esIntshipperts) {
+        // Intshipperts ya suma flete + anticipo en el backend. 
+        // Enviamos honorarios en 0 para que no duplique la cifra a $106,000
+        payload.honorarios = 0;
+        payload.flete = Number(this.form.flete || 0);
+        payload.anticipo = Number(this.form.anticipo || 0);
+      }
+
       // 1. Manejo de Cliente
-      if (String(payload.cliente.id).startsWith('nuevo_')) {
+      if (payload.cliente && String(payload.cliente.id).startsWith('nuevo_')) {
         payload.cliente_id = null;
         payload.nuevo_cliente_nombre = payload.cliente.nombre;
-      } else {
+      } else if (payload.cliente) {
         payload.cliente_id = payload.cliente.id;
-      }
-      delete payload.cliente;
-
-      payload.total_gpc = this.totalGPC;
-      payload.anticipo = Number(this.form.anticipo || 0); // Forzamos envío numérico del anticipo
-
-      // 2. Construcción de string para la columna principal 'referencia'
-      if (this.form.referenciasObj && Array.isArray(this.form.referenciasObj)) {
-        payload.referencia = this.form.referenciasObj.map(r => r.folio || r.label || r).join(', ');
       } else {
-        payload.referencia = '';
+        payload.cliente_id = null;
       }
 
-      if (payload.pedimento_detectado) {
+      // Validamos GPC y variables default
+      payload.sucursal_origen = this.sucursalReal;
+      payload.total_gpc = this.totalGPC;
+      payload.anticipo = Number(payload.anticipo || this.form.anticipo || 0);
+
+      delete payload.cliente;
+      delete payload._original;
+      delete payload.cp;
+
+      // 2. EXTRACCIÓN BLINDADA DE LA COLUMNA 'referencia'
+      payload.referencia = this.form.referenciasObj.map(r => {
+        if (typeof r === 'object' && r !== null) {
+          return r.folio || r.label || r.referencia || r.pedimento || '';
+        }
+        return String(r);
+      }).filter(Boolean).join(', ');
+
+      if (payload.pedimento_detectado && !this.esManzanillo) {
         payload.referencia = payload.pedimento_detectado;
       }
 
-      // CONSTRUCCIÓN DE 'OPERACIONES' PARA LA TABLA PIVOTE (ingreso_operacion)
-      // Mapeamos cada referencia de la lista para enviarla como elemento de la tabla pivote
+      // 3. CONSTRUCCIÓN DE 'OPERACIONES' PARA LA TABLA PIVOTE (ingreso_operacion)
       if (this.form.referenciasObj && Array.isArray(this.form.referenciasObj) && this.form.referenciasObj.length > 0) {
+        const obtenerFolioLimpio = (val) => {
+          if (!val) return '';
+          let str = String(val).trim().toUpperCase();
+
+          const matchPedimento = str.match(/(?:\d{4}\s*-\s*)?(\d{7})/);
+          if (matchPedimento) return matchPedimento[1];
+
+          str = str.replace('F-', '');
+          let partes = str.split(' - ');
+          if (partes.length >= 3) {
+            str = partes[1].trim();
+          } else if (partes.length === 2) {
+            str = partes[0].trim();
+          }
+          if (str.includes('/')) str = str.split('/')[0].trim();
+
+          return str;
+        };
 
         const opsBuscadas = Array.isArray(this.form.operaciones) ? this.form.operaciones : [];
         const pedimentosSheet = Array.isArray(this.pedimentosSheet) ? this.pedimentosSheet : [];
 
         payload.operaciones = this.form.referenciasObj.map(ref => {
-          const textoOriginal = typeof ref === 'object' 
-            ? (ref.folio || ref.label || ref.referencia || ref.pedimento || '') 
+          const textoOriginal = typeof ref === 'object'
+            ? (ref.folio || ref.label || ref.referencia || ref.pedimento || '')
             : String(ref);
-          
-          const folioLimpio = this.obtenerPedimentoLimpio(textoOriginal);
+
+          const folioLimpio = obtenerFolioLimpio(textoOriginal);
           const textoUpper = String(textoOriginal).toUpperCase().trim();
 
-          // Buscamos coincidencia en form.operaciones o en pedimentosSheet
           const esCoincidencia = (o) => {
-            if (!o) {
-              return false;
-            }
-            const oFolioLimpio = this.obtenerPedimentoLimpio(o.folio || o.referencia || o.pedimento || o.id);
+            if (!o) return false;
+            const oFolioLimpio = obtenerFolioLimpio(o.folio || o.referencia || o.pedimento || o.id);
             const oFolioRaw = String(o.folio || o.referencia || o.label || '').toUpperCase().trim();
-            
+
             return (folioLimpio && oFolioLimpio && (folioLimpio === oFolioLimpio || oFolioLimpio.includes(folioLimpio) || folioLimpio.includes(oFolioLimpio))) ||
-                   (oFolioRaw && (oFolioRaw === textoUpper || textoUpper.includes(oFolioRaw) || oFolioRaw.includes(textoUpper)));
+              (oFolioRaw && (oFolioRaw === textoUpper || textoUpper.includes(oFolioRaw) || oFolioRaw.includes(textoUpper)));
           };
 
           let op = opsBuscadas.find(esCoincidencia) || pedimentosSheet.find(esCoincidencia);
 
-          // Extraemos ID, TYPE, MONTO_CFDI y MONTO_GPC reales
           const opId = op ? (op.operacion_id || op.id || op.pedimento_id || null) : null;
           const opType = op ? (op.operation_type || op.operacion_type || op.type || 'GENERICO') : 'GENERICO';
-          
-          // Fallback de montos: lee desde la operación o desde los totales del formulario
-          const montoCfdi = op ? Number(op.monto_cfdi ?? op.flete ?? op.monto_flete ?? 0) : Number(this.form.flete || 0);
-          const montoGpc = op ? Number(op.monto_gpc ?? op.total_gpc ?? op.gpc ?? 0) : Number(this.totalGPC || 0);
+
+          let montoCfdi = op ? Number(op.monto_cfdi ?? op.flete ?? op.monto_flete ?? 0) : Number(this.form.flete || this.form.honorarios || 0);
+          let montoGpc = op ? Number(op.monto_gpc ?? op.total_gpc ?? op.gpc ?? 0) : Number(this.totalGPC || 0);
+
+          // Reajuste para evitar registro de GPC en tabla pivote para estas entidades
+          if (this.esTransportactics) {
+            montoCfdi = Number(this.form.flete || 0);
+            montoGpc = 0;
+          } else if (this.esIntshipperts) {
+            montoCfdi = (Number(this.form.flete) || 0) + (Number(this.form.anticipo) || 0);
+            montoGpc = 0;
+          }
+
+          // Determinar el modelo dinámico
+          let pivoteType = opType;
+          if (pivoteType === 'GENERICO') {
+            if (this.esTransportactics) {
+              pivoteType = 'App\\Models\\OperacionTransportactics';
+            } else if (this.esIntshipperts) {
+              pivoteType = 'App\\Models\\OperacionIntshipperts';
+            }
+          }
 
           return {
             id: (opId && !isNaN(opId)) ? Number(opId) : null,
-            type: opType !== 'GENERICO' ? opType : (this.esTransportactics ? 'App\\Models\\OperacionTransportactics' : 'GENERICO'),
+            type: pivoteType,
             folio: textoOriginal,
             referencia: textoOriginal,
             monto_cfdi: montoCfdi,
@@ -792,63 +889,50 @@ export default {
         payload.operaciones = [];
       }
 
-      // 4. Formateo de Sucursal
-      let sucursalGuardar = typeof payload.sucursal_origen === 'object' && payload.sucursal_origen !== null
-        ? (payload.sucursal_origen.nombre || payload.sucursal_origen.id)
-        : payload.sucursal_origen;
-
-      if (this.checkTransportactics && !String(sucursalGuardar).toUpperCase().includes('TRANSPORTACTIC')) {
-        sucursalGuardar += ' TRANSPORTACTICS';
-      } else if (this.checkIntshipperts && !String(sucursalGuardar).toUpperCase().includes('INTSHIPPERT')) {
-        sucursalGuardar += ' INTSHIPPERTS';
-      }
-
-      payload.sucursal_origen = sucursalGuardar;
-
-      // Limpieza de auxiliares
       delete payload.pedimento_detectado;
       delete payload.referenciasObj;
 
-      // 5. Tipo de comprobante
-      if (this.tiposComprobanteArray && this.tiposComprobanteArray.includes('CFDI') && this.tiposComprobanteArray.includes('Nota Cargo')) {
+      // 4. Tipo de comprobante
+      if (this.tiposComprobanteArray.includes('CFDI') && this.tiposComprobanteArray.includes('Nota Cargo')) {
         payload.tipo_comprobante = 'Ambos';
-      } else if (this.tiposComprobanteArray) {
-        payload.tipo_comprobante = this.tiposComprobanteArray[0] || 'N/A';
       } else {
-        payload.tipo_comprobante = 'N/A';
+        payload.tipo_comprobante = this.tiposComprobanteArray[0] || 'N/A';
       }
 
-      // 6. Envío al Servidor
+      // 5. Detectar si estamos creando o actualizando
       try {
-        const response = await axios.post(`/ingresos-conciliados`, payload);
-
-        Swal.fire({
-          title: '¡Guardado!',
-          text: response.data.message || 'Ingreso registrado correctamente.',
-          icon: 'success',
-          toast: true,
-          position: 'top-end',
-          timer: 3000,
-          showConfirmButton: false
-        });
-
-        this.$emit('ingreso-guardado');
-
-      } catch (error) {
-        console.error("🔍 ERROR CRUDO:", error);
-        let mensajeReal = 'No se pudo conectar con el servidor.';
-
-        if (error.response && error.response.data) {
-          mensajeReal = error.response.data.message || error.response.data.error || mensajeReal;
-        } else if (error.message) {
-          mensajeReal = "Error de Vue/JS: " + error.message;
+        let response;
+        if (this.form.id) {
+          // MODO EDITAR
+          response = await axios.put(`/ingresos-conciliados/${this.form.id}`, payload);
+        } else {
+          // MODO NUEVO
+          response = await axios.post(`/ingresos-conciliados`, payload);
         }
 
-        Swal.fire({
-          title: 'Atención',
-          text: mensajeReal,
-          icon: 'warning'
-        });
+        if (response.status === 200 || response.status === 201 || response.data) {
+          Swal.fire({
+            title: '¡Guardado!',
+            text: response.data.message || 'Ingreso registrado correctamente.',
+            icon: 'success',
+            toast: true,
+            position: 'top-end',
+            timer: 3000,
+            showConfirmButton: false
+          });
+          this.$emit(this.form.id ? 'ingreso-actualizado' : 'ingreso-guardado');
+        }
+      } catch (error) {
+        console.error("🔍 ERROR CRUDO:", error);
+        let mensajeReal = 'Problema al guardar los cambios';
+
+        if (error.response && error.response.data && error.response.data.error) {
+          mensajeReal = error.response.data.error;
+        } else if (error.response && error.response.data && error.response.data.message) {
+          mensajeReal = error.response.data.message;
+        }
+
+        Swal.fire('Error', mensajeReal, 'error');
       } finally {
         this.isSubmitting = false;
       }
