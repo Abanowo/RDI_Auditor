@@ -369,19 +369,8 @@ export default {
       });
     },
 
-    totalHonorarios() {
-      if (this.esTransportactics) {
-        return (parseFloat(this.form.flete) || 0) + (parseFloat(this.form.maniobras) || 0);
-      }
-      if (this.esIntshipperts) {
-        // 🎯 En Intshipperts, el Flete (ALMAN) + Anticipo forman el Total Facturado (Honorarios)
-        return (parseFloat(this.form.flete) || 0) + (parseFloat(this.form.anticipo) || 0) + (parseFloat(this.form.maniobras) || 0);
-      }
-      return (parseFloat(this.form.honorarios) || 0) + (parseFloat(this.form.maniobras) || 0);
-    },
-
     totalGPC() {
-      // 🎯 Ni Transportactics ni Intshipperts llevan GPC ($0.00)
+      // Transportactics e Intshipperts no llevan GPC
       if (this.esTransportactics || this.esIntshipperts) {
         return 0;
       }
@@ -392,9 +381,17 @@ export default {
           (parseFloat(this.form.garantias) || 0) +
           (parseFloat(this.form.desglose_naviera) || 0);
       }
-      return (parseFloat(this.form.impuestos) || 0) + (parseFloat(this.form.eci) || 0) +
-        (parseFloat(this.form.maniobras) || 0) + (parseFloat(this.form.flete) || 0) +
-        (parseFloat(this.form.muestras) || 0) + (parseFloat(this.form.llc) || 0);
+      // Maniobras se contabiliza de forma exclusiva como GPC
+      return (parseFloat(this.form.impuestos) || 0) + 
+        (parseFloat(this.form.eci) || 0) +
+        (parseFloat(this.form.maniobras) || 0) + 
+        (parseFloat(this.form.flete) || 0) +
+        (parseFloat(this.form.muestras) || 0) + 
+        (parseFloat(this.form.llc) || 0);
+    },
+
+    sumaTotal() {
+      return this.totalGPC + this.totalHonorarios;
     },
     sucursalReal() {
       let s = String(this.sucursalSeleccionada).toUpperCase();
@@ -763,15 +760,11 @@ export default {
       this.isSubmitting = true;
       const payload = { ...this.form };
 
-      // 🎯 REGLAS SEPARADAS PARA EVITAR SALDOS A FAVOR Y DUPLICADOS
       if (this.esTransportactics) {
-        // Transportactics requiere que Honorarios lleve el monto para que el SC(CALC) cuadre
         const montoIngreso = Number(this.form.flete || 0);
         payload.flete = montoIngreso;
         payload.honorarios = montoIngreso;
       } else if (this.esIntshipperts) {
-        // Intshipperts ya suma flete + anticipo en el backend. 
-        // Enviamos honorarios en 0 para que no duplique la cifra a $106,000
         payload.honorarios = 0;
         payload.flete = Number(this.form.flete || 0);
         payload.anticipo = Number(this.form.anticipo || 0);
@@ -831,6 +824,8 @@ export default {
 
         const opsBuscadas = Array.isArray(this.form.operaciones) ? this.form.operaciones : [];
         const pedimentosSheet = Array.isArray(this.pedimentosSheet) ? this.pedimentosSheet : [];
+        
+        const totalOps = this.form.referenciasObj.length;
 
         payload.operaciones = this.form.referenciasObj.map(ref => {
           const textoOriginal = typeof ref === 'object'
@@ -849,13 +844,14 @@ export default {
               (oFolioRaw && (oFolioRaw === textoUpper || textoUpper.includes(oFolioRaw) || oFolioRaw.includes(textoUpper)));
           };
 
-          let op = opsBuscadas.find(esCoincidencia) || pedimentosSheet.find(esCoincidencia);
+          // 🎯 Aseguramos que 'op' sea al menos un objeto vacío para evitar errores
+          let op = opsBuscadas.find(esCoincidencia) || pedimentosSheet.find(esCoincidencia) || {};
 
-          const opId = op ? (op.operacion_id || op.id || op.pedimento_id || null) : null;
-          const opType = op ? (op.operation_type || op.operacion_type || op.type || 'GENERICO') : 'GENERICO';
+          const opId = op.operacion_id || op.id || op.pedimento_id || null;
+          const opType = op.operation_type || op.operacion_type || op.type || 'GENERICO';
 
-          let montoCfdi = op ? Number(op.monto_cfdi ?? op.flete ?? op.monto_flete ?? 0) : Number(this.form.flete || this.form.honorarios || 0);
-          let montoGpc = op ? Number(op.monto_gpc ?? op.total_gpc ?? op.gpc ?? 0) : Number(this.totalGPC || 0);
+          let montoCfdi = Number(op.monto_cfdi ?? op.flete ?? op.monto_flete ?? 0);
+          let montoGpc = Number(op.monto_gpc ?? op.total_gpc ?? op.gpc ?? 0);
 
           // Reajuste para evitar registro de GPC en tabla pivote para estas entidades
           if (this.esTransportactics) {
@@ -864,6 +860,10 @@ export default {
           } else if (this.esIntshipperts) {
             montoCfdi = (Number(this.form.flete) || 0) + (Number(this.form.anticipo) || 0);
             montoGpc = 0;
+          } else {
+            // Si es otro y estaba en 0, toma lo del formulario general
+            if (montoCfdi === 0) montoCfdi = Number(this.form.flete || this.form.honorarios || 0);
+            if (montoGpc === 0) montoGpc = Number(this.totalGPC || 0);
           }
 
           // Determinar el modelo dinámico
@@ -882,7 +882,18 @@ export default {
             folio: textoOriginal,
             referencia: textoOriginal,
             monto_cfdi: montoCfdi,
-            monto_gpc: montoGpc
+            monto_gpc: montoGpc,
+            honorarios: op.honorarios ?? (totalOps === 1 ? Number(this.form.honorarios || 0) : 0),
+            impuestos: op.impuestos ?? (totalOps === 1 ? Number(this.form.impuestos || 0) : 0),
+            eci: op.eci ?? (totalOps === 1 ? Number(this.form.eci || 0) : 0),
+            maniobras: op.maniobras ?? (totalOps === 1 ? Number(this.form.maniobras || 0) : 0),
+            flete: op.flete ?? (totalOps === 1 ? Number(this.form.flete || 0) : 0),
+            muestras: op.muestras ?? (totalOps === 1 ? Number(this.form.muestras || 0) : 0),
+            llc: op.llc ?? (totalOps === 1 ? Number(this.form.llc || 0) : 0),
+            anticipo: op.anticipo ?? (totalOps === 1 ? Number(this.form.anticipo || 0) : 0),
+            garantias: op.garantias ?? (totalOps === 1 ? Number(this.form.garantias || 0) : 0),
+            desglose_naviera: op.desglose_naviera ?? (totalOps === 1 ? Number(this.form.desglose_naviera || 0) : 0),
+            pago_proveedor: op.pago_proveedor ?? (totalOps === 1 ? Number(this.form.pago_proveedor || 0) : 0)
           };
         });
       } else {
