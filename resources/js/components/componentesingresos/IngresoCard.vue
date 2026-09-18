@@ -269,24 +269,45 @@ export default {
             }
         },
         montoSC() {
-            if (this.esRegistroTransportactics) {
-                return Number(this.item.flete) || 0;
-            }
+            let totalDesglose = 0;
 
-            if (this.esRegistroManzanillo || this.esRegistroIntshipperts) {
-                return (Number(this.item.anticipo) || 0) + (Number(this.item.garantias) || 0) +
+            if (this.esRegistroTransportactics) {
+                totalDesglose = Number(this.item.flete) || 0;
+            } else if (this.esRegistroManzanillo || this.esRegistroIntshipperts) {
+                totalDesglose = (Number(this.item.anticipo) || 0) + (Number(this.item.garantias) || 0) +
                     (Number(this.item.desglose_naviera) || 0) + (Number(this.item.impuestos) || 0) +
                     (Number(this.item.flete) || 0) + (Number(this.item.honorarios) || 0);
+            } else {
+                totalDesglose = (Number(this.item.honorarios) || 0) + (Number(this.item.impuestos) || 0) +
+                    (Number(this.item.eci) || 0) + (Number(this.item.maniobras) || 0) +
+                    (Number(this.item.flete) || 0) + (Number(this.item.muestras) || 0) + (Number(this.item.llc) || 0);
             }
 
-            return (Number(this.item.honorarios) || 0) + (Number(this.item.impuestos) || 0) +
-                (Number(this.item.eci) || 0) + (Number(this.item.maniobras) || 0) +
-                (Number(this.item.flete) || 0) + (Number(this.item.muestras) || 0) + (Number(this.item.llc) || 0);
+            let esGenericoDB = false;
+            
+            if (this.item.operaciones && this.item.operaciones.length > 0) {
+                // Evaluamos si el tipo de operación en la tabla pivote es "GENERICO"
+                esGenericoDB = this.item.operaciones.every(op => {
+                    const tipo = String(op.operacion_type || (op.pivot && op.pivot.operacion_type) || op.type || '').toUpperCase();
+                    return tipo.includes('GENERICO');
+                });
+            } else {
+                // Si la BD indica que no hay operaciones vinculadas, también se trata de un ingreso genérico
+                esGenericoDB = true;
+            }
+
+            if (esGenericoDB && totalDesglose === 0) {
+                return Number(this.item.monto_deposito) || 0;
+            }
+
+            return totalDesglose;
         },
+
         diferencia() {
             const calc = (Number(this.item.monto_deposito) || 0) - this.montoSC;
             return Number(calc.toFixed(2));
         },
+
         esManzanilloCard() {
             const sucursal = String((this.item && this.item.sucursal_origen) || '').toUpperCase();
             return sucursal.includes('MANZANILLO') || sucursal.includes('ZLO');

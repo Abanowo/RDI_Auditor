@@ -2969,11 +2969,9 @@ class IngresoConciliadoController extends Controller
                 $clienteNombre = $empresa ? strtoupper($empresa->nombre) : '';
             }
 
-            // Validaciones de negocio
             $isTransportactics = str_contains($clienteNombre, 'TRANSPORTACTICS') || str_contains($sucursal, 'TRANSPORTACTIC');
             $esManzanillo = str_contains($sucursal, 'MANZANILLO') || str_contains($sucursal, 'ZLO') || str_contains($sucursal, 'INTSHIPPERT');
 
-            // Limpieza de montos
             $fleteReal = (float) str_replace(['$', ','], '', $request->flete ?? 0);
             $pagoProvReal = (float) str_replace(['$', ','], '', $request->pago_proveedor ?? 0);
             $honorariosReal = (float) str_replace(['$', ','], '', $request->honorarios ?? 0);
@@ -2982,7 +2980,6 @@ class IngresoConciliadoController extends Controller
             $gananciaReal = (float) str_replace(['$', ','], '', $gananciaFrontend);
 
             $monto_gpc = 0;
-
             if ($isTransportactics) {
                 $monto_gpc = 0;
             } elseif ($esManzanillo) {
@@ -2999,20 +2996,18 @@ class IngresoConciliadoController extends Controller
             $ingreso->banco_receptor = $request->banco_receptor;
             $ingreso->fecha = $request->fecha;
 
-            // ASIGNACIÓN DEL CLIENTE
             $ingreso->cliente_id = $clienteId;
             $ingreso->cliente = $clienteManual;
 
             $ingreso->monto_deposito = (float) str_replace(['$', ','], '', $request->monto_deposito ?? 0);
             $ingreso->total_gpc = $monto_gpc;
 
-            // Conceptos de desglose
-            $ingreso->impuestos = $request->impuestos ?? 0;
-            $ingreso->eci = $request->eci ?? 0;
-            $ingreso->maniobras = $request->maniobras ?? 0;
+            $ingreso->impuestos = (float)($request->impuestos ?? 0);
+            $ingreso->eci = (float)($request->eci ?? 0);
+            $ingreso->maniobras = (float)($request->maniobras ?? 0);
             $ingreso->flete = $fleteReal;
-            $ingreso->muestras = $request->muestras ?? 0;
-            $ingreso->llc = $request->llc ?? 0;
+            $ingreso->muestras = (float)($request->muestras ?? 0);
+            $ingreso->llc = (float)($request->llc ?? 0);
 
             if (str_contains($clienteNombre, 'ALMACENADORA')) {
                 $ingreso->anticipo = 0;
@@ -3020,8 +3015,8 @@ class IngresoConciliadoController extends Controller
                 $ingreso->anticipo = (float) ($request->anticipo ?? 0);
             }
 
-            $ingreso->garantias = $request->garantias ?? 0;
-            $ingreso->desglose_naviera = $request->desglose_naviera ?? 0;
+            $ingreso->garantias = (float)($request->garantias ?? 0);
+            $ingreso->desglose_naviera = (float)($request->desglose_naviera ?? 0);
             $ingreso->pago_proveedor = $pagoProvReal;
             $ingreso->honorarios = $honorariosReal;
             $ingreso->metodo_pago = $request->metodo_pago ?? 'PUE';
@@ -3032,11 +3027,8 @@ class IngresoConciliadoController extends Controller
                 $ingreso->ganancia = $gananciaReal;
             }
 
-            // ASIGNACIÓN DE FOLIO / REFERENCIA
-            // Guarda Folio SC si existe; si no, respalda con el Pedimento
             $pedimentoVal = $request->pedimento ?? $request->pedimento_detectado ?? null;
             $folioScVal   = $request->folio_sc ?? $request->referencia ?? null;
-
             $folioFinal = !empty($folioScVal) ? $folioScVal : $pedimentoVal;
 
             $ingreso->folio_sc         = $folioFinal;
@@ -3046,7 +3038,9 @@ class IngresoConciliadoController extends Controller
             $ingreso->save();
 
             // PIVOTE (ingreso_operacion)
-            if ($request->has('operaciones') && is_array($request->operaciones)) {
+            $tieneOperaciones = $request->has('operaciones') && is_array($request->operaciones) && count($request->operaciones) > 0;
+
+            if ($tieneOperaciones) {
                 DB::table('ingreso_operacion')->where('ingreso_id', $ingreso->id)->delete();
 
                 $pivotData = [];
@@ -3090,9 +3084,9 @@ class IngresoConciliadoController extends Controller
                         'ingreso_id'     => $ingreso->id,
                         'operacion_id'   => $opId,
                         'operacion_type' => $opType,
+                        'referencia'     => $folioTexto,
                         'monto_cfdi'     => round($montoCfdiFinal, 2),
                         'monto_gpc'      => round($montoGpcVal, 2),
-                        'referencia'     => $folioTexto,
                         'anticipo'       => $anticipoUnitario,
                         'created_at'     => now(),
                         'updated_at'     => now()
@@ -3102,9 +3096,11 @@ class IngresoConciliadoController extends Controller
                 if (!empty($pivotData)) {
                     DB::table('ingreso_operacion')->insert($pivotData);
                 }
+            } else {
+                DB::table('ingreso_operacion')->where('ingreso_id', $ingreso->id)->delete();
             }
 
-            // SALDO A FAVOR
+            // SALDO A FAVOR / EN CONTRA
             $montoDeposito = round((float) $ingreso->monto_deposito, 2);
             $totalGpc      = round((float) $ingreso->total_gpc, 2);
             $honorarios    = round((float) $ingreso->honorarios, 2);
@@ -3112,7 +3108,8 @@ class IngresoConciliadoController extends Controller
             $costoTotal = round($totalGpc + $honorarios, 2);
             $diferencia = round($montoDeposito - $costoTotal, 2);
 
-            if (abs($diferencia) > 0.05) {
+            // Solo genera registro en la cartera de saldos si tiene operaciones/facturas desglosadas
+            if ($tieneOperaciones && $costoTotal > 0 && abs($diferencia) > 0.05) {
                 $tipoDoc = 'CFDI o GPC';
 
                 if ($ingreso->tipo_comprobante === 'CFDI') {
@@ -3190,9 +3187,7 @@ class IngresoConciliadoController extends Controller
             $fleteReal = (float) str_replace(['$', ','], '', $request->flete ?? $ingreso->flete);
             $pagoProvReal = (float) str_replace(['$', ','], '', $request->pago_proveedor ?? $ingreso->pago_proveedor);
             $honorariosReal = (float) str_replace(['$', ','], '', $request->honorarios ?? $ingreso->honorarios);
-
-            $gananciaFrontend = $request->ganancia ?? $request->ganancias ?? $ingreso->ganancia;
-            $gananciaReal = (float) str_replace(['$', ','], '', $gananciaFrontend);
+            $gananciaReal = (float) str_replace(['$', ','], '', $request->ganancia ?? $request->ganancias ?? $ingreso->ganancia);
 
             $monto_gpc = 0;
             if ($isTransportactics) {
@@ -3215,12 +3210,12 @@ class IngresoConciliadoController extends Controller
 
             $ingreso->metodo_pago = $request->metodo_pago ?? 'PUE';
 
-            $ingreso->impuestos = $request->impuestos ?? $ingreso->impuestos;
-            $ingreso->eci = $request->eci ?? $ingreso->eci;
-            $ingreso->maniobras = $request->maniobras ?? $ingreso->maniobras;
+            $ingreso->impuestos = (float)($request->impuestos ?? $ingreso->impuestos ?? 0);
+            $ingreso->eci = (float)($request->eci ?? $ingreso->eci ?? 0);
+            $ingreso->maniobras = (float)($request->maniobras ?? $ingreso->maniobras ?? 0);
             $ingreso->flete = $fleteReal;
-            $ingreso->muestras = $request->muestras ?? $ingreso->muestras;
-            $ingreso->llc = $request->llc ?? $ingreso->llc;
+            $ingreso->muestras = (float)($request->muestras ?? $ingreso->muestras ?? 0);
+            $ingreso->llc = (float)($request->llc ?? $ingreso->llc ?? 0);
 
             if (str_contains($clienteNombre, 'ALMACENADORA')) {
                 $ingreso->anticipo = 0;
@@ -3228,8 +3223,8 @@ class IngresoConciliadoController extends Controller
                 $ingreso->anticipo = (float) ($request->anticipo ?? $ingreso->anticipo ?? 0);
             }
 
-            $ingreso->garantias = $request->garantias ?? $ingreso->garantias;
-            $ingreso->desglose_naviera = $request->desglose_naviera ?? $ingreso->desglose_naviera;
+            $ingreso->garantias = (float)($request->garantias ?? $ingreso->garantias ?? 0);
+            $ingreso->desglose_naviera = (float)($request->desglose_naviera ?? $ingreso->desglose_naviera ?? 0);
             $ingreso->pago_proveedor = $pagoProvReal;
             $ingreso->honorarios = $honorariosReal;
 
@@ -3239,10 +3234,8 @@ class IngresoConciliadoController extends Controller
                 $ingreso->ganancia = $gananciaReal;
             }
 
-            // ASIGNACIÓN DE FOLIO / REFERENCIA
             $pedimentoVal = $request->pedimento ?? $request->pedimento_detectado ?? null;
             $folioScVal   = $request->folio_sc ?? $request->referencia ?? null;
-
             $folioFinal = !empty($folioScVal) ? $folioScVal : ($pedimentoVal ?? $ingreso->folio_sc);
 
             $ingreso->referencia       = $folioFinal;
@@ -3251,11 +3244,22 @@ class IngresoConciliadoController extends Controller
 
             $ingreso->save();
 
-            // PIVOTE (ingreso_operacion)
-            if ($request->has('operaciones') && is_array($request->operaciones)) {
-                DB::table('ingreso_operacion')->where('ingreso_id', $ingreso->id)->delete();
+            // PIVOTE
+            $tieneOperaciones = $request->has('operaciones') && is_array($request->operaciones) && count($request->operaciones) > 0;
 
-                $pivotData = [];
+            if ($tieneOperaciones) {
+                
+                if ($ingreso->exists) {
+                    $foliosRecibidos = collect($request->operaciones)->map(function ($op) {
+                        return $op['referencia'] ?? $op['folio'] ?? $op['label'] ?? (is_string($op) ? $op : null);
+                    })->filter()->toArray();
+
+                    DB::table('ingreso_operacion')
+                        ->where('ingreso_id', $ingreso->id)
+                        ->whereNotIn('referencia', $foliosRecibidos)
+                        ->delete();
+                }
+
                 $totalElementos = count($request->operaciones);
 
                 $sumaFleteXml = 0;
@@ -3282,6 +3286,7 @@ class IngresoConciliadoController extends Controller
                     }
 
                     $folioTexto = $op['referencia'] ?? $op['folio'] ?? $op['label'] ?? (is_string($op) ? $op : null);
+                    if (!$folioTexto) continue;
 
                     $opId = null;
                     if (isset($op['id']) && is_numeric($op['id'])) {
@@ -3292,25 +3297,25 @@ class IngresoConciliadoController extends Controller
 
                     $opType = $op['type'] ?? $op['operacion_type'] ?? $op['operation_type'] ?? 'GENERICO';
 
-                    $pivotData[] = [
-                        'ingreso_id'     => $ingreso->id,
+                    $dataInsert = [
                         'operacion_id'   => $opId,
                         'operacion_type' => $opType,
                         'monto_cfdi'     => round($montoCfdiFinal, 2),
                         'monto_gpc'      => round($montoGpcVal, 2),
-                        'referencia'     => $folioTexto,
                         'anticipo'       => $anticipoUnitario,
-                        'created_at'     => now(),
                         'updated_at'     => now()
                     ];
-                }
 
-                if (!empty($pivotData)) {
-                    DB::table('ingreso_operacion')->insert($pivotData);
+                    DB::table('ingreso_operacion')->updateOrInsert(
+                        ['ingreso_id' => $ingreso->id, 'referencia' => $folioTexto],
+                        array_merge($dataInsert, ['created_at' => now()])
+                    );
                 }
+            } else {
+                DB::table('ingreso_operacion')->where('ingreso_id', $ingreso->id)->delete();
             }
 
-            // SALDO A FAVOR
+            // SALDO A FAVOR / EN CONTRA
             $montoDeposito = round((float) $ingreso->monto_deposito, 2);
             $totalGpc      = round((float) $ingreso->total_gpc, 2);
             $honorarios    = round((float) $ingreso->honorarios, 2);
@@ -3318,7 +3323,7 @@ class IngresoConciliadoController extends Controller
             $costoTotal = round($totalGpc + $honorarios, 2);
             $diferencia = round($montoDeposito - $costoTotal, 2);
 
-            if (abs($diferencia) > 0.05) {
+            if ($tieneOperaciones && $costoTotal > 0 && abs($diferencia) > 0.05) {
                 $tipoDoc = 'CFDI o GPC';
 
                 if ($ingreso->tipo_comprobante === 'CFDI') {
@@ -3341,6 +3346,7 @@ class IngresoConciliadoController extends Controller
                         'cliente'         => $ingreso->cliente,
                         'sucursal_origen' => $ingreso->sucursal_origen,
                         'monto'           => $diferencia,
+                        'estatus'         => 'VIGENTE',
                         'fecha_deteccion' => $ingreso->fecha,
                         'concepto'        => $conceptoFinal
                     ]

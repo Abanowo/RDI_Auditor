@@ -788,14 +788,32 @@ export default {
       this.isSubmitting = true;
       const payload = { ...this.form };
 
-      if (this.esTransportactics) {
-        const montoIngreso = Number(this.form.flete || 0);
-        payload.flete = montoIngreso;
-        payload.honorarios = montoIngreso;
-      } else if (this.esIntshipperts) {
-        payload.honorarios = 0;
-        payload.flete = Number(this.form.flete || 0);
-        payload.anticipo = Number(this.form.anticipo || 0);
+      const tieneDesglose = Number(this.form.flete || 0) > 0 ||
+                            Number(this.form.honorarios || 0) > 0 ||
+                            Number(this.form.impuestos || 0) > 0 ||
+                            Number(this.form.maniobras || 0) > 0 ||
+                            Number(this.form.eci || 0) > 0 ||
+                            Number(this.form.llc || 0) > 0 ||
+                            Number(this.form.muestras || 0) > 0 ||
+                            Number(this.form.anticipo || 0) > 0;
+
+      if (!tieneDesglose && Number(this.form.monto_deposito || 0) > 0) {
+        if (this.esTransportactics) {
+          payload.flete = Number(this.form.monto_deposito);
+          payload.honorarios = Number(this.form.monto_deposito);
+        } else {
+          payload.anticipo = Number(this.form.monto_deposito);
+        }
+      } else {
+        if (this.esTransportactics) {
+          const montoIngreso = Number(this.form.flete || 0);
+          payload.flete = montoIngreso;
+          payload.honorarios = montoIngreso;
+        } else if (this.esIntshipperts) {
+          payload.honorarios = 0;
+          payload.flete = Number(this.form.flete || 0);
+          payload.anticipo = Number(this.form.anticipo || 0);
+        }
       }
 
       // 1. Manejo de Cliente
@@ -832,11 +850,15 @@ export default {
       // 3. CONSTRUCCIÓN DE 'OPERACIONES' PARA LA TABLA PIVOTE (ingreso_operacion)
       if (this.form.referenciasObj && Array.isArray(this.form.referenciasObj) && this.form.referenciasObj.length > 0) {
         const obtenerFolioLimpio = (val) => {
-          if (!val) return '';
+          if (!val) {
+            return '';
+          }
           let str = String(val).trim().toUpperCase();
 
           const matchPedimento = str.match(/(?:\d{4}\s*-\s*)?(\d{7})/);
-          if (matchPedimento) return matchPedimento[1];
+          if (matchPedimento) {
+            return matchPedimento[1];
+          }
 
           str = str.replace('F-', '');
           let partes = str.split(' - ');
@@ -845,15 +867,15 @@ export default {
           } else if (partes.length === 2) {
             str = partes[0].trim();
           }
-          if (str.includes('/')) str = str.split('/')[0].trim();
+          if (str.includes('/')) {
+            str = str.split('/')[0].trim();
+          }
 
           return str;
         };
 
         const opsBuscadas = Array.isArray(this.form.operaciones) ? this.form.operaciones : [];
         const pedimentosSheet = Array.isArray(this.pedimentosSheet) ? this.pedimentosSheet : [];
-        
-        const totalOps = this.form.referenciasObj.length;
 
         payload.operaciones = this.form.referenciasObj.map(ref => {
           const textoOriginal = typeof ref === 'object'
@@ -864,7 +886,9 @@ export default {
           const textoUpper = String(textoOriginal).toUpperCase().trim();
 
           const esCoincidencia = (o) => {
-            if (!o) return false;
+            if (!o) {
+              return false;
+            }
             const oFolioLimpio = obtenerFolioLimpio(o.folio || o.referencia || o.pedimento || o.id);
             const oFolioRaw = String(o.folio || o.referencia || o.label || '').toUpperCase().trim();
 
@@ -872,7 +896,6 @@ export default {
               (oFolioRaw && (oFolioRaw === textoUpper || textoUpper.includes(oFolioRaw) || oFolioRaw.includes(textoUpper)));
           };
 
-          // 🎯 Aseguramos que 'op' sea al menos un objeto vacío para evitar errores
           let op = opsBuscadas.find(esCoincidencia) || pedimentosSheet.find(esCoincidencia) || {};
 
           const opId = op.operacion_id || op.id || op.pedimento_id || null;
@@ -883,15 +906,11 @@ export default {
 
           // Reajuste para evitar registro de GPC en tabla pivote para estas entidades
           if (this.esTransportactics) {
-            montoCfdi = Number(this.form.flete || 0);
+            montoCfdi = Number(payload.flete || 0);
             montoGpc = 0;
           } else if (this.esIntshipperts) {
-            montoCfdi = (Number(this.form.flete) || 0) + (Number(this.form.anticipo) || 0);
+            montoCfdi = Number(payload.flete || 0) + Number(payload.anticipo || 0);
             montoGpc = 0;
-          } else {
-            // Si es otro y estaba en 0, toma lo del formulario general
-            if (montoCfdi === 0) montoCfdi = Number(this.form.flete || this.form.honorarios || 0);
-            if (montoGpc === 0) montoGpc = Number(this.totalGPC || 0);
           }
 
           // Determinar el modelo dinámico
@@ -910,18 +929,7 @@ export default {
             folio: textoOriginal,
             referencia: textoOriginal,
             monto_cfdi: montoCfdi,
-            monto_gpc: montoGpc,
-            honorarios: op.honorarios ?? (totalOps === 1 ? Number(this.form.honorarios || 0) : 0),
-            impuestos: op.impuestos ?? (totalOps === 1 ? Number(this.form.impuestos || 0) : 0),
-            eci: op.eci ?? (totalOps === 1 ? Number(this.form.eci || 0) : 0),
-            maniobras: op.maniobras ?? (totalOps === 1 ? Number(this.form.maniobras || 0) : 0),
-            flete: op.flete ?? (totalOps === 1 ? Number(this.form.flete || 0) : 0),
-            muestras: op.muestras ?? (totalOps === 1 ? Number(this.form.muestras || 0) : 0),
-            llc: op.llc ?? (totalOps === 1 ? Number(this.form.llc || 0) : 0),
-            anticipo: op.anticipo ?? (totalOps === 1 ? Number(this.form.anticipo || 0) : 0),
-            garantias: op.garantias ?? (totalOps === 1 ? Number(this.form.garantias || 0) : 0),
-            desglose_naviera: op.desglose_naviera ?? (totalOps === 1 ? Number(this.form.desglose_naviera || 0) : 0),
-            pago_proveedor: op.pago_proveedor ?? (totalOps === 1 ? Number(this.form.pago_proveedor || 0) : 0)
+            monto_gpc: montoGpc
           };
         });
       } else {

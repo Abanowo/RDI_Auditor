@@ -298,6 +298,50 @@
     <!-- ============================================== -->
     <div v-show="activeTab === 'saldos'" class="flex-1 flex flex-col gap-10">
 
+      <!-- BARRA DE FILTROS INTERNOS DE SALDOS -->
+      <div class="bg-gray-100 border border-gray-200 rounded-xl p-5 mb-2 flex flex-col gap-4 shadow-sm">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2 text-gray-700">
+            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z">
+              </path>
+            </svg>
+            <span class="text-lg font-black uppercase tracking-wider">Filtros de Saldos</span>
+          </div>
+          <button type="button" @click="limpiarFiltrosSaldos"
+            class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-5 rounded-lg flex items-center gap-2 transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+            Limpiar Filtros
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
+          <div class="flex flex-col">
+            <label class="text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap">Cliente:</label>
+            <multiselect v-model="filtrosSaldos.cliente" :options="opcionesFiltroCliente" placeholder="Todos"
+              :searchable="true" :show-labels="false" class="custom-filter-multiselect"></multiselect>
+          </div>
+          <div class="flex flex-col">
+            <label class="text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap">Servicio:</label>
+            <multiselect v-model="filtrosSaldos.tipoServicio" :options="opcionesTipoServicio" placeholder="Todos"
+              :searchable="true" :show-labels="false" class="custom-filter-multiselect"></multiselect>
+          </div>
+          <div class="flex flex-col">
+            <label class="text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap">Concepto Registrado:</label>
+            <multiselect v-model="filtrosSaldos.concepto" :options="opcionesConceptosSaldos" placeholder="Todos"
+              :searchable="true" :show-labels="false" class="custom-filter-multiselect"></multiselect>
+          </div>
+          <div class="flex flex-col">
+            <label class="text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap">Rango de Fechas:</label>
+            <VueCtkDateTimePicker v-model="filtrosSaldos.rangoFechas" format="YYYY-MM-DD" formatted="YYYY-MM-DD"
+              color="#1d4ed8" button-color="#1d4ed8" :range="true" label="Seleccionar rango" class="custom-filter-datepicker"></VueCtkDateTimePicker>
+          </div>
+        </div>
+      </div>
+
       <!-- SECCIÓN 1: SALDOS A FAVOR (ABONOS / NOTAS DE CRÉDITO) -->
       <div>
         <div class="flex justify-between items-end mb-4">
@@ -315,34 +359,31 @@
           </button>
         </div>
 
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <table class="w-full text-left whitespace-nowrap min-w-max">
-            <thead
-              class="bg-gray-50 text-gray-800 text-sm font-black uppercase tracking-wider border-b border-gray-200">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+          <table class="w-full text-left table-fixed">
+            <thead class="bg-gray-50 text-gray-800 text-sm font-black uppercase tracking-wider border-b border-gray-200">
               <tr>
-                <th class="px-6 py-4" style="width: 250px;">CLIENTE</th>
-                <th class="px-6 py-4" style="width: 200px;">SUCURSAL ORIGEN</th>
-                <th class="px-6 py-4 text-center" style="width: 200px;">MONTO A FAVOR</th>
-                <th class="px-6 py-4 text-center" style="width: 220px;">FECHA DETECCIÓN</th>
-                <th class="px-6 py-4">CONCEPTO O JUSTIFICACIÓN</th>
-                <th class="px-6 py-4 text-center" style="width: 140px;">ESTATUS</th>
-                <th class="px-6 py-4 text-right" style="width: 280px;">ACCIÓN</th>
+                <th class="px-4 py-4 w-[220px]">CLIENTE</th>
+                <th class="px-4 py-4 w-[160px]">SUCURSAL ORIGEN</th>
+                <th class="px-4 py-4 w-[140px] text-center">MONTO A FAVOR</th>
+                <th class="px-4 py-4 w-[140px] text-center">FECHA DETECCIÓN</th>
+                <th class="px-4 py-4">CONCEPTO O JUSTIFICACIÓN</th>
+                <th class="px-4 py-4 w-[120px] text-center">ESTATUS</th>
+                <th class="px-4 py-4 w-[250px] text-right">ACCIÓN</th>
               </tr>
             </thead>
             <tbody class="text-gray-700 font-medium text-base">
               <tr v-for="saldo in saldosVigentesFiltrados" :key="'favor-' + saldo.id"
                 class="border-b border-gray-100 hover:bg-gray-50 transition-colors bg-white">
-                <td class="px-6 py-4 font-bold text-gray-900">{{ saldo.cliente }}</td>
-                <td class="px-6 py-4 text-gray-600">{{ saldo.sucursal_origen }}</td>
-                <td class="px-6 py-4 text-center font-black text-emerald-600">{{ formatearDinero(saldo.monto) }}</td>
-                <td class="px-6 py-4 text-center text-gray-600">{{ saldo.fecha_deteccion }}</td>
-                <td class="px-6 py-4 text-gray-600">{{ saldo.concepto }}</td>
-                <td class="px-6 py-4 text-center">
-                  <span
-                    class="px-3 py-1 bg-emerald-100 text-emerald-800 font-black rounded-full uppercase text-xs tracking-wider">A
-                    FAVOR</span>
+                <td class="px-4 py-4 font-bold text-gray-900 break-words whitespace-normal">{{ saldo.cliente }}</td>
+                <td class="px-4 py-4 text-gray-600 break-words whitespace-normal">{{ saldo.sucursal_origen }}</td>
+                <td class="px-4 py-4 text-center font-black text-emerald-600 whitespace-nowrap">{{ formatearDinero(saldo.monto) }}</td>
+                <td class="px-4 py-4 text-center text-gray-600 whitespace-nowrap">{{ saldo.fecha_deteccion }}</td>
+                <td class="px-4 py-4 text-gray-600 break-words whitespace-normal">{{ saldo.concepto }}</td>
+                <td class="px-4 py-4 text-center whitespace-nowrap">
+                  <span class="px-3 py-1 bg-emerald-100 text-emerald-800 font-black rounded-full uppercase text-xs tracking-wider">A FAVOR</span>
                 </td>
-                <td class="px-6 py-4 text-right">
+                <td class="px-4 py-4 text-right whitespace-nowrap">
                   <div class="flex items-center justify-end gap-2">
                     <button @click="editarSaldo(saldo)"
                       class="text-indigo-600 bg-indigo-100 hover:bg-indigo-200 p-2 rounded-lg transition-colors"
@@ -377,8 +418,7 @@
                 </td>
               </tr>
               <tr v-if="saldosVigentesFiltrados.length === 0">
-                <td colspan="7" class="text-center py-10 text-base text-gray-400 bg-gray-50 font-medium">No se
-                  encontraron saldos a favor vigentes.</td>
+                <td colspan="7" class="text-center py-10 text-base text-gray-400 bg-gray-50 font-medium">No se encontraron saldos a favor vigentes.</td>
               </tr>
             </tbody>
           </table>
@@ -396,35 +436,32 @@
             parcialmente cubiertas</p>
         </div>
 
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <table class="w-full text-left whitespace-nowrap min-w-max">
-            <thead
-              class="bg-gray-50 text-gray-800 text-sm font-black uppercase tracking-wider border-b border-gray-200">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+          <table class="w-full text-left table-fixed">
+            <thead class="bg-gray-50 text-gray-800 text-sm font-black uppercase tracking-wider border-b border-gray-200">
               <tr>
-                <th class="px-6 py-4" style="width: 250px;">CLIENTE</th>
-                <th class="px-6 py-4" style="width: 200px;">SUCURSAL ORIGEN</th>
-                <th class="px-6 py-4 text-center" style="width: 200px;">MONTO PENDIENTE</th>
-                <th class="px-6 py-4 text-center" style="width: 220px;">FECHA DETECCIÓN</th>
-                <th class="px-6 py-4">CONCEPTO O JUSTIFICACIÓN</th>
-                <th class="px-6 py-4 text-center" style="width: 140px;">ESTATUS</th>
-                <th class="px-6 py-4 text-right" style="width: 280px;">ACCIÓN</th>
+                <th class="px-4 py-4 w-[220px]">CLIENTE</th>
+                <th class="px-4 py-4 w-[160px]">SUCURSAL ORIGEN</th>
+                <th class="px-4 py-4 w-[140px] text-center">MONTO PENDIENTE</th>
+                <th class="px-4 py-4 w-[140px] text-center">FECHA DETECCIÓN</th>
+                <th class="px-4 py-4">CONCEPTO O JUSTIFICACIÓN</th>
+                <th class="px-4 py-4 w-[120px] text-center">ESTATUS</th>
+                <th class="px-4 py-4 w-[250px] text-right">ACCIÓN</th>
               </tr>
             </thead>
             <tbody class="text-gray-700 font-medium text-base">
               <tr v-for="saldo in saldosEnContraVigentesFiltrados" :key="'contra-' + saldo.id"
                 class="border-b border-gray-100 hover:bg-red-50/30 transition-colors bg-white">
-                <td class="px-6 py-4 font-bold text-gray-900">{{ saldo.cliente }}</td>
-                <td class="px-6 py-4 text-gray-600">{{ saldo.sucursal_origen }}</td>
-                <td class="px-6 py-4 text-center font-black text-red-600">-${{
+                <td class="px-4 py-4 font-bold text-gray-900 break-words whitespace-normal">{{ saldo.cliente }}</td>
+                <td class="px-4 py-4 text-gray-600 break-words whitespace-normal">{{ saldo.sucursal_origen }}</td>
+                <td class="px-4 py-4 text-center font-black text-red-600 whitespace-nowrap">-${{
                   Math.abs(parseFloat(saldo.monto)).toLocaleString('en-US', {minimumFractionDigits: 2}) }}</td>
-                <td class="px-6 py-4 text-center text-gray-600">{{ saldo.fecha_deteccion }}</td>
-                <td class="px-6 py-4 text-gray-600">{{ saldo.concepto }}</td>
-                <td class="px-6 py-4 text-center">
-                  <span
-                    class="px-3 py-1 bg-red-100 text-red-800 font-black rounded-full uppercase text-xs tracking-wider">EN
-                    CONTRA</span>
+                <td class="px-4 py-4 text-center text-gray-600 whitespace-nowrap">{{ saldo.fecha_deteccion }}</td>
+                <td class="px-4 py-4 text-gray-600 break-words whitespace-normal">{{ saldo.concepto }}</td>
+                <td class="px-4 py-4 text-center whitespace-nowrap">
+                  <span class="px-3 py-1 bg-red-100 text-red-800 font-black rounded-full uppercase text-xs tracking-wider">EN CONTRA</span>
                 </td>
-                <td class="px-6 py-4 text-right">
+                <td class="px-4 py-4 text-right whitespace-nowrap">
                   <div class="flex items-center justify-end gap-2">
                     <button @click="editarSaldo(saldo)"
                       class="text-indigo-600 bg-indigo-100 hover:bg-indigo-200 p-2 rounded-lg transition-colors"
@@ -459,8 +496,7 @@
                 </td>
               </tr>
               <tr v-if="saldosEnContraVigentesFiltrados.length === 0">
-                <td colspan="7" class="text-center py-10 text-base text-gray-400 bg-gray-50 font-medium">No se
-                  encontraron saldos en contra vigentes.</td>
+                <td colspan="7" class="text-center py-10 text-base text-gray-400 bg-gray-50 font-medium">No se encontraron saldos en contra vigentes.</td>
               </tr>
             </tbody>
           </table>
@@ -481,32 +517,31 @@
         </div>
       </div>
 
-      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mt-2">
-        <table class="w-full text-left whitespace-nowrap min-w-max">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto mt-2">
+        <table class="w-full text-left table-fixed">
           <thead class="bg-gray-50 text-gray-800 text-sm font-black uppercase tracking-wider border-b border-gray-200">
             <tr>
-              <th class="px-6 py-5" style="width: 250px;">CLIENTE</th>
-              <th class="px-6 py-5" style="width: 200px;">SUCURSAL ORIGEN</th>
-              <th class="px-6 py-5 text-center" style="width: 200px;">MONTO DE CRÉDITO</th>
-              <th class="px-6 py-5 text-center" style="width: 220px;">FECHA DE DETECCIÓN</th>
-              <th class="px-6 py-5">CONCEPTO O JUSTIFICACIÓN</th>
-              <th class="px-6 py-5 text-center" style="width: 140px;">ESTATUS</th>
-              <th class="px-6 py-5 text-right" style="width: 200px;">ACCIÓN</th>
+              <th class="px-4 py-4 w-[220px]">CLIENTE</th>
+              <th class="px-4 py-4 w-[160px]">SUCURSAL ORIGEN</th>
+              <th class="px-4 py-4 w-[140px] text-center">MONTO DE CRÉDITO</th>
+              <th class="px-4 py-4 w-[140px] text-center">FECHA DE DETECCIÓN</th>
+              <th class="px-4 py-4">CONCEPTO O JUSTIFICACIÓN</th>
+              <th class="px-4 py-4 w-[120px] text-center">ESTATUS</th>
+              <th class="px-4 py-4 w-[180px] text-right">ACCIÓN</th>
             </tr>
           </thead>
           <tbody class="text-gray-700 font-medium text-base">
             <tr v-for="saldo in saldosAplicadosFiltrados" :key="saldo.id"
               class="border-b border-gray-200 bg-gray-100 hover:bg-gray-200 transition-colors">
-              <td class="px-6 py-5 font-bold text-gray-600">{{ saldo.cliente }}</td>
-              <td class="px-6 py-5 text-gray-500">{{ saldo.sucursal_origen }}</td>
-              <td class="px-6 py-5 text-center font-black text-gray-600">{{ formatearDinero(saldo.monto) }}</td>
-              <td class="px-6 py-5 text-center text-gray-500">{{ saldo.fecha_deteccion }}</td>
-              <td class="px-6 py-5 text-gray-500">{{ saldo.concepto }}</td>
-              <td class="px-6 py-5 text-center">
-                <span
-                  class="px-4 py-1.5 bg-gray-200 border border-gray-300 text-gray-500 font-black rounded-full uppercase text-xs tracking-widest shadow-inner">APLICADO</span>
+              <td class="px-4 py-4 font-bold text-gray-600 break-words whitespace-normal">{{ saldo.cliente }}</td>
+              <td class="px-4 py-4 text-gray-500 break-words whitespace-normal">{{ saldo.sucursal_origen }}</td>
+              <td class="px-4 py-4 text-center font-black text-gray-600 whitespace-nowrap">{{ formatearDinero(saldo.monto) }}</td>
+              <td class="px-4 py-4 text-center text-gray-500 whitespace-nowrap">{{ saldo.fecha_deteccion }}</td>
+              <td class="px-4 py-4 text-gray-500 break-words whitespace-normal">{{ saldo.concepto }}</td>
+              <td class="px-4 py-4 text-center whitespace-nowrap">
+                <span class="px-4 py-1.5 bg-gray-200 border border-gray-300 text-gray-500 font-black rounded-full uppercase text-xs tracking-widest shadow-inner">APLICADO</span>
               </td>
-              <td class="px-6 py-5 text-right">
+              <td class="px-4 py-4 text-right whitespace-nowrap">
                 <button @click="reactivarSaldo(saldo.id)"
                   class="bg-white hover:bg-blue-100 text-blue-600 hover:text-blue-700 px-5 py-2.5 rounded-lg font-bold text-sm transition-colors border border-blue-200 shadow-sm uppercase tracking-wider">
                   Reactivar
@@ -514,8 +549,7 @@
               </td>
             </tr>
             <tr v-if="saldosAplicadosFiltrados.length === 0">
-              <td colspan="7" class="text-center py-16 text-lg text-gray-400 bg-gray-100 font-medium">No se encontraron
-                saldos aplicados.</td>
+              <td colspan="7" class="text-center py-16 text-lg text-gray-400 bg-gray-100 font-medium">No se encontraron saldos aplicados.</td>
             </tr>
           </tbody>
         </table>
@@ -644,12 +678,20 @@ export default {
         folio_complemento: 'Todos'
       },
 
+      // FILTROS INTERNOS DE SALDOS
+      filtrosSaldos: {
+        cliente: 'Todos',
+        tipoServicio: 'Todos',
+        concepto: 'Todos',
+        rangoFechas: null
+      },
+
       // Datos de Paginación del Backend
       currentPage: 1,
       itemsPerPage: 10,
       totalRegistros: 0,
 
-      // Totales KPIs del Backend (Fallback a suma local)
+      // Totales KPIs del Backend
       kpisTotales: {
         depositos: null,
         honorarios: null,
@@ -664,7 +706,6 @@ export default {
     this.obtenerUsuarioActual();
   },
   computed: {
-    // Paginación Matemáticas
     totalPages() {
       return Math.ceil(this.totalRegistros / this.itemsPerPage) || 1;
     },
@@ -685,6 +726,13 @@ export default {
       }
 
       return [1, 2, '...', current - 2, current - 1, current, current + 1, current + 2, '...', total - 1, total];
+    },
+
+    // EXTRACTOR AUTOMÁTICO DE CONCEPTOS ÚNICOS REGISTRADOS
+    opcionesConceptosSaldos() {
+      const lista = Array.isArray(this.saldosData) ? this.saldosData : [];
+      const conceptos = lista.map(s => String(s.concepto || '').trim()).filter(Boolean);
+      return ['Todos', ...new Set(conceptos)];
     },
 
     // KPIs
@@ -721,6 +769,7 @@ export default {
       }, 0);
     },
 
+    // FILTRADO DINÁMICO DE SALDOS VIGENTES A FAVOR
     saldosVigentesFiltrados() {
       const lista = Array.isArray(this.saldosData) ? this.saldosData : [];
       return lista.filter(s => {
@@ -737,12 +786,11 @@ export default {
           return false;
         }
 
-        if (this.filtroSucursalActiva === 'Todas') {
-          return true;
-        }
-        return s.sucursal_origen && String(s.sucursal_origen).toUpperCase().includes(this.filtroSucursalActiva.toUpperCase());
+        return this.evaluarFiltrosSaldo(s);
       });
     },
+
+    // FILTRADO DINÁMICO DE SALDOS VIGENTES EN CONTRA
     saldosEnContraVigentesFiltrados() {
       const lista = Array.isArray(this.saldosData) ? this.saldosData : [];
       return lista.filter(s => {
@@ -759,12 +807,11 @@ export default {
           return false;
         }
 
-        if (this.filtroSucursalActiva === 'Todas') {
-          return true;
-        }
-        return s.sucursal_origen && String(s.sucursal_origen).toUpperCase().includes(this.filtroSucursalActiva.toUpperCase());
+        return this.evaluarFiltrosSaldo(s);
       });
     },
+
+    // FILTRADO DINÁMICO DE SALDOS APLICADOS
     saldosAplicadosFiltrados() {
       const lista = Array.isArray(this.saldosData) ? this.saldosData : [];
       return lista.filter(s => {
@@ -772,12 +819,11 @@ export default {
         if (estatus !== 'APLICADO') {
           return false;
         }
-        if (this.filtroSucursalActiva === 'Todas') {
-          return true;
-        }
-        return s.sucursal_origen && String(s.sucursal_origen).toUpperCase().includes(this.filtroSucursalActiva.toUpperCase());
+
+        return this.evaluarFiltrosSaldo(s);
       });
     },
+
     totalSaldos() {
       const lista = Array.isArray(this.saldosVigentesFiltrados) ? this.saldosVigentesFiltrados : [];
       return lista.reduce((acc, item) => acc + Math.abs(parseFloat(item.monto) || 0), 0);
@@ -794,7 +840,57 @@ export default {
     }
   },
   methods: {
-    // Cuando el usuario usa el buscador/filtros manuales
+    // EVALUADOR UNIFICADO DE FILTROS PARA SALDOS
+    evaluarFiltrosSaldo(s) {
+      // 1. Filtro por Sucursal Activa
+      if (this.filtroSucursalActiva !== 'Todas') {
+        if (!s.sucursal_origen || !String(s.sucursal_origen).toUpperCase().includes(this.filtroSucursalActiva.toUpperCase())) {
+          return false;
+        }
+      }
+
+      // 2. Filtro por Cliente
+      if (this.filtrosSaldos.cliente && this.filtrosSaldos.cliente !== 'Todos') {
+        const clienteFiltro = String(this.filtrosSaldos.cliente).toUpperCase();
+        const clienteSaldo = String(s.cliente || '').toUpperCase();
+        if (!clienteSaldo.includes(clienteFiltro)) return false;
+      }
+
+      // 3. Filtro por Servicio (InTactics, INTSHIPPERTS, Transportactics)
+      if (this.filtrosSaldos.tipoServicio && this.filtrosSaldos.tipoServicio !== 'Todos') {
+        const servicioFiltro = String(this.filtrosSaldos.tipoServicio).toUpperCase();
+        const sucursalUpper = String(s.sucursal_origen || '').toUpperCase();
+        const clienteUpper = String(s.cliente || '').toUpperCase();
+
+        if (servicioFiltro === 'TRANSPORTACTICS') {
+          if (!sucursalUpper.includes('TRANSPORTACTIC') && !clienteUpper.includes('TRANSPORTACTIC')) return false;
+        } else if (servicioFiltro === 'INTSHIPPERTS') {
+          if (!sucursalUpper.includes('INTSHIPPERT') && !clienteUpper.includes('INTSHIPPERT')) return false;
+        } else if (servicioFiltro === 'INTACTICS') {
+          if (sucursalUpper.includes('TRANSPORTACTIC') || clienteUpper.includes('TRANSPORTACTIC') || sucursalUpper.includes('INTSHIPPERT') || clienteUpper.includes('INTSHIPPERT')) return false;
+        }
+      }
+
+      // 4. Filtro por Concepto Registrado
+      if (this.filtrosSaldos.concepto && this.filtrosSaldos.concepto !== 'Todos' && String(this.filtrosSaldos.concepto).trim() !== '') {
+        const conceptoFiltro = String(this.filtrosSaldos.concepto).toUpperCase().trim();
+        const conceptoSaldo = String(s.concepto || '').toUpperCase().trim();
+        if (!conceptoSaldo.includes(conceptoFiltro)) return false;
+      }
+
+      // 5. Filtro por Rango de Fechas
+      if (this.filtrosSaldos.rangoFechas && this.filtrosSaldos.rangoFechas.start && this.filtrosSaldos.rangoFechas.end) {
+        const fechaS = s.fecha_deteccion;
+        if (fechaS) {
+          if (fechaS < this.filtrosSaldos.rangoFechas.start || fechaS > this.filtrosSaldos.rangoFechas.end) {
+            return false;
+          }
+        }
+      }
+
+      return true;
+    },
+
     aplicarFiltrosYBuscar() {
       this.currentPage = 1;
       this.cargarIngresos();
@@ -826,7 +922,6 @@ export default {
     async cargarIngresos() {
       this.cargandoRegistros = true;
       try {
-        // Empaquetamos TODOS los filtros y la página al Backend
         const params = {
           page: this.currentPage,
           per_page: this.itemsPerPage,
@@ -844,23 +939,19 @@ export default {
 
         const response = await axios.get('/ingresos-conciliados', { params });
 
-        // Evaluamos si el backend ya usa paginate() o si sigue mandando el array crudo
         if (response.data.data !== undefined) {
-          // El backend ya fue actualizado con ->paginate()
           this.ingresosData = response.data.data;
           this.totalRegistros = response.data.total;
 
-          // Si el backend envía los totales (kpis), los asignamos.
           if (response.data.kpis) {
             this.kpisTotales.depositos = response.data.kpis.depositos;
             this.kpisTotales.honorarios = response.data.kpis.honorarios;
             this.kpisTotales.notaCargo = response.data.kpis.notaCargo;
           }
         } else {
-          // Fallback (Si el Backend aún no se actualiza, usamos el array crudo y simulamos)
           this.ingresosData = response.data.slice(0, 10);
           this.totalRegistros = response.data.length;
-          this.kpisTotales.depositos = null; // Fuerza a sumar locamente
+          this.kpisTotales.depositos = null;
         }
       } catch (error) {
         console.error("Error cargando ingresos", error);
@@ -885,6 +976,15 @@ export default {
       this.cargarIngresos();
     },
 
+    limpiarFiltrosSaldos() {
+      this.filtrosSaldos = {
+        cliente: 'Todos',
+        tipoServicio: 'Todos',
+        concepto: 'Todos',
+        rangoFechas: null
+      };
+    },
+
     formatearDinero(monto) {
       return new Intl.NumberFormat('en-US', {
         style: 'currency',
@@ -893,7 +993,6 @@ export default {
       }).format(parseFloat(monto) || 0);
     },
 
-    // Resto de métodos de Modales y Acciones
     generarComplemento(item) {
       this.ingresoParaComplemento = item;
       this.showModalComplemento = true;
@@ -945,10 +1044,8 @@ export default {
     async cargarSaldos() {
       try {
         const response = await axios.get('/saldos-favor');
-
         const datos = Array.isArray(response.data) ? response.data : (response.data.data || []);
-
-        this.saldosData = datos; // O this.saldos según como lo tengas en data()
+        this.saldosData = datos;
       } catch (error) {
         console.error("Error al cargar saldos:", error);
       }
@@ -1065,7 +1162,6 @@ export default {
     onSaldoActualizado() {
       this.showModalEditarSaldo = false;
       this.cargarSaldos();
-      this.cargarSaldos();
     },
     async onIngresoGuardado() {
       this.showModal = false;
@@ -1087,16 +1183,13 @@ export default {
       });
       if (result.isConfirmed) {
         try {
-          // 1. Petición AJAX DELETE al backend
           const response = await axios.delete(`/ingresos-conciliados/${id}`);
 
-          // 2. Recargamos asíncronamente las dos tablas para reflejar los cambios en vivo
           await Promise.all([
             this.cargarIngresos(),
             this.cargarSaldos()
           ]);
 
-          // 3. Notificación de éxito
           Swal.fire({
             title: '¡Eliminado!',
             text: response.data.message || 'El ingreso y su saldo asociado fueron eliminados.',
@@ -1126,18 +1219,16 @@ export default {
           didOpen: () => { Swal.showLoading(); }
         });
 
-        // Asegúrate de que esta URL coincida exactamente con la que configuraste en tu routes/api.php o web.php
         const response = await axios.post('/ingresos-conciliados/generar-complemento', payloadLimpio);
 
         if (response.data.success) {
-          // El backend responderá con success y saldado (booleano)
           Swal.fire({
             title: '¡Proceso Terminado!',
             text: response.data.message,
             icon: response.data.saldado ? 'success' : 'warning'
           });
 
-          this.cargarIngresos(); // Actualizamos la tabla
+          this.cargarIngresos();
         }
       } catch (error) {
         console.error("Error al generar complemento:", error);
@@ -1151,7 +1242,6 @@ export default {
       }
     },
     async obtenerUsuarioActual() {
-      // 1. Si ya tenemos el objeto global cargado en window.UsuarioActual, lo usamos directamente
       if (window.UsuarioActual && typeof window.UsuarioActual === 'object' && (window.UsuarioActual.nombre || window.UsuarioActual.name)) {
         this.usuario = window.UsuarioActual;
         return;
@@ -1159,8 +1249,6 @@ export default {
 
       try {
         const response = await axios.get('/api/user'); 
-        
-        // 2. Validamos estrictamente que la respuesta sea un objeto JSON y NO texto/HTML
         if (response.data && typeof response.data === 'object') {
           this.usuario = response.data;
         } else if (window.UsuarioActual) {
@@ -1179,7 +1267,6 @@ export default {
       }
 
       let filasHtml = item.operaciones.map(op => {
-        // Lee el anticipo y la referencia sin importar la estructura de la respuesta
         const anticipoVal = op.anticipo !== undefined 
           ? parseFloat(op.anticipo || 0) 
           : (op.pivot ? parseFloat(op.pivot.anticipo || 0) : 0);
