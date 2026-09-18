@@ -343,19 +343,36 @@ class IngresoConciliadoController extends Controller
                 }
             }
 
-            $conceptoCol = strtoupper(trim($cols[$idxConcepto] ?? ''));
-            $clienteCol  = trim($cols[$idxCliente] ?? '');
+            $clienteCol   = trim($cols[$idxCliente] ?? '');
+            $pedimentoCol = trim($cols[$idxPedimento] ?? '');
 
             if (!empty($bloqueActual)) {
-                $tieneClienteEnActual = false;
+                $tieneClienteOPedimento = false;
+                $pedimentoAnterior = '';
+
                 foreach ($bloqueActual as $r) {
                     if (!empty(trim($r[$idxCliente] ?? ''))) {
-                        $tieneClienteEnActual = true;
-                        break;
+                        $tieneClienteOPedimento = true;
+                    }
+                    if (!empty(trim($r[$idxPedimento] ?? ''))) {
+                        $tieneClienteOPedimento = true;
+                        if (empty($pedimentoAnterior)) {
+                            $pedimentoAnterior = trim($r[$idxPedimento]);
+                        }
                     }
                 }
 
-                if (str_contains($conceptoCol, 'IMPUEST') || ($tieneClienteEnActual && !empty($clienteCol))) {
+                // Un bloque solo se corta cuando entra un CLIENTE NUEVO o un PEDIMENTO DIFERENTE
+                $esNuevoRegistro = false;
+                if ($tieneClienteOPedimento) {
+                    if (!empty($clienteCol)) {
+                        $esNuevoRegistro = true;
+                    } elseif (!empty($pedimentoCol) && !empty($pedimentoAnterior) && $pedimentoCol !== $pedimentoAnterior) {
+                        $esNuevoRegistro = true;
+                    }
+                }
+
+                if ($esNuevoRegistro) {
                     $bloques[] = $bloqueActual;
                     $bloqueActual = [];
                 }
@@ -401,7 +418,7 @@ class IngresoConciliadoController extends Controller
                     if (!empty($tr)) {
                         $folioTRBlock = $tr;
                     }
-                } elseif (empty($folioTRBlock) && !empty($tr) && !$esTransportactics) {
+                } elseif (empty($folioTRBlock) && !empty($tr)) {
                     $folioTRBlock = $tr;
                 }
 
@@ -414,7 +431,11 @@ class IngresoConciliadoController extends Controller
                 $pedimentoBlock = $folioTRBlock;
             }
 
-            if (empty($clienteBlock) || (empty($pedimentoBlock) && empty($folioTRBlock))) {
+            if (empty($pedimentoBlock) && !empty($facturaSCBlock)) {
+                $pedimentoBlock = $facturaSCBlock;
+            }
+
+            if (empty($clienteBlock) && empty($pedimentoBlock) && empty($folioTRBlock) && empty($facturaSCBlock)) {
                 continue;
             }
 
@@ -424,10 +445,6 @@ class IngresoConciliadoController extends Controller
 
             if ($esTransportactics) {
                 if (empty($proveedorBlock) || $montoBlock <= 0) {
-                    continue;
-                }
-            } else {
-                if (!empty($proveedorBlock) && str_contains($proveedorBlock, 'TRANSPORTACTIC')) {
                     continue;
                 }
             }
@@ -445,10 +462,6 @@ class IngresoConciliadoController extends Controller
                 $folioZloNormal = strtoupper(str_replace(' ', '', $matches[1]));
             } elseif (preg_match('/(ZLO(?!I)\s*[0-9]+)/i', $pedimentoBlock, $matches)) {
                 $folioZloNormal = strtoupper(str_replace(' ', '', $matches[1]));
-            }
-
-            if ($esIntshipperts && $folioIntshipperts === '') {
-                continue;
             }
 
             $folioSecundario = '';
@@ -471,9 +484,8 @@ class IngresoConciliadoController extends Controller
             $pedimentosDesglosados = [];
 
             if (empty($numerosEncontrados)) {
-                if (!empty($pedimentoBlock)) {
-                    $pedimentosDesglosados[] = ['clean' => $pedimentoBlock, 'display' => $pedimentoBlock];
-                }
+                $valDisplay = !empty($pedimentoBlock) ? $pedimentoBlock : (!empty($facturaSCBlock) ? $facturaSCBlock : 'S/F');
+                $pedimentosDesglosados[] = ['clean' => $valDisplay, 'display' => $valDisplay];
             } else {
                 foreach ($numerosEncontrados as $num) {
                     if ($num === $patentePrefijo && count($numerosEncontrados) > 1) {
@@ -514,14 +526,14 @@ class IngresoConciliadoController extends Controller
                 // 1. Folio SC / TR / INT (Si existe, va PRIMERO)
                 if ($esTransportactics) {
                     $partesEtiqueta[] = 'TR: ' . ($folioTRBlock !== '' ? $folioTRBlock : 'S/F');
-                } elseif ($esIntshipperts && $folioIntshipperts !== '') {
-                    $partesEtiqueta[] = 'INT: ' . $folioIntshipperts;
-                } elseif (!empty($folioSCPrincipal)) {
-                    $partesEtiqueta[] = $folioSCPrincipal;
+                } elseif ($esIntshipperts) {
+                    $partesEtiqueta[] = 'INT: ' . ($folioIntshipperts !== '' ? $folioIntshipperts : 'S/F');
+                } else {
+                    $partesEtiqueta[] = !empty($folioSCPrincipal) ? $folioSCPrincipal : 'S/F';
                 }
 
                 // 2. Pedimento (Se incluye si existe y no es idéntico al Folio SC)
-                if (!empty($pedDisplay) && $pedDisplay !== $folioSCPrincipal) {
+                if (!empty($pedDisplay) && $pedDisplay !== $folioSCPrincipal && $pedDisplay !== 'S/F') {
                     $partesEtiqueta[] = $pedDisplay;
                 }
 

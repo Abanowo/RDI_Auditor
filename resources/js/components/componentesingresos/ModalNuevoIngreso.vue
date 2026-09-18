@@ -359,40 +359,66 @@ export default {
     },
 
     opcionesPedimentos() {
+      let sheetArray = Array.isArray(this.pedimentosSheet) ? this.pedimentosSheet : [];
+      
       if (!this.form.cliente) {
-        return this.pedimentosSheet;
+        return sheetArray;
       }
-      const clienteSeleccionado = this.form.cliente.nombre.toUpperCase().trim();
-      return this.pedimentosSheet.filter(p => {
-        if (!p.cliente) return false;
-        return p.cliente.includes(clienteSeleccionado) || clienteSeleccionado.includes(p.cliente);
+
+      const nombreC = typeof this.form.cliente === 'object' && this.form.cliente !== null 
+        ? this.form.cliente.nombre 
+        : this.form.cliente;
+      const clienteSeleccionado = String(nombreC || '').toUpperCase().trim();
+
+      return sheetArray.filter(p => {
+        if (!p || !p.cliente) return true; 
+
+        const clienteP = String(p.cliente).toUpperCase().trim();
+        return clienteP.includes(clienteSeleccionado) || clienteSeleccionado.includes(clienteP);
       });
     },
 
-    totalGPC() {
-      // Transportactics e Intshipperts no llevan GPC
-      if (this.esTransportactics || this.esIntshipperts) {
-        return 0;
+    totalHonorarios() {
+      const flete = Number(this.form.flete) || 0;
+      const anticipo = Number(this.form.anticipo) || 0;
+      const honorarios = Number(this.form.honorarios) || 0;
+
+      if (this.esTransportactics) {
+        return flete;
       }
-      if (this.esManzanillo) {
-        return (parseFloat(this.form.impuestos) || 0) +
-          (parseFloat(this.form.flete) || 0) +
-          (parseFloat(this.form.anticipo) || 0) +
-          (parseFloat(this.form.garantias) || 0) +
-          (parseFloat(this.form.desglose_naviera) || 0);
+      if (this.esIntshipperts) {
+        return flete + anticipo;
       }
-      // Maniobras se contabiliza de forma exclusiva como GPC
-      return (parseFloat(this.form.impuestos) || 0) + 
-        (parseFloat(this.form.eci) || 0) +
-        (parseFloat(this.form.maniobras) || 0) + 
-        (parseFloat(this.form.flete) || 0) +
-        (parseFloat(this.form.muestras) || 0) + 
-        (parseFloat(this.form.llc) || 0);
+      return honorarios;
     },
 
-    sumaTotal() {
-      return this.totalGPC + this.totalHonorarios;
+    totalGPC() {
+      const impuestos = Number(this.form.impuestos) || 0;
+      const eci = Number(this.form.eci) || 0;
+      const maniobras = Number(this.form.maniobras) || 0;
+      const flete = Number(this.form.flete) || 0;
+      const muestras = Number(this.form.muestras) || 0;
+      const llc = Number(this.form.llc) || 0;
+      const anticipo = Number(this.form.anticipo) || 0;
+      const garantias = Number(this.form.garantias) || 0;
+      const naviera = Number(this.form.desglose_naviera) || 0;
+
+      if (this.esTransportactics) {
+        // En Transportactics, el flete es Honorarios; todos los demás gastos forman GPC
+        return impuestos + eci + maniobras + muestras + llc + anticipo + garantias + naviera;
+      }
+      if (this.esIntshipperts) {
+        // En Intshipperts, flete + anticipo son Honorarios; el resto suma como GPC
+        return impuestos + eci + maniobras + muestras + llc + garantias + naviera;
+      }
+      if (this.esManzanillo) {
+        return impuestos + flete + anticipo + garantias + naviera;
+      }
+
+      // Resto de sucursales
+      return impuestos + eci + maniobras + flete + muestras + llc;
     },
+
     sucursalReal() {
       let s = String(this.sucursalSeleccionada).toUpperCase();
 
@@ -404,9 +430,11 @@ export default {
 
       return s;
     },
+
     sumaTotal() {
       return this.totalGPC + this.totalHonorarios;
     },
+
     opcionesReferenciasCombinadas() {
       let mapa = new Map();
 
@@ -443,7 +471,7 @@ export default {
         });
       }
 
-      // 4. Garantizar que las referencias ya seleccionadas por el usuario no desaparezcan
+      // 4. Garantizar referencias seleccionadas
       if (Array.isArray(this.form.referenciasObj)) {
         this.form.referenciasObj.forEach(ref => {
           let textoRef = typeof ref === 'object' ? (ref.label || ref.folio || ref.referencia) : String(ref);
