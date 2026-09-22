@@ -84,14 +84,14 @@
         <div class="col-span-1">
           <label class="block text-lg font-bold text-gray-700 mb-2">Moneda</label>
           <multiselect v-model="form.monedaObj" :options="opcionesMoneda" label="label" track-by="value"
-            :searchable="false" :show-labels="false" :allow-empty="false" class="custom-multiselect text-xl">
+            :searchable="false" :disabled="true" :show-labels="false" :allow-empty="false" class="custom-multiselect text-xl cursor-not-allowed">
           </multiselect>
         </div>
 
         <div class="col-span-1">
           <label class="block text-lg font-bold text-gray-700 mb-2">Tipo de Cambio</label>
-          <input type="number" step="0.01" v-model="form.tipo_cambio"
-            class="w-full border-gray-300 rounded-lg shadow-sm px-5 py-4 text-xl outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+          <input type="number" step="0.0001" v-model="form.tipo_cambio" readonly
+            class="w-full border-gray-300 bg-gray-100 rounded-lg shadow-sm px-5 py-4 text-xl outline-none cursor-not-allowed">
         </div>
 
         <div class="col-span-1 md:col-span-3">
@@ -170,12 +170,13 @@ export default {
   },
   data() {
     return {
+      buscandoTC: false,
       form: {
         monto_cfdi: 0,
         metodoPagoObj: { value: 'PPD', label: 'PPD - Pago en parcialidades o diferido' },
         monedaObj: { value: 'MXN', label: 'MXN - Peso Mexicano' },
-        tipo_cambio: 1,
-        formaPagoObj: { value: '03', label: '03 - Transferencia electrónica de fondos' },
+        tipo_cambio: 1.0000,
+        formaPagoObj: { value: '03', label: '03 - Transferencia Electrónica' },
         referencia: '',
         observaciones: ''
       },
@@ -210,21 +211,71 @@ export default {
   },
   computed: {
     sumaTotal() {
-      // Refleja de forma idéntica el monto del CFDI a complementar
       return Number(this.form.monto_cfdi || 0).toFixed(2);
     }
   },
   watch: {
+    mostrar: {
+      immediate: true,
+      handler(isShowing) {
+        if (isShowing) {
+          this.$nextTick(() => {
+            this.inicializarModal();
+          });
+        }
+      }
+    },
     ingreso: {
       immediate: true,
-      handler(val) {
-        if (val && Object.keys(val).length > 0) {
-          this.calcularDivision(val);
+      deep: true,
+      handler(nuevoIngreso) {
+        if (this.mostrar && nuevoIngreso && nuevoIngreso.id) {
+          this.$nextTick(() => {
+            this.inicializarModal();
+          });
         }
       }
     }
   },
   methods: {
+    esBancoDolares(bancoStr) {
+      if (!bancoStr) return false;
+      const b = String(bancoStr).toUpperCase().trim();
+      return b.includes('DLLS') || b.includes('USD') || b.includes('DOLARES') || b.includes('DLL');
+    },
+
+    async inicializarModal() {
+      if (!this.ingreso || !this.ingreso.id) return;
+
+      this.calcularDivision(this.ingreso);
+
+      const banco = this.ingreso.banco_receptor || this.ingreso.banco || '';
+      const fecha = this.ingreso.fecha || '';
+
+      if (this.esBancoDolares(banco)) {
+        this.form.monedaObj = this.opcionesMoneda.find(m => m.value === 'USD') || { value: 'USD', label: 'USD - Dólar Estadounidense' };
+      } else {
+        this.form.monedaObj = this.opcionesMoneda.find(m => m.value === 'MXN') || { value: 'MXN', label: 'MXN - Peso Mexicano' };
+        this.form.tipo_cambio = 1.0000;
+        return;
+      }
+
+      this.buscandoTC = true;
+      try {
+        const response = await axios.get('/ingresos-conciliados/tipo-cambio', {
+          params: { banco, fecha }
+        });
+
+        if (response.data && response.data.tipo_cambio) {
+          this.form.tipo_cambio = Number(response.data.tipo_cambio).toFixed(4);
+        }
+      } catch (error) {
+        this.form.tipo_cambio = 1.0000;
+      } finally {
+        this.buscandoTC = false;
+      }
+    },
+
     calcularDivision(item) {
       const sucursal = String(item.sucursal_origen || '').toUpperCase();
       const nombreCliente = String(item.cliente || '').toUpperCase();
@@ -240,18 +291,20 @@ export default {
       }
 
       this.form.monto_cfdi = cfdi.toFixed(2);
-      this.form.referencia = item.folio_sc || item.folio_complemento || '';
+      this.form.referencia = item.folio_sc || item.folio_complemento || item.referencia || '';
     },
+
     cerrar() {
       this.$emit('cerrar');
     },
+
     enviarComplemento() {
       const payloadLimpio = {
         ingreso_id: this.ingreso.id,
         cliente_id: this.ingreso.cliente_id,
         sucursal: this.ingreso.sucursal_origen,
         moneda: this.form.monedaObj && this.form.monedaObj.value === 'USD' ? 2 : 1,
-        tipo_cambio: this.form.tipo_cambio,
+        tipo_cambio: Number(this.form.tipo_cambio),
         referencia: this.form.referencia,
         observaciones: this.form.observaciones || '',
         total: this.sumaTotal,
@@ -286,8 +339,6 @@ export default {
           this.$emit('cerrar');
         }
       } catch (error) {
-        console.error("Detalle del error:", error);
-
         let msjError = 'Error desconocido al timbrar';
         if (error.response && error.response.data && error.response.data.error) {
           msjError = error.response.data.error;

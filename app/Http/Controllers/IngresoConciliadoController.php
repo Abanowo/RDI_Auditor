@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
@@ -612,6 +613,7 @@ class IngresoConciliadoController extends Controller
         $quiereNotaCargo = in_array('Nota Cargo', $tiposComprobante);
         $esManzanillo = str_contains($sucursalBuscada, 'MANZANILLO');
         $isTransportacticsGlobal = str_contains($sucursalBuscada, 'TRANSPORTACTICS');
+        $esExpoSucursal = str_contains($sucursalBuscada, 'EXPO'); // 🎯 Detección de Exportación
 
         if ($esManzanillo) {
             $spreadsheetId = app()->environment('production') ? '18-5okzV-vw35V0Ugjn5KjNcWgHyZ9Qfc6pf5w4VU-2I' : '1zHUYpViLZyu_KPkNCUEx37WjoK0lVt7F0bC1B9Jo8s0';
@@ -970,7 +972,7 @@ class IngresoConciliadoController extends Controller
                                     $tipoPivot = strtolower($archivo['pivot']['type'] ?? '');
                                     $nombreMayus = strtoupper($archivo['name'] ?? '');
 
-                                    $esTipoSC = in_array($tipoPivot, ['sc', 'honorarios-sc']);
+                                    $esTipoSC = in_array($tipoPivot, ['sc', 'honorarios-sc', 'exportacion-sc', 'sc-expo', 'fac-expo', 'factura-sc']);
                                     $esNombreSC = !empty($folioFacturaZlo)
                                         ? (str_contains($nombreMayus, 'ZLO' . $folioFacturaZlo) || str_contains($nombreMayus, $folioFacturaZlo))
                                         : (str_contains($nombreMayus, $pedimentoBusqueda) || (str_contains($nombreMayus, 'ZLO') && !str_contains($nombreMayus, 'PEDIMENTO')));
@@ -1226,26 +1228,9 @@ class IngresoConciliadoController extends Controller
                         ->orderBy('operaciones_exportacion.id_exportacion', 'desc')
                         ->get();
 
-                    // 1. PRIORIDAD ALTA: Importación con coincidencia exacta de sucursal/aduana
-                    foreach ($imposCandidatas as $cand) {
-                        $textoUbicacion = strtoupper(($cand->sucursal ?? '') . ' ' . ($cand->aduana ?? ''));
-                        foreach ($terminosSucursal as $term) {
-                            if (str_contains($textoUbicacion, $term)) {
-                                $impo = $cand;
-                                break 2;
-                            }
-                        }
-                    }
-
-                    // 2. PRIORIDAD MEDIA: Si NO hubo coincidencia exacta de sucursal, PERO existe una Importación,
-                    // tomamos la más reciente. Esto evita que salte erróneamente a Exportación solo 
-                    // porque en la base de datos la sucursal estaba vacía o mal escrita.
-                    if (!$impo && $imposCandidatas->isNotEmpty()) {
-                        $impo = $imposCandidatas->first();
-                    }
-
-                    // 3. PRIORIDAD BAJA: Exportación con coincidencia de sucursal
-                    if (!$impo) {
+                    // 🎯 PRIORIZACIÓN DINÁMICA SEGÚN SI LA SUCURSAL ES DE EXPORTACIÓN O IMPORTACIÓN
+                    if ($esExpoSucursal) {
+                        // 1. Prioridad en Exportación para sucursales EXPO
                         foreach ($exposCandidatas as $cand) {
                             $textoUbicacion = strtoupper($cand->sucursal ?? '');
                             foreach ($terminosSucursal as $term) {
@@ -1255,11 +1240,56 @@ class IngresoConciliadoController extends Controller
                                 }
                             }
                         }
-                    }
 
-                    // 4. ÚLTIMO RECURSO: Cualquier Exportación
-                    if (!$impo && !$expo && $exposCandidatas->isNotEmpty()) {
-                        $expo = $exposCandidatas->first();
+                        if (!$expo && $exposCandidatas->isNotEmpty()) {
+                            $expo = $exposCandidatas->first();
+                        }
+
+                        // Fallback a Importación si no se halló en Exportación
+                        if (!$expo) {
+                            foreach ($imposCandidatas as $cand) {
+                                $textoUbicacion = strtoupper(($cand->sucursal ?? '') . ' ' . ($cand->aduana ?? ''));
+                                foreach ($terminosSucursal as $term) {
+                                    if (str_contains($textoUbicacion, $term)) {
+                                        $impo = $cand;
+                                        break 2;
+                                    }
+                                }
+                            }
+                            if (!$impo && $imposCandidatas->isNotEmpty()) {
+                                $impo = $imposCandidatas->first();
+                            }
+                        }
+                    } else {
+                        // Flujo normal para sucursales IMPO
+                        foreach ($imposCandidatas as $cand) {
+                            $textoUbicacion = strtoupper(($cand->sucursal ?? '') . ' ' . ($cand->aduana ?? ''));
+                            foreach ($terminosSucursal as $term) {
+                                if (str_contains($textoUbicacion, $term)) {
+                                    $impo = $cand;
+                                    break 2;
+                                }
+                            }
+                        }
+
+                        if (!$impo && $imposCandidatas->isNotEmpty()) {
+                            $impo = $imposCandidatas->first();
+                        }
+
+                        if (!$impo) {
+                            foreach ($exposCandidatas as $cand) {
+                                $textoUbicacion = strtoupper($cand->sucursal ?? '');
+                                foreach ($terminosSucursal as $term) {
+                                    if (str_contains($textoUbicacion, $term)) {
+                                        $expo = $cand;
+                                        break 2;
+                                    }
+                                }
+                            }
+                            if (!$expo && $exposCandidatas->isNotEmpty()) {
+                                $expo = $exposCandidatas->first();
+                            }
+                        }
                     }
                 }
 
@@ -1389,7 +1419,8 @@ class IngresoConciliadoController extends Controller
                                     $tipoPivot = strtolower($archivo['pivot']['type'] ?? '');
                                     $nombreMayus = strtoupper($archivo['name'] ?? '');
 
-                                    $esTipoSC = in_array($tipoPivot, ['sc', 'honorarios-sc']);
+                                    // 🎯 INCLUSIÓN DE PIVOTS Y NOMBRES DE EXPORTACIÓN
+                                    $esTipoSC = in_array($tipoPivot, ['sc', 'honorarios-sc', 'exportacion-sc', 'sc-expo', 'fac-expo', 'factura-sc']);
                                     $esNombreSC = (!empty($folioLimpio) && str_contains($nombreMayus, $folioLimpio)) || str_contains($nombreMayus, $pedimentoReal);
 
                                     if ($ext === 'xml' && ($esTipoSC || $esNombreSC)) {
@@ -1643,7 +1674,6 @@ class IngresoConciliadoController extends Controller
             }
 
             if (!$xmlString) {
-                // Devolvemos PUE por defecto en caso de falla
                 return ['honorarios' => 0.0, 'folio' => null, 'metodo_pago' => 'PUE', 'debug' => $debug];
             }
 
@@ -1651,13 +1681,11 @@ class IngresoConciliadoController extends Controller
             $honorarios = 0.0;
             $folio = null;
             $serie = null;
-            $metodoPago = null; // Inicializamos nulo para saber si lo encontramos
+            $metodoPago = null;
 
-            // 1. Intentamos leer con SimpleXML
             try {
                 $xmlObj = @simplexml_load_string($xmlString);
                 if ($xmlObj !== false) {
-                    // Registro de namespaces para cfdi:Comprobante
                     $namespaces = $xmlObj->getDocNamespaces(true);
                     if (isset($namespaces['cfdi'])) {
                         $xmlObj->registerXPathNamespace('cfdi', $namespaces['cfdi']);
@@ -1681,7 +1709,6 @@ class IngresoConciliadoController extends Controller
             } catch (\Throwable $th) {
             }
 
-            // 2. Si falla SimpleXML, usamos Expresiones Regulares (Regex)
             if ($honorarios === 0.0) {
                 if (preg_match('/Comprobante[^>]+Total=["\']([0-9\,\.]+)["\']/i', $xmlString, $matchesTotal)) {
                     $honorarios = (float) str_replace(',', '', $matchesTotal[1]);
@@ -1697,28 +1724,27 @@ class IngresoConciliadoController extends Controller
                     $serie = strtoupper($matchesSerie[1]);
                 }
             }
-            // Regex para buscar MetodoPago="PPD" o "PUE"
             if (empty($metodoPago)) {
                 if (preg_match('/MetodoPago=["\'](PUE|PPD)["\']/i', $xmlString, $matchesMetodo)) {
                     $metodoPago = strtoupper(trim($matchesMetodo[1]));
                 } else {
-                    $metodoPago = 'PUE'; // Default infalible
+                    $metodoPago = 'PUE';
                 }
             }
 
-            // 3. VALIDACIÓN DE SUCURSAL Y SERIE DEL CFDI
+            // 🎯 PREFIJOS AMPLIADOS PARA INCLUIR SERIES DE EXPORTACIÓN (NGE, NOGE, NLE, TJX, MXLE, etc.)
             if (!empty($sucursalBuscada)) {
                 $prefijosSucursal = [
-                    'LAREDO'   => ['NL', 'LAR'],
-                    'NOGALES'  => ['NOG'],
-                    'TIJUANA'  => ['TIJ', 'TJ'],
-                    'MEXICALI' => ['MXL']
+                    'LAREDO'   => ['NL', 'LAR', 'NLE', 'LARE', 'LDE', 'NLDEX'],
+                    'NOGALES'  => ['NOG', 'NGE', 'NOGE', 'NEX'],
+                    'TIJUANA'  => ['TIJ', 'TJ', 'TIJE', 'TJX'],
+                    'MEXICALI' => ['MXL', 'MXLE', 'MXE'],
+                    'MANZANILLO' => ['ZLO', 'MANZ', 'ZLOE']
                 ];
 
                 $ciudad = strtoupper(trim(explode(' ', $sucursalBuscada)[0]));
                 $prefijosEsperados = $prefijosSucursal[$ciudad] ?? [];
 
-                // Si el XML trae una Serie explícita que pertenece a OTRA sucursal, se descarta
                 if (!empty($serie) && !empty($prefijosEsperados)) {
                     $serieValida = false;
                     foreach ($prefijosEsperados as $pref) {
@@ -1735,7 +1761,6 @@ class IngresoConciliadoController extends Controller
                 }
             }
 
-            // 4. VALIDACIÓN DE FOLIO ESPERADO
             if (!empty($folioEsperado) && !empty($folio)) {
                 $folioLimpioBusqueda = preg_replace('/[^0-9]/', '', $folioEsperado);
                 $folioLimpioXml = preg_replace('/[^0-9]/', '', $folio);
@@ -1754,7 +1779,7 @@ class IngresoConciliadoController extends Controller
             return [
                 'honorarios'  => $honorarios,
                 'folio'       => $folio,
-                'metodo_pago' => $metodoPago, // Devolvemos el dato
+                'metodo_pago' => $metodoPago,
                 'debug'       => $debug
             ];
         } catch (\Throwable $e) {
@@ -2323,6 +2348,108 @@ class IngresoConciliadoController extends Controller
         } catch (\Throwable $e) {
             Log::error("Error parseando XML {$rutaXml}: " . $e->getMessage());
             return $defaultReturn;
+        }
+    }
+
+    /**
+     * Endpoint para detectar moneda y obtener Tipo de Cambio oficial del DOF.
+     */
+    public function obtenerTipoCambio(Request $request)
+    {
+        $banco = strtoupper(trim($request->input('banco', '')));
+        $fecha = $request->input('fecha', date('Y-m-d'));
+
+        $esDolares = str_contains($banco, 'DLLS') || str_contains($banco, 'USD') || str_contains($banco, 'DOLARES') || str_contains($banco, 'DLL');
+
+        if (!$esDolares) {
+            return response()->json([
+                'es_dolares'  => false,
+                'moneda_id'   => 1, // MXN en Contpaqi
+                'tipo_cambio' => 1.0000
+            ]);
+        }
+
+        $tipoCambio = $this->consultarDofTC($fecha);
+
+        return response()->json([
+            'es_dolares'  => true,
+            'moneda_id'   => 2, // USD en Contpaqi
+            'tipo_cambio' => $tipoCambio ? round($tipoCambio, 4) : 1.0000
+        ]);
+    }
+
+    /**
+     * Extrae el Tipo de Cambio oficial del DOF correspondiente al día hábil anterior.
+     */
+    private function consultarDofTC($fechaPago)
+    {
+        $fechaIngreso = Carbon::parse($fechaPago);
+        $fechaDiaAnterior = $fechaIngreso->copy()->subDay();
+        $cacheKey = "tc_dof_indicador_" . $fechaDiaAnterior->format('Y-m-d');
+
+        if (Cache::has($cacheKey)) {
+            return Cache::get($cacheKey);
+        }
+
+        try {
+            $dfecha = $fechaDiaAnterior->copy()->subDays(7)->format('d/m/Y');
+            $hfecha = $fechaDiaAnterior->format('d/m/Y');
+
+            $url = "https://dof.gob.mx/indicadores_detalle.php";
+            $response = Http::withoutVerifying()
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                ])
+                ->timeout(15)
+                ->get($url, [
+                    'cod_tipo_indicador' => 158,
+                    'dfecha'             => $dfecha,
+                    'hfecha'             => $hfecha,
+                ]);
+
+            if (!$response->successful()) {
+                return null;
+            }
+
+            $html = $response->body();
+            libxml_use_internal_errors(true);
+            $dom = new \DOMDocument();
+            $dom->loadHTML(mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8'));
+            libxml_clear_errors();
+
+            $xpath = new \DOMXPath($dom);
+            $rows = $xpath->query("//tr");
+            $ultimoTC = null;
+
+            if ($rows) {
+                foreach ($rows as $row) {
+                    /** @var \DOMElement $row */
+                    if (!$row instanceof \DOMElement) {
+                        continue;
+                    }
+
+                    $cols = $row->getElementsByTagName('td');
+                    if ($cols->length >= 2) {
+                        $valorRaw = trim($cols->item(1)->nodeValue);
+
+                        if (preg_match('/(\d{2}\.\d{2,4})/', $valorRaw, $matches)) {
+                            $tcValor = (float) $matches[1];
+                            if ($tcValor >= 10.0 && $tcValor <= 50.0) {
+                                $ultimoTC = $tcValor;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if ($ultimoTC !== null) {
+                Cache::put($cacheKey, $ultimoTC, 86400);
+            }
+
+            return $ultimoTC;
+
+        } catch (\Exception $e) {
+            return null;
         }
     }
 
@@ -3110,20 +3237,19 @@ class IngresoConciliadoController extends Controller
 
             // Solo genera registro en la cartera de saldos si tiene operaciones/facturas desglosadas
             if ($tieneOperaciones && $costoTotal > 0 && abs($diferencia) > 0.05) {
-                $tipoDoc = 'CFDI o GPC';
-
-                if ($ingreso->tipo_comprobante === 'CFDI') {
-                    $tipoDoc = 'CFDI';
-                } elseif ($ingreso->tipo_comprobante === 'Nota Cargo') {
-                    $tipoDoc = 'GPC';
+                
+                // 🎯 CONCEPTO LIMPIO: F - {FOLIO}, F - {FOLIO}
+                $referenciaBase = trim($ingreso->referencia ?? $ingreso->folio_sc ?? '');
+                
+                if (empty($referenciaBase)) {
+                    $conceptoFinal = 'F - Sin Referencia';
+                } else {
+                    // Divide por coma, limpia espacios vacíos y agrega el "F - " a cada uno
+                    $folios = array_filter(array_map('trim', explode(',', $referenciaBase)));
+                    $conceptoFinal = implode(', ', array_map(function ($folio) {
+                        return 'F - ' . $folio;
+                    }, $folios));
                 }
-
-                $textoObservacion = $diferencia > 0
-                    ? "Pago de más en {$tipoDoc}"
-                    : "Pago de menos en {$tipoDoc}";
-
-                $referenciaBase = $ingreso->referencia ?? $ingreso->folio_sc ?? 'Sin Referencia';
-                $conceptoFinal = $referenciaBase . ' - ' . $textoObservacion;
 
                 SaldoFavor::updateOrCreate(
                     ['ingreso_conciliado_id' => $ingreso->id],
@@ -3324,20 +3450,19 @@ class IngresoConciliadoController extends Controller
             $diferencia = round($montoDeposito - $costoTotal, 2);
 
             if ($tieneOperaciones && $costoTotal > 0 && abs($diferencia) > 0.05) {
-                $tipoDoc = 'CFDI o GPC';
 
-                if ($ingreso->tipo_comprobante === 'CFDI') {
-                    $tipoDoc = 'CFDI';
-                } elseif ($ingreso->tipo_comprobante === 'Nota Cargo') {
-                    $tipoDoc = 'GPC';
+                // 🎯 CONCEPTO LIMPIO: F - {FOLIO}, F - {FOLIO}
+                $referenciaBase = trim($ingreso->referencia ?? $ingreso->folio_sc ?? '');
+                
+                if (empty($referenciaBase)) {
+                    $conceptoFinal = 'F - Sin Referencia';
+                } else {
+                    // Divide por coma, limpia espacios vacíos y agrega el "F - " a cada uno
+                    $folios = array_filter(array_map('trim', explode(',', $referenciaBase)));
+                    $conceptoFinal = implode(', ', array_map(function ($folio) {
+                        return 'F - ' . $folio;
+                    }, $folios));
                 }
-
-                $textoObservacion = $diferencia > 0
-                    ? "Pago de más en {$tipoDoc}"
-                    : "Pago de menos en {$tipoDoc}";
-
-                $referenciaBase = $ingreso->referencia ?? $ingreso->folio_sc ?? 'Sin Referencia';
-                $conceptoFinal = $referenciaBase . ' - ' . $textoObservacion;
 
                 SaldoFavor::updateOrCreate(
                     ['ingreso_conciliado_id' => $ingreso->id],
@@ -3362,7 +3487,6 @@ class IngresoConciliadoController extends Controller
             return response()->json(['error' => 'Error al actualizar: ' . $e->getMessage()], 500);
         }
     }
-
     public function destroy($id)
     {
         DB::beginTransaction();

@@ -91,10 +91,8 @@
         class="absolute inset-0 bg-white bg-opacity-60 z-10 flex items-center justify-center rounded-xl"></div>
 
       <div class="p-8 grid grid-cols-1 md:grid-cols-12 gap-x-10 gap-y-6">
-
         <div class="col-span-1 md:col-span-6 flex flex-col">
-          <div class="text-lg font-extrabold text-gray-800 mb-4 border-b border-gray-200 pb-2">Identificadores
-          </div>
+          <div class="text-lg font-extrabold text-gray-800 mb-4 border-b border-gray-200 pb-2">Identificadores</div>
           <div class="flex flex-wrap lg:flex-nowrap gap-4">
             <input type="text" v-model="filters.pedimento" @keyup.enter="buscarDatos" placeholder="Pedimento"
               class="w-full lg:w-1/4 h-14 bg-white border border-gray-300 rounded-lg px-4 text-lg text-gray-700 placeholder-gray-400 focus:outline-none focus:border-blue-400 transition-colors" />
@@ -110,8 +108,7 @@
         </div>
 
         <div class="col-span-1 md:col-span-3 flex flex-col">
-          <div class="text-lg font-extrabold text-gray-800 mb-4 border-b border-gray-200 pb-2">Filtros de Estado
-          </div>
+          <div class="text-lg font-extrabold text-gray-800 mb-4 border-b border-gray-200 pb-2">Filtros de Estado</div>
           <div class="w-full custom-multiselect-container">
             <Multiselect v-model="filters.status" :options="statusOptions" track-by="value" label="label"
               placeholder="Todos los Status" :searchable="false" :show-labels="false" class="filtro-multiselect">
@@ -120,8 +117,7 @@
         </div>
 
         <div class="col-span-1 md:col-span-3 flex flex-col">
-          <div class="text-lg font-extrabold text-gray-800 mb-4 border-b border-gray-200 pb-2">Estado y Fecha
-          </div>
+          <div class="text-lg font-extrabold text-gray-800 mb-4 border-b border-gray-200 pb-2">Estado y Fecha</div>
           <VueCtkDateTimePicker v-model="filters.fecha" :only-date="true" format="YYYY-MM-DD" formatted="DD/MM/YYYY"
             label="Seleccionar rango o fecha" color="#3182CE" button-color="#3182CE" input-size="lg" />
         </div>
@@ -155,18 +151,19 @@
       </div>
     </div>
 
+    <!-- BANNER DINÁMICO DE TOTALES -->
     <div class="border-2 rounded-xl py-4 px-6 mb-8 flex justify-center items-center gap-10 text-lg font-bold shadow-sm"
       style="background-color: #EBF5FB; border-color: #BDE0FE; color: #005177;">
-      <span>COSTO: {{ totalCosto.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</span>
+      <span>TOTAL COSTO {{ activeTab !== 'GENERAL' ? activeTab : '' }}: ${{ totalCosto.toLocaleString('en-US', {
+        minimumFractionDigits: 2 }) }}</span>
       <span class="text-blue-300">|</span>
-      <span>VENTA: {{ totalVenta.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</span>
+      <span>VENTA: ${{ totalVenta.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</span>
       <span class="text-blue-300">|</span>
-      <span>CONCEPTO VENTA: {{ activeTab }}</span>
-      <span class="text-blue-300">|</span>
-      <span>GANANCIA: {{ totalGanancia.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</span>
+      <span>GANANCIA: ${{ totalGanancia.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</span>
     </div>
 
-    <div class="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6 relative">
+    <div
+      class="flex-1 flex flex-col bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-6 relative">
 
       <div v-if="isLoading"
         class="absolute inset-0 bg-white bg-opacity-70 z-10 flex flex-col items-center justify-center">
@@ -184,7 +181,8 @@
         <div class="p-6 border-b border-gray-100 bg-gray-50/50">
           <div class="border-2 rounded-lg py-4 text-center font-bold text-xl shadow-sm"
             style="background-color: white; border-color: #009ED9; color: #005177;">
-            Monto Costo: ${{ totalCosto.toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
+            Monto Costo {{ activeTab !== 'GENERAL' ? activeTab : 'TOTAL' }}: ${{ totalCosto.toLocaleString('en-US', {
+            minimumFractionDigits: 2 }) }}
           </div>
         </div>
         <table class="w-full text-left text-lg border-collapse">
@@ -193,9 +191,10 @@
             <tr>
               <th class="px-6 py-5">CLIENTE</th>
               <th class="px-6 py-5">PEDIMENTO</th>
-              <th class="px-6 py-5">PROVEEDOR</th>
-              <th class="px-6 py-5">F. PROVEEDOR</th>
-              <th class="px-6 py-5">MONTO</th>
+              <!-- ENCABEZADOS DINÁMICOS -->
+              <th class="px-6 py-5">PROVEEDOR {{ activeTab !== 'GENERAL' ? activeTab : '' }}</th>
+              <th class="px-6 py-5">F. PROV. {{ activeTab !== 'GENERAL' ? activeTab : '' }}</th>
+              <th class="px-6 py-5">MONTO {{ activeTab !== 'GENERAL' ? activeTab : '' }}</th>
               <th class="px-6 py-5 text-center">MONEDA</th>
               <th class="px-6 py-5">F. INTACTICS</th>
               <th class="px-6 py-5 text-center">ANT</th>
@@ -204,18 +203,29 @@
           </thead>
           <tbody class="divide-y divide-gray-100 text-gray-700 font-semibold bg-white">
             <tr v-for="row in relevantControlFlete" :key="row.id" class="hover:bg-gray-50 transition-colors">
-              <td class="px-6 py-5 truncate" style="max-width: 250px;">{{ row.cliente }}</td>
+              <td class="px-6 py-5 truncate" style="max-width: 250px;">
+                {{ row.cliente }}
+                <div v-if="row.tipo !== 'GENERAL'" class="mt-1">
+                  <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-md font-bold uppercase">{{ row.tipo
+                    }}</span>
+                </div>
+              </td>
               <td class="px-6 py-5 text-blue-600 italic font-bold">{{ row.pedimento }}</td>
-              <td class="px-6 py-5 uppercase">{{ row.transportista }}</td>
-              
-              <td class="px-6 py-5 font-bold text-orange-600">{{ row.fProveedor }}</td>
-              
-              <td class="px-6 py-5 font-bold text-gray-800">$ {{ (Number(row.costo) || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
-              
+              <td class="px-6 py-5 uppercase text-sm leading-tight max-w-[200px]">{{ row.transportista }}</td>
+
+              <td class="px-6 py-5 font-bold text-orange-600 max-w-[150px] truncate" :title="row.fProveedor">{{
+                row.fProveedor }}</td>
+
+              <!-- MONTO DE LA FACTURA -->
+              <td class="px-6 py-5 font-bold text-gray-800 whitespace-nowrap">$ {{ (Number(row.costo) ||
+                0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}</td>
+
               <td class="px-6 py-5 text-center">{{ row.moneda || 'MXN' }}</td>
-              
-              <td class="px-6 py-5 font-bold text-indigo-600">{{ row.fInTactics }}</td>
-              
+
+              <!-- FOLIO SC OBTENIDO DEL XML -->
+              <td class="px-6 py-5 font-bold text-indigo-600 max-w-[150px] truncate" :title="row.fInTactics">{{
+                row.fInTactics }}</td>
+
               <td class="px-6 py-5 text-center">
                 <button v-if="row.hasAnticipo" @click="toggleAnticipo(row.id, true)"
                   class="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center mx-auto text-white shadow-sm hover:bg-green-600 transition-colors">
@@ -248,7 +258,8 @@
               </td>
             </tr>
             <tr v-if="!isLoading && relevantControlFlete.length === 0">
-              <td colspan="9" class="px-6 py-12 text-center text-gray-400 text-xl font-normal">No hay registros para mostrar con los filtros actuales.</td>
+              <td colspan="9" class="px-6 py-12 text-center text-gray-400 text-xl font-normal">No hay registros para
+                mostrar con los filtros actuales.</td>
             </tr>
           </tbody>
         </table>
@@ -278,22 +289,21 @@
               <td class="px-6 py-5">{{ row.facturas || '0' }}</td>
               <td class="px-6 py-5">$ {{ (Number(row.subtotal) || 0).toLocaleString('en-US', {
                 minimumFractionDigits: 2
-              }) }}</td>
+                }) }}</td>
               <td class="px-6 py-5">$ {{ (Number(row.iva) || 0).toLocaleString('en-US', { minimumFractionDigits: 2 }) }}
               </td>
               <td class="px-6 py-5">$ {{ (Number(row.retencion) || 0).toLocaleString('en-US', {
                 minimumFractionDigits: 2
-              }) }}</td>
-              <td class="px-6 py-5 font-black text-gray-800">$ {{ (Number(row.total) || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })
-              }}</td>
+                }) }}</td>
+              <td class="px-6 py-5 font-black text-gray-800">$ {{ (Number(row.total) || 0).toLocaleString('en-US', {
+                minimumFractionDigits: 2 }) }}</td>
               <td class="px-6 py-5">{{ row.fecha || (subView === 'ORDENES DE PAGO' ? '0000-00-00' : '2026-07-13') }}
               </td>
               <td class="px-6 py-5">
                 <div class="flex items-center justify-end gap-4">
                   <button v-if="subView === 'ORDENES DE PAGO'"
                     class="bg-green-500 hover:bg-green-600 text-white rounded-lg px-4 py-2 text-sm font-bold uppercase flex items-center shadow-sm transition-colors mr-2">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" stroke-width="3"
-                      viewBox="0 0 24 24">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
                     </svg>AUTORIZAR
                   </button>
@@ -335,7 +345,8 @@
               </td>
             </tr>
             <tr v-if="!isLoading && (subView === 'ORDENES DE PAGO' ? orderData : paidOrders).length === 0">
-              <td colspan="9" class="px-6 py-12 text-center text-gray-400 text-xl font-normal">No hay registros para mostrar.</td>
+              <td colspan="9" class="px-6 py-12 text-center text-gray-400 text-xl font-normal">No hay registros para
+                mostrar.</td>
             </tr>
           </tbody>
         </table>
@@ -349,8 +360,8 @@
               <th class="px-6 py-5">CLIENTE</th>
               <th class="px-6 py-5">OP</th>
               <th class="px-6 py-5">PEDIMENTO</th>
-              <th class="px-6 py-5">PROVEEDOR</th>
-              <th class="px-6 py-5">COSTO</th>
+              <th class="px-6 py-5">PROVEEDOR {{ activeTab !== 'GENERAL' ? activeTab : '' }}</th>
+              <th class="px-6 py-5">COSTO {{ activeTab !== 'GENERAL' ? activeTab : '' }}</th>
               <th class="px-6 py-5">VENTA</th>
               <th class="px-6 py-5">GANANCIA</th>
               <th class="px-6 py-5 text-center">ACCIONES</th>
@@ -358,14 +369,21 @@
           </thead>
           <tbody class="divide-y divide-gray-200 font-semibold bg-white" style="color: #4A5568;">
             <tr v-for="row in tableData" :key="row.id" class="hover:bg-gray-50 transition-colors">
-              <td class="px-6 py-5">{{ row.cliente }}</td>
+              <td class="px-6 py-5">
+                {{ row.cliente }}
+                <div v-if="row.tipo !== 'GENERAL'" class="mt-1">
+                  <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-md font-bold uppercase">{{ row.tipo
+                    }}</span>
+                </div>
+              </td>
               <td class="px-6 py-5 text-blue-500 italic">{{ row.op }}</td>
               <td class="px-6 py-5">{{ row.pedimento || '--' }}</td>
-              <td class="px-6 py-5 uppercase">{{ row.transportista || row.proveedor }}</td>
-              <td class="px-6 py-5 font-bold text-gray-700">$ {{ (Number(row.costo) || 0).toLocaleString('en-US',
-                { minimumFractionDigits: 0 }) }}</td>
-              <td class="px-6 py-5 font-bold text-gray-700">$ {{ (Number(row.venta) || 0).toLocaleString('en-US',
-                { minimumFractionDigits: 0 }) }}</td>
+              <td class="px-6 py-5 uppercase text-sm max-w-[200px] leading-tight">{{ row.transportista || row.proveedor
+                }}</td>
+              <td class="px-6 py-5 font-bold text-gray-700">$ {{ (Number(row.costo) || 0).toLocaleString('en-US', {
+                minimumFractionDigits: 0 }) }}</td>
+              <td class="px-6 py-5 font-bold text-gray-700">$ {{ (Number(row.venta) || 0).toLocaleString('en-US', {
+                minimumFractionDigits: 0 }) }}</td>
               <td class="px-6 py-5 font-bold text-2xl" style="color: #00C09F;">$ {{ (Number(row.ganancia) ||
                 0).toLocaleString('en-US', { minimumFractionDigits: 0 }) }}</td>
               <td class="px-6 py-5 text-center">
@@ -398,7 +416,8 @@
               </td>
             </tr>
             <tr v-if="!isLoading && tableData.length === 0">
-              <td colspan="8" class="px-6 py-12 text-center text-gray-400 text-xl font-normal">No hay cuentas por pagar pendientes.</td>
+              <td colspan="8" class="px-6 py-12 text-center text-gray-400 text-xl font-normal">No hay cuentas por pagar
+                pendientes.</td>
             </tr>
           </tbody>
         </table>
@@ -414,7 +433,6 @@
 </template>
 
 <script>
-// El bloque de SCRIPT permanece exactamente igual, ya que solo estamos haciendo el ajuste visual.
 import axios from 'axios';
 import Swal from 'sweetalert2';
 import ModalEditarOperacion from './ModalEditarOperacion.vue';
@@ -447,7 +465,7 @@ export default {
 
       searchTerm: '',
       opType: 'TODOS',
-      activeTab: 'GENERAL', 
+      activeTab: 'GENERAL',
       activeLocation: 'NOGALES',
       tipoRojo: 'REALES',
       selectedIds: [],

@@ -100,7 +100,7 @@
                     <th style="text-align: center; width: 20%;">FECHA DETECCIÓN</th>
                     <th style="text-align: center; width: 25%;">CLIENTE</th>
                     <th style="text-align: center; width: 15%;">TOTAL</th>
-                    <th style="text-align: left; width: 40%;">CONCEPTO O JUSTIFICACIÓN</th>
+                    <th style="text-align: left; width: 40%;">REFERENCIA</th>
                 </tr>
             </thead>
             <tbody>
