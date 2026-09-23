@@ -898,7 +898,7 @@ class IngresoConciliadoController extends Controller
                                 }
 
                                 if (str_contains($clienteEvaluar, 'COPSAYS') || str_contains($clienteEvaluar, 'ACUMEN') || str_contains($clienteEvaluar, 'MAYOUT')) {
-                                    if ( $this->existeEnTransito($terminosParaTransito)) {
+                                    if ($this->existeEnTransito($terminosParaTransito)) {
                                          // 1. Corregir el error de la API (Mueve el dinero de Impuestos al Anticipo)
                                         if ($impuestosPref > 0) {
                                             $anticipoPref += $impuestosPref;
@@ -1013,8 +1013,8 @@ class IngresoConciliadoController extends Controller
                                 }
 
                                 if ($honorariosXmlBlock > 0) {
-                                    $op_honorariosXML = $honorariosXmlBlock;
-                                    $apiHonorarios += $op_honorariosXML;
+                                    $resultados['honorarios'] += $honorariosXmlBlock;
+                                    $op_honorariosXML += $honorariosXmlBlock;
                                 }
                                 if ($folioXmlBlock) {
                                     $resultados['folio_sc'][] = $folioXmlBlock;
@@ -1735,40 +1735,35 @@ class IngresoConciliadoController extends Controller
             try {
                 $xmlObj = @simplexml_load_string($xmlString);
                 if ($xmlObj !== false) {
-                    $namespaces = $xmlObj->getDocNamespaces(true);
-                    if (isset($namespaces['cfdi'])) {
-                        $xmlObj->registerXPathNamespace('cfdi', $namespaces['cfdi']);
-                    }
-
                     $atributos = $xmlObj->attributes();
 
-                    if (isset($atributos['Total'])) {
-                        $honorarios = (float) $atributos['Total'];
-                    }
-                    if (isset($atributos['Folio'])) {
-                        $folio = (string) $atributos['Folio'];
-                    }
-                    if (isset($atributos['Serie'])) {
-                        $serie = strtoupper((string) $atributos['Serie']);
-                    }
-                    if (isset($atributos['MetodoPago'])) {
-                        $metodoPago = (string) $atributos['MetodoPago'];
+                    foreach ($atributos as $key => $val) {
+                        $keyLower = strtolower($key);
+                        if ($keyLower === 'total') {
+                            $honorarios = (float) $val;
+                        } elseif ($keyLower === 'folio') {
+                            $folio = (string) $val;
+                        } elseif ($keyLower === 'serie') {
+                            $serie = strtoupper((string) $val);
+                        } elseif ($keyLower === 'metodopago') {
+                            $metodoPago = strtoupper((string) $val);
+                        }
                     }
                 }
             } catch (\Throwable $th) {
             }
 
-            if ($honorarios === 0.0 && preg_match('/Comprobante[^>]+Total=["\']([0-9\,\.]+)["\']/i', $xmlString, $matches)) {
+            if ($honorarios === 0.0 && preg_match('/\bTotal=["\']([0-9\,\.]+)["\']/i', $xmlString, $matches)) {
                 $honorarios = (float) str_replace(',', '', $matches[1]);
             }
-            if (empty($folio) && preg_match('/Comprobante[^>]+Folio=["\']([^"\']+)["\']/i', $xmlString, $matches)) {
-                $folio = $matches[1];
+            if (empty($folio) && preg_match('/\bFolio=["\']([^"\']+)["\']/i', $xmlString, $matches)) {
+                $folio = trim($matches[1]);
             }
-            if (empty($serie) && preg_match('/Comprobante[^>]+Serie=["\']([^"\']+)["\']/i', $xmlString, $matches)) {
-                $serie = strtoupper($matches[1]);
+            if (empty($serie) && preg_match('/\bSerie=["\']([^"\']+)["\']/i', $xmlString, $matches)) {
+                $serie = strtoupper(trim($matches[1]));
             }
             if (empty($metodoPago)) {
-                if (preg_match('/MetodoPago=["\'](PUE|PPD)["\']/i', $xmlString, $matches)) {
+                if (preg_match('/\bMetodoPago=["\'](PUE|PPD)["\']/i', $xmlString, $matches)) {
                     $metodoPago = strtoupper(trim($matches[1]));
                 } else {
                     $metodoPago = 'PUE';
@@ -1777,16 +1772,16 @@ class IngresoConciliadoController extends Controller
 
             // Evalúa si el nombre del archivo o el folio interno coinciden
             $nombreArchivo = strtoupper(basename($urlCompleta));
-            $folioLimpioBusqueda = !empty($folioEsperado) ? preg_replace('/[^0-9]/', '', $folioEsperado) : '';
-            $folioLimpioXml = !empty($folio) ? preg_replace('/[^0-9]/', '', $folio) : '';
+            $folioLimpioBusqueda = !empty($folioEsperado) ? ltrim(preg_replace('/[^0-9]/', '', $folioEsperado), '0') : '';
+            $folioLimpioXml = !empty($folio) ? ltrim(preg_replace('/[^0-9]/', '', $folio), '0') : '';
 
-            $esFolioExacto = (!empty($folioLimpioBusqueda) && $folioLimpioXml === $folioLimpioBusqueda);
-
-            // Si no coincide internamente, verificamos si el NOMBRE DEL ARCHIVO (.xml) contiene el folio
-            if (!$esFolioExacto) {
-                if (!empty($folioLimpioBusqueda) && str_contains($nombreArchivo, $folioLimpioBusqueda)) {
+            $esFolioExacto = false;
+            if (!empty($folioLimpioBusqueda)) {
+                if ($folioLimpioXml === $folioLimpioBusqueda || str_contains($nombreArchivo, $folioLimpioBusqueda)) {
                     $esFolioExacto = true;
                 }
+            } else {
+                $esFolioExacto = true;
             }
 
             // Validación estricta de Serie SOLO si el archivo no demostró ser nuestro archivo esperado
