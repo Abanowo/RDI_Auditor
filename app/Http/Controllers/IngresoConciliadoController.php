@@ -1778,16 +1778,13 @@ class IngresoConciliadoController extends Controller
             // Evalúa si el nombre del archivo o el folio interno coinciden
             $nombreArchivo = strtoupper(basename($urlCompleta));
             $folioLimpioBusqueda = !empty($folioEsperado) ? preg_replace('/[^0-9]/', '', $folioEsperado) : '';
-            $pedimentoLimpioBusqueda = !empty($pedimentoEsperado) ? preg_replace('/[^0-9]/', '', $pedimentoEsperado) : '';
             $folioLimpioXml = !empty($folio) ? preg_replace('/[^0-9]/', '', $folio) : '';
 
             $esFolioExacto = (!empty($folioLimpioBusqueda) && $folioLimpioXml === $folioLimpioBusqueda);
 
-            // Si no coincide internamente, verificamos si el NOMBRE DEL ARCHIVO (.xml) contiene el folio o pedimento
+            // Si no coincide internamente, verificamos si el NOMBRE DEL ARCHIVO (.xml) contiene el folio
             if (!$esFolioExacto) {
                 if (!empty($folioLimpioBusqueda) && str_contains($nombreArchivo, $folioLimpioBusqueda)) {
-                    $esFolioExacto = true;
-                } elseif (!empty($pedimentoLimpioBusqueda) && str_contains($nombreArchivo, $pedimentoLimpioBusqueda)) {
                     $esFolioExacto = true;
                 }
             }
