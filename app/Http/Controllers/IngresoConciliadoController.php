@@ -898,7 +898,7 @@ class IngresoConciliadoController extends Controller
                                 }
 
                                 if (str_contains($clienteEvaluar, 'COPSAYS') || str_contains($clienteEvaluar, 'ACUMEN') || str_contains($clienteEvaluar, 'MAYOUT')) {
-                                    if (method_exists($this, 'existeEnTransito') && $this->existeEnTransito($terminosParaTransito)) {
+                                    if ( $this->existeEnTransito($terminosParaTransito)) {
                                          // 1. Corregir el error de la API (Mueve el dinero de Impuestos al Anticipo)
                                         if ($impuestosPref > 0) {
                                             $anticipoPref += $impuestosPref;
@@ -999,8 +999,8 @@ class IngresoConciliadoController extends Controller
 
                                 foreach ($candidatos as $archivo) {
                                     $urlCandidate = $archivo['url']['normal'] ?? null;
-                                    if ($urlCandidate && method_exists($this, 'extraerHonorariosAgenciaXML')) {
-                                        $resXml = $this->extraerHonorariosAgenciaXML($urlCandidate, $folioFacturaZlo, $sucursalBuscada, $pedimentoBusqueda);
+                                    if ($urlCandidate) {
+                                        $resXml = $this->extraerHonorariosAgenciaXML($urlCandidate, $folioFacturaZlo, $sucursalBuscada);
                                         if ($resXml['honorarios'] > 0) {
                                             $honorariosXmlBlock = $resXml['honorarios'];
                                             $folioXmlBlock = $resXml['folio'];
@@ -1067,7 +1067,7 @@ class IngresoConciliadoController extends Controller
                     }
                 }
 
-                if ($quiereNotaCargo && method_exists($this, 'extraerFleteAlman')) {
+                if ($quiereNotaCargo) {
                     $fleteAlman = $this->extraerFleteAlman($terminosParaTransito);
                     if ($fleteAlman > 0) {
                         $resultados['flete'] += $fleteAlman;
@@ -1470,9 +1470,8 @@ class IngresoConciliadoController extends Controller
 
                                 foreach ($candidatos as $archivo) {
                                     $urlCandidate = $archivo['url']['normal'] ?? null;
-                                    if ($urlCandidate && method_exists($this, 'extraerHonorariosAgenciaXML')) {
-                                        // 🎯 PASA EL PEDIMENTO TAMBIÉN PARA VALIDACIÓN DE OTRAS SUCURSALES
-                                        $resXml = $this->extraerHonorariosAgenciaXML($urlCandidate, $folioLimpio, $sucursalBuscada, $pedimentoReal);
+                                    if ($urlCandidate) {
+                                        $resXml = $this->extraerHonorariosAgenciaXML($urlCandidate, $folioLimpio, $sucursalBuscada);
                                         if ($resXml['honorarios'] > 0) {
                                             $honorariosXmlBlock = $resXml['honorarios'];
                                             $folioXmlBlock = $resXml['folio'];
@@ -1694,7 +1693,7 @@ class IngresoConciliadoController extends Controller
         return $montoFlete;
     }
 
-    private function extraerHonorariosAgenciaXML(string $urlCompleta, ?string $folioEsperado = null, ?string $sucursalBuscada = null): array
+    public function extraerHonorariosAgenciaXML(string $urlCompleta, ?string $folioEsperado = null, ?string $sucursalBuscada = null): array
     {
         $debug = [
             'intento_1' => $urlCompleta,
