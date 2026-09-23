@@ -66,7 +66,8 @@ class IngresoConciliadoController extends Controller
             'Santander Dlls ZLO 6205',
             'BBVA Rec Transpo 1903',
             'BBVA Rec Intshipperts 1586',
-            'Santander Rec Transpo 1347'
+            'Santander Rec Transpo 1347',
+            'Santander DLLS Transpo 5154'
         ];
 
         $foliosFactura = IngresoConciliado::whereNotNull('folio_sc')
@@ -571,7 +572,7 @@ class IngresoConciliadoController extends Controller
         $tiposComprobante = $request->input('tipo_comprobante', []);
 
         $sucursalLimpia = trim(str_replace(['TRANSPORTACTICS', 'INTSHIPPERTS', 'IMPO', 'EXPO'], '', $sucursalBuscada));
-        $ciudadBase = trim(explode(' ', $sucursalLimpia)[0]); // Ej: "LAREDO"
+        $ciudadBase = trim(explode(' ', $sucursalLimpia)[0]);
 
         $terminosBuscados = [];
         foreach ($terminosCrudos as $term) {
@@ -613,7 +614,7 @@ class IngresoConciliadoController extends Controller
         $quiereNotaCargo = in_array('Nota Cargo', $tiposComprobante);
         $esManzanillo = str_contains($sucursalBuscada, 'MANZANILLO');
         $isTransportacticsGlobal = str_contains($sucursalBuscada, 'TRANSPORTACTICS');
-        $esExpoSucursal = str_contains($sucursalBuscada, 'EXPO'); // 🎯 Detección de Exportación
+        $esExpoSucursal = str_contains($sucursalBuscada, 'EXPO');
 
         if ($esManzanillo) {
             $spreadsheetId = app()->environment('production') ? '18-5okzV-vw35V0Ugjn5KjNcWgHyZ9Qfc6pf5w4VU-2I' : '1zHUYpViLZyu_KPkNCUEx37WjoK0lVt7F0bC1B9Jo8s0';
@@ -966,35 +967,57 @@ class IngresoConciliadoController extends Controller
                             }
 
                             if (!empty($archivos)) {
-                                $urlXmlReal = null;
+                                $candidatosAlta = [];
+                                $candidatosBaja = [];
+
                                 foreach ($archivos as $archivo) {
                                     $ext = strtolower(pathinfo($archivo['name'] ?? '', PATHINFO_EXTENSION));
-                                    $tipoPivot = strtolower($archivo['pivot']['type'] ?? '');
-                                    $nombreMayus = strtoupper($archivo['name'] ?? '');
+                                    if ($ext === 'xml') {
+                                        $nombreMayus = strtoupper($archivo['name'] ?? '');
+                                        $tipoPivot = strtolower($archivo['pivot']['type'] ?? '');
+                                        
+                                        $esTipoSC = in_array($tipoPivot, ['sc', 'honorarios-sc', 'exportacion-sc', 'sc-expo', 'fac-expo', 'factura-sc']);
+                                        $esNombreSC = (!empty($folioFacturaZlo) && str_contains($nombreMayus, $folioFacturaZlo)) || (!empty($pedimentoBusqueda) && str_contains($nombreMayus, $pedimentoBusqueda));
 
-                                    $esTipoSC = in_array($tipoPivot, ['sc', 'honorarios-sc', 'exportacion-sc', 'sc-expo', 'fac-expo', 'factura-sc']);
-                                    $esNombreSC = !empty($folioFacturaZlo)
-                                        ? (str_contains($nombreMayus, 'ZLO' . $folioFacturaZlo) || str_contains($nombreMayus, $folioFacturaZlo))
-                                        : (str_contains($nombreMayus, $pedimentoBusqueda) || (str_contains($nombreMayus, 'ZLO') && !str_contains($nombreMayus, 'PEDIMENTO')));
-
-                                    if ($ext === 'xml' && ($esTipoSC || $esNombreSC)) {
-                                        $urlXmlReal = $archivo['url']['normal'] ?? null;
-                                        break;
+                                        if ($esNombreSC) {
+                                            $candidatosAlta[] = $archivo;
+                                        } elseif ($esTipoSC) {
+                                            $candidatosBaja[] = $archivo;
+                                        }
                                     }
                                 }
 
-                                if ($urlXmlReal && method_exists($this, 'extraerHonorariosAgenciaXML')) {
-                                    $resultadoXML = $this->extraerHonorariosAgenciaXML($urlXmlReal, $folioFacturaZlo, $sucursalBuscada);
-                                    if ($resultadoXML['honorarios'] > 0) {
-                                        $op_honorariosXML = $resultadoXML['honorarios'];
-                                        $apiHonorarios += $op_honorariosXML;
+                                $candidatos = array_merge($candidatosAlta, $candidatosBaja);
+                                if (empty($candidatos)) {
+                                    $candidatos = array_filter($archivos, function($a) {
+                                        return strtolower(pathinfo($a['name'] ?? '', PATHINFO_EXTENSION)) === 'xml';
+                                    });
+                                }
+
+                                $honorariosXmlBlock = 0;
+                                $folioXmlBlock = null;
+
+                                foreach ($candidatos as $archivo) {
+                                    $urlCandidate = $archivo['url']['normal'] ?? null;
+                                    if ($urlCandidate && method_exists($this, 'extraerHonorariosAgenciaXML')) {
+                                        $resXml = $this->extraerHonorariosAgenciaXML($urlCandidate, $folioFacturaZlo, $sucursalBuscada, $pedimentoBusqueda);
+                                        if ($resXml['honorarios'] > 0) {
+                                            $honorariosXmlBlock = $resXml['honorarios'];
+                                            $folioXmlBlock = $resXml['folio'];
+                                            if (!empty($resXml['metodo_pago']) && strtoupper($resXml['metodo_pago']) === 'PPD') {
+                                                $resultados['metodo_pago'] = 'PPD';
+                                            }
+                                            break; 
+                                        }
                                     }
-                                    if (!empty($resultadoXML['folio'])) {
-                                        $resultados['folio_sc'][] = $resultadoXML['folio'];
-                                    }
-                                    if (!empty($resultadoXML['metodo_pago']) && strtoupper($resultadoXML['metodo_pago']) === 'PPD') {
-                                        $resultados['metodo_pago'] = 'PPD';
-                                    }
+                                }
+
+                                if ($honorariosXmlBlock > 0) {
+                                    $op_honorariosXML = $honorariosXmlBlock;
+                                    $apiHonorarios += $op_honorariosXML;
+                                }
+                                if ($folioXmlBlock) {
+                                    $resultados['folio_sc'][] = $folioXmlBlock;
                                 }
                             }
                         }
@@ -1059,14 +1082,18 @@ class IngresoConciliadoController extends Controller
                     $resultados['flete'] = 0;
                 }
 
-                $resultados['operaciones'] = collect($resultados['operaciones'])->unique('id')->values()->all();
+                $resultados['operaciones'] = collect($resultados['operaciones'])->unique('folio')->values()->all();
                 $resultados['folio_sc'] = implode(', ', array_unique((array) $resultados['folio_sc']));
                 $resultados['pedimento_detectado'] = implode(', ', array_unique((array) $resultados['pedimento_detectado']));
 
                 $llavesNumericas = ['honorarios', 'impuestos', 'eci', 'maniobras', 'flete', 'muestras', 'llc', 'anticipo', 'garantias', 'desglose_naviera'];
                 foreach ($llavesNumericas as $key) {
                     if (isset($resultados[$key])) {
-                        $resultados[$key] = round($resultados[$key], 2);
+                        if ($key === 'flete' && $resultados[$key] == 0) {
+                            $resultados[$key] = 0.00;
+                        } else {
+                            $resultados[$key] = round($resultados[$key], 2);
+                        }
                     }
                 }
 
@@ -1228,7 +1255,6 @@ class IngresoConciliadoController extends Controller
                         ->orderBy('operaciones_exportacion.id_exportacion', 'desc')
                         ->get();
 
-                    // 🎯 PRIORIZACIÓN DINÁMICA SEGÚN SI LA SUCURSAL ES DE EXPORTACIÓN O IMPORTACIÓN
                     if ($esExpoSucursal) {
                         // 1. Prioridad en Exportación para sucursales EXPO
                         foreach ($exposCandidatas as $cand) {
@@ -1412,35 +1438,58 @@ class IngresoConciliadoController extends Controller
                             }
 
                             if (!empty($archivos)) {
-                                $urlXmlReal = null;
+                                $candidatosAlta = [];
+                                $candidatosBaja = [];
 
                                 foreach ($archivos as $archivo) {
                                     $ext = strtolower(pathinfo($archivo['name'] ?? '', PATHINFO_EXTENSION));
-                                    $tipoPivot = strtolower($archivo['pivot']['type'] ?? '');
-                                    $nombreMayus = strtoupper($archivo['name'] ?? '');
+                                    if ($ext === 'xml') {
+                                        $nombreMayus = strtoupper($archivo['name'] ?? '');
+                                        $tipoPivot = strtolower($archivo['pivot']['type'] ?? '');
 
-                                    // 🎯 INCLUSIÓN DE PIVOTS Y NOMBRES DE EXPORTACIÓN
-                                    $esTipoSC = in_array($tipoPivot, ['sc', 'honorarios-sc', 'exportacion-sc', 'sc-expo', 'fac-expo', 'factura-sc']);
-                                    $esNombreSC = (!empty($folioLimpio) && str_contains($nombreMayus, $folioLimpio)) || str_contains($nombreMayus, $pedimentoReal);
+                                        $esTipoSC = in_array($tipoPivot, ['sc', 'honorarios-sc', 'exportacion-sc', 'sc-expo', 'fac-expo', 'factura-sc']);
+                                        $esNombreSC = (!empty($folioLimpio) && str_contains($nombreMayus, $folioLimpio)) || (!empty($pedimentoReal) && str_contains($nombreMayus, $pedimentoReal));
 
-                                    if ($ext === 'xml' && ($esTipoSC || $esNombreSC)) {
-                                        $urlXmlReal = $archivo['url']['normal'] ?? null;
-                                        break;
+                                        if ($esNombreSC) {
+                                            $candidatosAlta[] = $archivo;
+                                        } elseif ($esTipoSC) {
+                                            $candidatosBaja[] = $archivo;
+                                        }
                                     }
                                 }
 
-                                if ($urlXmlReal && method_exists($this, 'extraerHonorariosAgenciaXML')) {
-                                    $resultadoXML = $this->extraerHonorariosAgenciaXML($urlXmlReal, $folioLimpio, $sucursalBuscada);
-                                    if ($resultadoXML['honorarios'] > 0) {
-                                        $resultados['honorarios'] += $resultadoXML['honorarios'];
-                                        $op_honorarios += $resultadoXML['honorarios'];
+                                $candidatos = array_merge($candidatosAlta, $candidatosBaja);
+                                if (empty($candidatos)) {
+                                    $candidatos = array_filter($archivos, function($a) {
+                                        return strtolower(pathinfo($a['name'] ?? '', PATHINFO_EXTENSION)) === 'xml';
+                                    });
+                                }
+
+                                $honorariosXmlBlock = 0;
+                                $folioXmlBlock = null;
+
+                                foreach ($candidatos as $archivo) {
+                                    $urlCandidate = $archivo['url']['normal'] ?? null;
+                                    if ($urlCandidate && method_exists($this, 'extraerHonorariosAgenciaXML')) {
+                                        // 🎯 PASA EL PEDIMENTO TAMBIÉN PARA VALIDACIÓN DE OTRAS SUCURSALES
+                                        $resXml = $this->extraerHonorariosAgenciaXML($urlCandidate, $folioLimpio, $sucursalBuscada, $pedimentoReal);
+                                        if ($resXml['honorarios'] > 0) {
+                                            $honorariosXmlBlock = $resXml['honorarios'];
+                                            $folioXmlBlock = $resXml['folio'];
+                                            if (!empty($resXml['metodo_pago']) && strtoupper($resXml['metodo_pago']) === 'PPD') {
+                                                $resultados['metodo_pago'] = 'PPD';
+                                            }
+                                            break;
+                                        }
                                     }
-                                    if (!empty($resultadoXML['folio'])) {
-                                        $resultados['folio_sc'][] = $resultadoXML['folio'];
-                                    }
-                                    if (!empty($resultadoXML['metodo_pago']) && strtoupper($resultadoXML['metodo_pago']) === 'PPD') {
-                                        $resultados['metodo_pago'] = 'PPD';
-                                    }
+                                }
+
+                                if ($honorariosXmlBlock > 0) {
+                                    $resultados['honorarios'] += $honorariosXmlBlock;
+                                    $op_honorarios += $honorariosXmlBlock;
+                                }
+                                if ($folioXmlBlock) {
+                                    $resultados['folio_sc'][] = $folioXmlBlock;
                                 }
                             }
                         }
@@ -1468,7 +1517,8 @@ class IngresoConciliadoController extends Controller
 
             $resultados['pedimento_detectado'] = implode(', ', array_unique((array) $resultados['pedimento_detectado']));
             $resultados['folio_sc'] = implode(', ', array_unique((array) $resultados['folio_sc']));
-            $resultados['operaciones'] = collect($resultados['operaciones'])->unique('id')->values()->all();
+
+            $resultados['operaciones'] = collect($resultados['operaciones'])->unique('folio')->values()->all();
 
             $montoGarantias = floatval($resultados['garantias'] ?? 0);
             $montoNaviera = floatval($resultados['desglose_naviera'] ?? 0);
@@ -1709,31 +1759,42 @@ class IngresoConciliadoController extends Controller
             } catch (\Throwable $th) {
             }
 
-            if ($honorarios === 0.0) {
-                if (preg_match('/Comprobante[^>]+Total=["\']([0-9\,\.]+)["\']/i', $xmlString, $matchesTotal)) {
-                    $honorarios = (float) str_replace(',', '', $matchesTotal[1]);
-                }
+            if ($honorarios === 0.0 && preg_match('/Comprobante[^>]+Total=["\']([0-9\,\.]+)["\']/i', $xmlString, $matches)) {
+                $honorarios = (float) str_replace(',', '', $matches[1]);
             }
-            if (empty($folio)) {
-                if (preg_match('/Comprobante[^>]+Folio=["\']([^"\']+)["\']/i', $xmlString, $matchesFolio)) {
-                    $folio = $matchesFolio[1];
-                }
+            if (empty($folio) && preg_match('/Comprobante[^>]+Folio=["\']([^"\']+)["\']/i', $xmlString, $matches)) {
+                $folio = $matches[1];
             }
-            if (empty($serie)) {
-                if (preg_match('/Comprobante[^>]+Serie=["\']([^"\']+)["\']/i', $xmlString, $matchesSerie)) {
-                    $serie = strtoupper($matchesSerie[1]);
-                }
+            if (empty($serie) && preg_match('/Comprobante[^>]+Serie=["\']([^"\']+)["\']/i', $xmlString, $matches)) {
+                $serie = strtoupper($matches[1]);
             }
             if (empty($metodoPago)) {
-                if (preg_match('/MetodoPago=["\'](PUE|PPD)["\']/i', $xmlString, $matchesMetodo)) {
-                    $metodoPago = strtoupper(trim($matchesMetodo[1]));
+                if (preg_match('/MetodoPago=["\'](PUE|PPD)["\']/i', $xmlString, $matches)) {
+                    $metodoPago = strtoupper(trim($matches[1]));
                 } else {
                     $metodoPago = 'PUE';
                 }
             }
 
-            // 🎯 PREFIJOS AMPLIADOS PARA INCLUIR SERIES DE EXPORTACIÓN (NGE, NOGE, NLE, TJX, MXLE, etc.)
-            if (!empty($sucursalBuscada)) {
+            // Evalúa si el nombre del archivo o el folio interno coinciden
+            $nombreArchivo = strtoupper(basename($urlCompleta));
+            $folioLimpioBusqueda = !empty($folioEsperado) ? preg_replace('/[^0-9]/', '', $folioEsperado) : '';
+            $pedimentoLimpioBusqueda = !empty($pedimentoEsperado) ? preg_replace('/[^0-9]/', '', $pedimentoEsperado) : '';
+            $folioLimpioXml = !empty($folio) ? preg_replace('/[^0-9]/', '', $folio) : '';
+
+            $esFolioExacto = (!empty($folioLimpioBusqueda) && $folioLimpioXml === $folioLimpioBusqueda);
+
+            // Si no coincide internamente, verificamos si el NOMBRE DEL ARCHIVO (.xml) contiene el folio o pedimento
+            if (!$esFolioExacto) {
+                if (!empty($folioLimpioBusqueda) && str_contains($nombreArchivo, $folioLimpioBusqueda)) {
+                    $esFolioExacto = true;
+                } elseif (!empty($pedimentoLimpioBusqueda) && str_contains($nombreArchivo, $pedimentoLimpioBusqueda)) {
+                    $esFolioExacto = true;
+                }
+            }
+
+            // Validación estricta de Serie SOLO si el archivo no demostró ser nuestro archivo esperado
+            if (!$esFolioExacto && !empty($sucursalBuscada)) {
                 $prefijosSucursal = [
                     'LAREDO'   => ['NL', 'LAR', 'NLE', 'LARE', 'LDE', 'NLDEX'],
                     'NOGALES'  => ['NOG', 'NGE', 'NOGE', 'NEX'],
@@ -1760,21 +1821,6 @@ class IngresoConciliadoController extends Controller
                     }
                 }
             }
-
-            if (!empty($folioEsperado) && !empty($folio)) {
-                $folioLimpioBusqueda = preg_replace('/[^0-9]/', '', $folioEsperado);
-                $folioLimpioXml = preg_replace('/[^0-9]/', '', $folio);
-
-                if (!empty($folioLimpioBusqueda) && $folioLimpioXml !== $folioLimpioBusqueda && !str_contains($folioLimpioXml, $folioLimpioBusqueda)) {
-                    $debug['error_folio'] = "XML descartado: Folio XML '{$folioLimpioXml}' no coincide con el buscado '{$folioLimpioBusqueda}'";
-                    return ['honorarios' => 0.0, 'folio' => null, 'metodo_pago' => 'PUE', 'debug' => $debug];
-                }
-            }
-
-            $debug['honorarios_extraidos'] = $honorarios;
-            $debug['folio_extraido'] = $folio;
-            $debug['serie_extraida'] = $serie;
-            $debug['metodo_pago_extraido'] = $metodoPago;
 
             return [
                 'honorarios'  => $honorarios,

@@ -323,13 +323,10 @@ export default {
         },
 
         totalHonorarios() {
-            // Como usamos observadores para llenar form.honorarios automáticamente, 
-            // esta computada solo suma lo que haya visualmente.
-            return (parseFloat(this.form.honorarios) || 0) + (parseFloat(this.form.maniobras) || 0);
+            return parseFloat(this.form.honorarios) || 0;
         },
 
         totalGPC() {
-            // 🎯 Para Transportactics e Intshipperts SIEMPRE es $0.00
             if (this.esTransportactics || this.esIntshipperts) {
                 return 0;
             }
@@ -340,9 +337,12 @@ export default {
                     (parseFloat(this.form.garantias) || 0) +
                     (parseFloat(this.form.desglose_naviera) || 0);
             }
-            return (parseFloat(this.form.impuestos) || 0) + (parseFloat(this.form.eci) || 0) +
-                (parseFloat(this.form.maniobras) || 0) + (parseFloat(this.form.flete) || 0) +
-                (parseFloat(this.form.muestras) || 0) + (parseFloat(this.form.llc) || 0);
+            return (parseFloat(this.form.impuestos) || 0) +
+                (parseFloat(this.form.eci) || 0) +
+                (parseFloat(this.form.maniobras) || 0) +
+                (parseFloat(this.form.flete) || 0) +
+                (parseFloat(this.form.muestras) || 0) +
+                (parseFloat(this.form.llc) || 0);
         },
 
         sumaTotal() {
@@ -633,9 +633,7 @@ export default {
 
             // Lógica de extracción inteligente para la Base de Datos
             let pedimentosLimpios = this.form.referenciasObj.map(ref => {
-                if (!ref) {
-                    return '';
-                }
+                if (!ref) return '';
 
                 let texto = '';
                 if (typeof ref === 'string') {
@@ -645,17 +643,14 @@ export default {
                 }
 
                 texto = String(texto).trim().toUpperCase();
-                if (!texto || texto === 'UNDEFINED') {
-                    return '';
-                }
+                if (!texto || texto === 'UNDEFINED') return '';
 
-                // Búsqueda inteligente de Pedimentos de 7 dígitos (ej: 6000464)
+                // Búsqueda inteligente de Pedimentos de 7 dígitos
                 const matchPedimento = texto.match(/(?:\d{4}\s*-\s*)?(\d{7})/);
                 if (matchPedimento) {
-                    return matchPedimento[1]; // Retorna solo el pedimento de 7 dígitos
+                    return matchPedimento[1];
                 }
 
-                // Si no es un pedimento, limpiamos los guiones
                 let partes = texto.split(' - ');
                 if (partes.length >= 3) {
                     texto = partes[1].trim();
@@ -688,7 +683,6 @@ export default {
 
                 this.$set(this.form, 'metodo_pago', datos.metodo_pago || 'PUE');
 
-                // 🎯 PROTECCIÓN PARA NO BORRAR DATOS MANUALES (Fija el problema de la Imagen 2)
                 if (this.esTransportactics) {
                     const serverFlete = Number(datos.flete || datos.honorarios || 0);
                     if (serverFlete > 0) this.$set(this.form, 'flete', serverFlete);
@@ -703,7 +697,16 @@ export default {
                     
                     this.$set(this.form, 'honorarios', (Number(this.form.flete) || 0) + (Number(this.form.anticipo) || 0));
                 } else {
-                    if (datos.honorarios !== undefined) this.$set(this.form, 'honorarios', Number(datos.honorarios));
+                    let honorariosSum = Number(datos.honorarios || 0);
+                    
+                    if (datos.operaciones && datos.operaciones.length > 0) {
+                        const sumCfdiOps = datos.operaciones.reduce((acc, op) => acc + (Number(op.monto_cfdi) || 0), 0);
+                        if (sumCfdiOps > honorariosSum) {
+                            honorariosSum = sumCfdiOps;
+                        }
+                    }
+
+                    this.$set(this.form, 'honorarios', honorariosSum);
                     if (datos.flete !== undefined) this.$set(this.form, 'flete', Number(datos.flete));
                     if (datos.anticipo !== undefined) this.$set(this.form, 'anticipo', Number(datos.anticipo));
                 }
@@ -792,13 +795,13 @@ export default {
             const payload = { ...this.form };
 
             const tieneDesglose = Number(this.form.flete || 0) > 0 ||
-                                  Number(this.form.honorarios || 0) > 0 ||
-                                  Number(this.form.impuestos || 0) > 0 ||
-                                  Number(this.form.maniobras || 0) > 0 ||
-                                  Number(this.form.eci || 0) > 0 ||
-                                  Number(this.form.llc || 0) > 0 ||
-                                  Number(this.form.muestras || 0) > 0 ||
-                                  Number(this.form.anticipo || 0) > 0;
+                Number(this.form.honorarios || 0) > 0 ||
+                Number(this.form.impuestos || 0) > 0 ||
+                Number(this.form.maniobras || 0) > 0 ||
+                Number(this.form.eci || 0) > 0 ||
+                Number(this.form.llc || 0) > 0 ||
+                Number(this.form.muestras || 0) > 0 ||
+                Number(this.form.anticipo || 0) > 0;
 
             if (!tieneDesglose && Number(this.form.monto_deposito || 0) > 0) {
                 if (this.esTransportactics) {
@@ -831,7 +834,7 @@ export default {
 
             // Validamos GPC y variables default
             payload.sucursal_origen = this.sucursalReal;
-            payload.total_gpc = this.totalGPC; 
+            payload.total_gpc = this.totalGPC;
             payload.anticipo = Number(payload.anticipo || this.form.anticipo || 0);
 
             delete payload.cliente;
@@ -877,7 +880,7 @@ export default {
 
                 const opsBuscadas = Array.isArray(this.form.operaciones) ? this.form.operaciones : [];
                 const pedimentosSheet = Array.isArray(this.pedimentosSheet) ? this.pedimentosSheet : [];
-                
+
                 const totalOps = this.form.referenciasObj.length;
 
                 payload.operaciones = this.form.referenciasObj.map(ref => {

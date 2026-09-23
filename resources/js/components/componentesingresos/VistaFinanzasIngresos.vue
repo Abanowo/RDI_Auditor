@@ -367,7 +367,7 @@
                 <th class="px-4 py-4 w-[160px]">SUCURSAL ORIGEN</th>
                 <th class="px-4 py-4 w-[140px] text-center">MONTO A FAVOR</th>
                 <th class="px-4 py-4 w-[140px] text-center">FECHA DETECCIÓN</th>
-                <th class="px-4 py-4">CONCEPTO O JUSTIFICACIÓN</th>
+                <th class="px-4 py-4">REFERENCIA</th>
                 <th class="px-4 py-4 w-[120px] text-center">ESTATUS</th>
                 <th class="px-4 py-4 w-[250px] text-right">ACCIÓN</th>
               </tr>
@@ -444,7 +444,7 @@
                 <th class="px-4 py-4 w-[160px]">SUCURSAL ORIGEN</th>
                 <th class="px-4 py-4 w-[140px] text-center">MONTO PENDIENTE</th>
                 <th class="px-4 py-4 w-[140px] text-center">FECHA DETECCIÓN</th>
-                <th class="px-4 py-4">CONCEPTO O JUSTIFICACIÓN</th>
+                <th class="px-4 py-4">REFERENCIA</th>
                 <th class="px-4 py-4 w-[120px] text-center">ESTATUS</th>
                 <th class="px-4 py-4 w-[250px] text-right">ACCIÓN</th>
               </tr>
@@ -525,7 +525,7 @@
               <th class="px-4 py-4 w-[160px]">SUCURSAL ORIGEN</th>
               <th class="px-4 py-4 w-[140px] text-center">MONTO DE CRÉDITO</th>
               <th class="px-4 py-4 w-[140px] text-center">FECHA DE DETECCIÓN</th>
-              <th class="px-4 py-4">CONCEPTO O JUSTIFICACIÓN</th>
+              <th class="px-4 py-4">REFERENCIA</th>
               <th class="px-4 py-4 w-[120px] text-center">ESTATUS</th>
               <th class="px-4 py-4 w-[180px] text-right">ACCIÓN</th>
             </tr>
