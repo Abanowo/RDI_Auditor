@@ -841,43 +841,33 @@ export default {
             delete payload._original;
             delete payload.cp;
 
-            // 2. EXTRACCIÓN BLINDADA DE LA COLUMNA 'referencia'
-            payload.referencia = this.form.referenciasObj.map(r => {
-                if (typeof r === 'object' && r !== null) {
-                    return r.folio || r.label || r.referencia || r.pedimento || '';
-                }
-                return String(r);
-            }).filter(Boolean).join(', ');
+            // Extrae únicamente el primer segmento (Folio) eliminando la nomenclatura completa
+            const extraerFolioLimpio = (val) => {
+                if (!val) return '';
+                let texto = typeof val === 'object' ? (val.folio || val.label || val.referencia || val.pedimento || '') : String(val);
+                texto = texto.trim();
 
-            if (payload.pedimento_detectado && !this.esManzanillo) {
-                payload.referencia = payload.pedimento_detectado;
-            }
+                // Si viene en formato "FOLIO - PEDIMENTO - CLIENTE", toma solo el FOLIO
+                if (texto.includes(' - ')) {
+                    texto = texto.split(' - ')[0].trim();
+                }
+
+                // Si viene con diagonal "FOLIO/PEDIMENTO"
+                if (texto.includes('/')) {
+                    texto = texto.split('/')[0].trim();
+                }
+
+                return texto.replace(/^F-\s*/i, '').replace(/^TR:\s*/i, '');
+            };
+
+            // 2. EXTRACCIÓN LIMPIA DE LA COLUMNA 'referencia'
+            payload.referencia = this.form.referenciasObj.map(r => extraerFolioLimpio(r)).filter(Boolean).join(', ');
+
+            payload.folio_sc = payload.referencia;
+            payload.pedimento_detectado = payload.referencia;
 
             // 3. CONSTRUCCIÓN DE 'OPERACIONES' PARA LA TABLA PIVOTE (ingreso_operacion)
             if (this.form.referenciasObj && Array.isArray(this.form.referenciasObj) && this.form.referenciasObj.length > 0) {
-                const obtenerFolioLimpio = (val) => {
-                    if (!val) {
-                        return '';
-                    }
-                    let str = String(val).trim().toUpperCase();
-
-                    const matchPedimento = str.match(/(?:\d{4}\s*-\s*)?(\d{7})/);
-                    if (matchPedimento) {
-                        return matchPedimento[1];
-                    }
-
-                    str = str.replace('F-', '');
-                    let partes = str.split(' - ');
-                    if (partes.length >= 3) {
-                        str = partes[1].trim();
-                    } else if (partes.length === 2) {
-                        str = partes[0].trim();
-                    }
-                    if (str.includes('/')) str = str.split('/')[0].trim();
-
-                    return str;
-                };
-
                 const opsBuscadas = Array.isArray(this.form.operaciones) ? this.form.operaciones : [];
                 const pedimentosSheet = Array.isArray(this.pedimentosSheet) ? this.pedimentosSheet : [];
 
@@ -888,14 +878,14 @@ export default {
                         ? (ref.folio || ref.label || ref.referencia || ref.pedimento || '')
                         : String(ref);
 
-                    const folioLimpio = obtenerFolioLimpio(textoOriginal);
+                    const folioLimpio = extraerFolioLimpio(textoOriginal);
                     const textoUpper = String(textoOriginal).toUpperCase().trim();
 
                     const esCoincidencia = (o) => {
                         if (!o) {
                             return false;
                         }
-                        const oFolioLimpio = obtenerFolioLimpio(o.folio || o.referencia || o.pedimento || o.id);
+                        const oFolioLimpio = extraerFolioLimpio(o.folio || o.referencia || o.pedimento || o.id);
                         const oFolioRaw = String(o.folio || o.referencia || o.label || '').toUpperCase().trim();
 
                         return (folioLimpio && oFolioLimpio && (folioLimpio === oFolioLimpio || oFolioLimpio.includes(folioLimpio) || folioLimpio.includes(oFolioLimpio))) ||
@@ -940,8 +930,8 @@ export default {
                     return {
                         id: (opId && !isNaN(opId)) ? Number(opId) : null,
                         type: pivoteType,
-                        folio: textoOriginal,
-                        referencia: textoOriginal,
+                        folio: folioLimpio,
+                        referencia: folioLimpio,
                         monto_cfdi: montoCfdi,
                         monto_gpc: montoGpc,
                         honorarios: op.honorarios ?? (totalOps === 1 ? Number(this.form.honorarios || 0) : 0),
