@@ -861,7 +861,9 @@ export default {
             };
 
             // 2. EXTRACCIÓN LIMPIA DE LA COLUMNA 'referencia'
-            payload.referencia = this.form.referenciasObj.map(r => extraerFolioLimpio(r)).filter(Boolean).join(', ');
+            payload.referencia = this.form.referenciasObj.map(r => {
+                return typeof r === 'object' ? (r.label || r.folio || r.referencia || r.pedimento || '') : String(r);
+            }).filter(Boolean).join(', ');
 
             payload.folio_sc = payload.referencia;
             payload.pedimento_detectado = payload.referencia;
@@ -930,8 +932,8 @@ export default {
                     return {
                         id: (opId && !isNaN(opId)) ? Number(opId) : null,
                         type: pivoteType,
-                        folio: folioLimpio,
-                        referencia: folioLimpio,
+                        folio: textoOriginal,
+                        referencia: textoOriginal,
                         monto_cfdi: montoCfdi,
                         monto_gpc: montoGpc,
                         honorarios: op.honorarios ?? (totalOps === 1 ? Number(this.form.honorarios || 0) : 0),
@@ -944,7 +946,16 @@ export default {
                         anticipo: op.anticipo ?? (totalOps === 1 ? Number(this.form.anticipo || 0) : 0),
                         garantias: op.garantias ?? (totalOps === 1 ? Number(this.form.garantias || 0) : 0),
                         desglose_naviera: op.desglose_naviera ?? (totalOps === 1 ? Number(this.form.desglose_naviera || 0) : 0),
-                        pago_proveedor: op.pago_proveedor ?? (totalOps === 1 ? Number(this.form.pago_proveedor || 0) : 0)
+                        pago_proveedor: op.pago_proveedor ?? (totalOps === 1 ? Number(this.form.pago_proveedor || 0) : 0),
+                        ganancia: op.ganancia ?? (totalOps === 1 ? Number(this.form.ganancia || 0) : 0),
+                        proveedor_maniobras: op.proveedor_maniobras ?? null,
+                        factura_maniobras: op.factura_maniobras ?? null,
+                        proveedor_flete: op.proveedor_flete ?? null,
+                        factura_flete: op.factura_flete ?? null,
+                        proveedor_muestras: op.proveedor_muestras ?? null,
+                        factura_muestras: op.factura_muestras ?? null,
+                        proveedor_llc: op.proveedor_llc ?? null,
+                        factura_llc: op.factura_llc ?? null
                     };
                 });
             } else {

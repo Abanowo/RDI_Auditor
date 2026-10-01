@@ -904,7 +904,6 @@ export default {
           let montoCfdi = Number(op.monto_cfdi ?? op.flete ?? op.monto_flete ?? 0);
           let montoGpc = Number(op.monto_gpc ?? op.total_gpc ?? op.gpc ?? 0);
 
-          // Reajuste para evitar registro de GPC en tabla pivote para estas entidades
           if (this.esTransportactics) {
             montoCfdi = Number(payload.flete || 0);
             montoGpc = 0;
@@ -913,7 +912,6 @@ export default {
             montoGpc = 0;
           }
 
-          // Determinar el modelo dinámico
           let pivoteType = opType;
           if (pivoteType === 'GENERICO') {
             if (this.esTransportactics) {
@@ -929,7 +927,31 @@ export default {
             folio: textoOriginal,
             referencia: textoOriginal,
             monto_cfdi: montoCfdi,
-            monto_gpc: montoGpc
+            monto_gpc: montoGpc,
+            
+            // Conceptos Desglosados
+            honorarios: op.honorarios,
+            impuestos: op.impuestos,
+            eci: op.eci,
+            maniobras: op.maniobras,
+            flete: op.flete,
+            muestras: op.muestras,
+            llc: op.llc,
+            anticipo: op.anticipo,
+            garantias: op.garantias,
+            desglose_naviera: op.desglose_naviera,
+            pago_proveedor: op.pago_proveedor,
+            ganancia: op.ganancia,
+
+            // Proveedores y Facturas
+            proveedor_maniobras: op.proveedor_maniobras,
+            factura_maniobras: op.factura_maniobras,
+            proveedor_flete: op.proveedor_flete,
+            factura_flete: op.factura_flete,
+            proveedor_muestras: op.proveedor_muestras,
+            factura_muestras: op.factura_muestras,
+            proveedor_llc: op.proveedor_llc,
+            factura_llc: op.factura_llc
           };
         });
       } else {

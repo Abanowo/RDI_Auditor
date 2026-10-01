@@ -119,7 +119,7 @@
         style="border-left-color: #F54927;">
         <div>
           <p class="text-base font-bold text-gray-400 uppercase tracking-wider mb-3">Saldos en Contra del Cliente</p>
-          <p class="text-4xl font-black text-gray-800 mb-2">{{ formatearDinero(totalSaldosEnContra) }}</p> 
+          <p class="text-4xl font-black text-gray-800 mb-2">{{ formatearDinero(totalSaldosEnContra) }}</p>
         </div>
         <div class="w-16 h-16 rounded-xl bg-red-100 text-red-400 flex items-center justify-center shrink-0">
           <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -174,7 +174,7 @@
       </div>
 
       <!-- BARRA DE FILTROS INTERNOS DE INGRESOS -->
-      <div class="bg-gray-100 border border-gray-200 rounded-xl p-5 mb-6 mx-8 mt-8 flex flex-col gap-5 shadow-sm">
+      <div class="bg-gray-100 border border-gray-200 rounded-xl p-6 mb-6 mx-8 mt-8 flex flex-col gap-6 shadow-sm">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2 text-gray-700">
             <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -193,45 +193,65 @@
           </button>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4 pt-1">
-          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap">Cliente:</label>
-            <multiselect v-model="filtros.cliente" :options="opcionesFiltroCliente" placeholder="Todos" 
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-x-6 gap-y-5">
+
+          <!-- FILA 1: QUIÉN Y QUÉ -->
+          <div class="flex flex-col min-w-0">
+            <label class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-2">Cliente</label>
+            <multiselect v-model="filtros.cliente" :options="opcionesFiltroCliente" placeholder="Todos"
               :searchable="true" :show-labels="false" @input="aplicarFiltrosYBuscar" class="custom-filter-multiselect"></multiselect>
           </div>
-          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap">Servicio:</label>
+
+          <div class="flex flex-col min-w-0">
+            <label class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-2">Banco</label>
+            <multiselect v-model="filtros.banco" :options="opcionesFiltroBanco" placeholder="Todos"
+              :searchable="true" :show-labels="false" @input="aplicarFiltrosYBuscar" class="custom-filter-multiselect"></multiselect>
+          </div>
+
+          <div class="flex flex-col min-w-0">
+            <label class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-2">Servicio</label>
             <multiselect v-model="filtros.tipoServicio" :options="opcionesTipoServicio" placeholder="Todos"
               :searchable="true" :show-labels="false" @input="aplicarFiltrosYBuscar" class="custom-filter-multiselect"></multiselect>
           </div>
-          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap">Tipo
-              Operación:</label>
+
+          <div class="flex flex-col min-w-0">
+            <label class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-2">Tipo Operación</label>
             <multiselect v-model="filtros.tipoOperacion" :options="opcionesTipoOperacion" track-by="id" label="label"
               placeholder="Ambos" :searchable="false" :show-labels="false" @input="aplicarFiltrosYBuscar" class="custom-filter-multiselect"></multiselect>
           </div>
-          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap">Tipo
-              Comprobante:</label>
+
+          <div class="flex flex-col min-w-0">
+            <label class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-2">Tipo Comprobante</label>
             <multiselect v-model="filtros.tipo_comprobante" :options="opcionesComprobante" placeholder="Todos"
               :searchable="false" :show-labels="false" @input="aplicarFiltrosYBuscar" class="custom-filter-multiselect"></multiselect>
           </div>
-          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap">Fechas:</label>
+
+          <!-- FILA 2: CUÁNDO Y SEGUIMIENTO -->
+          <div class="flex flex-col min-w-0 sm:col-span-2">
+            <label class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-2">Rango de Fechas</label>
             <VueCtkDateTimePicker v-model="filtros.rangoFechas" format="YYYY-MM-DD" formatted="YYYY-MM-DD"
-              color="#1d4ed8" button-color="#1d4ed8" :range="true" label="Select date & time"
+              color="#1d4ed8" button-color="#1d4ed8" :range="true" label="Seleccionar rango de fechas"
               @validate="aplicarFiltrosYBuscar" class="custom-filter-datepicker"></VueCtkDateTimePicker>
           </div>
-          <div class="flex flex-col"><label class="text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap">Envío de
-              Comp.:</label>
+
+          <div class="flex flex-col min-w-0">
+            <label class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-2">Envío de Complemento</label>
             <multiselect v-model="filtros.estado_envio" :options="opcionesEstadoEnvio" track-by="id" label="label"
               placeholder="Todos" :searchable="false" :show-labels="false" @input="aplicarFiltrosYBuscar" class="custom-filter-multiselect"></multiselect>
           </div>
-          <div class="flex flex-col">
-            <label class="text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap">Folio SC / Factura:</label>
+
+          <div class="flex flex-col min-w-0">
+            <label class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-2">Folio SC / Factura</label>
             <multiselect v-model="filtros.folio_factura" :options="opcionesFolioFactura" placeholder="Todos"
               :searchable="true" :show-labels="false" @input="aplicarFiltrosYBuscar" class="custom-filter-multiselect"></multiselect>
           </div>
-          <div class="flex flex-col">
-            <label class="text-xs font-bold text-gray-500 uppercase mb-1 whitespace-nowrap">Folio Complemento:</label>
+
+          <div class="flex flex-col min-w-0">
+            <label class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-2">Folio Complemento</label>
             <multiselect v-model="filtros.folio_complemento" :options="opcionesFolioComplemento" placeholder="Todos"
               :searchable="true" :show-labels="false" @input="aplicarFiltrosYBuscar" class="custom-filter-multiselect"></multiselect>
           </div>
+
         </div>
       </div>
 
@@ -669,6 +689,7 @@ export default {
 
       filtros: {
         cliente: 'Todos',
+        banco: 'Todos',
         rangoFechas: null,
         tipoOperacion: { id: 'Ambos', label: 'Ambos' },
         tipo_comprobante: 'Todos',
@@ -726,6 +747,13 @@ export default {
       }
 
       return [1, 2, '...', current - 2, current - 1, current, current + 1, current + 2, '...', total - 1, total];
+    },
+
+    // OPCIONES DEL FILTRO DE BANCO (sin espacios sobrantes y sin duplicados)
+    opcionesFiltroBanco() {
+      const lista = Array.isArray(this.opcionesBanco) ? this.opcionesBanco : [];
+      const bancos = lista.map(b => String(b || '').trim()).filter(Boolean);
+      return ['Todos', ...new Set(bancos)];
     },
 
     // EXTRACTOR AUTOMÁTICO DE CONCEPTOS ÚNICOS REGISTRADOS
@@ -927,10 +955,11 @@ export default {
           per_page: this.itemsPerPage,
           sucursal: this.filtroSucursalActiva,
           cliente: this.filtros.cliente,
+          banco: this.filtros.banco || 'Todos',
           tipo_servicio: this.filtros.tipoServicio,
-          tipo_operacion: this.filtros.tipoOperacion.id,
+          tipo_operacion: this.filtros.tipoOperacion ? this.filtros.tipoOperacion.id : 'Ambos',
           tipo_comprobante: this.filtros.tipo_comprobante,
-          estado_envio: this.filtros.estado_envio.id,
+          estado_envio: this.filtros.estado_envio ? this.filtros.estado_envio.id : '',
           fecha_inicio: this.filtros.rangoFechas ? this.filtros.rangoFechas.start : null,
           fecha_fin: this.filtros.rangoFechas ? this.filtros.rangoFechas.end : null,
           folio_factura: this.filtros.folio_factura,
@@ -964,6 +993,7 @@ export default {
       this.filtroSucursalActiva = 'Todas';
       this.filtros = {
         cliente: 'Todos',
+        banco: 'Todos',
         rangoFechas: null,
         tipoOperacion: { id: 'Ambos', label: 'Ambos' },
         tipo_comprobante: 'Todos',
@@ -1031,7 +1061,7 @@ export default {
           this.sucursalesBase = [];
         }
 
-        this.opcionesBanco = response.data.bancos;
+        this.opcionesBanco = response.data.bancos || [];
         this.opcionesClienteObj = response.data.clientes;
         const nombresClientes = response.data.clientes.map(c => c.nombre);
         this.opcionesFiltroCliente = ['Todos', ...nombresClientes];
@@ -1060,7 +1090,7 @@ export default {
     async notificarCliente(row) {
       const clienteEncontrado = this.opcionesClienteObj.find(c => c.nombre === row.cliente);
       const correosSugeridos = clienteEncontrado ? (clienteEncontrado.email || clienteEncontrado.correo || '') : '';
-      
+
       const montoNum = parseFloat(row.monto) || 0;
       const esEnContra = montoNum < 0 || String(row.concepto || '').toUpperCase().includes('MENOS');
 
@@ -1248,7 +1278,7 @@ export default {
       }
 
       try {
-        const response = await axios.get('/api/user'); 
+        const response = await axios.get('/api/user');
         if (response.data && typeof response.data === 'object') {
           this.usuario = response.data;
         } else if (window.UsuarioActual) {
@@ -1267,10 +1297,10 @@ export default {
       }
 
       let filasHtml = item.operaciones.map(op => {
-        const anticipoVal = op.anticipo !== undefined 
-          ? parseFloat(op.anticipo || 0) 
+        const anticipoVal = op.anticipo !== undefined
+          ? parseFloat(op.anticipo || 0)
           : (op.pivot ? parseFloat(op.pivot.anticipo || 0) : 0);
-          
+
         const refVal = op.referencia || (op.pivot ? op.pivot.referencia : null) || op.folio || 'N/A';
 
         return `

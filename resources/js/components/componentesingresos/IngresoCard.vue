@@ -17,7 +17,7 @@
                 <span class="text-xl font-bold text-gray-500">{{ item.fecha }}</span>
                 <span
                     class="text-xl font-bold text-indigo-700 bg-indigo-100 border border-indigo-200 px-3 py-1 rounded uppercase hidden sm:block">
-                    Ref: {{ item.folio_sc || 'N/A' }}
+                    Ref: {{ referenciaLimpia }}
                 </span>
             </div>
             <div class="flex items-center gap-3">
@@ -219,6 +219,11 @@ export default {
         }
     },
     computed: {
+        referenciaLimpia() {
+            const refBase = this.item.referencia || this.item.folio_sc || '';
+            return this.formatearReferenciaCorta(refBase);
+        },
+
         esRegistroIntshipperts() {
             const nombreCliente = String(this.item.cliente || '').toUpperCase();
             const sucursalOrigen = String(this.item.sucursal_origen || '').toUpperCase();
@@ -286,13 +291,11 @@ export default {
             let esGenericoDB = false;
             
             if (this.item.operaciones && this.item.operaciones.length > 0) {
-                // Evaluamos si el tipo de operación en la tabla pivote es "GENERICO"
                 esGenericoDB = this.item.operaciones.every(op => {
                     const tipo = String(op.operacion_type || (op.pivot && op.pivot.operacion_type) || op.type || '').toUpperCase();
                     return tipo.includes('GENERICO');
                 });
             } else {
-                // Si la BD indica que no hay operaciones vinculadas, también se trata de un ingreso genérico
                 esGenericoDB = true;
             }
 
@@ -314,6 +317,25 @@ export default {
         }
     },
     methods: {
+        formatearReferenciaCorta(cadenaReferencia) {
+            if (!cadenaReferencia) {
+                return 'N/A';
+            }
+
+            return String(cadenaReferencia).split(',').map(ref => {
+                let texto = ref.trim();
+                
+                if (texto.includes(' - ')) {
+                    texto = texto.split(' - ')[0].trim();
+                }
+                else if (texto.includes('/')) {
+                    texto = texto.split('/')[0].trim();
+                }
+
+                return texto.replace(/^F-\s*/i, '').replace(/^TR:\s*/i, '').replace(/^SC-\s*/i, '');
+            }).filter(Boolean).join(', ');
+        },
+
         formatearDinero(monto) {
             return new Intl.NumberFormat('en-US', {
                 style: 'currency',
@@ -331,7 +353,10 @@ export default {
                     ? parseFloat(op.anticipo || 0)
                     : (op.pivot ? parseFloat(op.pivot.anticipo || 0) : 0);
 
-                const refVal = op.referencia || (op.pivot ? op.pivot.referencia : null) || op.folio || 'N/A';
+                const refRaw = op.referencia || (op.pivot ? op.pivot.referencia : null) || op.folio || 'N/A';
+                
+                // 🎯 Limpiamos la referencia para la ventana emergente
+                const refVal = this.formatearReferenciaCorta(refRaw);
 
                 return `
                     <tr>
