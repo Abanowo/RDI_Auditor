@@ -123,6 +123,13 @@ class ProcesarAuditoriaCompleta extends Command
                     throw $status['message'];
                 }
 
+                gc_collect_cycles();
+                $this->info("Enviando LOGIPUERTO a GPC...");
+                $status = $controller->enviarAGPCLogipuerto($tarea->id);
+                if ($status['code'] > 0) {
+                    throw $status['message'];
+                }
+
                 // 14. ALMACÉN (EXTERNO ALMAN) A GPC
                 gc_collect_cycles();
                 $this->info("Enviando Almacén (ALMAN) a GPC...");

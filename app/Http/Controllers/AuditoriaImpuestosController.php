@@ -833,7 +833,7 @@ class AuditoriaImpuestosController extends Controller
                     }
 
                     // Regex Ultra-Robusto: Atrapa el cargo sin importar si tiene 0.00 en medio
-                    $patron = '/([\d,]+\.\d{2})\s+(?:[\d,.-]+\s+)*([4-7]\d{6})\b/';
+                    $patron = '/([\d,]+\.\d{2})\s+(?:(?![4-7]\d{6}\b)[\d,.\-]+\s+)*?([4-7]\d{6})\b/';
 
                     if (preg_match_all($patron, $textoPdf, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
                         foreach ($matches as $match) {
@@ -3731,6 +3731,300 @@ class AuditoriaImpuestosController extends Controller
 
         return $indice;
     }
+ 
+    /**
+     * Determina si una factura pertenece a Logipuerto.
+     * REGLA DE NEGOCIO: Logipuerto SIEMPRE viene en la carpeta de PROVEEDORES.
+     * 1. Si no es de proveedores, se descarta de inmediato.
+     * 2. Revisa el nombre del archivo (barato, sin descargar nada).
+     * 3. Si el nombre no lo dice, lee el emisor del XML.
+     */
+    private function palabrasClaveLogipuerto(): array
+    {
+        return [
+            'LOGIPUERTO',
+            'LOGI PUERTO',
+            'LOGI-PUERTO',
+        ];
+    }
+ 
+    /**
+     * Determina si una factura pertenece a Logipuerto.
+     * REGLA DE NEGOCIO: Logipuerto SIEMPRE viene en la carpeta de PROVEEDORES.
+     * 1. Si no es de proveedores, se descarta de inmediato.
+     * 2. Revisa el nombre del archivo (barato, sin descargar nada).
+     * 3. Si el nombre no lo dice, lee el emisor del XML.
+     */
+    private function esFacturaLogipuerto(string $llaveGrupo, array $factura): bool
+    {
+        $tipo = strtolower($factura['tipo_documento'] ?? '');
+        if ($tipo !== 'proveedores') {
+            return false;
+        }
+ 
+        $palabras = $this->palabrasClaveLogipuerto();
+ 
+        $nombres = strtoupper(
+            $llaveGrupo . ' ' .
+            basename(parse_url($factura['ruta_pdf'] ?? '', PHP_URL_PATH) ?? '') . ' ' .
+            basename(parse_url($factura['ruta_xml'] ?? '', PHP_URL_PATH) ?? '')
+        );
+ 
+        foreach ($palabras as $palabra) {
+            if (str_contains($nombres, $palabra)) {
+                return true;
+            }
+        }
+ 
+        if (!empty($factura['ruta_xml'])) {
+            try {
+                $xmlData = $this->parsearXmlFlete($factura['ruta_xml']);
+                $emisor = strtoupper($xmlData['emisor'] ?? '');
+ 
+                foreach ($palabras as $palabra) {
+                    if ($emisor !== '' && str_contains($emisor, $palabra)) {
+                        return true;
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::warning("Logipuerto: no se pudo leer el emisor del XML {$factura['ruta_xml']}: " . $e->getMessage());
+            }
+        }
+ 
+        return false;
+    }
+ 
+    /**
+     * Crea un mapa [pedimento => lista de facturas] EXCLUSIVO para Logipuerto.
+     * Solo revisa la carpeta de PROVEEDORES (regla de negocio).
+     */
+    private function construirIndiceOperacionesLogipuerto(array $indicesOperacion): array
+    {
+        gc_collect_cycles();
+        $indice = [];
+ 
+        try {
+            foreach ($indicesOperacion as $pedimento => $datos) {
+                if (isset($datos['error'])) {
+                    continue;
+                }
+ 
+                $facturas = $datos['facturas'] ?? [];
+ 
+                foreach ($facturas as $llaveGrupo => $factura) {
+                    $tipo = strtolower($factura['tipo_documento'] ?? '');
+ 
+                    // Logipuerto SIEMPRE está en proveedores
+                    if ($tipo !== 'proveedores') {
+                        continue;
+                    }
+ 
+                    if (empty($factura['ruta_pdf']) && empty($factura['ruta_xml'])) {
+                        continue;
+                    }
+ 
+                    if (!$this->esFacturaLogipuerto((string) $llaveGrupo, $factura)) {
+                        continue;
+                    }
+ 
+                    $indice[$pedimento][] = [
+                        'folio'    => $factura['folio'] ?? $llaveGrupo,
+                        'ruta_xml' => $factura['ruta_xml'] ?? null,
+                        'ruta_pdf' => $factura['ruta_pdf'] ?? null,
+                    ];
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::error("Error construyendo índice de Logipuerto: " . $e->getMessage());
+        }
+ 
+        return $indice;
+    }
+ 
+    /**
+     * Envía a Google Sheets (hoja ZLO) las facturas de Logipuerto por pedimento.
+     * Concepto en el Sheet: "Logipuerto" (y "Logipuerto 2", "Logipuerto 3"... si hay varias facturas distintas).
+     */
+    public function enviarAGPCLogipuerto(string $tareaId)
+    {
+        gc_collect_cycles();
+        $tarea = AuditoriaTareas::find($tareaId);
+ 
+        if (!$tarea || $tarea->status !== 'procesando') {
+            return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
+        }
+ 
+        if (strtoupper($tarea->banco ?? '') !== 'SANTANDER' && strtoupper($tarea->sucursal ?? '') !== 'ZLO') {
+            return ['code' => 0, 'message' => 'Omitido (Logipuerto solo aplica a ZLO)'];
+        }
+ 
+        Log::info("Tarea #{$tarea->id}: Iniciando envío de Logipuerto a GPC...");
+ 
+        try {
+            $rutaMapeo = $tarea->mapeo_completo_facturas;
+            if (!$rutaMapeo || !Storage::exists($rutaMapeo)) {
+                return ['code' => 1, 'message' => new \Exception("No se encontró el archivo de mapeo universal.")];
+            }
+ 
+            $mapeadoFacturas = (array) json_decode(Storage::get($rutaMapeo), true);
+            $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'] ?? [];
+            $indicesOperaciones = ($mapeadoFacturas['indices_importacion'] ?? []) + ($mapeadoFacturas['indices_exportacion'] ?? []);
+ 
+            // Tipos de cambio por pedimento (desde la SC si existe) para convertir facturas en USD
+            $auditoriasSC = $mapeadoFacturas['auditorias_sc'] ?? [];
+            $indiceTiposCambio = [];
+            foreach ($auditoriasSC as $auditoria) {
+                $desglose = is_array($auditoria['desglose_conceptos'])
+                    ? $auditoria['desglose_conceptos']
+                    : json_decode($auditoria['desglose_conceptos'], true);
+                $indiceTiposCambio[$auditoria['pedimento_id']] = (float) ($desglose['tipo_cambio'] ?? 1.0);
+            }
+ 
+            $indiceLogipuerto = $this->construirIndiceOperacionesLogipuerto($indicesOperaciones);
+            Log::info("Logipuerto: pedimentos con facturas detectadas: " . count($indiceLogipuerto));
+ 
+            $logipuertoParaSheets = [];
+ 
+            foreach ($mapaPedimentoAId as $pedimentoLimpio => $datosId) {
+                $pedimentoSucio = trim($datosId['num_pedimiento'] ?? '');
+                $listaFacturas = $indiceLogipuerto[$pedimentoSucio] ?? $indiceLogipuerto[$pedimentoLimpio] ?? [];
+ 
+                if (empty($listaFacturas)) {
+                    continue;
+                }
+ 
+                $opId = $datosId['id_operacion'] ?? null;
+                $tipoOp = (($datosId['tipo'] ?? '') === 'Importacion') ? Importacion::class : Exportacion::class;
+ 
+                $queryOp = null;
+                try {
+                    if ($opId) {
+                        $queryOp = ($tipoOp === Importacion::class)
+                            ? Importacion::with('cliente')->find($opId)
+                            : Exportacion::with('cliente')->find($opId);
+                    }
+                } catch (\Throwable $e) {
+                    Log::error("Error consultando BD (Logipuerto) pedimento {$pedimentoLimpio}: " . $e->getMessage());
+                    $queryOp = null;
+                }
+ 
+                $filasTemp = [];
+                $montosRegistrados = [];
+ 
+                foreach ($listaFacturas as $factura) {
+                    $montoOriginal = -1;
+                    $monedaXml = 'MXN';
+                    $proveedor = '';
+                    $fechaFactura = null;
+ 
+                    // 1. XML (prioridad): monto, moneda, fecha y PROVEEDOR (Emisor Nombre) en una sola lectura
+                    if (!empty($factura['ruta_xml'])) {
+                        try {
+                            $xmlData = $this->parsearXmlFlete($factura['ruta_xml']);
+                            if ($xmlData) {
+                                $proveedor = trim($xmlData['emisor'] ?? '');
+                                $fechaFactura = $xmlData['fecha'] ?? null;
+                                if (($xmlData['total'] ?? -1) != -1) {
+                                    $montoOriginal = (float) $xmlData['total'];
+                                    $monedaXml = strtoupper($xmlData['moneda'] ?? 'MXN');
+                                }
+                            }
+                        } catch (\Throwable $e) {
+                            Log::error("Error leyendo XML (Logipuerto) pedimento {$pedimentoLimpio}: " . $e->getMessage());
+                        }
+                    }
+ 
+                    // 2. Respaldo: si el XML no trajo monto, intentamos con el PDF
+                    if ($montoOriginal <= 0 && !empty($factura['ruta_pdf'])) {
+                        try {
+                            $pdfData = $this->extraerTotalDesdePdfProveedor($factura['ruta_pdf']);
+                            if ($pdfData !== null && $pdfData['monto'] !== null) {
+                                $montoOriginal = (float) $pdfData['monto'];
+                                if (!empty($pdfData['fecha'])) {
+                                    $fechaFactura = $pdfData['fecha'];
+                                }
+                            }
+                        } catch (\Throwable $e) {
+                            Log::error("Error leyendo PDF (Logipuerto) pedimento {$pedimentoLimpio}: " . $e->getMessage());
+                        }
+                    }
+ 
+                    if ($montoOriginal <= 0) {
+                        Log::warning("Logipuerto: factura sin monto legible en pedimento {$pedimentoLimpio} | PDF: " . ($factura['ruta_pdf'] ?? 'N/A') . " | XML: " . ($factura['ruta_xml'] ?? 'N/A'));
+                        continue;
+                    }
+ 
+                    // Si el XML no trae emisor (o solo hay PDF), dejamos LOGIPUERTO como respaldo
+                    if ($proveedor === '') {
+                        $proveedor = 'LOGIPUERTO';
+                    }
+ 
+                    $montoMXN = $montoOriginal;
+                    $moneda = 'MXN';
+ 
+                    // Conversión a MXN si el XML viene en dólares
+                    if ($monedaXml === 'USD') {
+                        $tipoCambio = $indiceTiposCambio[$datosId['id_pedimiento']] ?? 1.0;
+                        if ($tipoCambio > 1) {
+                            $montoMXN = round($montoOriginal * $tipoCambio, 2);
+                        } else {
+                            // Sin tipo de cambio confiable: se envía en USD tal cual
+                            $moneda = 'USD';
+                        }
+                    }
+ 
+                    // Anti-duplicados: el mismo monto en el mismo pedimento se envía una sola vez
+                    $montoKey = (string) round($montoMXN, 2);
+                    if (in_array($montoKey, $montosRegistrados)) {
+                        continue;
+                    }
+                    $montosRegistrados[] = $montoKey;
+ 
+                    $indexActual = count($filasTemp);
+                    $conceptoNombre = ($indexActual === 0) ? 'Logipuerto' : 'Logipuerto ' . ($indexActual + 1);
+ 
+                    $filasTemp[] = [
+                        'fecha'      => $fechaFactura ?: now()->format('Y-m-d'),
+                        'cliente'    => $queryOp ? (optional($queryOp->cliente)->nombre ?? '') : '',
+                        'contenedor' => $queryOp ? ($queryOp->contenedor ?? '') : '',
+                        'bl'         => $queryOp ? ($queryOp->bol ?? '') : '',
+                        'pedimento'  => $pedimentoLimpio,
+                        'concepto'   => $conceptoNombre,
+                        'monto'      => (float) round($montoMXN, 2),
+                        'moneda'     => $moneda,
+                        'naviera'    => $proveedor // Emisor del CFDI (columna G del Sheet)
+                    ];
+                }
+ 
+                foreach ($filasTemp as $fila) {
+                    $logipuertoParaSheets[] = $fila;
+                }
+            }
+ 
+            if (!empty($logipuertoParaSheets)) {
+                Log::info("Logipuerto: registros listos para enviar a GPC: " . count($logipuertoParaSheets));
+                $paquetes = array_chunk($logipuertoParaSheets, 50);
+ 
+                foreach ($paquetes as $idx => $paquete) {
+                    $esUltimo = ($idx === count($paquetes) - 1);
+                    try {
+                        $this->enviarDatosAGoogleSheets($paquete, 'ZLO', 'ZLO', $esUltimo);
+                        sleep(2);
+                    } catch (\Throwable $e) {
+                        Log::error("Error enviando Logipuerto a Sheets (Paquete " . ($idx + 1) . "): " . $e->getMessage());
+                    }
+                }
+                Log::info("¡Envío de Logipuerto completado!");
+            } else {
+                Log::info("Logipuerto: no se encontraron facturas con monto para enviar.");
+            }
+ 
+            return ['code' => 0, 'message' => 'completado'];
+        } catch (\Throwable $e) {
+            Log::error("Error General en Logipuerto: " . $e->getMessage() . " en la línea " . $e->getLine());
+            return ['code' => 1, 'message' => $e];
+        }
+    }
 
     /**
      * Lee los archivos y crea un mapa EXCLUSIVO para Almacenaje.
@@ -3952,6 +4246,7 @@ class AuditoriaImpuestosController extends Controller
             return ['code' => 1, 'message' => $e];
         }
     }
+
 
     //--- METODO AUDITAR E IMPORTAR PAGOS DE ALMACÉN DESDE GOOGLE SHEETS EXTERNO Y ENVIAR AL REPORTE
     public function enviarAGPCFacturasDeAlmacen(string $tareaId)
