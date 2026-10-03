@@ -218,6 +218,7 @@ export default {
                 flete: null,
                 muestras: null,
                 llc: null,
+                llc_usd: null,
                 anticipo: null,
                 garantias: null,
                 desglose_naviera: null,
@@ -716,6 +717,7 @@ export default {
                 this.$set(this.form, 'maniobras', Number(datos.maniobras) || 0);
                 this.$set(this.form, 'muestras', Number(datos.muestras) || 0);
                 this.$set(this.form, 'llc', Number(datos.llc) || 0);
+                this.$set(this.form, 'llc_usd', Number(datos.llc_usd) || 0);
                 this.$set(this.form, 'garantias', Number(datos.garantias) || 0);
                 this.$set(this.form, 'desglose_naviera', Number(datos.desglose_naviera) || 0);
                 this.$set(this.form, 'proveedor_maniobras', datos.proveedor_maniobras || null);
@@ -943,6 +945,7 @@ export default {
                         flete: op.flete ?? (totalOps === 1 ? Number(this.form.flete || 0) : 0),
                         muestras: op.muestras ?? (totalOps === 1 ? Number(this.form.muestras || 0) : 0),
                         llc: op.llc ?? (totalOps === 1 ? Number(this.form.llc || 0) : 0),
+                        llc_usd: op.llc_usd ?? (totalOps === 1 ? Number(this.form.llc_usd || 0) : 0),
                         anticipo: op.anticipo ?? (totalOps === 1 ? Number(this.form.anticipo || 0) : 0),
                         garantias: op.garantias ?? (totalOps === 1 ? Number(this.form.garantias || 0) : 0),
                         desglose_naviera: op.desglose_naviera ?? (totalOps === 1 ? Number(this.form.desglose_naviera || 0) : 0),

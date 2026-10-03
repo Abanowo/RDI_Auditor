@@ -1340,6 +1340,7 @@ class IngresoConciliadoController extends Controller
                 'flete' => 0,
                 'muestras' => 0,
                 'llc' => 0,
+                'llc_usd' => 0,
                 'anticipo' => 0,
                 'garantias' => 0,
                 'desglose_naviera' => 0,
@@ -1508,6 +1509,7 @@ class IngresoConciliadoController extends Controller
                 $op_flete = 0;
                 $op_muestras = 0;
                 $op_llc = 0;
+                $op_llc_usd = 0;
 
                 $op_prov_maniobras = null;
                 $op_fac_maniobras = null;
@@ -1586,6 +1588,11 @@ class IngresoConciliadoController extends Controller
                         } elseif (str_contains($concepto, 'LLC')) {
                             $resultados['llc'] += $montoLimpio;
                             $op_llc += $montoLimpio;
+
+                            $montoLlcUsd = (float) filter_var(str_replace(['$', ','], '', trim($fila[10] ?? '0')), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+                            $resultados['llc_usd'] += $montoLlcUsd;
+                            $op_llc_usd += $montoLlcUsd;
+
                             if (!empty($proveedor)) {
                                 $resultados['proveedor_llc'] = $proveedor;
                                 $op_prov_llc = $proveedor;
@@ -1702,6 +1709,7 @@ class IngresoConciliadoController extends Controller
                         'flete'               => round($op_flete, 2),
                         'muestras'            => round($op_muestras, 2),
                         'llc'                 => round($op_llc, 2),
+                        'llc_usd'             => round($op_llc_usd, 2),
 
                         // Proveedores y facturas
                         'proveedor_maniobras' => $op_prov_maniobras,
@@ -1729,7 +1737,7 @@ class IngresoConciliadoController extends Controller
             }
 
             // Redondeo final de llaves numéricas
-            $llavesNumericas = ['honorarios', 'impuestos', 'eci', 'maniobras', 'flete', 'muestras', 'llc', 'anticipo', 'garantias', 'desglose_naviera'];
+            $llavesNumericas = ['honorarios', 'impuestos', 'eci', 'maniobras', 'flete', 'muestras', 'llc', 'llc_usd', 'anticipo', 'garantias', 'desglose_naviera'];
             foreach ($llavesNumericas as $key) {
                 if (isset($resultados[$key])) {
                     if ($key === 'flete' && $resultados[$key] == 0) {
@@ -2752,6 +2760,412 @@ class IngresoConciliadoController extends Controller
         }
     }
 
+    public function verDesglose($id)
+    {
+        try {
+            $ingreso = $this->obtenerIngresoParaDesglose($id);
+ 
+            $filas = $this->obtenerFilasDesglose($ingreso->id);
+ 
+            return response()->json([
+                'ingreso'   => $ingreso,
+                'tipo'      => $this->detectarTipoDesglose($ingreso->sucursal_origen, $ingreso->cliente_nombre),
+                'bloqueado' => $this->ingresoBloqueado($ingreso),
+                'moneda'    => $this->detectarMonedaIngreso($ingreso->banco_receptor),
+                'filas'     => $filas,
+            ]);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['error' => 'El ingreso solicitado no existe.'], 404);
+        } catch (\Exception $e) {
+            Log::error('[verDesglose] ' . $e->getMessage(), ['ingreso_id' => $id]);
+            return response()->json(['error' => 'Error interno al cargar el desglose: ' . $e->getMessage()], 500);
+        }
+    }
+ 
+    /**
+     * Guarda los cambios del desglose (editar, agregar y quitar filas) y,
+     * si se solicita, recalcula los totales del ingreso y su saldo a favor / en contra.
+     */
+    public function actualizarDesglose(Request $request, $id)
+    {
+        $request->validate([
+            'filas'                       => 'present|array',
+            'filas.*.referencia'          => 'required|string|distinct',
+            'filas.*.referencia_original' => 'nullable|string',
+            'recalcular_totales'          => 'nullable|boolean',
+        ], [
+            'filas.*.referencia.required' => 'Todas las operaciones necesitan una referencia.',
+            'filas.*.referencia.distinct' => 'Hay referencias repetidas en el desglose.',
+        ]);
+ 
+        $ingreso = IngresoConciliado::find($id);
+        if (!$ingreso) {
+            return response()->json(['error' => 'El ingreso solicitado no existe.'], 404);
+        }
+ 
+        if ($this->ingresoBloqueado($ingreso)) {
+            return response()->json(['error' => 'El ingreso ya fue enviado o timbrado; su desglose no se puede modificar.'], 422);
+        }
+ 
+        // Nombre del cliente (catálogo o captura manual)
+        $clienteNombre = '';
+        if (!empty($ingreso->cliente_id)) {
+            $empresa = Empresas::find($ingreso->cliente_id);
+            $clienteNombre = $empresa ? (string) $empresa->nombre : '';
+        } else {
+            $clienteNombre = (string) ($ingreso->getRawOriginal('cliente') ?? '');
+        }
+ 
+        $tipo = $this->detectarTipoDesglose($ingreso->sucursal_origen, $clienteNombre);
+ 
+        $camposNumericos = [
+            'monto_cfdi', 'anticipo', 'impuestos', 'eci', 'maniobras', 'flete', 'muestras',
+            'llc', 'garantias', 'desglose_naviera', 'pago_proveedor', 'ganancia',
+            'monto_llc_usd' // Informativo: no forma parte del GPC
+        ];
+ 
+        $camposTexto = [
+            'proveedor_maniobras', 'factura_maniobras',
+            'proveedor_flete', 'factura_flete',
+            'proveedor_muestras', 'factura_muestras',
+            'proveedor_llc', 'factura_llc'
+        ];
+ 
+        // Estatus de pago al proveedor por concepto (NULL = pendiente)
+        $camposEstatus = [
+            'estatus_pago_maniobras',
+            'estatus_pago_flete',
+            'estatus_pago_muestras',
+            'estatus_pago_llc'
+        ];
+        $estatusPermitidos = ['PAGADO', 'PAGADO POR ANT'];
+ 
+        $conceptosGpcPorTipo = [
+            'manzanillo'      => ['anticipo', 'garantias', 'desglose_naviera', 'impuestos', 'flete'],
+            'intshipperts'    => ['anticipo', 'garantias', 'desglose_naviera', 'impuestos', 'flete'],
+            'transportactics' => [],
+            'general'         => ['impuestos', 'eci', 'maniobras', 'flete', 'muestras', 'llc'],
+        ];
+        $conceptosGpc = $conceptosGpcPorTipo[$tipo];
+ 
+        $convertir = function ($valor) {
+            if ($valor === null || $valor === '') {
+                return 0.0;
+            }
+            if (is_int($valor) || is_float($valor)) {
+                return (float) $valor;
+            }
+            $limpio = str_replace(['$', ',', ' '], '', (string) $valor);
+            return is_numeric($limpio) ? (float) $limpio : 0.0;
+        };
+ 
+        DB::beginTransaction();
+        try {
+            $filas = (array) $request->input('filas', []);
+            $ahora = now();
+ 
+            // 1. Quitar las filas que el usuario eliminó en el modal
+            $referenciasOriginales = collect($filas)
+                ->pluck('referencia_original')
+                ->filter(function ($ref) {
+                    return $ref !== null && trim((string) $ref) !== '';
+                })
+                ->values()
+                ->all();
+ 
+            $consultaBorrar = DB::table('ingreso_operacion')->where('ingreso_id', $ingreso->id);
+            if (!empty($referenciasOriginales)) {
+                $consultaBorrar->whereNotIn('referencia', $referenciasOriginales);
+            }
+            $consultaBorrar->delete();
+ 
+            // 2. Actualizar las existentes e insertar las nuevas
+            foreach ($filas as $fila) {
+                $datos = [
+                    'referencia' => trim((string) $fila['referencia']),
+                    'updated_at' => $ahora,
+                ];
+ 
+                foreach ($camposNumericos as $campo) {
+                    $datos[$campo] = round($convertir($fila[$campo] ?? 0), 2);
+                }
+ 
+                foreach ($camposTexto as $campo) {
+                    $valorTexto = isset($fila[$campo]) ? trim((string) $fila[$campo]) : '';
+                    $datos[$campo] = $valorTexto === '' ? null : $valorTexto;
+                }
+ 
+                foreach ($camposEstatus as $campo) {
+                    $valorEstatus = isset($fila[$campo]) ? strtoupper(trim((string) $fila[$campo])) : '';
+                    $datos[$campo] = in_array($valorEstatus, $estatusPermitidos, true) ? $valorEstatus : null;
+                }
+ 
+                $gpcFila = 0;
+                foreach ($conceptosGpc as $concepto) {
+                    $gpcFila += $datos[$concepto];
+                }
+                $datos['monto_gpc'] = round($gpcFila, 2);
+ 
+                $referenciaOriginal = isset($fila['referencia_original']) ? trim((string) $fila['referencia_original']) : '';
+ 
+                if ($referenciaOriginal !== '') {
+                    DB::table('ingreso_operacion')
+                        ->where('ingreso_id', $ingreso->id)
+                        ->where('referencia', $referenciaOriginal)
+                        ->update($datos);
+                } else {
+                    DB::table('ingreso_operacion')->insert(array_merge($datos, [
+                        'ingreso_id'     => $ingreso->id,
+                        'operacion_id'   => null,
+                        'operacion_type' => 'GENERICO',
+                        'created_at'     => $ahora,
+                    ]));
+                }
+            }
+ 
+            // 3. Recalcular totales del ingreso (opcional, activado por defecto)
+            $filasGuardadas = DB::table('ingreso_operacion')->where('ingreso_id', $ingreso->id)->get();
+            $totalesRecalculados = false;
+ 
+            if ($request->boolean('recalcular_totales', true) && $filasGuardadas->count() > 0) {
+                $suma = function ($campo) use ($filasGuardadas) {
+                    return round((float) $filasGuardadas->sum($campo), 2);
+                };
+ 
+                $ingreso->impuestos        = $suma('impuestos');
+                $ingreso->eci              = $suma('eci');
+                $ingreso->maniobras        = $suma('maniobras');
+                $ingreso->flete            = $suma('flete');
+                $ingreso->muestras         = $suma('muestras');
+                $ingreso->llc              = $suma('llc');
+                $ingreso->garantias        = $suma('garantias');
+                $ingreso->desglose_naviera = $suma('desglose_naviera');
+                $ingreso->pago_proveedor   = $suma('pago_proveedor');
+ 
+                // Misma regla que store(): Almacenadoras nunca lleva anticipo
+                $ingreso->anticipo = str_contains(strtoupper($clienteNombre), 'ALMACENADORA') ? 0 : $suma('anticipo');
+ 
+                if ($tipo === 'transportactics') {
+                    $ingreso->total_gpc = 0;
+                    $ingreso->ganancia  = round($ingreso->flete - $ingreso->pago_proveedor, 2);
+                } elseif ($tipo === 'manzanillo' || $tipo === 'intshipperts') {
+                    $ingreso->honorarios = $suma('monto_cfdi');
+                    $ingreso->total_gpc  = round(
+                        $ingreso->anticipo + $ingreso->garantias + $ingreso->desglose_naviera + $ingreso->impuestos + $ingreso->flete,
+                        2
+                    );
+                } else {
+                    $ingreso->honorarios = $suma('monto_cfdi');
+                    $ingreso->total_gpc  = round(
+                        $ingreso->impuestos + $ingreso->eci + $ingreso->maniobras + $ingreso->flete + $ingreso->muestras + $ingreso->llc,
+                        2
+                    );
+                }
+ 
+                $ingreso->save();
+                $this->sincronizarSaldoFavor($ingreso, true);
+                $totalesRecalculados = true;
+            }
+ 
+            DB::commit();
+ 
+            $ingresoActualizado = $this->obtenerIngresoParaDesglose($ingreso->id);
+ 
+            return response()->json([
+                'success'   => true,
+                'message'   => $totalesRecalculados
+                    ? 'Desglose guardado y totales del ingreso actualizados.'
+                    : 'Desglose guardado. Los totales del ingreso no se modificaron.',
+                'ingreso'   => $ingresoActualizado,
+                'tipo'      => $tipo,
+                'bloqueado' => $this->ingresoBloqueado($ingresoActualizado),
+                'moneda'    => $this->detectarMonedaIngreso($ingresoActualizado->banco_receptor),
+                'filas'     => $this->obtenerFilasDesglose($ingreso->id),
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('[actualizarDesglose] ' . $e->getMessage(), [
+                'ingreso_id' => $id,
+                'archivo'    => $e->getFile(),
+                'linea'      => $e->getLine(),
+            ]);
+            return response()->json(['error' => 'Error al guardar el desglose: ' . $e->getMessage()], 500);
+        }
+    }
+ 
+    /**
+     * Filas de ingreso_operacion con el número de pedimento de su operación vinculada.
+     */
+    private function obtenerFilasDesglose($ingresoId)
+    {
+        $filas = DB::table('ingreso_operacion')
+            ->where('ingreso_id', $ingresoId)
+            ->orderBy('created_at', 'asc')
+            ->orderBy('referencia', 'asc')
+            ->get();
+ 
+        $idsImpo = [];
+        $idsExpo = [];
+        foreach ($filas as $fila) {
+            if (empty($fila->operacion_id)) {
+                continue;
+            }
+            $tipoOp = strtoupper((string) $fila->operacion_type);
+            if (str_contains($tipoOp, 'IMPORTACION')) {
+                $idsImpo[] = $fila->operacion_id;
+            } elseif (str_contains($tipoOp, 'EXPORTACION')) {
+                $idsExpo[] = $fila->operacion_id;
+            }
+        }
+ 
+        $pedimentosImpo = empty($idsImpo) ? collect() : DB::table('operaciones_importacion')
+            ->join('pedimiento', 'operaciones_importacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
+            ->whereIn('operaciones_importacion.id_importacion', array_unique($idsImpo))
+            ->pluck('pedimiento.num_pedimiento', 'operaciones_importacion.id_importacion');
+ 
+        $pedimentosExpo = empty($idsExpo) ? collect() : DB::table('operaciones_exportacion')
+            ->join('pedimiento', 'operaciones_exportacion.id_pedimiento', '=', 'pedimiento.id_pedimiento')
+            ->whereIn('operaciones_exportacion.id_exportacion', array_unique($idsExpo))
+            ->pluck('pedimiento.num_pedimiento', 'operaciones_exportacion.id_exportacion');
+ 
+        return $filas->map(function ($fila) use ($pedimentosImpo, $pedimentosExpo) {
+            $tipoOp = strtoupper((string) $fila->operacion_type);
+            $fila->pedimento = null;
+ 
+            if (!empty($fila->operacion_id)) {
+                if (str_contains($tipoOp, 'IMPORTACION')) {
+                    $fila->pedimento = $pedimentosImpo->get($fila->operacion_id);
+                } elseif (str_contains($tipoOp, 'EXPORTACION')) {
+                    $fila->pedimento = $pedimentosExpo->get($fila->operacion_id);
+                }
+            }
+ 
+            return $fila;
+        })->values();
+    }
+ 
+    /**
+     * Moneda del ingreso según la cuenta bancaria receptora (misma regla que obtenerTipoCambio).
+     */
+    private function detectarMonedaIngreso($banco): string
+    {
+        $bancoUpper = strtoupper((string) $banco);
+        $esDolares = str_contains($bancoUpper, 'DLLS') || str_contains($bancoUpper, 'USD')
+                  || str_contains($bancoUpper, 'DOLARES') || str_contains($bancoUpper, 'DLL');
+ 
+        return $esDolares ? 'USD' : 'MXN';
+    }
+ 
+    /**
+     * Ingreso con el nombre del cliente resuelto (catálogo o captura manual).
+     */
+    private function obtenerIngresoParaDesglose($id)
+    {
+        return IngresoConciliado::leftJoin('empresas', 'ingresos_conciliados.cliente_id', '=', 'empresas.id')
+            ->select(
+                'ingresos_conciliados.*',
+                DB::raw('COALESCE(empresas.nombre, ingresos_conciliados.cliente) as cliente_nombre')
+            )
+            ->where('ingresos_conciliados.id', $id)
+            ->firstOrFail();
+    }
+ 
+    /**
+     * Determina qué columnas aplican al ingreso (mismo orden de prioridad que IngresoCard.vue).
+     */
+    private function detectarTipoDesglose($sucursal, $cliente): string
+    {
+        $sucursalUpper = strtoupper((string) $sucursal);
+        $clienteUpper  = strtoupper((string) $cliente);
+ 
+        if (str_contains($sucursalUpper, 'INTSHIPPERT') || str_contains($clienteUpper, 'INTSHIPPERTS')) {
+            return 'intshipperts';
+        }
+        if (str_contains($sucursalUpper, 'TRANSPORTACTIC') || str_contains($clienteUpper, 'TRANSPORTACTICS')) {
+            return 'transportactics';
+        }
+        if (str_contains($sucursalUpper, 'MANZANILLO') || str_contains($sucursalUpper, 'ZLO')) {
+            return 'manzanillo';
+        }
+        return 'general';
+    }
+ 
+    /**
+     * Un ingreso enviado o timbrado ya no se puede modificar (misma regla que los botones de IngresoCard.vue).
+     */
+    private function ingresoBloqueado($ingreso): bool
+    {
+        return strtoupper((string) ($ingreso->estado_envio ?? '')) === 'ENVIADO' || !empty($ingreso->timbrado);
+    }
+
+        /**
+     * Crea, actualiza o elimina el saldo a favor / en contra del ingreso (misma lógica que store() y update()).
+     */
+    private function sincronizarSaldoFavor($ingreso, bool $tieneOperaciones)
+    {
+        $montoDeposito = round((float) $ingreso->monto_deposito, 2);
+        $totalGpc      = round((float) $ingreso->total_gpc, 2);
+        $honorarios    = round((float) $ingreso->honorarios, 2);
+        $costoTotal    = round($totalGpc + $honorarios, 2);
+        $diferencia    = round($montoDeposito - $costoTotal, 2);
+
+        if ($tieneOperaciones && $costoTotal > 0 && abs($diferencia) > 0.05) {
+            $referenciaBase = trim($ingreso->referencia ?? $ingreso->folio_sc ?? '');
+
+            if (empty($referenciaBase)) {
+                $conceptoFinal = 'F - Sin Referencia';
+            } else {
+                $folios = array_filter(array_map('trim', explode(',', $referenciaBase)));
+                $conceptoFinal = implode(', ', array_map(function ($folio) {
+                    return 'F - ' . $folio;
+                }, $folios));
+            }
+
+            SaldoFavor::updateOrCreate(
+                ['ingreso_conciliado_id' => $ingreso->id],
+                [
+                    'cliente_id'      => $ingreso->cliente_id,
+                    'cliente'         => $ingreso->getRawOriginal('cliente'),
+                    'sucursal_origen' => $ingreso->sucursal_origen,
+                    'monto'           => $diferencia,
+                    'estatus'         => 'VIGENTE',
+                    'fecha_deteccion' => $ingreso->fecha,
+                    'concepto'        => $conceptoFinal
+                ]
+            );
+        } else {
+            SaldoFavor::where('ingreso_conciliado_id', $ingreso->id)->delete();
+        }
+    }
+
+    /**
+     * Monto de la LLC en dólares que mandó el frontend para una operación.
+     * Acepta varios nombres de llave. Devuelve null si el dato no vino.
+     */
+    private function obtenerMontoLlcUsd($op, Request $request, int $totalElementos): ?float
+    {
+        $claves = ['llc_usd', 'monto_llc_usd', 'llcUsd'];
+
+        if (is_array($op)) {
+            foreach ($claves as $clave) {
+                if (array_key_exists($clave, $op) && $op[$clave] !== null && $op[$clave] !== '') {
+                    return round((float) str_replace(['$', ','], '', $op[$clave]), 2);
+                }
+            }
+        }
+
+        // Si solo hay una operación, se toma el valor general del formulario
+        if ($totalElementos === 1) {
+            foreach ($claves as $clave) {
+                if ($request->filled($clave)) {
+                    return round((float) str_replace(['$', ','], '', $request->input($clave)), 2);
+                }
+            }
+        }
+
+        return null;
+    }
+
     public function generarComplemento(Request $request)
     {
         // 1. Validamos SOLAMENTE los datos del complemento
@@ -3381,6 +3795,18 @@ class IngresoConciliadoController extends Controller
     public function store(Request $request)
     {
         DB::beginTransaction();
+        Log::info('[STORE] Datos recibidos para LLC', [
+            'llc_global'      => $request->input('llc'),
+            'llc_usd_global'  => $request->input('llc_usd'),
+            'operaciones'     => collect((array) $request->input('operaciones', []))->map(function ($op) {
+                return is_array($op) ? [
+                    'referencia' => $op['referencia'] ?? $op['folio'] ?? $op['label'] ?? null,
+                    'llc'        => $op['llc'] ?? 'NO VIENE',
+                    'llc_usd'    => $op['llc_usd'] ?? 'NO VIENE',
+                    'llaves'     => array_keys($op),
+                ] : ['valor_texto' => $op];
+            })->all(),
+        ]);
         try {
             $sucursal = strtoupper($request->sucursal_origen ?? '');
             $clienteId = $request->cliente_id;
@@ -3530,6 +3956,7 @@ class IngresoConciliadoController extends Controller
                         'flete'               => $montoOp('flete', 'flete'),
                         'muestras'            => $montoOp('muestras', 'muestras'),
                         'llc'                 => $montoOp('llc', 'llc'),
+                        'monto_llc_usd'       => $this->obtenerMontoLlcUsd($op, $request, $totalElementos) ?? 0,
                         'garantias'           => $montoOp('garantias', 'garantias'),
                         'desglose_naviera'    => $montoOp('desglose_naviera', 'desglose_naviera'),
                         'pago_proveedor'      => $montoOp('pago_proveedor', 'pago_proveedor'),
@@ -3767,6 +4194,7 @@ class IngresoConciliadoController extends Controller
                         'flete'               => $montoOp('flete', 'flete'),
                         'muestras'            => $montoOp('muestras', 'muestras'),
                         'llc'                 => $montoOp('llc', 'llc'),
+                        'monto_llc_usd'       => $this->obtenerMontoLlcUsd($op, $request, $totalElementos) ?? 0,
                         'garantias'           => $montoOp('garantias', 'garantias'),
                         'desglose_naviera'    => $montoOp('desglose_naviera', 'desglose_naviera'),
                         'pago_proveedor'      => $montoOp('pago_proveedor', 'pago_proveedor'),
@@ -3783,6 +4211,11 @@ class IngresoConciliadoController extends Controller
                         
                         'updated_at'          => now()
                     ];
+
+                    $montoLlcUsd = $this->obtenerMontoLlcUsd($op, $request, $totalElementos);
+                    if ($montoLlcUsd !== null) {
+                        $dataInsert['monto_llc_usd'] = $montoLlcUsd;
+                    }
 
                     DB::table('ingreso_operacion')->updateOrInsert(
                         ['ingreso_id' => $ingreso->id, 'referencia' => $folioTexto],

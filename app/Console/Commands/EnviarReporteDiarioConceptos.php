@@ -135,13 +135,9 @@ class EnviarReporteDiarioConceptos extends Command
                             'DESG. NAVIERA'  => ['monto' => (float) ($op->desglose_naviera ?? 0), 'prov' => 'NAVIERA', 'fac' => '--'],
                             'IMPUESTOS'      => ['monto' => (float) ($op->impuestos ?? 0), 'prov' => 'SAT / ADUANA', 'fac' => '--'],
                             'ALM / FLETE'    => ['monto' => (float) ($op->flete ?? 0), 'prov' => !empty($op->proveedor_flete) ? $op->proveedor_flete : 'TRANSPORTACTICS', 'fac' => $op->factura_flete ?? '--'],
-                            'HONORARIOS'     => ['monto' => (float) ($op->monto_cfdi ?? 0), 'prov' => 'INTACTICS', 'fac' => '--'],
                         ];
                     } else {
                         $conceptosOp = [
-                            'HONORARIOS'     => ['monto' => (float) ($op->monto_cfdi ?? 0), 'prov' => 'INTACTICS', 'fac' => '--'],
-                            'IMPUESTOS'      => ['monto' => (float) ($op->impuestos ?? 0), 'prov' => 'SAT / ADUANA', 'fac' => '--'],
-                            'ECI (DERECHOS)' => ['monto' => (float) ($op->eci ?? 0), 'prov' => 'SENASICA', 'fac' => '--'],
                             'MANIOBRAS'      => ['monto' => (float) ($op->maniobras ?? 0), 'prov' => !empty($op->proveedor_maniobras) ? $op->proveedor_maniobras : 'SAFINSA', 'fac' => $op->factura_maniobras ?? '--'],
                             'FLETE'          => ['monto' => (float) ($op->flete ?? 0), 'prov' => !empty($op->proveedor_flete) ? $op->proveedor_flete : 'TRANSPORTACTICS', 'fac' => $op->factura_flete ?? '--'],
                             'MUESTRAS'       => ['monto' => (float) ($op->muestras ?? 0), 'prov' => !empty($op->proveedor_muestras) ? $op->proveedor_muestras : '--', 'fac' => $op->factura_muestras ?? '--'],

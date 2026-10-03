@@ -274,7 +274,7 @@
 
         <IngresoCard v-for="item in ingresosData" :key="item.id" :item="item" :usuario-actual="usuario"
           @generar="generarComplemento" @visualizar="visualizarComplemento" @enviar="enviarCorreoComplemento"
-          @editar="abrirModalEditarIngreso" @eliminar="eliminarFila" @ver-desglose="mostrarDesgloseManzanillo" />
+          @editar="abrirModalEditarIngreso" @eliminar="eliminarFila" @ver-desglose="abrirModalDesglose" />
 
         <div v-if="!cargandoRegistros && ingresosData.length === 0"
           class="text-center py-16 text-lg text-gray-500 bg-white rounded-xl shadow-sm border border-gray-200 font-bold mt-4">
@@ -602,6 +602,9 @@
     <ModalEnviarCorreo :mostrar="showModalEnviarCorreo" :ingreso="ingresoParaCorreo"
       @cerrar="showModalEnviarCorreo = false" />
 
+    <ModalDesgloseIngreso v-if="showModalDesglose && ingresoParaDesglose" :ingreso-id="ingresoParaDesglose.id"
+      @close="showModalDesglose = false" @desglose-actualizado="onDesgloseActualizado" />
+
   </div>
 </template>
 
@@ -620,6 +623,7 @@ import ModalEditarIngreso from './ModalEditarIngreso.vue';
 import ModalComplementoPago from './ModalComplementoPago.vue';
 import ModalVerDocumento from './ModalVerDocumento.vue';
 import ModalEnviarCorreo from './ModalEnviarCorreo.vue';
+import ModalDesgloseIngreso from './ModalDesgloseIngreso.vue';
 
 export default {
   name: 'VistaFinanzasIngresos',
@@ -632,6 +636,7 @@ export default {
     ModalComplementoPago,
     ModalVerDocumento,
     ModalEnviarCorreo,
+    ModalDesgloseIngreso,
     Multiselect,
     VueCtkDateTimePicker
   },
@@ -649,6 +654,9 @@ export default {
 
       showModalEnviarCorreo: false,
       ingresoParaCorreo: null,
+
+      showModalDesglose: false,
+      ingresoParaDesglose: null,
 
       ingresoAEditar: null,
       saldoAEditar: null,
@@ -1291,55 +1299,17 @@ export default {
         }
       }
     },
-    mostrarDesgloseManzanillo(item) {
-      if (!item.operaciones || item.operaciones.length === 0) {
-        return Swal.fire('Atención', 'No hay operaciones o desgloses registrados para este ingreso.', 'info');
-      }
-
-      let filasHtml = item.operaciones.map(op => {
-        const anticipoVal = op.anticipo !== undefined
-          ? parseFloat(op.anticipo || 0)
-          : (op.pivot ? parseFloat(op.pivot.anticipo || 0) : 0);
-
-        const refVal = op.referencia || (op.pivot ? op.pivot.referencia : null) || op.folio || 'N/A';
-
-        return `
-          <tr>
-            <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: left; font-weight: bold;">
-               ${refVal}
-            </td>
-            <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right; color: #00C09F; font-weight: 900;">
-               $${anticipoVal.toLocaleString('en-US', {minimumFractionDigits: 2})}
-            </td>
-          </tr>
-        `;
-      }).join('');
-
-      Swal.fire({
-        title: 'Desglose de Anticipos',
-        html: `
-          <div style="font-family: Arial, sans-serif;">
-            <p style="color: #666; margin-bottom: 15px; text-align: left;">
-              Cliente: <b>${item.cliente?.nombre || item.cliente}</b><br>
-              Total Anticipo Global: <b>$${parseFloat(item.anticipo || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}</b>
-            </p>
-            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-              <thead style="background: #f8f9fa;">
-                <tr>
-                  <th style="padding: 10px; text-align: left;">Contenedor / Referencia</th>
-                  <th style="padding: 10px; text-align: right;">Anticipo Asignado</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${filasHtml}
-              </tbody>
-            </table>
-          </div>
-        `,
-        confirmButtonColor: '#2A3A4D',
-        confirmButtonText: 'Cerrar',
-        width: '600px'
-      });
+    abrirModalDesglose(item) {
+      this.ingresoParaDesglose = item;
+      this.showModalDesglose = true;
+    },
+    async onDesgloseActualizado() {
+      this.showModalDesglose = false;
+      this.ingresoParaDesglose = null;
+      await Promise.all([
+        this.cargarIngresos(),
+        this.cargarSaldos()
+      ]);
     }
   }
 }
@@ -1439,6 +1409,13 @@ input[type=number]::-webkit-outer-spin-button {
   font-size: 16px !important;
   border-radius: 8px;
   border-color: #D1D5DB;
+}
+
+:deep(.custom-filter-multiselect .multiselect__single) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 16px !important;
 }
 
 :deep(.custom-filter-multiselect .multiselect__select) {

@@ -300,6 +300,7 @@ export default {
         flete: null,
         muestras: null,
         llc: null,
+        llc_usd: null,
         proveedor_maniobras: null,
         factura_maniobras: null,
         proveedor_flete: null,
@@ -716,6 +717,7 @@ export default {
         this.form.maniobras = datos.maniobras !== undefined ? Number(datos.maniobras) : 0;
         this.form.muestras = datos.muestras !== undefined ? Number(datos.muestras) : 0;
         this.form.llc = datos.llc !== undefined ? Number(datos.llc) : 0;
+        this.form.llc_usd = datos.llc_usd !== undefined ? Number(datos.llc_usd) : 0;
         this.form.garantias = datos.garantias !== undefined ? Number(datos.garantias) : 0;
         this.form.desglose_naviera = datos.desglose_naviera !== undefined ? Number(datos.desglose_naviera) : 0;
 
@@ -937,6 +939,7 @@ export default {
             flete: op.flete,
             muestras: op.muestras,
             llc: op.llc,
+            llc_usd: op.llc_usd,
             anticipo: op.anticipo,
             garantias: op.garantias,
             desglose_naviera: op.desglose_naviera,

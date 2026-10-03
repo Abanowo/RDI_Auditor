@@ -164,9 +164,9 @@
                             d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
                     </svg>
                 </button>
-                <button v-if="esManzanilloCard" @click="$emit('ver-desglose', item)"
+                <button @click="$emit('ver-desglose', item)"
                     class="text-purple-600 bg-purple-100 hover:bg-purple-200 p-2.5 rounded-lg transition-colors"
-                    title="Ver Desglose de Anticipos por Contenedor">
+                    title="Ver desglose por operación">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
@@ -343,59 +343,17 @@ export default {
                 minimumFractionDigits: 2
             }).format(parseFloat(monto) || 0);
         },
-        mostrarDesgloseManzanillo(item) {
-            if (!item.operaciones || item.operaciones.length === 0) {
-                return;
-            }
-
-            let filasHtml = item.operaciones.map(op => {
-                const anticipoVal = op.anticipo !== undefined
-                    ? parseFloat(op.anticipo || 0)
-                    : (op.pivot ? parseFloat(op.pivot.anticipo || 0) : 0);
-
-                const refRaw = op.referencia || (op.pivot ? op.pivot.referencia : null) || op.folio || 'N/A';
-                
-                // 🎯 Limpiamos la referencia para la ventana emergente
-                const refVal = this.formatearReferenciaCorta(refRaw);
-
-                return `
-                    <tr>
-                        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: left; font-weight: bold;">
-                        ${refVal}
-                        </td>
-                        <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right; color: #00C09F; font-weight: 900;">
-                        $${anticipoVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                        </td>
-                    </tr>
-                    `;
-            }).join('');
-
-            Swal.fire({
-                title: 'Desglose de Anticipos',
-                html: `
-                    <div style="font-family: Arial, sans-serif;">
-                        <p style="color: #666; margin-bottom: 15px; text-align: left;">
-                        Cliente: <b>${item.cliente?.nombre || item.cliente}</b><br>
-                        Total Anticipo Global: <b>$${parseFloat(item.anticipo || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</b>
-                        </p>
-                        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-                        <thead style="background: #f8f9fa;">
-                            <tr>
-                            <th style="padding: 10px; text-align: left;">Contenedor / Ref.</th>
-                            <th style="padding: 10px; text-align: right;">Anticipo Asignado</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${filasHtml}
-                        </tbody>
-                        </table>
-                    </div>
-                    `,
-                confirmButtonColor: '#2A3A4D',
-                confirmButtonText: 'Cerrar',
-                width: '600px'
-            });
-        }
+        abrirModalDesglose(item) {
+            this.ingresoParaDesglose = item;
+            this.showModalDesglose = true;
+        },
+        async onDesgloseActualizado() {
+            this.showModalDesglose = false;
+            await Promise.all([
+                this.cargarIngresos(),
+                this.cargarSaldos()
+            ]);
+        },
     }
 }
 </script>
