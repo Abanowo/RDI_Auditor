@@ -3179,7 +3179,9 @@ class AuditoriaImpuestosController extends Controller
                 : "RDI_{$tarea->sucursal}{$fecha}.xlsx";
 
             $nombreUnico = Str::random(40) . '.xlsx';
-            $rutaDeAlmacenamiento = "/reportes/{$nombreUnico}";
+            // En uploads/ van archivos sueltos, sin subcarpetas: el nombre ya es
+            // un Str::random(40), así que no hay riesgo de colisión.
+            $rutaDeAlmacenamiento = $nombreUnico;
 
             $banco = strtoupper($tarea->banco);
             // URL de apoyo si es Santander
