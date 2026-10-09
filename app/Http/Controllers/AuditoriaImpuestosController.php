@@ -39,6 +39,14 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class AuditoriaImpuestosController extends Controller
 {
+    /**
+     * Únicos sitios de donde el proxy puede traer un documento.
+     */
+    const HOSTS_DE_DOCUMENTOS = [
+        'sistema.intactics.com',
+        'intactics.nyc3.cdn.digitaloceanspaces.com',
+    ];
+
     public function index(Request $request)
     {
         if ($request->wantsJson()) {
@@ -3272,10 +3280,10 @@ class AuditoriaImpuestosController extends Controller
     public function enviarErrorDeReportePorCorreo(AuditoriaTareas $tarea, \Throwable $exception)
     {
         try {
-            $destinatario = "carlos.perez@intactics.com"; // O config('app.admin_email')
+            $destinatarios = ['carlos.perez@intactics.com', 'anthonyanroab@gmail.com'];
 
             // Usamos nuestro nuevo Mailable, pasándole la tarea y la excepción.
-            Mail::to($destinatario)->send(new EnviarFalloReporteAuditoriaMail($tarea, $exception));
+            Mail::to($destinatarios)->send(new EnviarFalloReporteAuditoriaMail($tarea, $exception));
 
             Log::info("Correo de notificación de error enviado para la Tarea #{$tarea->id}.");
         } catch (\Throwable $e) {
@@ -6778,6 +6786,22 @@ class AuditoriaImpuestosController extends Controller
         $request->validate(['url' => 'required|url']);
         $urlExterna = $request->input('url');
 
+        // Hueco SSRF (2026-10-09): el servidor descargaba CUALQUIER liga que
+        // mandara alguien con sesión, también direcciones internas como la de
+        // metadatos de DigitalOcean (169.254.169.254). Ahora solo https y solo
+        // de los sitios de donde vienen las facturas.
+        $partes = parse_url($urlExterna);
+        $host = isset($partes['host']) ? strtolower($partes['host']) : '';
+
+        if (
+            !isset($partes['scheme']) || strtolower($partes['scheme']) !== 'https'
+            || !in_array($host, self::HOSTS_DE_DOCUMENTOS, true)
+            || isset($partes['user']) || isset($partes['port'])
+        ) {
+            \Log::warning('Proxy de documentos: liga rechazada', ['url' => $urlExterna, 'usuario' => auth()->id()]);
+            abort(403, 'Ese documento no se puede abrir desde aquí.');
+        }
+
         if ($request->has('info')) {
             // Como tu regla de negocio dice que todas las facturas externas son PDF,
             // podemos responder directamente sin necesidad de descargar el archivo.
@@ -6785,7 +6809,12 @@ class AuditoriaImpuestosController extends Controller
         }
         try {
             // Hacemos la petición desde nuestro servidor a la URL externa.
-            $response = Http::withoutVerifying()->get($urlExterna);
+            // Sin seguir redirecciones: un sitio permitido no debe poder
+            // mandarnos a otro (por ejemplo, a una dirección interna).
+            $response = Http::withoutVerifying()
+                ->withOptions(['allow_redirects' => false])
+                ->timeout(20)
+                ->get($urlExterna);
 
             if ($response->failed()) {
                 abort(502, 'No se pudo obtener el documento desde el servidor de origen.');
@@ -6794,7 +6823,7 @@ class AuditoriaImpuestosController extends Controller
             // Servimos el contenido del PDF al navegador con las cabeceras correctas.
             return response($response->body(), 200, [
                 'Content-Type' => 'application/pdf',
-                'Content-Disposition' => 'inline; filename="' . basename($urlExterna) . '"',
+                'Content-Disposition' => 'inline; filename="' . preg_replace('/[^A-Za-z0-9._-]/', '_', basename((string) parse_url($urlExterna, PHP_URL_PATH))) . '"',
             ]);
         } catch (\Throwable $e) {
             abort(500, 'Ocurrió un error al procesar el documento externo.');
