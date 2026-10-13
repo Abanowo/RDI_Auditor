@@ -53,8 +53,10 @@ class EnviarFalloReporteAuditoriaMail extends Mailable
 
         // Adjuntamos el estado de cuenta que causó el problema.
         // Usamos el disco 'local' porque estos archivos son privados.
-        if ($rutaEstadoDeCuenta && Storage::disk('local')->exists($rutaEstadoDeCuenta)) {
-            $email->attachFromStorage($rutaEstadoDeCuenta, $this->tarea->nombre_archivo, [
+        // El estado de cuenta vive en storageOldProyect, no en el disco local:
+        // mirando 'local' el if nunca se cumplia y el correo salia sin adjunto.
+        if ($rutaEstadoDeCuenta && Storage::disk('storageOldProyect')->exists($rutaEstadoDeCuenta)) {
+            $email->attachFromStorageDisk('storageOldProyect', $rutaEstadoDeCuenta, $this->tarea->nombre_archivo, [
                 'mime' => $this->tarea->banco !== "EXTERNO" ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             ]);
         }
