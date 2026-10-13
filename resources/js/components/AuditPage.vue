@@ -410,6 +410,7 @@
           :item-index="index"
           :page-from="pagination.from"
           @open-modal="openModal"
+          @fill-gpc="llenarGpc"
         />
       </div>
 
@@ -801,6 +802,36 @@ export default {
 
         // 2. Llama a la búsqueda principal (siempre a la página 1)
         this.fetchOperaciones(1);
+    },
+    async llenarGpc(operacion) {
+      // Confirmación opcional usando SweetAlert2 o el confirm nativo
+      const confirmar = confirm(`¿Deseas enviar los datos del pedimento ${operacion.pedimento} directamente a Google Sheets (GPC)?`);
+
+      if (!confirmar) {
+        return;
+      }
+
+      try {
+        // Notificación/Indicador visual opcional
+        console.log("Iniciando llenado de GPC para:", operacion.pedimento);
+
+        // Petición a tu controlador en Laravel
+        const response = await axios.post('/auditoria/llenar-gpc-directo', {
+          id: operacion.id,
+          pedimento: operacion.pedimento,
+          tipo_operacion: operacion.tipo_operacion,
+          sucursal_id: operacion.sucursal_id
+        });
+
+        if (response.data && response.data.code === 0) {
+          alert(`¡Éxito! La información del pedimento ${operacion.pedimento} se envió correctamente a Google Sheets.`);
+        } else {
+          alert(`Atención: ${response.data.message || 'No se pudo completar el envío.'}`);
+        }
+      } catch (error) {
+        console.error("Error al llenar GPC:", error);
+        alert("Ocurrió un error al intentar enviar los datos a Google Sheets. Revisa los logs.");
+      }
     }
 
   },

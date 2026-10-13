@@ -82,7 +82,7 @@ class ProcesarAuditoriaCompleta extends Command
                     throw $status['message'];
                 }
 
-                // Extraemos los Pagos de Derecho a la BD local PRIMERO, porque el 
+                // Extraemos los Pagos de Derecho a la BD local PRIMERO, porque el
                 // método de envío los necesita leer de ahí.
                 gc_collect_cycles();
                 $this->info("Extrayendo Pagos de Derecho de los PDFs a la BD...");
@@ -123,9 +123,19 @@ class ProcesarAuditoriaCompleta extends Command
                     throw $status['message'];
                 }
 
+                // 13.1 LOGIPUERTO A GPC
                 gc_collect_cycles();
                 $this->info("Enviando LOGIPUERTO a GPC...");
                 $status = $controller->enviarAGPCLogipuerto($tarea->id);
+                if ($status['code'] > 0) {
+                    throw $status['message'];
+                }
+
+                // 13.2 NUEVO: CONCEPTOS ESPECIALES A GPC
+                // (Limpieza, Conexiones, Almacen ACCESSA, Reconocimiento y Reacomodo)
+                gc_collect_cycles();
+                $this->info("Enviando Conceptos Especiales (Limpieza, Conexiones, Accessa, Reconocimiento, Reacomodo) a GPC...");
+                $status = $controller->enviarAGPCConceptosExtraZLO($tarea->id);
                 if ($status['code'] > 0) {
                     throw $status['message'];
                 }
@@ -138,6 +148,7 @@ class ProcesarAuditoriaCompleta extends Command
                     throw $status['message'];
                 }
 
+                // 14.1 TRASLADO LOCAL (EXTRAS) A GPC
                 gc_collect_cycles();
                 $this->info("Enviando Traslado Local (ALMAN) a GPC...");
                 $status = $controller->enviarAGPCTrasladoLocal($tarea->id);
@@ -231,7 +242,7 @@ class ProcesarAuditoriaCompleta extends Command
                 gc_collect_cycles();
                 $this->info("--- INICIANDO INSERCIONES EN GPC MULTI-SUCURSAL ---");
                 Log::info("Enviando datos al nuevo Google Sheet de sucursales (POST-CORREO)...");
-                
+
                 $status = $controller->enviarAGPCMultiSucursal($tarea->id);
                 if ($status['code'] > 0) {
                     throw $status['message'];
@@ -242,14 +253,29 @@ class ProcesarAuditoriaCompleta extends Command
             $tarea->update(['status' => 'completado', 'resultado' => 'Proceso de auditoría finalizado con éxito.']);
             $this->info("¡Orquestación de la Tarea #{$tarea->id} completada con éxito!");
             $tarea->refresh();
-            Storage::delete($tarea->mapeo_completo_facturas);
-        } catch (\Exception $e) {
+
+            if (!empty($tarea->mapeo_completo_facturas)) {
+                Storage::delete($tarea->mapeo_completo_facturas);
+            }
+        } catch (\Throwable $e) {
+            // \Throwable (y no \Exception): los métodos del controlador también pueden devolver
+            // errores de PHP (\Error, \TypeError...). Con \Exception esos no se atrapaban y la
+            // tarea se quedaba en "procesando" para siempre, sin correo de error.
             $this->error("Falló la orquestación de la Tarea #{$tarea->id}: " . $e->getMessage());
-            Log::error("Fallo en orquestación Tarea #{$tarea->id}: " . $e->getMessage());
+            Log::error("Fallo en orquestación Tarea #{$tarea->id}: " . $e->getMessage() . " | Línea: " . $e->getLine() . " | Archivo: " . $e->getFile());
             gc_collect_cycles();
+
             (new AuditoriaImpuestosController())->enviarErrorDeReportePorCorreo($tarea, $e);
-            $tarea->refresh()->update(['resultado' => 'La orquestación se detuvo debido a un fallo en un subproceso. ' . $e->getMessage()]);
-            Storage::delete($tarea->mapeo_completo_facturas);
+
+            $tarea->refresh();
+            $tarea->update([
+                'status' => 'fallido',
+                'resultado' => 'La orquestación se detuvo debido a un fallo en un subproceso. ' . $e->getMessage()
+            ]);
+
+            if (!empty($tarea->mapeo_completo_facturas)) {
+                Storage::delete($tarea->mapeo_completo_facturas);
+            }
         }
 
         return 0;
