@@ -28,6 +28,7 @@ Route::get('/auditoria/sucursales', [AuditoriaImpuestosController::class, 'getSu
 Route::get('/auditoria/clientes', [AuditoriaImpuestosController::class, 'getClientes']);
 Route::get('/auditoria/exportar', [AuditoriaImpuestosController::class, 'exportarFacturado'])->name('auditoria.exportar');
 Route::get('/auditoria', [AuditoriaImpuestosController::class, 'index'])->name('auditoria.index');
+Route::post('/auditoria/llenar-gpc-directo', [AuditoriaImpuestosController::class, 'llenarGpcDirecto']);
 
 // ====================================================================
 // RUTAS PARA EL MÓDULO DE CONTROL DE PROVEEDORES (Consumidas por Vue)
@@ -43,6 +44,8 @@ Route::prefix('control-proveedores')->group(function () {
 // =====================================================================
 
 // 🔥 1. RUTAS ESPECÍFICAS (SIN {id}) - SIEMPRE VAN ARRIBA
+Route::get('/ingresos-conciliados/{id}/txt-rep', [IngresoConciliadoController::class, 'generarTxtRep']);
+
 Route::post('/ingresos-conciliados/generar-complemento', [IngresoConciliadoController::class, 'generarComplemento']);
 Route::post('/ingresos-conciliados/timbrar-complemento', [IngresoConciliadoController::class, 'timbrarComplemento']);
 Route::get('/ingresos-conciliados/{id}/complemento/pdf', [IngresoConciliadoController::class, 'verComplementoPdf']);
