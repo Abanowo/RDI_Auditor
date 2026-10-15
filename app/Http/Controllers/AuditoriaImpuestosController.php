@@ -1229,7 +1229,7 @@ class AuditoriaImpuestosController extends Controller
     }
     
     // 5. ENVÍO DE IMPUESTOS A GPC (Solo Santander / Manzanillo)
-    public function enviarAGPCImpuestos(string $tareaId)
+    public function enviarAGPCImpuestos($tareaId)
     {
         gc_collect_cycles();
         $tarea = AuditoriaTareas::find($tareaId);
@@ -4247,7 +4247,7 @@ class AuditoriaImpuestosController extends Controller
 
 
     //--- METODO AUDITAR E IMPORTAR PAGOS DE ALMACÉN DESDE GOOGLE SHEETS EXTERNO Y ENVIAR AL REPORTE
-    public function enviarAGPCFacturasDeAlmacen($tareaId)
+    public function enviarAGPCFacturasDeAlmacen($tareaId, ?array $soloContenedores = null)
     {
         gc_collect_cycles();
         $tarea = ($tareaId instanceof AuditoriaTareas) ? $tareaId : AuditoriaTareas::find($tareaId);
