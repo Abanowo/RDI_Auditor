@@ -29,6 +29,8 @@ Route::get('/auditoria/clientes', [AuditoriaImpuestosController::class, 'getClie
 Route::get('/auditoria/exportar', [AuditoriaImpuestosController::class, 'exportarFacturado'])->name('auditoria.exportar');
 Route::get('/auditoria', [AuditoriaImpuestosController::class, 'index'])->name('auditoria.index');
 Route::post('/auditoria/llenar-gpc-directo', [AuditoriaImpuestosController::class, 'llenarGpcDirecto']);
+Route::post('/auditoria/llenar-gpc-directo/vista-previa', [AuditoriaImpuestosController::class, 'vistaPreviaGpcDirecto']);
+Route::post('/auditoria/llenar-gpc-directo/confirmar', [AuditoriaImpuestosController::class, 'confirmarGpcDirecto']);
 
 // ====================================================================
 // RUTAS PARA EL MÓDULO DE CONTROL DE PROVEEDORES (Consumidas por Vue)

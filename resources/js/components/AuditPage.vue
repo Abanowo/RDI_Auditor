@@ -409,6 +409,7 @@
           :operacion="operacion"
           :item-index="index"
           :page-from="pagination.from"
+          :filling-gpc="esOperacionEnRevisionGpc(operacion)"
           @open-modal="openModal"
           @fill-gpc="llenarGpc"
         />
@@ -436,6 +437,18 @@
         :audit-data="modalAuditData"
         @close="isModalVisible = false"
       />
+
+      <!-- Revisión de lo que se enviará al GPC -->
+      <GpcPreviewModal
+        :show="gpcPreview.visible"
+        :operacion="gpcPreview.operacion"
+        :loading="gpcPreview.loading"
+        :sending="gpcPreview.sending"
+        :preview="gpcPreview.datos"
+        :error="gpcPreview.error"
+        @close="cerrarVistaPreviaGpc"
+        @confirm="confirmarEnvioGpc"
+      />
     </div>
   </div>
 </template>
@@ -445,7 +458,21 @@ import OperationItem from "../components/OperationItem.vue"; // ¡Importante! Im
 import Pagination from "../components/Pagination.vue";
 import AuditModal from "../components/AuditModal.vue";
 import FilterBar from "../components/FilterBar.vue";
-import ImportModal from "./ImportModal.vue";
+import ImportModal from "../components/ImportModal.vue";
+import GpcPreviewModal from "../components/GpcPreviewModal.vue";
+
+// Estado inicial de la ventana de revisión del GPC
+function estadoInicialGpcPreview() {
+  return {
+    visible: false,
+    loading: false,
+    sending: false,
+    operacion: null,
+    datos: null,
+    error: "",
+  };
+}
+
 export default {
   components: {
     OperationItem, // Registra el componente para poder usarlo en el template
@@ -453,6 +480,7 @@ export default {
     AuditModal,
     FilterBar,
     ImportModal,
+    GpcPreviewModal,
   },
   data() {
     return {
@@ -473,6 +501,8 @@ export default {
       activeFilters: {},
       //Cambio por Filtro botones
       buttonStatusFilter: null, // NUEVA VARIABLE: null = inactivo, 'string' = activo, Su uso es para guardar el estado de los botones filtro, y decide si se utiliza el estado del boton o si se utiliza el estado de filterBar
+      // Ventana de revisión antes de enviar al GPC
+      gpcPreview: estadoInicialGpcPreview(),
     };
   },
   computed: {
@@ -481,16 +511,7 @@ export default {
     },
 
     finalFilters() {
-      /* console.log("--- SE ESTÁ CALCULANDO finalFilters ---"); */
-
-      // Usamos JSON.stringify para obtener una "foto" del estado en este instante
-      /* console.log(
-        "El valor de this.activeFilters es:",
-        JSON.parse(JSON.stringify(this.activeFilters))
-      ); */
-
       if (!this.selectionComplete) {
-        /* console.log("selectionComplete es false, devolviendo objeto vacío."); */
         return {};
       }
 
@@ -505,9 +526,6 @@ export default {
         if (this.buttonStatusFilter) {  //Cambio por Filtro botones
             baseFilters.estado = this.buttonStatusFilter;
         }
-
-      /* console.log("Resultado final de finalFilters:", JSON.parse(JSON.stringify(baseFilters)));
-      console.log("--------------------------------------"); */
 
       return baseFilters;
     },
@@ -579,10 +597,6 @@ export default {
     exportUrl() {
       // Tomamos los filtros activos y los convertimos a un query string
       const params = new URLSearchParams(this.finalFilters).toString();
-      const urlParams = new URLSearchParams(window.location.search).toString();
-
-      /* console.log(params);
-      console.log(urlParams); */
       const finalParams = params;
 
       window.open(`/auditoria/exportar?${finalParams}`, "_blank");
@@ -646,12 +660,9 @@ export default {
         const params = new URLSearchParams(this.finalFilters);
         window.history.pushState({}, "", `?${params.toString()}`);
 
-        /* console.log(this.selectedSucursal);
-        console.log(this.selectedOperationType); */
         // 4. Llamamos a la API
         this.fetchClientes();
         this.fetchOperaciones(1);
-        //this.fetchAuditCounts(this.selectedSucursal.id, this.selectedOperationType);
       });
     },
 
@@ -664,15 +675,15 @@ export default {
         importacion: 0,
         exportacion: 0,
         todos: 0
-      },
+      };
 
       this.auditCounts = {
           balanceados: 0,
           pago_menos: 0,
           pago_mas: 0,
           no_facturados: 0,
-      },
-      this.auditTotalCount = {total: 0, ocupoActualizarContadores: true},
+      };
+      this.auditTotalCount = {total: 0, ocupoActualizarContadores: true};
       this.pagination = {};
       this.activeFilters = {};
 
@@ -686,8 +697,6 @@ export default {
       const scData = payload && payload.sc;
       const desglose = scData && scData.desglose_conceptos;
       const montos = desglose && desglose.montos;
-
-      /* console.log("Abriendo modal con:", payload); */
 
       // Estructuramos los datos que el modal necesita
       this.modalAuditData = {
@@ -737,9 +746,6 @@ export default {
         ...this.finalFilters,
         page: page,
       };
-      // --- AÑADE ESTA LÍNEA DE DEPURECIÓN AQUÍ ---
-      //alert("Datos que se enviarán a la API:\n\n" + JSON.stringify(finalParams, null, 2));
-      // ---------------------------------------------
 
       // Hacemos la llamada a la API siempre al mismo endpoint base
       axios
@@ -756,11 +762,8 @@ export default {
             // Crea un nuevo objeto temporal para guardar los conteos actualizados
             const newCounts = {};
 
-            // Itera sobre el ARREGLO de la API usando forEach
+            // Para cada estadística, usa su 'key' como propiedad del nuevo objeto
             statsFromApi.forEach(stat => {
-                // Para cada estadística, usa su 'key' para crear una propiedad
-                // en nuestro nuevo objeto y asígnale su 'value'.
-                // Ejemplo: newCounts['pago_mas'] = (Objeto);
                 newCounts[stat.key] = stat;
             });
 
@@ -770,18 +773,9 @@ export default {
                 this.auditTotalCount.total = response.data.meta.conteos.total;
             }
 
-
-
-          /* console.log("Response: ", response);
-          console.log("Response.data: ", response.data);
-          console.log("Response.data.links: ", response.data.links);
-          console.log("Response.data.meta.conteos: ", response.data.meta.conteos);
-          console.log("auditCounts: ", this.auditCounts); */
-          // Esta parte es crucial y ahora funcionará correctamente
+          // La URL de Laravel contiene todos los filtros de la petición
           const activeLink = response?.data?.links?.find((link) => link.active);
           if (activeLink && activeLink.url) {
-            // La URL de Laravel ahora sí contendrá todos los filtros,
-            // porque la petición que le llegó era completa.
             const fullUrl = new URL(activeLink.url);
             window.history.pushState({}, "", `${fullUrl.pathname}${fullUrl.search}`);
           }
@@ -803,37 +797,100 @@ export default {
         // 2. Llama a la búsqueda principal (siempre a la página 1)
         this.fetchOperaciones(1);
     },
-    async llenarGpc(operacion) {
-      // Confirmación opcional usando SweetAlert2 o el confirm nativo
-      const confirmar = confirm(`¿Deseas enviar los datos del pedimento ${operacion.pedimento} directamente a Google Sheets (GPC)?`);
 
-      if (!confirmar) {
-        return;
-      }
+    // ==================================================================
+    // GPC: VISTA PREVIA Y ENVÍO
+    // ==================================================================
+
+    // La tarjeta muestra "Revisando..." mientras su ventana de revisión está abierta
+    esOperacionEnRevisionGpc(operacion) {
+      return !!(this.gpcPreview.visible && this.gpcPreview.operacion && this.gpcPreview.operacion.id === operacion.id);
+    },
+
+    // Abre la vista previa: arma lo que se enviaría al GPC sin enviar nada
+    async llenarGpc(operacion) {
+      this.gpcPreview = Object.assign(estadoInicialGpcPreview(), {
+        visible: true,
+        loading: true,
+        operacion: operacion,
+      });
 
       try {
-        // Notificación/Indicador visual opcional
-        console.log("Iniciando llenado de GPC para:", operacion.pedimento);
-
-        // Petición a tu controlador en Laravel
-        const response = await axios.post('/auditoria/llenar-gpc-directo', {
+        const response = await axios.post("/auditoria/llenar-gpc-directo/vista-previa", {
           id: operacion.id,
           pedimento: operacion.pedimento,
           tipo_operacion: operacion.tipo_operacion,
-          sucursal_id: operacion.sucursal_id
+          sucursal_id: operacion.sucursal_id,
         });
 
-        if (response.data && response.data.code === 0) {
-          alert(`¡Éxito! La información del pedimento ${operacion.pedimento} se envió correctamente a Google Sheets.`);
-        } else {
-          alert(`Atención: ${response.data.message || 'No se pudo completar el envío.'}`);
+        // Si el usuario cerró la ventana o abrió otra operación mientras cargaba, se ignora
+        if (this.gpcPreview.operacion !== operacion) return;
+
+        const data = response.data || {};
+        this.gpcPreview.datos = data;
+        if (data.code !== 0) {
+          this.gpcPreview.error = data.message || "No se pudo armar la vista previa.";
         }
       } catch (error) {
-        console.error("Error al llenar GPC:", error);
-        alert("Ocurrió un error al intentar enviar los datos a Google Sheets. Revisa los logs.");
+        if (this.gpcPreview.operacion !== operacion) return;
+        console.error("Error en la vista previa del GPC:", error);
+        this.gpcPreview.error = this.mensajeErrorGpc(error);
+      } finally {
+        if (this.gpcPreview.operacion === operacion) {
+          this.gpcPreview.loading = false;
+        }
       }
-    }
+    },
 
+    // Envía al GPC exactamente lo que el usuario revisó
+    async confirmarEnvioGpc() {
+      if (!this.gpcPreview.datos || !this.gpcPreview.datos.token) return;
+
+      const pedimento = this.gpcPreview.operacion ? this.gpcPreview.operacion.pedimento : "";
+      this.gpcPreview.sending = true;
+      let enviado = false;
+
+      try {
+        const response = await axios.post("/auditoria/llenar-gpc-directo/confirmar", {
+          token: this.gpcPreview.datos.token,
+        });
+
+        const data = response.data || {};
+        if (data.code === 0) {
+          enviado = true;
+          alert(data.message || `La información del pedimento ${pedimento} se envió al GPC.`);
+        } else {
+          this.gpcPreview.error = data.message || "Google Sheets no confirmó el envío.";
+        }
+      } catch (error) {
+        console.error("Error al enviar al GPC:", error);
+        this.gpcPreview.error = this.mensajeErrorGpc(error);
+      } finally {
+        this.gpcPreview.sending = false;
+      }
+
+      if (enviado) {
+        this.cerrarVistaPreviaGpc();
+      }
+    },
+
+    cerrarVistaPreviaGpc() {
+      if (this.gpcPreview.sending) {
+        return;
+      }
+      this.gpcPreview = estadoInicialGpcPreview();
+    },
+
+    mensajeErrorGpc(error) {
+      const respuesta = error && error.response;
+      if (respuesta && respuesta.data && respuesta.data.message) {
+        return respuesta.data.message;
+      }
+      if (respuesta && respuesta.status) {
+        return "El servidor respondió con error " + respuesta.status + ".";
+      }
+      return "No se pudo comunicar con el servidor. Revisa tu conexión e inténtalo de nuevo.";
+    },
   },
 };
 </script>

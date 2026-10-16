@@ -33,6 +33,7 @@ use Illuminate\Database\Capsule\Manager;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 
 use Smalot\PdfParser\Parser;
 use Maatwebsite\Excel\Facades\Excel;
@@ -1166,6 +1167,11 @@ class AuditoriaImpuestosController extends Controller
             if (empty($datosParaEnviar)) {
                 return false;
             }
+
+            if ($this->modoVistaPrevia) {
+                $this->registrarEnvioVistaPrevia('multi', $hoja, $datosParaEnviar, $esUltimo);
+                return true;
+            }
  
             if (app()->environment('production')) {
                 $scriptUrl = 'https://script.google.com/macros/s/AKfycbzaLZjOImg1nz_nywOTYoc-iM-LFhtFeVPIf3biXstCcOLK1BXfBmiomg29--cdDuS4iw/exec'; // PRODUCCIÓN
@@ -1232,7 +1238,7 @@ class AuditoriaImpuestosController extends Controller
     public function enviarAGPCImpuestos($tareaId)
     {
         gc_collect_cycles();
-        $tarea = AuditoriaTareas::find($tareaId);
+        $tarea = ($tareaId instanceof AuditoriaTareas) ? $tareaId : AuditoriaTareas::find($tareaId);
         
         if (!$tarea || $tarea->status !== 'procesando') {
             return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
@@ -1420,6 +1426,12 @@ class AuditoriaImpuestosController extends Controller
     {
         try {
             if (empty($datosParaEnviar)) {
+                return;
+            }
+
+            // Vista previa: se guarda lo que se enviaría y NO se manda a Google Sheets
+            if ($this->modoVistaPrevia) {
+                $this->registrarEnvioVistaPrevia('pedimentos', $hoja, $datosParaEnviar, $esUltimo, $sucursal);
                 return;
             }
 
@@ -2504,10 +2516,7 @@ class AuditoriaImpuestosController extends Controller
     {
         gc_collect_cycles();
         $tarea = ($tareaId instanceof AuditoriaTareas) ? $tareaId : AuditoriaTareas::find($tareaId);
-        Log::info('DEBUG tarea', [
-            'recibido' => is_object($tareaId) ? get_class($tareaId) : var_export($tareaId, true),
-            'tarea'    => $tarea ? ['clase' => get_class($tarea), 'exists' => $tarea->exists, 'status' => $tarea->status] : null,
-        ]);
+
         if (!$tarea || $tarea->status !== 'procesando') {
             return ['code' => 1, 'message' => new \Exception("Pagos derecho: Tarea no válida.")];
         }
@@ -2542,6 +2551,8 @@ class AuditoriaImpuestosController extends Controller
                 if (!$rutasPdfs) {
                     continue;
                 }
+
+                $parsedPdfs = [];
 
                 $parsedPdfs = [];
                 foreach ($rutasPdfs as $rutaPdf) {
@@ -2674,10 +2685,6 @@ class AuditoriaImpuestosController extends Controller
         gc_collect_cycles();
         $tarea = ($tareaId instanceof AuditoriaTareas) ? $tareaId : AuditoriaTareas::find($tareaId);
 
-        Log::info('DEBUG tarea', [
-            'recibido' => is_object($tareaId) ? get_class($tareaId) : var_export($tareaId, true),
-            'tarea'    => $tarea ? ['clase' => get_class($tarea), 'exists' => $tarea->exists, 'status' => $tarea->status] : null,
-        ]);
         if (!$tarea || $tarea->status !== 'procesando') {
             return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
         }
@@ -4641,6 +4648,11 @@ class AuditoriaImpuestosController extends Controller
      */
     private function enviarDatosAlmacenSpecializedWebhook(array $datosParaSheets, bool $esUltimo = true)
     {
+        if ($this->modoVistaPrevia) {
+            $this->registrarEnvioVistaPrevia('alman', 'ZLO', $datosParaSheets, $esUltimo);
+            return;
+        }
+
         if (app()->environment('production')) {
             $almacenWebhookUrl = 'https://script.google.com/a/macros/intactics.com/s/AKfycbzil8yuKDXwReWIA91kJFDXelMDGghbWeW9bb-jvgcC5FoZr3Z0HlIQFkuxlOg-og3kuQ/exec';
         } else {
@@ -4878,6 +4890,11 @@ class AuditoriaImpuestosController extends Controller
      */
     private function enviarDatosTrasladoLocalSpecializedWebhook(array $datosParaSheets, bool $esUltimo = true)
     {
+        if ($this->modoVistaPrevia) {
+            $this->registrarEnvioVistaPrevia('traslado', 'ZLO', $datosParaSheets, $esUltimo);
+            return;
+        }
+
         if (app()->environment('production')) {
             $webhookUrl = 'https://script.google.com/a/macros/intactics.com/s/AKfycbzil8yuKDXwReWIA91kJFDXelMDGghbWeW9bb-jvgcC5FoZr3Z0HlIQFkuxlOg-og3kuQ/exec';
         } else {
@@ -4969,55 +4986,95 @@ class AuditoriaImpuestosController extends Controller
             if (!$operacion) {
                 return response()->json(['code' => 1, 'message' => 'Operación no encontrada en la BD.']);
             }
- 
+
+            $patenteZLO  = '3711';
+            $sucursalZLO = 5;
+
             // =========================================================
-            // 1. DATOS DEL PEDIMENTO
+            // 1. PEDIMENTO CON LAS MISMAS REGLAS QUE EL COMANDO
+            //    construirMapaDePedimentos() junta TODOS los registros del pedimento
+            //    (all_ids) y elige el mismo registro "ancla" que usa el comando.
             // =========================================================
-            $opIdReal = $operacion->getKey();
             $pedimentoBD = Pedimento::where('id_pedimiento', $operacion->id_pedimiento)->first();
-            $numPedimento = trim($pedimentoBD->num_pedimiento ?? $pedimentoRecibido);
- 
-            preg_match('/[4-7]\d{6}/', $numPedimento . ' ' . $pedimentoRecibido, $mPed);
+            $numPedimentoOp = trim($pedimentoBD->num_pedimiento ?? $pedimentoRecibido);
+
+            preg_match('/[4-7]\d{6}/', $numPedimentoOp . ' ' . $pedimentoRecibido, $mPed);
             $pedimentoLimpio = $mPed[0] ?? trim($pedimentoRecibido);
- 
+
+            $mapaComando = $this->construirMapaDePedimentos([$pedimentoLimpio], $patenteZLO, $sucursalZLO);
+            $datosId = $mapaComando[$pedimentoLimpio] ?? null;
+
+            // Respaldo: si el comando no lo encontraría (ej. pedimento de hace más de un año), usamos la operación del clic
+            if (!$datosId || empty($datosId['id_pedimiento'])) {
+                Log::warning("GPC Directo ZLO: construirMapaDePedimentos no encontró {$pedimentoLimpio}; se usa la operación seleccionada.");
+                $datosId = [
+                    'id_pedimiento'  => $operacion->id_pedimiento,
+                    'id_operacion'   => $operacion->getKey(),
+                    'num_pedimiento' => $numPedimentoOp,
+                    'tipo'           => $tipoOpStr,
+                    'es_recti'       => str_contains(strtoupper($numPedimentoOp), 'R1-'),
+                    'all_ids'        => [$operacion->id_pedimiento],
+                ];
+            }
+
+            $tipoMapa = in_array($datosId['tipo'] ?? '', ['Importacion', 'Exportacion'], true) ? $datosId['tipo'] : $tipoOpStr;
+            $datosId['tipo'] = $tipoMapa;
+            $numPedimento = trim($datosId['num_pedimiento'] ?? $numPedimentoOp);
+            $allIds = !empty($datosId['all_ids']) ? array_values(array_unique($datosId['all_ids'])) : [$datosId['id_pedimiento']];
+            $datosId['all_ids'] = $allIds;
+
             // =========================================================
-            // 2. MAPEO DE UNA SOLA OPERACIÓN (misma estructura que el del comando)
-            //    Todo se indexa con los 7 dígitos del pedimento, que es como llegan
-            //    los pedimentos del estado de cuenta en el comando.
+            // 2. OPERACIÓN DE LA QUE SE LEEN LOS ARCHIVOS (misma regla que el comando)
+            //    Importación: la más reciente SIN parent. Exportación: la más reciente.
+            // =========================================================
+            if ($tipoMapa === 'Importacion') {
+                $idOperacionMapa = Importacion::where('patente', $patenteZLO)
+                    ->where('sucursal', $sucursalZLO)
+                    ->where('id_pedimiento', $datosId['id_pedimiento'])
+                    ->whereNull('parent')
+                    ->max('id_importacion');
+            } else {
+                $idOperacionMapa = Exportacion::where('patente', $patenteZLO)
+                    ->where('sucursal', $sucursalZLO)
+                    ->where('id_pedimiento', $datosId['id_pedimiento'])
+                    ->max('id_exportacion');
+            }
+            $idOperacionMapa = $idOperacionMapa ?: ($datosId['id_operacion'] ?? null) ?: $operacion->getKey();
+
+            Log::info("GPC Directo ZLO: pedimento {$pedimentoLimpio} | ancla id_pedimiento {$datosId['id_pedimiento']} ({$numPedimento}) | all_ids [" . implode(', ', $allIds) . "] | operación de archivos {$tipoMapa} #{$idOperacionMapa} | clic en #{$operacion->getKey()}");
+
+            // =========================================================
+            // 3. MAPEO (misma estructura que el del comando)
             // =========================================================
             $indices = $this->construirIndiceFacturasParaMapeo(
-                collect([$pedimentoLimpio => ['id_operacion' => $opIdReal, 'tipo' => $tipoOpStr]]),
+                collect([$numPedimento => ['id_operacion' => $idOperacionMapa, 'tipo' => $tipoMapa]]),
                 'ZLO'
             );
- 
+
+            // Alias por los 7 dígitos: algunos índices (Vacíos, Almacenaje) buscan solo por esa llave
+            if ($numPedimento !== $pedimentoLimpio && isset($indices[$numPedimento])) {
+                $indices[$pedimentoLimpio] = $indices[$numPedimento];
+            }
+
             $registroOperacion = [
                 $numPedimento => [
                     'pedimento'    => $numPedimento,
-                    'id_operacion' => $opIdReal,
-                    'id_pedimento' => $operacion->id_pedimiento,
-                    'tipo'         => $tipoOpStr,
+                    'id_operacion' => $idOperacionMapa,
+                    'id_pedimento' => $datosId['id_pedimiento'],
+                    'tipo'         => $tipoMapa,
                 ]
             ];
- 
-            $esImpo = ($tipoOpStr === 'Importacion');
- 
+
+            $esImpo = ($tipoMapa === 'Importacion');
+
             $mapeo = [
-                'pedimentos_totales' => [
-                    $pedimentoLimpio => [
-                        'id_pedimiento'  => $operacion->id_pedimiento,
-                        'id_operacion'   => $opIdReal,
-                        'num_pedimiento' => $numPedimento,
-                        'tipo'           => $tipoOpStr,
-                        'es_recti'       => str_contains(strtoupper($numPedimento), 'R1-'),
-                        'all_ids'        => [$operacion->id_pedimiento],
-                    ]
-                ],
+                'pedimentos_totales'        => [$pedimentoLimpio => $datosId],
                 'pedimentos_no_encontrados' => [],
                 'pedimentos_importacion'    => $esImpo ? $registroOperacion : [],
                 'pedimentos_exportacion'    => $esImpo ? [] : $registroOperacion,
                 'indices_importacion'       => $esImpo ? $indices : [],
                 'indices_exportacion'       => $esImpo ? [] : $indices,
-                'auditorias_sc'             => AuditoriaTotalSC::where('pedimento_id', $operacion->id_pedimiento)
+                'auditorias_sc'             => AuditoriaTotalSC::whereIn('pedimento_id', $allIds)
                                                 ->get()
                                                 ->keyBy('pedimento_id')
                                                 ->toArray(),
@@ -5040,9 +5097,14 @@ class AuditoriaImpuestosController extends Controller
                 'mapeo_completo_facturas' => $rutaMapeo,
                 'pedimentos_procesados'   => json_encode([$pedimentoLimpio]),
             ]);
- 
-            // Contenedores de la operación (para filtrar ALMAN y Traslado Local)
-            preg_match_all('/[A-Za-z]{4}[\s\-]*\d{7}/', (string) ($operacion->contenedor ?? ''), $mConts);
+
+            // Contenedores (operación del clic + operación de archivos) para filtrar ALMAN y Traslado Local
+            $textoContenedores = (string) ($operacion->contenedor ?? '');
+            if ((int) $idOperacionMapa !== (int) $operacion->getKey()) {
+                $opMapa = $esImpo ? Importacion::find($idOperacionMapa) : Exportacion::find($idOperacionMapa);
+                $textoContenedores .= ' ' . ($opMapa->contenedor ?? '');
+            }
+            preg_match_all('/[A-Za-z]{4}[\s\-]*\d{7}/', $textoContenedores, $mConts);
             $contenedores = array_values(array_unique(array_map(function ($c) {
                 return strtoupper(preg_replace('/[^A-Z0-9]/i', '', $c));
             }, $mConts[0] ?? [])));
@@ -5108,6 +5170,213 @@ class AuditoriaImpuestosController extends Controller
                 Storage::delete($rutaMapeo);
             }
         }
+    }
+
+    private $modoVistaPrevia = false;
+    private $enviosVistaPrevia = [];
+
+    public function vistaPreviaGpcDirecto(Request $request)
+    {
+        $request->validate([
+            'id' => 'required',
+            'pedimento' => 'required'
+        ]);
+ 
+        $this->modoVistaPrevia = true;
+        $this->enviosVistaPrevia = [];
+ 
+        try {
+            $respuesta = $this->llenarGpcDirecto($request);
+        } finally {
+            $this->modoVistaPrevia = false;
+        }
+ 
+        $resultado = $respuesta->getData(true);
+ 
+        // Avisos del proceso (pasos que fallaron, operación sin contenedor...)
+        $avisos = [];
+        foreach (preg_split('/(?<=\.)\s+/', (string) ($resultado['message'] ?? '')) as $frase) {
+            if (preg_match('/No se pudieron completar|no tiene contenedor|se omitieron|no tiene un GPC/i', $frase)) {
+                $avisos[] = trim($frase);
+            }
+        }
+ 
+        if (empty($this->enviosVistaPrevia)) {
+            $mensaje = (($resultado['code'] ?? 1) > 0)
+                ? ($resultado['message'] ?? 'No se pudo armar la información del GPC.')
+                : 'No se encontraron conceptos con monto para este pedimento. Revisa que el expediente tenga sus facturas.';
+ 
+            return response()->json([
+                'code'    => 1,
+                'message' => $mensaje,
+                'avisos'  => $avisos,
+                'filas'   => [],
+            ]);
+        }
+ 
+        // Filas en un formato común para la tabla del front-end
+        $filas = [];
+        foreach ($this->enviosVistaPrevia as $envio) {
+            foreach ($envio['datos'] as $fila) {
+                $filas[] = $this->normalizarFilaVistaPrevia($envio['canal'], $envio['hoja'], $fila);
+            }
+        }
+ 
+        // Totales por moneda (solo renglones con monto)
+        $totales = [];
+        $conMonto = 0;
+        foreach ($filas as $fila) {
+            if ($fila['monto'] !== null && $fila['monto'] > 0) {
+                $conMonto++;
+                $moneda = $fila['moneda'] ?: 'MXN';
+                $totales[$moneda] = round(($totales[$moneda] ?? 0) + $fila['monto'], 2);
+            }
+        }
+ 
+        // Lo que se va a enviar se guarda tal cual: lo que el usuario revisa es lo que se envía
+        $token = Str::random(40);
+        Cache::put('gpc_vista_previa_' . $token, [
+            'envios'    => $this->enviosVistaPrevia,
+            'pedimento' => (string) $request->input('pedimento'),
+            'usuario'   => auth()->id(),
+            'creado'    => now()->toDateTimeString(),
+        ], now()->addMinutes(30));
+ 
+        return response()->json([
+            'code'    => 0,
+            'token'   => $token,
+            'expira'  => now()->addMinutes(30)->toDateTimeString(),
+            'avisos'  => $avisos,
+            'filas'   => $filas,
+            'resumen' => [
+                'registros' => count($filas),
+                'con_monto' => $conMonto,
+                'totales'   => $totales,
+            ],
+        ]);
+    }
+ 
+    /**
+     * POST /auditoria/llenar-gpc-directo/confirmar
+     * Envía a Google Sheets los registros de una vista previa ya revisada (por su token).
+     * El token se usa una sola vez: así no se puede enviar dos veces la misma vista previa.
+     */
+    public function confirmarGpcDirecto(Request $request)
+    {
+        $request->validate(['token' => 'required|string']);
+ 
+        $paquete = Cache::pull('gpc_vista_previa_' . $request->input('token'));
+ 
+        if (!$paquete) {
+            return response()->json([
+                'code'    => 1,
+                'message' => 'La vista previa ya no está disponible (expiró o ya se envió). Vuelve a presionar "Llenar GPC".'
+            ], 410);
+        }
+ 
+        if (!empty($paquete['usuario']) && $paquete['usuario'] !== auth()->id()) {
+            return response()->json(['code' => 1, 'message' => 'Esta vista previa la generó otro usuario.'], 403);
+        }
+ 
+        $registros = 0;
+        $fallasMulti = 0;
+ 
+        try {
+            foreach ($paquete['envios'] as $envio) {
+                $registros += count($envio['datos']);
+ 
+                switch ($envio['canal']) {
+                    case 'pedimentos':
+                        $this->enviarDatosAGoogleSheets($envio['datos'], $envio['hoja'], $envio['sucursal'] ?? 'ZLO', $envio['es_ultimo']);
+                        break;
+                    case 'alman':
+                        $this->enviarDatosAlmacenSpecializedWebhook($envio['datos'], $envio['es_ultimo']);
+                        break;
+                    case 'traslado':
+                        $this->enviarDatosTrasladoLocalSpecializedWebhook($envio['datos'], $envio['es_ultimo']);
+                        break;
+                    case 'multi':
+                        if (!$this->enviarDatosAGoogleSheetsMulti($envio['datos'], $envio['hoja'], $envio['es_ultimo'])) {
+                            $fallasMulti++;
+                        }
+                        break;
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::error("Confirmar GPC ped {$paquete['pedimento']}: " . $e->getMessage() . " línea " . $e->getLine());
+            return response()->json([
+                'code'    => 1,
+                'message' => 'El envío se interrumpió: ' . $e->getMessage() . '. Revisa el GPC antes de volver a intentarlo.'
+            ], 500);
+        }
+ 
+        if ($fallasMulti > 0) {
+            return response()->json([
+                'code'    => 1,
+                'message' => "Google Sheets no confirmó {$fallasMulti} de los envíos del pedimento {$paquete['pedimento']}. Revisa el log."
+            ]);
+        }
+ 
+        Log::info("Confirmar GPC: pedimento {$paquete['pedimento']} enviado ({$registros} registros) por el usuario " . (auth()->id() ?? 'N/A'));
+ 
+        return response()->json([
+            'code'    => 0,
+            'message' => "Se enviaron {$registros} registros del pedimento {$paquete['pedimento']} al GPC."
+        ]);
+    }
+ 
+    /**
+     * Guarda en memoria lo que un método de envío habría mandado a Google Sheets.
+     */
+    private function registrarEnvioVistaPrevia(string $canal, string $hoja, array $datos, bool $esUltimo, string $sucursal = 'ZLO'): void
+    {
+        $this->enviosVistaPrevia[] = [
+            'canal'     => $canal,
+            'hoja'      => $hoja,
+            'sucursal'  => $sucursal,
+            'datos'     => array_values($datos),
+            'es_ultimo' => $esUltimo,
+        ];
+    }
+ 
+    /**
+     * Convierte cualquier registro (ZLO, ALMAN, Traslado o multi-sucursal) al mismo formato
+     * para la tabla de la vista previa.
+     */
+    private function normalizarFilaVistaPrevia(string $canal, string $hoja, array $fila): array
+    {
+        $origenes = [
+            'pedimentos' => 'Conceptos del pedimento',
+            'alman'      => 'Almacén (ALMAN)',
+            'traslado'   => 'Traslado Local',
+            'multi'      => 'Pestaña ' . $hoja,
+        ];
+ 
+        $montoCrudo = $fila['monto'] ?? null;
+        $monto = ($montoCrudo === '' || $montoCrudo === null) ? null : round((float) $montoCrudo, 2);
+ 
+        $montoLlcCrudo = $fila['monto_llc'] ?? null;
+        $montoLlc = ($montoLlcCrudo === '' || $montoLlcCrudo === null) ? null : round((float) $montoLlcCrudo, 2);
+ 
+        $concepto = $fila['concepto'] ?? $fila['pxcc'] ?? '';
+        $proveedor = $fila['proveedor'] ?? $fila['naviera'] ?? '';
+ 
+        return [
+            'canal'       => $canal,
+            'origen'      => $origenes[$canal] ?? $canal,
+            'destino'     => ($canal === 'multi') ? $hoja : 'ZLO',
+            'pedimento'   => (string) ($fila['pedimento'] ?? ''),
+            'contenedor'  => (string) ($fila['contenedor'] ?? ''),
+            'fecha'       => (string) ($fila['fecha'] ?? ''),
+            'concepto'    => (string) $concepto,
+            'proveedor'   => (string) $proveedor,
+            'factura'     => (string) ($fila['factura_p'] ?? ''),
+            'monto'       => $monto,
+            'moneda'      => strtoupper((string) ($fila['moneda'] ?? '')),
+            'monto_llc'   => $montoLlc,
+            'factura_sc'  => (string) ($fila['factura_sc'] ?? ''),
+            'estatus'     => (string) ($fila['estatus'] ?? ''),
+        ];
     }
 
     private function codigoSucursalPorId($sucursalId): ?string
@@ -6283,6 +6552,8 @@ class AuditoriaImpuestosController extends Controller
     private function parsearPdfPagoDeDerecho(string $rutaPdf): ?array
     {
         gc_collect_cycles();
+        $nombreArchivo = basename($rutaPdf);
+
         try {
             $rutaAlternativa = null;
             // Ahora utilizando Smalot!
@@ -6307,20 +6578,22 @@ class AuditoriaImpuestosController extends Controller
             // 3. Obtener el texto de todas las páginas del documento.
             // El resultado es un string muy similar al que obtenías con pdftotext.
             $texto = $pdf->getText();
+            $extracto = mb_substr(preg_replace('/\s+/', ' ', (string) $texto), 0, 500);
 
-            //Si el valor esta vacio, o si es un pago de derecho de Banamex (es a cuenta del cliente, por lo que lo descartamos)
-            if ($texto === '' || str::contains($texto, 'citibanamex')) {
+            // 1. PDF sin texto (imagen escaneada)
+            if (trim((string) $texto) === '') {
+                Log::warning("PDD: '{$nombreArchivo}' no tiene texto legible (probablemente es una imagen escaneada).");
                 return null;
             }
-            // --- FIN DEL CAMBIO ---
             $datos = [];
-
             if ($rutaAlternativa) {
                 $datos['ruta_alternativa'] = $rutaAlternativa;
             }
-            // Lógica para detectar el tipo de banco y aplicar el Regex correcto
-            if (str::contains($texto, 'Creando Oportunidades')) {   // Es BBVA
-                // Regex para BBVA
+
+            $formato = 'SANTANDER';
+
+            if (Str::contains($texto, 'Creando Oportunidades')) {   // BBVA
+                $formato = 'BBVA';
                 preg_match('/No\.\s*de\s*Operaci.n:\s*(\d+)/', $texto, $matchOp);
                 preg_match('/Llave\s*de\s*Pago:\s*([A-Z0-9]+)/', $texto, $matchLlave);
                 preg_match('/Total\s*Efectivamente\s*Pagado:\s*\$ ([\d,.]+)/', $texto, $matchMonto);
@@ -6331,8 +6604,7 @@ class AuditoriaImpuestosController extends Controller
                 $datos['monto_total'] = isset($matchMonto[1]) ? (float) str_replace(',', '', $matchMonto[1]) : 0;
                 $datos['fecha_pago'] = isset($matchFecha[1]) ? \Carbon\Carbon::createFromFormat('d/m/Y', $matchFecha[1])->format('Y-m-d') : null;
             } else {
-                // Asumimos que es Santander
-                // Leemos la "cadena mágica" de la segunda página
+                // Santander: "cadena mágica" de la segunda página
                 preg_match('/\|20002=(\d+)\|/', $texto, $matchOp);
                 preg_match('/\|40008=([A-Z0-9]+)\|/', $texto, $matchLlave);
                 preg_match('/\|10017=([\d,.]+)\|/', $texto, $matchMonto);
@@ -6344,34 +6616,54 @@ class AuditoriaImpuestosController extends Controller
                 $datos['fecha_pago'] = isset($matchFecha[1]) ? \Carbon\Carbon::createFromFormat('Ymd', $matchFecha[1])->format('Y-m-d') : null;
             }
 
-            // Lógica para determinar el 'tipo' (Normal, Medio, etc.) basado en el nombre del archivo
-            if (str::contains($rutaPdf, 'MEDIO')) {
+            if (empty($datos['llave_pago'])) {
+                $textoPlano = preg_replace('/\s+/u', ' ', $texto);
+
+                if (preg_match('/Llave\s*de\s*Pago:?\s*([A-Z0-9]{6,})/iu', $textoPlano, $mLlave)) {
+                    $datos['llave_pago'] = strtoupper($mLlave[1]);
+
+                    if (empty($datos['numero_operacion']) && preg_match('/N.mero\s*de\s*Operaci.n:?\s*(\d+)/iu', $textoPlano, $mOp)) {
+                        $datos['numero_operacion'] = $mOp[1];
+                    }
+
+                    if (empty($datos['fecha_pago']) && preg_match('/Fecha\s*y\s*Hora\s*del\s*Pago:?\s*(\d{2}\/\d{2}\/\d{4})/iu', $textoPlano, $mFecha)) {
+                        $datos['fecha_pago'] = \Carbon\Carbon::createFromFormat('d/m/Y', $mFecha[1])->format('Y-m-d');
+                    }
+
+                    if (empty($datos['monto_total'])) {
+                        if (preg_match('/Total\s*Efectivamente(?:\s*Pagado)?:?\s*\$\s*([\d,]+(?:\.\d{1,2})?)/iu', $textoPlano, $mMonto)
+                            || preg_match('/Cantidad\s*Pagada:?\s*\$?\s*([\d,]+(?:\.\d{1,2})?)/iu', $textoPlano, $mMonto)) {
+                            $datos['monto_total'] = (float) str_replace(',', '', $mMonto[1]);
+                        }
+                    }
+
+                    $formato .= ' (texto del recibo)';
+                }
+            }
+
+            if (Str::contains($rutaPdf, 'MEDIO')) {
                 $datos['tipo'] = 'Medio Pago';
-            } elseif (str::contains($rutaPdf, '-2')) {
+            } elseif (Str::contains($rutaPdf, '-2')) {
                 $datos['tipo'] = 'Segundo Pago';
-            } elseif (str::contains($rutaPdf, 'INTACTICS')) {
+            } elseif (Str::contains($rutaPdf, 'INTACTICS')) {
                 $datos['tipo'] = 'Intactics';
             } else {
                 $datos['tipo'] = 'Normal';
             }
 
-            unset($config);
-            unset($parser);
-            unset($pdf);
-            unset($texto);
+            unset($config, $parser, $pdf, $texto);
             gc_collect_cycles();
 
-            if ($datos['llave_pago']){
-                return $datos;
-            } else {
+            // 3. Tiene texto pero no coincide con el formato esperado
+            if (empty($datos['llave_pago'])) {
+                Log::warning("PDD: '{$nombreArchivo}' no tiene llave de pago con el formato {$formato}. Inicio del texto: {$extracto}");
                 return null;
             }
+
+            return $datos;
         } catch (\Throwable $e) {
             Log::error("Error al parsear el PDF: {$rutaPdf} - " . $e->getMessage());
-            unset($config);
-            unset($parser);
-            unset($pdf);
-            unset($texto);
+            unset($config, $parser, $pdf, $texto);
             gc_collect_cycles();
             return null;
         }
@@ -7326,53 +7618,51 @@ class AuditoriaImpuestosController extends Controller
                         $facturasAgrupadas[$nombreLimpio]['ruta_xml'] = $factura['ruta_xml'];
                     }
                 }
- 
-                $facturasTerminal = collect(array_values($facturasAgrupadas))->filter(function ($factura) use ($palabrasLogipuerto) {
+
+                foreach ($facturasAgrupadas as $factura) {
                     $tipo = $factura['tipo_documento'] ?? '';
                     $textoParaBuscar = strtolower(($factura['folio'] ?? '') . ' ' . ($factura['nombre_archivo_real'] ?? ''));
- 
-                    $esCarpetaValida = str_contains($tipo, 'terminal') || str_contains($tipo, 'proveedor');
- 
-                    $keywordsTerminal = ['terminal', 'maniobra'];
-                    $hasKeyword = false;
-                    foreach ($keywordsTerminal as $key) {
-                        if (str_contains($textoParaBuscar, $key)) {
-                            $hasKeyword = true;
-                            break;
-                        }
+
+                    $enTerminal    = str_contains($tipo, 'terminal');
+                    $enProveedores = str_contains($tipo, 'proveedor');
+
+                    if (!$enTerminal && !$enProveedores) {
+                        continue;
                     }
- 
-                    $esExcluido = str_contains($textoParaBuscar, 'conexion') ||
-                                  str_contains($textoParaBuscar, 'limpieza') ||
-                                  str_contains($textoParaBuscar, 'lavado') ||
-                                  str_contains($textoParaBuscar, 'accesa') ||
-                                  str_contains($textoParaBuscar, 'accessa') ||
-                                  str_contains($textoParaBuscar, 'reconocimiento') ||
-                                  str_contains($textoParaBuscar, 'previo') ||
-                                  str_contains($textoParaBuscar, 'admin') ||
-                                  str_contains($textoParaBuscar, 'ctrol') ||
-                                  str_contains($textoParaBuscar, 'almacen') ||
-                                  str_contains($textoParaBuscar, 'vacio') ||
-                                  str_contains($textoParaBuscar, 'reacomodo');
- 
-                    // Logipuerto va por su propio concepto
-                    foreach ($palabrasLogipuerto as $palabra) {
+
+                    $tieneArchivo = !empty($factura['ruta_pdf']) || !empty($factura['ruta_xml']);
+                    if (!$tieneArchivo) {
+                        continue;
+                    }
+
+                    // En PROVEEDORES se exige la palabra clave; en TERMINAL la carpeta basta
+                    $hasKeyword = str_contains($textoParaBuscar, 'terminal') || str_contains($textoParaBuscar, 'maniobra');
+                    if ($enProveedores && !$enTerminal && !$hasKeyword) {
+                        continue;
+                    }
+
+                    $exclusiones = ['conexion', 'limpieza', 'lavado', 'accesa', 'accessa', 'reconocimiento',
+                                    'previo', 'admin', 'ctrol', 'almacen', 'vacio', 'reacomodo'];
+                    $motivoExclusion = null;
+
+                    foreach (array_merge($exclusiones, $palabrasLogipuerto) as $palabra) {
                         if (str_contains($textoParaBuscar, $palabra)) {
-                            $esExcluido = true;
+                            $motivoExclusion = $palabra;
                             break;
                         }
                     }
- 
-                    $tienePdf = !empty($factura['ruta_pdf']);
- 
-                    return $esCarpetaValida && $hasKeyword && !$esExcluido && $tienePdf;
-                });
- 
-                foreach ($facturasTerminal as $factura) {
+
+                    if ($motivoExclusion !== null) {
+                        if ($enTerminal) {
+                            Log::info("Terminales: Ped {$pedimento} | '{$factura['nombre_archivo_real']}' (carpeta TERMINAL) se excluye por '{$motivoExclusion}'.");
+                        }
+                        continue;
+                    }
+
                     $indice[$pedimento][] = [
                         'folio' => $factura['folio'],
                         'path_xml_man' => $factura['ruta_xml'] ?? null,
-                        'path_pdf_man' => $factura['ruta_pdf'],
+                        'path_pdf_man' => $factura['ruta_pdf'] ?? null,
                     ];
                 }
             }
@@ -7387,10 +7677,6 @@ class AuditoriaImpuestosController extends Controller
         gc_collect_cycles();
         $tarea = ($tareaId instanceof AuditoriaTareas) ? $tareaId : AuditoriaTareas::find($tareaId);
 
-        Log::info('DEBUG tarea', [
-            'recibido' => is_object($tareaId) ? get_class($tareaId) : var_export($tareaId, true),
-            'tarea'    => $tarea ? ['clase' => get_class($tarea), 'exists' => $tarea->exists, 'status' => $tarea->status] : null,
-        ]);
         if (!$tarea || $tarea->status !== 'procesando') {
             return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
         }
@@ -7705,11 +7991,6 @@ class AuditoriaImpuestosController extends Controller
     {
         gc_collect_cycles();
         $tarea = ($tareaId instanceof AuditoriaTareas) ? $tareaId : AuditoriaTareas::find($tareaId);
-
-        Log::info('DEBUG tarea', [
-            'recibido' => is_object($tareaId) ? get_class($tareaId) : var_export($tareaId, true),
-            'tarea'    => $tarea ? ['clase' => get_class($tarea), 'exists' => $tarea->exists, 'status' => $tarea->status] : null,
-        ]);
 
         if (!$tarea || $tarea->status !== 'procesando') {
             return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
