@@ -461,6 +461,12 @@ import FilterBar from "../components/FilterBar.vue";
 import ImportModal from "../components/ImportModal.vue";
 import GpcPreviewModal from "../components/GpcPreviewModal.vue";
 
+const DEBUG_GPC = true;
+
+function logGpc(...args) {
+  if (DEBUG_GPC) console.log("[GPC]", ...args);
+}
+
 // Estado inicial de la ventana de revisión del GPC
 function estadoInicialGpcPreview() {
   return {
@@ -737,7 +743,9 @@ export default {
     },
 
     fetchOperaciones(page = 1) {
-      if (!this.selectedSucursal || !this.selectedOperationType) return;
+      if (!this.selectedSucursal || !this.selectedOperationType) {
+        return;
+      }
 
       this.isLoading = true;
 
@@ -807,8 +815,36 @@ export default {
       return !!(this.gpcPreview.visible && this.gpcPreview.operacion && this.gpcPreview.operacion.id === operacion.id);
     },
 
+    errorCaptured(err, vm, info) {
+      const componente = (vm && vm.$options && vm.$options.name) || "componente hijo";
+      console.error(`[GPC] Error dentro de <${componente}> (${info}):`, err);
+      if (componente === "GpcPreviewModal") {
+        console.error("[GPC] Estado de la ventana cuando falló:", JSON.parse(JSON.stringify(this.gpcPreview)));
+      }
+      // true = también lo registra el errorHandler global de app.js
+      return true;
+    },
+
+    esOperacionEnRevisionGpc(operacion) {
+      return !!(this.gpcPreview.visible && this.gpcPreview.operacion && this.gpcPreview.operacion.id === operacion.id);
+    },
+
     // Abre la vista previa: arma lo que se enviaría al GPC sin enviar nada
     async llenarGpc(operacion) {
+      const payload = {
+        id: operacion.id,
+        pedimento: operacion.pedimento,
+        tipo_operacion: operacion.tipo_operacion,
+        sucursal_id: operacion.sucursal_id,
+      };
+      const inicio = performance.now();
+
+      if (DEBUG_GPC) {
+        console.groupCollapsed(`[GPC] Vista previa del pedimento ${operacion.pedimento}`);
+        console.log("Operación:", JSON.parse(JSON.stringify(operacion)));
+        console.log("Petición a /auditoria/llenar-gpc-directo/vista-previa:", payload);
+      }
+
       this.gpcPreview = Object.assign(estadoInicialGpcPreview(), {
         visible: true,
         loading: true,
@@ -816,57 +852,97 @@ export default {
       });
 
       try {
-        const response = await axios.post("/auditoria/llenar-gpc-directo/vista-previa", {
-          id: operacion.id,
-          pedimento: operacion.pedimento,
-          tipo_operacion: operacion.tipo_operacion,
-          sucursal_id: operacion.sucursal_id,
-        });
+        const response = await axios.post("/auditoria/llenar-gpc-directo/vista-previa", payload);
+        const segundos = ((performance.now() - inicio) / 1000).toFixed(1);
+        logGpc(`Respuesta en ${segundos} s | HTTP ${response.status}`, response.data);
 
         // Si el usuario cerró la ventana o abrió otra operación mientras cargaba, se ignora
-        if (this.gpcPreview.operacion !== operacion) return;
+        if (this.gpcPreview.operacion !== operacion) {
+          logGpc("La ventana se cerró o cambió de operación antes de recibir la respuesta; se ignora.");
+          return;
+        }
 
         const data = response.data || {};
         this.gpcPreview.datos = data;
-        if (data.code !== 0) {
+
+        if (data.code === 0) {
+          if (DEBUG_GPC) {
+            console.log("Token de la vista previa:", data.token, "| expira:", data.expira);
+            console.log("Resumen:", data.resumen);
+            if (data.avisos && data.avisos.length) console.warn("[GPC] Avisos del proceso:", data.avisos);
+            console.table((data.filas || []).map((f) => ({
+              origen: f.origen,
+              concepto: f.concepto,
+              proveedor: f.proveedor,
+              factura: f.factura,
+              monto: f.monto,
+              moneda: f.moneda,
+              fecha: f.fecha,
+              pedimento: f.pedimento,
+              contenedor: f.contenedor,
+            })));
+          }
+        } else {
+          console.warn("[GPC] El backend no armó la vista previa:", data.message, data.avisos || []);
           this.gpcPreview.error = data.message || "No se pudo armar la vista previa.";
         }
       } catch (error) {
-        if (this.gpcPreview.operacion !== operacion) return;
-        console.error("Error en la vista previa del GPC:", error);
+        this.logErrorGpc("la vista previa", error, payload, inicio);
+        if (this.gpcPreview.operacion !== operacion) {
+          return;
+        }
         this.gpcPreview.error = this.mensajeErrorGpc(error);
       } finally {
         if (this.gpcPreview.operacion === operacion) {
           this.gpcPreview.loading = false;
+        }
+        if (DEBUG_GPC) {
+          console.groupEnd();
         }
       }
     },
 
     // Envía al GPC exactamente lo que el usuario revisó
     async confirmarEnvioGpc() {
-      if (!this.gpcPreview.datos || !this.gpcPreview.datos.token) return;
+      if (!this.gpcPreview.datos || !this.gpcPreview.datos.token) {
+        console.warn("[GPC] No hay token de vista previa; no se puede enviar.", this.gpcPreview.datos);
+        return;
+      }
 
       const pedimento = this.gpcPreview.operacion ? this.gpcPreview.operacion.pedimento : "";
+      const payload = { token: this.gpcPreview.datos.token };
+      const inicio = performance.now();
+
+      if (DEBUG_GPC) {
+        console.groupCollapsed(`[GPC] Envío del pedimento ${pedimento}`);
+        console.log("Petición a /auditoria/llenar-gpc-directo/confirmar:", payload);
+        console.log("Registros revisados:", (this.gpcPreview.datos.filas || []).length, "| resumen:", this.gpcPreview.datos.resumen);
+      }
+
       this.gpcPreview.sending = true;
       let enviado = false;
 
       try {
-        const response = await axios.post("/auditoria/llenar-gpc-directo/confirmar", {
-          token: this.gpcPreview.datos.token,
-        });
+        const response = await axios.post("/auditoria/llenar-gpc-directo/confirmar", payload);
+        const segundos = ((performance.now() - inicio) / 1000).toFixed(1);
+        logGpc(`Respuesta en ${segundos} s | HTTP ${response.status}`, response.data);
 
         const data = response.data || {};
         if (data.code === 0) {
           enviado = true;
           alert(data.message || `La información del pedimento ${pedimento} se envió al GPC.`);
         } else {
+          console.warn("[GPC] Google Sheets no confirmó el envío:", data.message);
           this.gpcPreview.error = data.message || "Google Sheets no confirmó el envío.";
         }
       } catch (error) {
-        console.error("Error al enviar al GPC:", error);
+        this.logErrorGpc("el envío al GPC", error, payload, inicio);
         this.gpcPreview.error = this.mensajeErrorGpc(error);
       } finally {
         this.gpcPreview.sending = false;
+        if (DEBUG_GPC) {
+          console.groupEnd();
+        }
       }
 
       if (enviado) {
@@ -876,9 +952,49 @@ export default {
 
     cerrarVistaPreviaGpc() {
       if (this.gpcPreview.sending) {
+        logGpc("No se puede cerrar la ventana mientras se envía.");
         return;
       }
       this.gpcPreview = estadoInicialGpcPreview();
+    },
+
+    // Detalle técnico del error en la consola (con una pista de la causa más común)
+    logErrorGpc(etapa, error, payload, inicio) {
+      const respuesta = error && error.response;
+      const segundos = inicio ? ((performance.now() - inicio) / 1000).toFixed(1) + " s" : "N/A";
+
+      console.error(`[GPC] Error en ${etapa}`, {
+        mensaje: error && error.message,
+        estado_http: respuesta ? respuesta.status : "sin respuesta (red, servidor caído o tiempo de espera agotado)",
+        tiempo: segundos,
+        respuesta: respuesta ? respuesta.data : null,
+        peticion: payload,
+      });
+
+      if (!respuesta) {
+        return;
+      }
+
+      const pistas = {
+        404: "La ruta no existe. Revisa routes/web.php y ejecuta: php artisan route:clear",
+        405: "La ruta existe pero no acepta POST. Revisa que sea Route::post en routes/web.php",
+        419: "El token CSRF expiró. Recarga la página e inténtalo de nuevo.",
+        410: "La vista previa expiró (30 min) o ya se envió. Vuelve a presionar \"Llenar GPC\".",
+        403: "La vista previa la generó otro usuario.",
+        422: "Faltan datos en la petición (id o pedimento).",
+        500: "Error del servidor. Revisa storage/logs/laravel.log en la hora de esta petición.",
+        504: "El servidor tardó demasiado. Revisa max_execution_time de PHP o el tiempo de espera del servidor.",
+      };
+      if (pistas[respuesta.status]) console.error("[GPC] Pista:", pistas[respuesta.status]);
+
+      // Con APP_DEBUG=true, Laravel incluye la excepción, el archivo y la línea
+      const datos = respuesta.data || {};
+      if (datos.exception || datos.file) {
+        console.error("[GPC] Excepción del servidor:", datos.exception || "", "|", (datos.file || "") + ":" + (datos.line || ""));
+      }
+      if (datos.errors) {
+        console.error("[GPC] Errores de validación:", datos.errors);
+      }
     },
 
     mensajeErrorGpc(error) {
@@ -891,6 +1007,13 @@ export default {
       }
       return "No se pudo comunicar con el servidor. Revisa tu conexión e inténtalo de nuevo.";
     },
+  },
+   watch: {
+    // Cada cambio de estado de la ventana: visible / cargando / enviando / error
+    "gpcPreview.visible"(valor) { logGpc("Ventana", valor ? "abierta" : "cerrada"); },
+    "gpcPreview.loading"(valor) { logGpc("Cargando vista previa:", valor); },
+    "gpcPreview.sending"(valor) { logGpc("Enviando al GPC:", valor); },
+    "gpcPreview.error"(valor) { if (valor) console.warn("[GPC] Error mostrado al usuario:", valor); },
   },
 };
 </script>

@@ -202,6 +202,7 @@
 </template>
 
 <script>
+const DEBUG_GPC = true;
 export default {
   name: "GpcPreviewModal",
 
@@ -234,7 +235,9 @@ export default {
     repetidos() {
       const conteo = {};
       ((this.preview && this.preview.filas) || []).forEach((fila) => {
-        if (!fila.monto) return;
+        if (!fila.monto) {
+          return;
+        }
         const llave = this.llaveRepetido(fila);
         conteo[llave] = (conteo[llave] || 0) + 1;
       });
@@ -257,9 +260,15 @@ export default {
         }
         const grupo = mapa[fila.origen];
         grupo.filas.push(fila);
-        if (fila.factura) grupo.conFactura = true;
-        if (fila.canal === "alman" || fila.canal === "traslado") grupo.conContenedor = true;
-        if (fila.monto_llc) grupo.conLlc = true;
+        if (fila.factura) {
+          grupo.conFactura = true;
+        }
+        if (fila.canal === "alman" || fila.canal === "traslado") {
+          grupo.conContenedor = true;
+        }
+        if (fila.monto_llc) {
+          grupo.conLlc = true;
+        }
       });
 
       return orden.map((origen) => mapa[origen]);
@@ -269,8 +278,11 @@ export default {
       let error = 0;
       let aviso = 0;
       this.filas.forEach((fila) => {
-        if (fila.observaciones.some((o) => o.tipo === "error")) error++;
-        else if (fila.observaciones.some((o) => o.tipo === "aviso")) aviso++;
+        if (fila.observaciones.some((o) => o.tipo === "error")) {
+          error++;
+        } else if (fila.observaciones.some((o) => o.tipo === "aviso")) {
+          aviso++;
+        }
       });
       return { error, aviso };
     },
@@ -292,10 +304,34 @@ export default {
       } else {
         document.removeEventListener("keydown", this.alPresionarTecla);
       }
+      if (DEBUG_GPC) {
+        console.log("[GPC modal] show =", visible, "| operación:", this.operacion && this.operacion.pedimento);
+      }
     },
-    preview() {
+
+    preview(valor) {
       this.revisado = false;
+      if (DEBUG_GPC && valor) {
+        this.validarPreview(valor);
+      }
     },
+
+    error(valor) {
+      if (DEBUG_GPC && valor) {
+        console.warn("[GPC modal] Se muestra el error:", valor);
+      }
+    },
+
+    // Cuando la casilla se marca, explica por qué el botón sigue deshabilitado (si lo está)
+    revisado(valor) {
+      if (DEBUG_GPC && valor && !this.puedeEnviar) {
+        console.warn("[GPC modal] La casilla está marcada pero 'Enviar al GPC' sigue deshabilitado:", this.motivosNoEnviar());
+      }
+    },
+  },
+
+  mounted() {
+    if (DEBUG_GPC) console.log("[GPC modal] Componente montado. Props:", JSON.parse(JSON.stringify(this.$props)));
   },
 
   beforeDestroy() {
@@ -304,22 +340,36 @@ export default {
 
   methods: {
     alPresionarTecla(evento) {
-      if (evento.key === "Escape") this.cerrar();
+      if (evento.key === "Escape") {
+        this.cerrar();
+      }
     },
 
     cerrar() {
-      if (this.sending) return;
+      if (this.sending) {
+        return;
+      }
       this.$emit("close");
     },
 
     confirmar() {
-      if (!this.puedeEnviar) return;
+      if (!this.puedeEnviar) {
+        if (DEBUG_GPC) {
+          console.warn("[GPC modal] Clic en 'Enviar al GPC' sin poder enviar:", this.motivosNoEnviar());
+        }
+        return;
+      }
+      if (DEBUG_GPC) {
+        console.log("[GPC modal] Confirmación del usuario; se emite 'confirm'.");
+      }
       this.$emit("confirm");
     },
 
     formatoMonto(valor, moneda) {
       const numero = Number(valor);
-      if (isNaN(numero)) return valor;
+      if (isNaN(numero)) {
+        return valor;
+      }
       const texto = new Intl.NumberFormat("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(numero);
       return "$" + texto + " " + (moneda || "MXN");
     },
@@ -371,15 +421,78 @@ export default {
     },
 
     claseFila(fila) {
-      if (fila.observaciones.some((o) => o.tipo === "error")) return "bg-red-50";
-      if (fila.observaciones.some((o) => o.tipo === "aviso")) return "bg-yellow-50";
+      if (fila.observaciones.some((o) => o.tipo === "error")) {
+        return "bg-red-50";
+      }
+      if (fila.observaciones.some((o) => o.tipo === "aviso")) {
+        return "bg-yellow-50";
+      }
       return "";
     },
 
     claseObservacion(tipo) {
-      if (tipo === "error") return "bg-red-100 text-red-800";
-      if (tipo === "aviso") return "bg-yellow-100 text-yellow-900";
+      if (tipo === "error") {
+        return "bg-red-100 text-red-800";
+      }
+      if (tipo === "aviso") {
+        return "bg-yellow-100 text-yellow-900";
+      }
       return "bg-gray-100 text-gray-600";
+    },
+
+    validarPreview(preview) {
+      console.groupCollapsed("[GPC modal] Datos recibidos para la ventana");
+      console.log("preview:", JSON.parse(JSON.stringify(preview)));
+
+      if (!Array.isArray(preview.filas)) {
+        console.error("[GPC modal] 'filas' no es un arreglo:", preview.filas);
+      } else {
+        const camposRequeridos = ["origen", "concepto", "monto", "moneda", "canal"];
+        preview.filas.forEach((fila, i) => {
+          const faltantes = camposRequeridos.filter((c) => !(c in fila));
+          if (faltantes.length) {
+            console.warn(`[GPC modal] Fila ${i} sin los campos: ${faltantes.join(", ")}`, fila);
+          }
+          if (fila.monto !== null && fila.monto !== undefined && isNaN(Number(fila.monto))) {
+            console.warn(`[GPC modal] Fila ${i} con monto no numérico:`, fila.monto, fila);
+          }
+        });
+        console.log(`Filas: ${preview.filas.length} | grupos en pantalla: ${this.grupos.length}`);
+      }
+
+      if (preview.code === 0 && !preview.token) {
+        console.error("[GPC modal] Respuesta exitosa pero sin token: no se podrá enviar.");
+      }
+      if (!preview.resumen) {
+        console.warn("[GPC modal] La respuesta no trae 'resumen'.");
+      }
+
+      console.log("¿Se puede revisar?", this.puedeRevisar, this.puedeRevisar ? "" : this.motivosNoEnviar());
+      console.groupEnd();
+    },
+
+    // Explica en palabras por qué no se puede enviar todavía
+    motivosNoEnviar() {
+      const motivos = [];
+      if (this.loading) {
+        motivos.push("todavía está cargando");
+      }
+      if (this.error) {
+        motivos.push("hay un error: " + this.error);
+      }
+      if (!(this.preview && this.preview.token)) {
+        motivos.push("la respuesta no trae token");
+      }
+      if (!this.resumen.con_monto) {
+        motivos.push("no hay conceptos con monto (con_monto = " + this.resumen.con_monto + ")");
+      }
+      if (!this.revisado) {
+        motivos.push("falta marcar 'Revisé los conceptos y montos'");
+      }
+      if (this.sending) {
+        motivos.push("ya se está enviando");
+      }
+      return motivos;
     },
   },
 };

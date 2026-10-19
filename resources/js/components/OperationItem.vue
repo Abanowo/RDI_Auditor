@@ -75,7 +75,7 @@
         <div v-if="tieneGPC" class="flex items-center space-x-1 flex-shrink-0">
           <!-- Botón "Llenar GPC": el backend decide el formato (ZLO o multi-sucursal) según la sucursal -->
           <button
-            @click.stop="!fillingGpc && $emit('fill-gpc', operacion)"
+            @click.stop="clicLlenarGpc"
             :disabled="fillingGpc"
             class="text-white font-bold py-1 px-3 rounded shadow transition-colors flex items-center space-x-1 text-xs uppercase"
             :class="fillingGpc ? 'bg-green-400 cursor-wait' : 'bg-green-600 hover:bg-green-700'"
@@ -179,6 +179,8 @@
 const GPC_ZLO_URL = "https://docs.google.com/spreadsheets/d/18-5okzV-vw35V0Ugjn5KjNcWgHyZ9Qfc6pf5w4VU-2I";
 const GPC_MULTI_URL = "https://docs.google.com/spreadsheets/d/17hBoRx5u5jxi2hqHiC98zX-3lqF0w5tTkHBzElCHwDM";
 
+const DEBUG_GPC = true;
+
 const GPC_POR_SUCURSAL = {
   1: { nombre: "NOGALES", url: GPC_MULTI_URL, multi: true },
   2: { nombre: "TIJUANA", url: GPC_MULTI_URL, multi: true },
@@ -196,6 +198,20 @@ export default {
     fillingGpc: { type: Boolean, default: false },
   },
   emits: ["open-modal", "preview-pdf", "fill-gpc"],
+
+  name: "OperationItem",
+
+  mounted() {
+    // Si el botón "Llenar GPC" no aparece, aquí se ve por qué
+    if (DEBUG_GPC && !this.tieneGPC) {
+      console.log(`[GPC tarjeta] ${this.operacion.pedimento}: sin botón "Llenar GPC"`, {
+        id: this.operacion.id,
+        sucursal: this.operacion.sucursal,
+        sucursal_id: this.operacion.sucursal_id,
+        motivo: !this.operacion.id ? "la operación no tiene id (Sin operación)" : "la sucursal no tiene GPC configurado",
+      });
+    }
+  },
 
   computed: {
     esManzanillo() {
@@ -305,6 +321,18 @@ export default {
   },
 
   methods: {
+    clicLlenarGpc() {
+      if (this.fillingGpc) {
+        if (DEBUG_GPC) {
+          console.log(`[GPC tarjeta] ${this.operacion.pedimento}: clic ignorado, su ventana ya está abierta.`);
+        }
+        return;
+      }
+      if (DEBUG_GPC) {
+        console.log(`[GPC tarjeta] ${this.operacion.pedimento}: clic en "Llenar GPC" → destino ${this.gpcDestino}`);
+      }
+      this.$emit("fill-gpc", this.operacion);
+    },
     formatCurrency(value) {
       if (value === null || value === undefined || value === "N/A" || value === "") {
         return value;
