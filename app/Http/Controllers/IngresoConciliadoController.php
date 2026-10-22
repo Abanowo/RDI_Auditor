@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Mail\NotificacionSaldoFavorMail;
 use App\Mail\NotificacionSaldoContraMail;
 use App\Mail\ComplementoPagoMail;
+use App\Services\GeneradorTxtRep;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
@@ -167,19 +168,34 @@ class IngresoConciliadoController extends Controller
             if ($servicio === 'INTSHIPPERTS') {
                 $query->where(function ($q) {
                     $q->where('empresas.nombre', 'LIKE', '%INTSHIPPERTS%')
-                        ->orWhere('ingresos_conciliados.sucursal_origen', 'LIKE', '%INTSHIPPERT%');
+                      ->orWhere('ingresos_conciliados.cliente', 'LIKE', '%INTSHIPPERTS%')
+                      ->orWhere('ingresos_conciliados.sucursal_origen', 'LIKE', '%INTSHIPPERT%');
                 });
             } elseif ($servicio === 'Transportactics') {
                 $query->where(function ($q) {
                     $q->where('empresas.nombre', 'LIKE', '%TRANSPORTACTICS%')
-                        ->orWhere('ingresos_conciliados.sucursal_origen', 'LIKE', '%TRANSPORTACTIC%');
+                      ->orWhere('ingresos_conciliados.cliente', 'LIKE', '%TRANSPORTACTICS%')
+                      ->orWhere('ingresos_conciliados.sucursal_origen', 'LIKE', '%TRANSPORTACTIC%');
                 });
             } elseif ($servicio === 'InTactics') {
                 $query->where(function ($q) {
-                    $q->where('empresas.nombre', 'NOT LIKE', '%INTSHIPPERTS%')
-                        ->where('ingresos_conciliados.sucursal_origen', 'NOT LIKE', '%INTSHIPPERT%')
-                        ->where('empresas.nombre', 'NOT LIKE', '%TRANSPORTACTICS%')
-                        ->where('ingresos_conciliados.sucursal_origen', 'NOT LIKE', '%TRANSPORTACTIC%');
+                    // Excluimos Intshipperts de ambas columnas
+                    $q->where(function ($sub) {
+                        $sub->whereNull('empresas.nombre')->orWhere('empresas.nombre', 'NOT LIKE', '%INTSHIPPERTS%');
+                    })
+                    ->where(function ($sub) {
+                        $sub->whereNull('ingresos_conciliados.cliente')->orWhere('ingresos_conciliados.cliente', 'NOT LIKE', '%INTSHIPPERTS%');
+                    })
+                    ->where('ingresos_conciliados.sucursal_origen', 'NOT LIKE', '%INTSHIPPERT%')
+                    
+                    // Excluimos Transportactics de ambas columnas
+                    ->where(function ($sub) {
+                        $sub->whereNull('empresas.nombre')->orWhere('empresas.nombre', 'NOT LIKE', '%TRANSPORTACTICS%');
+                    })
+                    ->where(function ($sub) {
+                        $sub->whereNull('ingresos_conciliados.cliente')->orWhere('ingresos_conciliados.cliente', 'NOT LIKE', '%TRANSPORTACTICS%');
+                    })
+                    ->where('ingresos_conciliados.sucursal_origen', 'NOT LIKE', '%TRANSPORTACTIC%');
                 });
             }
         }
@@ -3164,6 +3180,97 @@ class IngresoConciliadoController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * Genera el TXT del Recibo Electrónico de Pago para SyncCOM.
+     * Paso 1: bloque del cliente.
+     * Con ?vista=1 regresa las líneas en JSON para revisarlas sin descargar.
+     * Con ?ansi=1 genera el archivo en ANSI (Windows-1252) en lugar de UTF-8.
+     */
+    public function generarTxtRep(Request $request, $id)
+    {
+        $ingreso = IngresoConciliado::find($id);
+        if (!$ingreso) {
+            return response()->json(['error' => 'El ingreso solicitado no existe.'], 404);
+        }
+
+        if (strtoupper((string) $ingreso->metodo_pago) === 'PUE') {
+            return response()->json(['error' => 'El ingreso es PUE: el complemento de pago solo aplica a facturas PPD.'], 422);
+        }
+
+        $generador = new GeneradorTxtRep();
+        $moneda = $generador->monedaPorBanco($ingreso->banco_receptor);
+
+        // Tipo de cambio: el que mande el modal o, para dólares, el del DOF
+        $tipoCambio = $request->filled('tipo_cambio') ? (float) $request->input('tipo_cambio') : null;
+        if ($moneda === 2 && (!$tipoCambio || $tipoCambio <= 1)) {
+            $tipoCambio = $this->consultarDofTC($ingreso->fecha);
+        }
+
+        $opciones = [
+            'moneda'      => $moneda,
+            'tipo_cambio' => $moneda === 2 ? $tipoCambio : 1,
+            'forma_pago'  => (string) $request->input('forma_pago', GeneradorTxtRep::FORMA_PAGO_DEFAULT),
+            'folio_pago'  => (int) $request->input('folio_pago', 0),
+            'timbrar'     => $request->boolean('timbrar', true),
+        ];
+        if ($request->filled('parcialidad')) {
+            $opciones['parcialidad'] = (int) $request->input('parcialidad');
+        }
+
+        $lineas = $generador->generarDesdeIngreso($ingreso, $opciones);
+
+        if ($generador->tieneErrores()) {
+            return response()->json([
+                'error'        => 'No se puede generar el REP con los datos actuales.',
+                'faltantes'    => $generador->errores(),
+                'advertencias' => $generador->advertencias(),
+            ], 422);
+        }
+
+        $resumen = $generador->resumen();
+
+        // Vista previa: líneas, advertencias y facturas a saldar
+        if ($request->boolean('vista')) {
+            return response()->json([
+                'lineas'       => $lineas,
+                'advertencias' => $generador->advertencias(),
+                'cliente'      => $resumen['perfil'] ?? [],
+                'documentos'   => collect($resumen['documentos'] ?? [])->map(function ($d) {
+                    return [
+                        'serie'   => $d['serie'] ?? '',
+                        'folio'   => $d['folio'] ?? '',
+                        'importe' => $d['importe'] ?? 0,
+                        'uuid'    => $d['uuid'] ?? null,
+                    ];
+                })->values(),
+            ]);
+        }
+
+        // Descarga
+        $ansi = $request->boolean('ansi', true);
+        $contenido = $generador->construirTexto($lineas, $ansi);
+
+        $codigo = $resumen['perfil']['cte_codigo'] ?? 'REP';
+        $nombreArchivo = 'REP_' . preg_replace('/[^A-Za-z0-9_\-]/', '', $codigo)
+                       . '_' . $ingreso->id . '_' . date('Ymd_His') . '.txt';
+
+        // Copia en el servidor para tener historial de lo que se generó
+        Storage::disk('local')->put('rep/' . $nombreArchivo, $contenido);
+
+        Log::info('[REP] TXT generado', [
+            'ingreso_id' => $ingreso->id,
+            'archivo'    => $nombreArchivo,
+            'timbrar'    => $opciones['timbrar'],
+            'usuario'    => optional(auth()->user())->email,
+        ]);
+
+        return response($contenido, 200, [
+            'Content-Type'                  => 'text/plain; charset=' . ($ansi ? 'windows-1252' : 'utf-8'),
+            'Content-Disposition'           => 'attachment; filename="' . $nombreArchivo . '"',
+            'Access-Control-Expose-Headers' => 'Content-Disposition',
+        ]);
     }
 
     public function generarComplemento(Request $request)
