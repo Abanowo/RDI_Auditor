@@ -2046,9 +2046,9 @@ class AuditoriaImpuestosController extends Controller
             return ['code' => 1, 'message' => new \Exception("Fletes: No se encontró la tarea #{$tareaId} o no está en estado 'procesando'.")];
         }
 
-        Log::info('Iniciando la auditoría de Fletes (Transportactics)...');
+        Log::info("--- [INICIO] Auditoría de Fletes (Transportactics) para Tarea #{$tarea->id} ---");
+
         try {
-            // --- FASE 1: Obtención de Mapeos ---
             $rutaMapeo = $tarea->mapeo_completo_facturas;
             if (!$rutaMapeo || !Storage::exists($rutaMapeo)) {
                 return ['code' => 1, 'message' => new \Exception("No se encontró el archivo de mapeo universal.")];
@@ -2065,39 +2065,48 @@ class AuditoriaImpuestosController extends Controller
                 return ['code' => 0, 'message' => 'completado'];
             }
 
-            $mapaPedimentoAImportacionId = $mapeadoFacturas['pedimentos_importacion'];
-            $mapaPedimentoAExportacionId = $mapeadoFacturas['pedimentos_exportacion'];
-            $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'];
-            $indicesOperaciones = $mapeadoFacturas['indices_importacion'] + $mapeadoFacturas['indices_exportacion'];
+            $mapaPedimentoAImportacionId = $mapeadoFacturas['pedimentos_importacion'] ?? [];
+            $mapaPedimentoAExportacionId = $mapeadoFacturas['pedimentos_exportacion'] ?? [];
+            $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'] ?? [];
+            $indicesOperaciones = ($mapeadoFacturas['indices_importacion'] ?? []) + ($mapeadoFacturas['indices_exportacion'] ?? []);
 
-            // Construir índices en memoria para auditoría
             $indiceFletes = $this->construirIndiceOperacionesFletes($indicesOperaciones);
-            $auditoriasSC = $mapeadoFacturas['auditorias_sc'];
+            $auditoriasSC = $mapeadoFacturas['auditorias_sc'] ?? [];
 
             $indiceSC = [];
             foreach ($auditoriasSC as $auditoria) {
-                $desglose = $auditoria['desglose_conceptos'];
+                $desglose = is_array($auditoria['desglose_conceptos']) 
+                    ? $auditoria['desglose_conceptos'] 
+                    : json_decode($auditoria['desglose_conceptos'], true);
+
                 $arrPedimento = array_filter($mapaPedimentoAId, function ($datosAuditoria) use ($auditoria) {
                     return $datosAuditoria['id_pedimiento'] == $auditoria['pedimento_id'];
                 });
-                $indiceSC[key($arrPedimento)] = [
-                    'monto_flete_sc' => (float) $desglose['montos']['flete'],
-                    'monto_flete_sc_mxn' => (float) $desglose['montos']['flete_mxn'],
-                    'moneda' => $desglose['moneda'],
-                    'tipo_cambio' => (float) ($desglose['tipo_cambio'] ?? 1.0),
-                ];
+
+                if (!empty($arrPedimento)) {
+                    $indiceSC[key($arrPedimento)] = [
+                        'monto_flete_sc'     => (float) ($desglose['montos']['flete'] ?? -1),
+                        'monto_flete_sc_mxn' => (float) ($desglose['montos']['flete_mxn'] ?? -1),
+                        'moneda'             => $desglose['moneda'] ?? 'MXN',
+                        'tipo_cambio'        => (float) ($desglose['tipo_cambio'] ?? 1.0),
+                    ];
+                }
             }
 
             $fletesParaGuardar = [];
 
             foreach ($mapaPedimentoAId as $pedimentoLimpio => $pedimentoSucioYId) {
+                $numPedBD = trim($pedimentoSucioYId['num_pedimiento'] ?? '');
                 
-                // 1. Identificar la operación y el tipo
-                $operacionId = $mapaPedimentoAImportacionId[$pedimentoSucioYId['num_pedimiento']] ?? null;
+                $operacionId = $mapaPedimentoAImportacionId[$numPedBD] 
+                    ?? $mapaPedimentoAImportacionId[$pedimentoLimpio] 
+                    ?? null;
                 $tipoOperacion = Importacion::class;
 
                 if (!$operacionId) {
-                    $operacionId = $mapaPedimentoAExportacionId[$pedimentoSucioYId['num_pedimiento']] ?? null;
+                    $operacionId = $mapaPedimentoAExportacionId[$numPedBD] 
+                        ?? $mapaPedimentoAExportacionId[$pedimentoLimpio] 
+                        ?? null;
                     $tipoOperacion = Exportacion::class;
                 }
 
@@ -2106,103 +2115,114 @@ class AuditoriaImpuestosController extends Controller
                 }
 
                 $queryOp = ($tipoOperacion === Importacion::class) 
-                           ? Importacion::with('cliente') 
-                           : Exportacion::with('cliente');
-                
-                $objOperacion = $queryOp->find($operacionId['id_operacion']);
+                    ? Importacion::with('cliente')->find($operacionId['id_operacion']) 
+                    : Exportacion::with('cliente')->find($operacionId['id_operacion']);
 
-                if ($objOperacion && $objOperacion->cliente) {
-                    $nombreCliente = strtoupper(trim($objOperacion->cliente->nombre));
-
+                if ($queryOp && $queryOp->cliente) {
+                    $nombreCliente = strtoupper(trim($queryOp->cliente->nombre));
                     if (str_contains($nombreCliente, 'QUESOS Y QUESOS')) {
-                        /* Log::info("Fletes: Pedimento {$pedimentoLimpio} omitido (Cliente: QUESOS Y QUESOS). Limpiando registros previos..."); */
-
                         Auditoria::where('pedimento_id', $pedimentoSucioYId['id_pedimiento'])
                             ->where('tipo_documento', 'flete')
                             ->delete();
-
                         continue;
                     }
                 }
 
-                // Buscamos datos en los índices de archivos
-                $datosFlete = $indiceFletes[$pedimentoLimpio] ?? null;
-                $datosSC = $indiceSC[$pedimentoLimpio] ?? null;
+                $datosFlete = $indiceFletes[$numPedBD] ?? $indiceFletes[$pedimentoLimpio] ?? null;
+                $datosSC = $indiceSC[$numPedBD] ?? $indiceSC[$pedimentoLimpio] ?? [
+                    'monto_flete_sc'     => -1,
+                    'monto_flete_sc_mxn' => -1,
+                    'tipo_cambio'        => 1.0,
+                    'moneda'             => 'N/A',
+                ];
 
                 if (!$datosFlete) {
+                    Log::info("🚛 [AUDITORIA FLETE | Ped: {$pedimentoLimpio}] Sin archivos de flete en el índice.");
                     continue;
                 }
 
-                if (!$datosSC) {
-                    $datosSC = [
-                        'monto_flete_sc' => -1,
-                        'monto_flete_sc_mxn' => -1,
-                        'tipo_cambio' => -1,
-                        'moneda' => 'N/A',
-                    ];
-                }
+                $totalFlete = -1;
+                $monedaFlete = 'MXN';
+                $fechaFlete = null;
+                $folioFlete = $datosFlete['folio'] ?? null;
 
-                // Fusionar datos del XML con los datos generales del TXT
-                $datosFlete = array_merge($datosFlete, $this->parsearXmlFlete($datosFlete['path_xml_tr']) ?? ['total' => -1, 'moneda' => 'N/A']);
-
-                $montoFleteMXN = (($datosFlete['moneda'] == "USD" && $datosFlete['total'] != -1) && $datosSC['tipo_cambio'] != -1) 
-                                 ? round($datosFlete['total'] * $datosSC['tipo_cambio'], 2, PHP_ROUND_HALF_UP) 
-                                 : $datosFlete['total'];
-                
-                $montoSCMXN = $datosSC['monto_flete_sc_mxn'];
-                $estado = $this->compararMontos_Fletes($montoSCMXN, $montoFleteMXN);
-                $diferenciaSc = ($estado !== "Sin SC!" && $estado !== "Sin operacion!") ? round($montoSCMXN - $montoFleteMXN, 2) : $montoFleteMXN;
-
-                // Formateo de fecha
-                $fechaRaw = isset($datosFlete['fecha']) ? trim($datosFlete['fecha']) : null;
-                if ($fechaRaw && strpos($fechaRaw, ',') !== false) {
-                    $fechaRaw = trim(explode(',', $fechaRaw)[0]);
-                }
-
-                $fechaFormateada = null;
-                if ($fechaRaw) {
-                    try {
-                        $fechaFormateada = \Carbon\Carbon::parse($fechaRaw)->format('Y-m-d');
-                    } catch (\Throwable $e) {
-                        $fechaFormateada = null;
+                // 1. Extraer del XML
+                if (!empty($datosFlete['path_xml_tr'])) {
+                    $xmlData = $this->parsearXmlFlete($datosFlete['path_xml_tr']);
+                    if ($xmlData && ($xmlData['total'] ?? -1) > 0) {
+                        $totalFlete = (float) $xmlData['total'];
+                        $monedaFlete = strtoupper($xmlData['moneda'] ?? 'MXN');
+                        $fechaFlete = $xmlData['fecha'] ?? null;
+                        if (!empty($xmlData['folio'])) {
+                            $folioFlete = $xmlData['folio'];
+                        }
                     }
                 }
 
+                // 2. Respaldo en PDF
+                if ($totalFlete <= 0 && !empty($datosFlete['path_pdf_tr'])) {
+                    $pdfData = $this->extraerTotalDesdePdfProveedor($datosFlete['path_pdf_tr']);
+                    if ($pdfData && ($pdfData['monto'] ?? 0) > 0) {
+                        $totalFlete = (float) $pdfData['monto'];
+                        $fechaFlete = $fechaFlete ?: $pdfData['fecha'];
+                        if (empty($folioFlete) && !empty($pdfData['folio'])) {
+                            $folioFlete = $pdfData['folio'];
+                        }
+                    }
+                }
+
+                if ($totalFlete <= 0) {
+                    Log::warning("🚛 [AUDITORIA FLETE | Ped: {$pedimentoLimpio}] Se encontró archivo pero no se pudo leer el total.");
+                    continue;
+                }
+
+                $montoFleteMXN = ($monedaFlete === 'USD' && ($datosSC['tipo_cambio'] ?? 0) > 1)
+                    ? round($totalFlete * $datosSC['tipo_cambio'], 2)
+                    : $totalFlete;
+
+                $montoSCMXN = (float) ($datosSC['monto_flete_sc_mxn'] ?? -1);
+                $estado = $this->compararMontos_Fletes($montoSCMXN, $montoFleteMXN);
+                $diferenciaSc = ($estado !== 'Sin SC!' && $estado !== 'Sin operacion!') 
+                    ? round($montoSCMXN - $montoFleteMXN, 2) 
+                    : $montoFleteMXN;
+
+                Log::info("🚛 [AUDITORIA FLETE | Ped: {$pedimentoLimpio}] Guardando en BD -> Total: {$totalFlete} {$monedaFlete} | Folio: {$folioFlete} | Estado: {$estado}");
+
                 $fletesParaGuardar[] = [
-                    'operacion_id' => $operacionId['id_operacion'],
-                    'pedimento_id' => $pedimentoSucioYId['id_pedimiento'],
-                    'operation_type' => $tipoOperacion,
-                    'tipo_documento' => 'flete',
-                    'concepto_llave' => 'principal',
-                    'folio' => $datosFlete['folio'],
-                    'fecha_documento' => $fechaFormateada,
-                    'monto_total' => $datosFlete['total'],
-                    'monto_total_mxn' => $montoFleteMXN,
+                    'operacion_id'        => $operacionId['id_operacion'],
+                    'pedimento_id'        => $pedimentoSucioYId['id_pedimiento'],
+                    'operation_type'      => $tipoOperacion,
+                    'tipo_documento'      => 'flete',
+                    'concepto_llave'      => 'principal',
+                    'folio'               => $folioFlete ?: '-',
+                    'fecha_documento'     => $fechaFlete ?: now()->format('Y-m-d'),
+                    'monto_total'         => $totalFlete,
+                    'monto_total_mxn'     => $montoFleteMXN,
                     'monto_diferencia_sc' => $diferenciaSc,
-                    'moneda_documento' => $datosFlete['moneda'],
-                    'estado' => $estado,
-                    'ruta_xml' => $datosFlete['path_xml_tr'],
-                    'ruta_txt' => $datosFlete['path_txt_tr'],
-                    'ruta_pdf' => $datosFlete['path_pdf_tr'],
-                    'created_at' => now(),
-                    'updated_at' => now(),
+                    'moneda_documento'    => $monedaFlete,
+                    'estado'              => $estado,
+                    'ruta_xml'            => $datosFlete['path_xml_tr'] ?? null,
+                    'ruta_txt'            => null,
+                    'ruta_pdf'            => $datosFlete['path_pdf_tr'] ?? null,
+                    'created_at'          => now(),
+                    'updated_at'          => now(),
                 ];
             }
 
-            // Guardado masivo
             if (!empty($fletesParaGuardar)) {
                 Auditoria::upsert(
                     $fletesParaGuardar,
                     ['operacion_id', 'pedimento_id', 'operation_type', 'tipo_documento', 'concepto_llave'],
-                    ['fecha_documento', 'monto_total', 'monto_total_mxn', 'monto_diferencia_sc', 'moneda_documento', 'estado', 'ruta_xml', 'ruta_txt', 'ruta_pdf', 'updated_at']
+                    ['fecha_documento', 'monto_total', 'monto_total_mxn', 'monto_diferencia_sc', 'moneda_documento', 'estado', 'ruta_xml', 'ruta_txt', 'ruta_pdf', 'folio', 'updated_at']
                 );
+                Log::info("🚛 [AUDITORIA FLETE] Guardados exitosamente: " . count($fletesParaGuardar) . " registros.");
             }
 
-            Log::info("Auditoría de Fletes finalizada.");
+            Log::info("--- [FIN] Auditoría de Fletes finalizada. ---");
             return ['code' => 0, 'message' => 'completado'];
         } catch (\Throwable $e) {
             $tarea->update(['status' => 'fallido', 'resultado' => $e->getMessage()]);
-            Log::error("Error en Fletes (Tarea #{$tarea->id}): " . $e->getMessage());
+            Log::error("Error en Fletes (Tarea #{$tarea->id}): " . $e->getMessage() . " Línea: " . $e->getLine());
             return ['code' => 1, 'message' => $e];
         }
     }
@@ -3528,88 +3548,58 @@ class AuditoriaImpuestosController extends Controller
 
 
     /**
-     * Lee todos los TXT de Fletes recientes y crea un mapa [pedimento => ruta_del_archivo].
+     * Lee los archivos de Fletes (Transportactics) y crea el índice por pedimento.
      */
     private function construirIndiceOperacionesFletes(array $indicesOperacion): array
     {
         gc_collect_cycles();
+        $indice = [];
+
         try {
-            $indice = [];
-
-            //$bar = $this->output->createProgressBar(count($indicesOperacion));
-            //$bar->start();
             foreach ($indicesOperacion as $pedimento => $datos) {
-
-                //Si el archivo mapeado conto con un error no controlado, se continua, ignorandolo.
                 if (isset($datos['error'])) {
-                    //$bar->advance();
                     continue;
                 }
 
-                $coleccionFacturas = collect($datos['facturas']);
-                $facturaFlete = $coleccionFacturas->first(function ($factura) {
-                    // La condición es la misma que ya tenías.
-                    return $factura['tipo_documento'] === 'flete' &&
-                        isset($factura['ruta_pdf']) && isset($factura['ruta_txt']) && isset($factura['ruta_xml']);
+                $coleccionFacturas = collect($datos['facturas'] ?? []);
+
+                $facturasFlete = $coleccionFacturas->filter(function ($factura, $llaveGrupo) {
+                    $tipo = strtolower($factura['tipo_documento'] ?? '');
+                    $nombreMayus = strtoupper($llaveGrupo . ' ' . ($factura['ruta_pdf'] ?? '') . ' ' . ($factura['ruta_xml'] ?? ''));
+
+                    $esFlete = ($tipo === 'flete')
+                        || str_contains($tipo, 'flete')
+                        || str_contains($nombreMayus, 'TRANSPORTACTICS')
+                        || str_contains($nombreMayus, 'FLETE');
+
+                    $tieneArchivo = !empty($factura['ruta_xml']) || !empty($factura['ruta_pdf']);
+
+                    return $esFlete && $tieneArchivo;
                 });
 
-                if (!$facturaFlete) {
-                    //$bar->advance();
-                    continue;
-                }
-                try {   //Cuando la URL esta mal construida, lo que se hace es buscar por medio del get el txt
-                    $contenido = file_get_contents($facturaFlete['ruta_txt']);
-                } catch (\Throwable $th) {
-
-                    $operacionID = $datos['operacion_id'];
-                    $url_txt = Http::withoutVerifying()->get("https://sistema.intactics.com/v3/operaciones/{$datos['tipo_operacion']}/{$operacionID}/get-files-txt-momentaneo");
-
-                    if (!$url_txt->successful()) {
-                        // Si la API falla para este ID, lo saltamos y continuamos con el siguiente.
-                        Log::warning("No se pudieron obtener los archivos para la importación ID: {$operacionID}");
-                        //$bar->advance();
-                        continue;
-                    }
-
-                    $urls = json_decode($url_txt, true);
-
-                    //$arrContextOptions resuelve el siguiente error:
-                    //'file_get_contents(): SSL operation failed with code 1. OpenSSL Error messages:
-                    //error:1416F086:SSL routines:tls_process_server_certificate:certificate verify failed'
-                    $arrContextOptions = [
-                        "ssl" => [
-                            "verify_peer" => false,
-                            "verify_peer_name" => false,
-                        ],
-                    ];
-                    //$urls[0] - SC
-                    //$urls[2] - Flete
-                    $contenido = $urls ? file_get_contents('https://sistema.intactics.com' . $urls[2]['path'], false, stream_context_create($arrContextOptions)) : null;
-                }
-
-                if (!$contenido) {
-                    //$bar->advance();
+                if ($facturasFlete->isEmpty()) {
                     continue;
                 }
 
-                // Refinamiento: Regex más preciso para el pedimento en la observación.
-                if (preg_match('/\[encOBSERVACION\][^\d]*(?:\d{1,5}-)*([4-7]\d{6})/i', $contenido, $matches)) {
-                    preg_match('/\[cteTEXTOEXTRA3\](.*?)(\r|\n)/', $contenido, $matchFecha);
-                    preg_match('/\[encFOLIOVENTA\](.*?)(\r|\n)/', $contenido, $matchFolio);
-                    $pedimento = $matches[1];
-                    $indice[$pedimento] =
-                        [
-                            'folio' => isset($matchFolio[1]) ? trim($matchFolio[1]) : null,
-                            'path_txt_tr' => $facturaFlete['ruta_txt'],
-                            'path_xml_tr' => $facturaFlete['ruta_xml'],
-                            'path_pdf_tr' => $facturaFlete['ruta_pdf'],
-                            'fecha' => isset($matchFecha[1]) ? trim($matchFecha[1]) : null,
-                        ];
-                }
-                //$bar->advance();
+                $facturaFlete = $facturasFlete->first();
+
+                preg_match('/[4-7]\d{6}/', (string) $pedimento, $mPed);
+                $pedLimpio = $mPed[0] ?? (string) $pedimento;
+
+                $datosFlete = [
+                    'folio'       => $facturaFlete['folio'] ?? null,
+                    'path_xml_tr' => $facturaFlete['ruta_xml'] ?? null,
+                    'path_pdf_tr' => $facturaFlete['ruta_pdf'] ?? null,
+                    'fecha'       => null,
+                ];
+
+                // Guardar con la llave original y con los 7 dígitos limpios
+                $indice[$pedimento] = $datosFlete;
+                $indice[$pedLimpio] = $datosFlete;
+
             }
         } catch (\Throwable $e) {
-            Log::error("Error buscando archivo para pedimento {$pedimento}: " . $e->getMessage());
+            Log::error("Error construyendo índice de fletes: " . $e->getMessage());
         }
 
         return $indice;
@@ -5461,19 +5451,19 @@ class AuditoriaImpuestosController extends Controller
     {
         $tipoOpClass = (($datosId['tipo'] ?? '') === 'Importacion') ? Importacion::class : Exportacion::class;
         $hojaDestino = $this->getHojaDestino($sucursalCod, $tipoOpClass);
- 
+
         if (!$hojaDestino) {
             return ['hoja' => null, 'filas' => []];
         }
- 
+
         $filas = [];
- 
+
         // --- Factura SC (BD primero, archivo como respaldo en modo manual) ---
         $scFisica = AuditoriaTotalSC::where('pedimento_id', $datosId['id_pedimiento'])
             ->where('operation_type', $tipoOpClass)
             ->first();
         $folioSC = $scFisica ? $scFisica->folio : '';
- 
+
         $datosSCArchivo = null;
         if ($extraerDeArchivos) {
             $datosSCArchivo = $this->leerSCDesdeArchivos($pedimentoLimpio, $indiceOperacion);
@@ -5481,25 +5471,25 @@ class AuditoriaImpuestosController extends Controller
                 $folioSC = $datosSCArchivo['folio_sc'];
             }
         }
- 
+
         $queryOp = null;
         if (!empty($datosId['id_operacion'])) {
             $queryOp = ($tipoOpClass === Importacion::class)
                 ? Importacion::with('cliente')->find($datosId['id_operacion'])
                 : Exportacion::with('cliente')->find($datosId['id_operacion']);
         }
- 
+
         $cliente = $queryOp ? (optional($queryOp->cliente)->nombre ?? '') : '';
         $navieraOp = $queryOp ? ($queryOp->naviera ?? 'N/A') : 'N/A';
- 
+
         // Verificamos existencia de comprobante de muestras
         $pagoMuestraExiste = false;
         $facturasDelPedimento = $indiceOperacion['facturas'] ?? [];
- 
+
         foreach ($facturasDelPedimento as $nombreArchivo => $facturaInfo) {
             $tipo = $facturaInfo['tipo_documento'] ?? '';
             $nombreSubido = strtoupper($nombreArchivo);
- 
+
             if (($tipo === 'pago_muestras' || $tipo === 'muestras') && !empty($facturaInfo['ruta_pdf'])) {
                 if (str_contains($nombreSubido, 'PAGO') || str_contains($nombreSubido, 'COMPROBANTE') || str_contains($nombreSubido, 'GISENA') || str_contains($nombreSubido, 'TICKET')) {
                     $pagoMuestraExiste = true;
@@ -5507,7 +5497,7 @@ class AuditoriaImpuestosController extends Controller
                 }
             }
         }
- 
+
         $tiposDocumentos = [
             'impuestos'    => 'IMPUESTOS',
             'pago_derecho' => 'ECI',
@@ -5516,7 +5506,7 @@ class AuditoriaImpuestosController extends Controller
             'muestras'     => 'MUESTRAS',
             'llc'          => 'LLC'
         ];
- 
+
         // Desglose de maniobras para NL a clientes específicos
         $clientesDesgloseNL = [
             'CENTRO ABARROTERO DEL BAJIO',
@@ -5525,27 +5515,40 @@ class AuditoriaImpuestosController extends Controller
             'ALMACENADORAS Y MAQUILAS',
             'SURTIDORA DEL BAJIO'
         ];
- 
+
+        // Validador estricto para descartar nombres de archivo como folio
+        $esFolioInvalido = function ($f) {
+            $u = strtoupper(trim((string) $f));
+            return empty($u)
+                || in_array($u, ['-', 'S/F', 'PAGO-MUESTREO', 'PAGO-MUESTRA', 'PAGO MUESTRA', 'COMPROBANTE', 'TICKET'])
+                || str_starts_with($u, 'UNK_')
+                || str_starts_with($u, 'ARCHIVO_')
+                || str_contains($u, 'PAGO-MUESTRA')
+                || str_contains($u, 'PAGO_MUESTRA')
+                || str_contains($u, '---')
+                || strlen($u) > 25;
+        };
+
         foreach ($tiposDocumentos as $tipoDoc => $pxccLabel) {
             $auditorias = Auditoria::where('pedimento_id', $datosId['id_pedimiento'])
                 ->where('tipo_documento', $tipoDoc)
                 ->where('monto_total', '>', 0)
-                ->orderBy('fecha_documento', 'asc') // Garantiza el orden Principal -> Recti
+                ->orderBy('fecha_documento', 'asc')
                 ->orderBy('id', 'asc')
                 ->get();
- 
+
             // Filtro Anti-Fantasmas: misma fecha y monto exactos
             if ($tipoDoc === 'impuestos') {
                 $auditorias = $auditorias->unique(function ($aud) {
                     return $aud->fecha_documento . '_' . round((float) $aud->monto_total, 2);
                 })->values();
             }
- 
-            // NUEVO: modo manual -> si la BD no tiene la auditoría, se lee de los archivos
-            if ($auditorias->isEmpty() && $extraerDeArchivos) {
+
+            // Modo manual: si la BD no tiene la auditoría, se lee de los archivos
+            if ($auditorias->isEmpty()) {
                 $auditorias = $this->extraerAuditoriasMultiDesdeArchivos($tipoDoc, $pedimentoLimpio, $indiceOperacion, $datosSCArchivo);
             }
- 
+
             if ($auditorias->count() === 0) {
                 // Sin monto = fila de plantilla vacía
                 $filas[] = [
@@ -5565,7 +5568,7 @@ class AuditoriaImpuestosController extends Controller
                 ];
                 continue;
             }
- 
+
             $estatusConDatos = 'PENDIENTE';
             if (in_array($tipoDoc, ['impuestos', 'pago_derecho'])) {
                 $estatusConDatos = 'PAGADO';
@@ -5573,12 +5576,13 @@ class AuditoriaImpuestosController extends Controller
             if ($tipoDoc === 'muestras') {
                 $estatusConDatos = $pagoMuestraExiste ? 'PAGADO' : 'PENDIENTE';
             }
- 
+
             foreach ($auditorias as $index => $aud) {
                 $proveedor = $navieraOp; // Default
- 
+
                 if ($tipoDoc === 'flete') {
                     $proveedor = 'TRANSPORTACTICS';
+                    Log::info("🚛 [GPC FLETE | Ped: {$pedimentoLimpio}] Factura Flete encontrada -> Monto: {$aud->monto_total} | Folio: {$aud->folio} | Moneda: {$aud->moneda_documento}");
                 } elseif ($tipoDoc === 'pago_derecho') {
                     $proveedor = 'SENASICA';
                 } elseif ($tipoDoc === 'maniobras') {
@@ -5591,22 +5595,38 @@ class AuditoriaImpuestosController extends Controller
                     $proveedor = 'LLC';
                 } elseif ($tipoDoc === 'muestras') {
                     $rutaXmlMuestra = $aud->ruta_xml ?? null;
- 
+                    $rutaPdfMuestra = $aud->ruta_pdf ?? null;
+
+                    
+
+                    // Búsqueda profunda del XML en todos los archivos del pedimento si no está enlazado
                     if (empty($rutaXmlMuestra)) {
-                        foreach ($facturasDelPedimento as $fInfo) {
+                        foreach ($facturasDelPedimento as $fNombre => $fInfo) {
+                            if (empty($fInfo['ruta_xml'])) {
+                                continue;
+                            }
                             $tDoc = strtolower($fInfo['tipo_documento'] ?? '');
-                            if (in_array($tDoc, ['muestras', 'pago_muestras']) && !empty($fInfo['ruta_xml'])) {
+                            $fNombreUpper = strtoupper($fNombre);
+
+                            $esDeMuestras = in_array($tDoc, ['muestras', 'pago_muestras'])
+                                || str_contains($tDoc, 'muestra')
+                                || str_contains($fNombreUpper, 'MUESTRA')
+                                || str_contains($fNombreUpper, 'GISENA')
+                                || str_contains($fNombreUpper, 'LAPAN')
+                                || str_contains($fNombreUpper, 'FITOSANITARIO');
+
+                            if ($esDeMuestras) {
                                 $rutaXmlMuestra = $fInfo['ruta_xml'];
                                 break;
                             }
                         }
                     }
- 
+
                     if (!empty($rutaXmlMuestra)) {
                         $xmlMuestra = $this->parsearXmlFlete($rutaXmlMuestra);
                         if ($xmlMuestra) {
                             $emisorMuestra = strtoupper($xmlMuestra['emisor'] ?? '');
- 
+
                             if (str_contains($emisorMuestra, 'FITOSANITARIOS') || str_contains($emisorMuestra, 'GISENA') || str_contains($emisorMuestra, 'GRUPO INTEGRAL DE SERVICIOS FITOSANITARIOS ENA')) {
                                 $proveedor = 'GISENA';
                             } elseif (str_contains($emisorMuestra, 'LABORATORIOS DE ANALISIS DE PRODUCTOS AGROPECUARIOS') || str_contains($emisorMuestra, 'LAPAN')) {
@@ -5614,32 +5634,86 @@ class AuditoriaImpuestosController extends Controller
                             } elseif (str_contains($emisorMuestra, 'COLEGIO DE POSTGRADUADOS') || str_contains($emisorMuestra, 'COLEGIO')) {
                                 $proveedor = 'COLEGIO';
                             } elseif (!empty($emisorMuestra)) {
-                                $proveedor = $emisorMuestra; // Cualquier otro proveedor
+                                $proveedor = $emisorMuestra;
                             }
- 
-                            if (empty($aud->folio) || $aud->folio === '-' || $aud->folio === 'S/F' || str_starts_with(strtoupper($aud->folio), 'UNK_') || str_starts_with(strtoupper($aud->folio), 'PAGO-MUESTREO')) {
-                                if (!empty($xmlMuestra['folio'])) {
-                                    $aud->folio = $xmlMuestra['folio'];
-                                }
+
+                            if (!empty($xmlMuestra['folio']) && ($esFolioInvalido($aud->folio) || str_contains(strtoupper($aud->folio), 'PAGO-MUESTRA'))) {
+                                $aud->folio = $xmlMuestra['folio'];
                             }
                         }
                     }
- 
-                    // Fallback si no hay XML pero el PDF o el texto traen pistas
-                    if (empty($proveedor) || $proveedor === $navieraOp || $proveedor === 'N/A') {
-                        $textoCheck = strtoupper(($aud->folio ?? '') . ' ' . ($aud->ruta_pdf ?? ''));
+
+                    // Fallback a PDF solo si no se obtuvo emisor o folio válido
+                    if (empty($proveedor) || $proveedor === $navieraOp || $proveedor === 'N/A' || $esFolioInvalido($aud->folio)) {
+                        $rutaPdfScan = $rutaPdfMuestra;
+
+                        if (empty($rutaPdfScan)) {
+                            foreach ($facturasDelPedimento as $fNombre => $fInfo) {
+                                $tDoc = strtolower($fInfo['tipo_documento'] ?? '');
+                                if (in_array($tDoc, ['muestras', 'pago_muestras']) && !empty($fInfo['ruta_pdf'])) {
+                                    $rutaPdfScan = $fInfo['ruta_pdf'];
+                                    break;
+                                }
+                            }
+                        }
+
+                        $textoCheck = strtoupper(($aud->folio ?? '') . ' ' . ($rutaPdfScan ?? ''));
                         if (str_contains($textoCheck, 'GISENA') || str_contains($textoCheck, 'FITOSANITARIO')) {
                             $proveedor = 'GISENA';
                         } elseif (str_contains($textoCheck, 'LAPAN')) {
                             $proveedor = 'LAPAN';
                         }
+
+                        if (!empty($rutaPdfScan)) {
+                            $pdfData = $this->extraerTotalDesdePdfProveedor($rutaPdfScan);
+                            if ($pdfData && $esFolioInvalido($aud->folio) && !empty($pdfData['folio'])) {
+                                $aud->folio = $pdfData['folio'];
+                            }
+
+                            if (empty($proveedor) || $proveedor === $navieraOp || $proveedor === 'N/A') {
+                                try {
+                                    $arrContextOptions = [
+                                        "ssl" => ["verify_peer" => false, "verify_peer_name" => false],
+                                        "http" => ["ignore_errors" => true, "timeout" => 15]
+                                    ];
+                                    $contenidoPdf = @file_get_contents($rutaPdfScan, false, stream_context_create($arrContextOptions));
+
+                                    if (!$contenidoPdf || str_contains($http_response_header[0] ?? '', '404')) {
+                                        $rutaAlternativa = 'https://intactics.nyc3.cdn.digitaloceanspaces.com/production/uploads/' . basename($rutaPdfScan);
+                                        $contenidoPdf = @file_get_contents($rutaAlternativa, false, stream_context_create($arrContextOptions));
+                                    }
+
+                                    if ($contenidoPdf) {
+                                        $config = new \Smalot\PdfParser\Config();
+                                        $config->setRetainImageContent(false);
+                                        $parser = new Parser([], $config);
+                                        $pdfObj = $parser->parseContent($contenidoPdf);
+                                        $textoPdf = strtoupper(preg_replace('/\s+/', ' ', $pdfObj->getText()));
+
+                                        if (str_contains($textoPdf, 'FITOSANITARIO') || str_contains($textoPdf, 'GISENA') || str_contains($textoPdf, 'GRUPO INTEGRAL DE SERVICIOS FITOSANITARIOS')) {
+                                            $proveedor = 'GISENA';
+                                        } elseif (str_contains($textoPdf, 'LABORATORIOS DE ANALISIS DE PRODUCTOS AGROPECUARIOS') || str_contains($textoPdf, 'LAPAN')) {
+                                            $proveedor = 'LAPAN';
+                                        } elseif (str_contains($textoPdf, 'COLEGIO DE POSTGRADUADOS') || str_contains($textoPdf, 'COLEGIO')) {
+                                            $proveedor = 'COLEGIO';
+                                        }
+
+                                        if ($esFolioInvalido($aud->folio)) {
+                                            if (preg_match('/\b(NOG)[-\s]?(\d{4,6})\b/i', $textoPdf, $mNog)) {
+                                                $aud->folio = strtoupper(trim($mNog[1])) . trim($mNog[2]);
+                                            }
+                                        }
+                                    }
+                                } catch (\Throwable $th) {
+                                    Log::warning("No se pudo extraer texto del PDF para muestras en pedimento {$pedimentoLimpio}: " . $th->getMessage());
+                                }
+                            }
+                        }
                     }
                 }
- 
+
                 // Lógica de nombres
                 if ($tipoDoc === 'impuestos') {
-                    // IMPUESTOS -> IMPUESTOS RECTI -> IMPUESTOS RECTI 2 -> IMPUESTOS RECTI 3...
-                    // (todas las rectis traen el mismo folio = pedimento, sin número se sobrescribirían en el Sheet)
                     if ($index === 0) {
                         $conceptoFinal = 'IMPUESTOS';
                     } elseif ($index === 1) {
@@ -5650,40 +5724,38 @@ class AuditoriaImpuestosController extends Controller
                 } else {
                     $conceptoFinal = ($index > 0) ? $pxccLabel . ' ' . ($index + 1) : $pxccLabel;
                 }
- 
+
                 $folioFactura = $aud->folio ?? '-';
- 
-                $folioUpper = strtoupper(trim((string) $folioFactura));
-                if (in_array($folioUpper, ['', 'S/F', 'PAGO-MUESTREO', 'PAGO-MUESTRA', 'PAGO MUESTRA', 'COMPROBANTE']) || str_starts_with($folioUpper, 'UNK_') || str_starts_with($folioUpper, 'ARCHIVO_')) {
+
+                if ($esFolioInvalido($folioFactura)) {
                     $folioFactura = '-';
                 }
- 
+
+                // Normalización de Maniobras NOG (GS071195)
                 if ($tipoDoc === 'maniobras' && $sucursalCod === 'NOG' && !empty($folioFactura) && $folioFactura !== '-') {
-                    $folioFactura = strtoupper($folioFactura);
-                    if (!str_starts_with($folioFactura, 'GS0')) {
-                        $folioFactura = 'GS0' . $folioFactura;
-                    }
+                    $folioFactura = strtoupper(trim($folioFactura));
+                    $soloNumero = preg_replace('/^GS0*[-\s]?/i', '', $folioFactura);
+                    $folioFactura = 'GS0' . $soloNumero;
                 }
- 
-                // Desglose de maniobras NL (Ferroviarias / Fumigación / Maniobras)
+
+                // Desglose de maniobras NL
                 if ($tipoDoc === 'maniobras' && $sucursalCod === 'NL' && Str::contains(strtoupper($cliente), $clientesDesgloseNL)) {
- 
                     $numPedRef = $datosId['num_pedimiento'];
                     $listaFacturasManiobra = $indiceManiobras[$numPedRef] ?? $indiceManiobras[$pedimentoLimpio] ?? [];
- 
+
                     if (!empty($listaFacturasManiobra)) {
                         $contadoresConcepto = [];
- 
+
                         foreach ($listaFacturasManiobra as $datosManiobra) {
                             $infoExtraccion = $this->extraerMontoYNaviera($datosManiobra['path_xml_man'] ?? null, $datosManiobra['path_pdf_man'] ?? null);
- 
+
                             if ($infoExtraccion['monto'] > 0) {
                                 $nombreArchivo = strtoupper(basename($datosManiobra['path_pdf_man'] ?? $datosManiobra['path_xml_man'] ?? ''));
                                 $naviera = strtoupper($infoExtraccion['naviera']);
- 
+
                                 $conceptoDesglose = 'MANIOBRAS';
                                 $proveedorDesglose = 'MANIOBRAS NL';
- 
+
                                 if (str_contains($nombreArchivo, 'KCSM') || str_contains($naviera, 'KANSAS') || str_contains($naviera, 'KCSM')) {
                                     $conceptoDesglose = 'FERROVIARIAS';
                                     $proveedorDesglose = 'KANSAS';
@@ -5694,8 +5766,7 @@ class AuditoriaImpuestosController extends Controller
                                     $conceptoDesglose = 'MANIOBRAS';
                                     $proveedorDesglose = 'MANIOBRAS NL';
                                 }
- 
-                                // Anti-colisiones (FUMIGACION, FUMIGACION 2...)
+
                                 if (!isset($contadoresConcepto[$conceptoDesglose])) {
                                     $contadoresConcepto[$conceptoDesglose] = 1;
                                     $conceptoFinalAEnviar = $conceptoDesglose;
@@ -5703,7 +5774,7 @@ class AuditoriaImpuestosController extends Controller
                                     $contadoresConcepto[$conceptoDesglose]++;
                                     $conceptoFinalAEnviar = $conceptoDesglose . ' ' . $contadoresConcepto[$conceptoDesglose];
                                 }
- 
+
                                 $folioItem = $datosManiobra['folio'] ?? '-';
                                 $monedaItem = 'MXN';
                                 if (!empty($datosManiobra['path_xml_man'])) {
@@ -5717,13 +5788,13 @@ class AuditoriaImpuestosController extends Controller
                                         }
                                     }
                                 }
- 
-                                if (str_starts_with((string) $folioItem, 'UNK_')) {
+
+                                if ($esFolioInvalido($folioItem)) {
                                     $folioItem = '-';
                                 }
- 
+
                                 $fechaItem = $infoExtraccion['fecha'] ? \Carbon\Carbon::parse($infoExtraccion['fecha'])->format('m-d-Y') : now()->format('m-d-Y');
- 
+
                                 $filas[] = [
                                     'fecha'      => $fechaItem,
                                     'cliente'    => $cliente,
@@ -5744,7 +5815,7 @@ class AuditoriaImpuestosController extends Controller
                         continue;
                     }
                 }
- 
+
                 $filas[] = [
                     'fecha'      => !empty($aud->fecha_documento) ? \Carbon\Carbon::parse($aud->fecha_documento)->format('m-d-Y') : now()->format('m-d-Y'),
                     'cliente'    => $cliente,
@@ -5762,7 +5833,7 @@ class AuditoriaImpuestosController extends Controller
                 ];
             }
         }
- 
+
         return ['hoja' => $hojaDestino, 'filas' => $filas];
     }
 
@@ -5857,24 +5928,62 @@ class AuditoriaImpuestosController extends Controller
  
                 // FLETE: XML de TransporTactics
                 case 'flete':
-                    foreach ($facturas as $factura) {
-                        if (($factura['tipo_documento'] ?? '') !== 'flete' || empty($factura['ruta_xml'])) {
+                    foreach ($facturas as $fNombre => $factura) {
+                        $tDoc = strtolower($factura['tipo_documento'] ?? '');
+                        $fMayus = strtoupper($fNombre . ' ' . ($factura['ruta_pdf'] ?? '') . ' ' . ($factura['ruta_xml'] ?? ''));
+
+                        $esFlete = ($tDoc === 'flete')
+                            || str_contains($tDoc, 'flete')
+                            || str_contains($fMayus, 'TRANSPORTACTICS')
+                            || str_contains($fMayus, 'FLETE');
+
+                        if (!$esFlete) {
                             continue;
                         }
- 
-                        $xmlData = $this->parsearXmlFlete($factura['ruta_xml']);
-                        if (!$xmlData || (float) $xmlData['total'] <= 0) {
+
+                        $total = -1;
+                        $moneda = 'MXN';
+                        $fecha = $hoy;
+                        $folio = $factura['folio'] ?? null;
+
+                        // 1. Intentar con XML
+                        if (!empty($factura['ruta_xml'])) {
+                            $xmlData = $this->parsearXmlFlete($factura['ruta_xml']);
+                            if ($xmlData && ($xmlData['total'] ?? -1) > 0) {
+                                $total = (float) $xmlData['total'];
+                                $moneda = strtoupper($xmlData['moneda'] ?? 'MXN');
+                                $fecha = $xmlData['fecha'] ?? $hoy;
+                                if (!empty($xmlData['folio'])) {
+                                    $folio = $xmlData['folio'];
+                                }
+                            }
+                        }
+
+                        // 2. Respaldo en PDF
+                        if ($total <= 0 && !empty($factura['ruta_pdf'])) {
+                            $pdfData = $this->extraerTotalDesdePdfProveedor($factura['ruta_pdf']);
+                            if ($pdfData && ($pdfData['monto'] ?? 0) > 0) {
+                                $total = (float) $pdfData['monto'];
+                                $fecha = $pdfData['fecha'] ?? $fecha;
+                                if (empty($folio) && !empty($pdfData['folio'])) {
+                                    $folio = $pdfData['folio'];
+                                }
+                            }
+                        }
+
+                        Log::info("🚛 [RESCATE FLETE | Ped: {$pedimentoLimpio}] Archivo: {$fNombre} -> Total: {$total} {$moneda} | Folio: {$folio}");
+
+                        if ($total <= 0) {
                             continue;
                         }
- 
-                        $moneda = strtoupper($xmlData['moneda'] ?? 'MXN');
+
                         $items->push($crear([
-                            'fecha_documento'  => $xmlData['fecha'] ?? $hoy,
-                            'folio'            => $xmlData['folio'] ?? null,
-                            'monto_total'      => (float) $xmlData['total'],
-                            'monto_total_mxn'  => ($moneda === 'USD' && $tipoCambio > 1) ? round($xmlData['total'] * $tipoCambio, 2) : (float) $xmlData['total'],
+                            'fecha_documento'  => $fecha,
+                            'folio'            => $folio ?: '-',
+                            'monto_total'      => $total,
+                            'monto_total_mxn'  => ($moneda === 'USD' && $tipoCambio > 1) ? round($total * $tipoCambio, 2) : $total,
                             'moneda_documento' => $moneda,
-                            'ruta_xml'         => $factura['ruta_xml'],
+                            'ruta_xml'         => $factura['ruta_xml'] ?? null,
                             'ruta_pdf'         => $factura['ruta_pdf'] ?? null,
                         ]));
                     }
@@ -6253,21 +6362,63 @@ class AuditoriaImpuestosController extends Controller
         }
 
         try {
-            $arrContextOptions = [
-                "ssl"  => ["verify_peer" => false, "verify_peer_name" => false],
-                "http" => ["ignore_errors" => true]
-            ];
-            
-            $xmlString = @file_get_contents($rutaXml, false, stream_context_create($arrContextOptions));
-            
-            // Si el servidor principal no lo tiene (404), usamos DigitalOcean
-            if (!$xmlString || str_contains($http_response_header[0] ?? '', '404')) {
-                $rutaAlternativa = 'https://intactics.nyc3.cdn.digitaloceanspaces.com/production/uploads/' . basename($rutaXml);
-                $xmlString = @file_get_contents($rutaAlternativa, false, stream_context_create($arrContextOptions));
+            $xmlString = null;
+
+            // 1. Si es un archivo local del servidor
+            if (is_file($rutaXml) && is_readable($rutaXml)) {
+                $xmlString = @file_get_contents($rutaXml);
             }
 
-            if (!$xmlString || str_contains($http_response_header[0] ?? '', '404')) {
+            // 2. Stream context nativo (soporta URLs con espacios, XAMPP y no truena con excepciones URI)
+            if (!$xmlString) {
+                $arrContextOptions = [
+                    "ssl"  => ["verify_peer" => false, "verify_peer_name" => false],
+                    "http" => ["ignore_errors" => true, "timeout" => 20]
+                ];
+                $contexto = stream_context_create($arrContextOptions);
+
+                $xmlString = @file_get_contents($rutaXml, false, $contexto);
+
+                if (!$xmlString || str_contains($http_response_header[0] ?? '', '404')) {
+                    $rutaAlternativa = 'https://intactics.nyc3.cdn.digitaloceanspaces.com/production/uploads/' . basename($rutaXml);
+                    $xmlString = @file_get_contents($rutaAlternativa, false, $contexto);
+                }
+            }
+
+            // 3. Respaldo adicional con Http de Laravel
+            if (!$xmlString) {
+                try {
+                    $response = Http::withoutVerifying()->timeout(20)->get($rutaXml);
+                    if ($response->successful()) {
+                        $xmlString = $response->body();
+                    }
+                } catch (\Throwable $th) {
+                    $xmlString = null;
+                }
+
+                if (!$xmlString) {
+                    try {
+                        $rutaAlt = 'https://intactics.nyc3.cdn.digitaloceanspaces.com/production/uploads/' . basename($rutaXml);
+                        $responseAlt = Http::withoutVerifying()->timeout(20)->get($rutaAlt);
+                        if ($responseAlt->successful()) {
+                            $xmlString = $responseAlt->body();
+                        }
+                    } catch (\Throwable $th) {
+                        $xmlString = null;
+                    }
+                }
+            }
+
+            if (!$xmlString) {
+                Log::warning("parsearXmlFlete: No se pudo obtener el contenido XML de: {$rutaXml}");
                 return ['total' => -1, 'moneda' => 'N/A', 'emisor' => '', 'fecha' => null, 'folio' => null];
+            }
+
+            // Limpieza de caracteres BOM y espacios previos
+            $xmlString = ltrim($xmlString, "\xEF\xBB\xBF \t\n\r");
+            $pos = stripos($xmlString, '<?xml');
+            if ($pos !== false && $pos > 0) {
+                $xmlString = substr($xmlString, $pos);
             }
 
             $total = -1;
@@ -6275,74 +6426,112 @@ class AuditoriaImpuestosController extends Controller
             $emisor = '';
             $fecha = null;
             $folio = null;
-            // INTENTO 1: Lector XML Nativo de PHP
+            $serie = '';
+
             try {
                 $xmlObj = @simplexml_load_string($xmlString);
                 if ($xmlObj !== false) {
                     if (isset($xmlObj['Total'])) {
                         $total = (float) $xmlObj['Total'];
-                    }
-                    if (isset($xmlObj['Moneda'])) {
-                        $moneda = strtoupper((string) $xmlObj['Moneda']);
-                    }
-                    if (isset($xmlObj['Fecha'])) {
-                        $fecha = explode('T', (string) $xmlObj['Fecha'])[0];
-                    }
-                    if (isset($xmlObj['Folio'])) {
-                        $folioRaw = (string) $xmlObj['Folio'];
-                        $folio = str_contains($folioRaw, '_') ? last(explode('_', $folioRaw)) : $folioRaw;
+                    } elseif (isset($xmlObj['total'])) {
+                        $total = (float) $xmlObj['total'];
                     }
 
-                    $namespaces = $xmlObj->getNamespaces(true);
-                    if (isset($namespaces['cfdi'])) {
-                        $emisorObj = $xmlObj->children($namespaces['cfdi'])->Emisor;
-                        if ($emisorObj && isset($emisorObj['Nombre'])) {
-                            $emisor = trim((string) $emisorObj['Nombre']);
+                    if (isset($xmlObj['Moneda'])) {
+                        $moneda = strtoupper((string) $xmlObj['Moneda']);
+                    } elseif (isset($xmlObj['moneda'])) {
+                        $moneda = strtoupper((string) $xmlObj['moneda']);
+                    }
+
+                    if (isset($xmlObj['Fecha'])) {
+                        $fecha = explode('T', (string) $xmlObj['Fecha'])[0];
+                    } elseif (isset($xmlObj['fecha'])) {
+                        $fecha = explode('T', (string) $xmlObj['fecha'])[0];
+                    }
+
+                    if (isset($xmlObj['Serie'])) {
+                        $serie = trim((string) $xmlObj['Serie']);
+                    } elseif (isset($xmlObj['serie'])) {
+                        $serie = trim((string) $xmlObj['serie']);
+                    }
+
+                    if (isset($xmlObj['Folio'])) {
+                        $folioRaw = (string) $xmlObj['Folio'];
+                        $folioNum = str_contains($folioRaw, '_') ? last(explode('_', $folioRaw)) : $folioRaw;
+                        $folio = $serie . $folioNum;
+                    } elseif (isset($xmlObj['folio'])) {
+                        $folioRaw = (string) $xmlObj['folio'];
+                        $folioNum = str_contains($folioRaw, '_') ? last(explode('_', $folioRaw)) : $folioRaw;
+                        $folio = $serie . $folioNum;
+                    }
+
+                    $emisores = $xmlObj->xpath('//*[local-name()="Emisor"]');
+                    if (!empty($emisores)) {
+                        $emisor = trim((string) ($emisores[0]['Nombre'] ?? $emisores[0]['nombre'] ?? ''));
+                    }
+
+                    if (empty($emisor)) {
+                        $namespaces = $xmlObj->getNamespaces(true);
+                        if (isset($namespaces['cfdi'])) {
+                            $emisorObj = $xmlObj->children($namespaces['cfdi'])->Emisor;
+                            if ($emisorObj && isset($emisorObj['Nombre'])) {
+                                $emisor = trim((string) $emisorObj['Nombre']);
+                            }
                         }
                     }
                 }
             } catch (\Throwable $th) {
-                // Fallo silencioso si el XML está roto
+                // Continuar a los fallbacks regex si falla SimpleXML
             }
 
-            // INTENTO 2: Fallback Regex INDEPENDIENTE (AQUÍ ESTÁ LA CORRECCIÓN)
-            // Ahora revisa cada campo por separado
-            
+            // Fallbacks Regex si SimpleXML no obtuvo algún campo
             if ($total === -1) {
-                if (preg_match('/Comprobante[^>]+Total=["\']([0-9\,\.]+)["\']/is', $xmlString, $matchesTotal)) {
-                    $total = (float) str_replace(',', '', $matchesTotal[1]);
+                if (preg_match('/(?:Comprobante|cfdi:Comprobante)[^>]+Total=["\']([0-9\,\.]+)["\']/is', $xmlString, $mTotal)) {
+                    $total = (float) str_replace(',', '', $mTotal[1]);
+                } elseif (preg_match('/(?:Total|total)=["\']([0-9\,\.]+)["\']/i', $xmlString, $mTotal)) {
+                    $total = (float) str_replace(',', '', $mTotal[1]);
                 }
             }
-            
-            // Si el emisor sigue vacío, forzamos la búsqueda con Regex en cualquier parte del archivo
+
             if (empty($emisor)) {
-                if (preg_match('/Emisor[^>]+Nombre=["\']([^"\']+)["\']/is', $xmlString, $matchesEmisor)) {
-                    $emisor = trim($matchesEmisor[1]);
+                if (preg_match('/(?:Emisor|cfdi:Emisor)[^>]+Nombre=["\']([^"\']+)["\']/is', $xmlString, $mEmisor)) {
+                    $emisor = trim($mEmisor[1]);
                 }
             }
 
             if (empty($fecha)) {
-                if (preg_match('/Comprobante[^>]+Fecha=["\']([^"\']+)["\']/is', $xmlString, $matchesFecha)) {
-                    $fecha = explode('T', $matchesFecha[1])[0];
+                if (preg_match('/(?:Fecha|fecha)=["\']([^"\']+)["\']/i', $xmlString, $mFecha)) {
+                    $fecha = explode('T', $mFecha[1])[0];
                 }
             }
 
             if ($moneda === 'MXN') {
-                if (preg_match('/Comprobante[^>]+Moneda=["\']([A-Z]{3})["\']/is', $xmlString, $matchesMoneda)) {
-                    $moneda = strtoupper($matchesMoneda[1]);
-                }
-            }
-            if (!$folio) {
-                if (preg_match('/Folio=["\']([^"\']+)["\']/i', $xmlString, $m)) {
-                    $folioRaw = $m[1];
-                    $folio = str_contains($folioRaw, '_') ? last(explode('_', $folioRaw)) : $folioRaw;
+                if (preg_match('/(?:Moneda|moneda)=["\']([A-Z]{3})["\']/i', $xmlString, $mMoneda)) {
+                    $moneda = strtoupper($mMoneda[1]);
                 }
             }
 
-            return ['total' => $total, 'moneda' => $moneda, 'emisor' => $emisor, 'fecha' => $fecha, 'folio' => $folio];
+            if (!$folio) {
+                if (empty($serie) && preg_match('/(?:Serie|serie)=["\']([^"\']+)["\']/i', $xmlString, $mSerie)) {
+                    $serie = trim($mSerie[1]);
+                }
+                if (preg_match('/(?:Folio|folio)=["\']([^"\']+)["\']/i', $xmlString, $mFolio)) {
+                    $folioRaw = $mFolio[1];
+                    $folioNum = str_contains($folioRaw, '_') ? last(explode('_', $folioRaw)) : $folioRaw;
+                    $folio = $serie . $folioNum;
+                }
+            }
+
+            return [
+                'total'  => $total,
+                'moneda' => $moneda,
+                'emisor' => $emisor,
+                'fecha'  => $fecha,
+                'folio'  => $folio ? strtoupper($folio) : null
+            ];
 
         } catch (\Throwable $e) {
-            Log::error("Error parseando XML {$rutaXml}: " . $e->getMessage());
+            Log::error("Error crítico en parsearXmlFlete ({$rutaXml}): " . $e->getMessage());
             return ['total' => -1, 'moneda' => 'N/A', 'emisor' => '', 'fecha' => null, 'folio' => null];
         }
     }
@@ -6692,29 +6881,38 @@ class AuditoriaImpuestosController extends Controller
         try {
             $indice = [];
 
-            foreach ($indicesOperacion as $pedimento => $datos) {
+            foreach ($indicesOperacion as $pedimento =>$datos) {
                 if (isset($datos['error'])) {
                     continue;
                 }
 
-                $coleccionFacturas = collect($datos['facturas']);
+                $coleccionFacturas = collect($datos['facturas'] ?? []);
                 
-                // Atrapamos TODOS los que sean de tipo muestra/mensajeria
-                $facturasMuestra = $coleccionFacturas->filter(function ($factura) {
+                // Atrapamos archivos de tipo muestra/mensajeria que tengan PDF O XML
+                $facturasMuestra =$coleccionFacturas->filter(function ($factura,$llaveGrupo) {
                     $tipo = strtolower($factura['tipo_documento'] ?? '');
-                    return (str_contains($tipo, 'muestra') || str_contains($tipo, 'mensajeria')) &&
-                           !empty($factura['ruta_pdf']);
+                    $nombreMayus = strtoupper($llaveGrupo . ' ' . ($factura['ruta_pdf'] ?? '') . ' ' . ($factura['ruta_xml'] ?? ''));
+
+                    $esTipoMuestra = str_contains($tipo, 'muestra') 
+                        || str_contains($tipo, 'mensajeria')
+                        || str_contains($nombreMayus, 'GISENA')
+                        || str_contains($nombreMayus, 'LAPAN')
+                        || str_contains($nombreMayus, 'FITOSANITARIO');
+
+                    $tieneArchivo = !empty($factura['ruta_pdf']) || !empty($factura['ruta_xml']);
+
+                    return $esTipoMuestra && $tieneArchivo;
                 });
 
                 if ($facturasMuestra->isEmpty()) {
                     continue;
                 }
 
-                foreach ($facturasMuestra as $llaveGrupo => $factura) {
+                foreach ($facturasMuestra as $llaveGrupo =>$factura) {
                     $indice[$pedimento][] = [
                         'folio' => $factura['folio'] ?? $llaveGrupo, 
                         'path_xml_mue' => $factura['ruta_xml'] ?? null, 
-                        'path_pdf_mue' => $factura['ruta_pdf'],
+                        'path_pdf_mue' => $factura['ruta_pdf'] ?? null,
                     ];
                 }
             }
@@ -6777,6 +6975,13 @@ class AuditoriaImpuestosController extends Controller
                 if (!$listaMuestras) {
                     continue;
                 }
+
+                // PRIORIDAD TOTAL: XMLs primero para registrar el folio y emisor oficial
+                usort($listaMuestras, function ($a, $b) {
+                    $aXml = !empty($a['path_xml_mue']) ? 1 : 0;
+                    $bXml = !empty($b['path_xml_mue']) ? 1 : 0;
+                    return $bXml - $aXml;
+                });
                 
                 $sumaFacturasMXN = 0;
                 $huboCoincidencia = false;
@@ -6794,7 +6999,7 @@ class AuditoriaImpuestosController extends Controller
                     $nombreMayus = strtoupper($folioRaw);
                     $folioArchivo = str_contains($folioRaw, '_') ? last(explode('_', $folioRaw)) : $folioRaw;
 
-                    // 1. Intentar leer XML (Prioridad Total)
+                    // 1. Intentar leer XML
                     if (!empty($datosMuestra['path_xml_mue'])) {
                         $xmlData = $this->parsearXmlFlete($datosMuestra['path_xml_mue']);
                         if ($xmlData && $xmlData['total'] != -1) {
@@ -6803,25 +7008,41 @@ class AuditoriaImpuestosController extends Controller
                             if (!empty($xmlData['folio'])) {
                                 $folioArchivo = $xmlData['folio'];
                             }
+                            $rutaXmlFinal = $datosMuestra['path_xml_mue'];
                         }
                     } 
-                    // 2. Si es un PDF que dice "PAGO" o "COMPROBANTE", intentamos extraer el monto para que la auditoría cuadre
-                    elseif (str_contains($nombreMayus, 'PAGO') || str_contains($nombreMayus, 'COMPROBANTE') || str_contains($nombreMayus, 'GISENA')) {
+                    // 2. Fallback a comprobante PDF
+                    elseif (!empty($datosMuestra['path_pdf_mue']) && (str_contains($nombreMayus, 'PAGO') || str_contains($nombreMayus, 'COMPROBANTE') || str_contains($nombreMayus, 'GISENA'))) {
                         $pdfData = $this->extraerTotalDesdePdfProveedor($datosMuestra['path_pdf_mue']);
                         if ($pdfData !== null && $pdfData['monto'] !== null) {
                             $montoItemMXN = (float) $pdfData['monto'];
+                            if (!empty($pdfData['folio'])) {
+                                $folioArchivo = $pdfData['folio'];
+                            }
                         }
                     }
 
                     if ($montoItemMXN > 0) {
+                        // Si el monto ya fue sumado por el XML, solo enlazamos el PDF
                         if (in_array(round($montoItemMXN, 2), $montosYaSumados)) {
+                            if (!$rutaPdfFinal && !empty($datosMuestra['path_pdf_mue'])) {
+                                $rutaPdfFinal = $datosMuestra['path_pdf_mue'];
+                            }
                             continue;
                         }
 
                         $sumaFacturasMXN += $montoItemMXN;
                         $montosYaSumados[] = round($montoItemMXN, 2);
                         $huboCoincidencia = true;
-                        $foliosComb[] = $folioArchivo;
+                        
+                        // Si el folio es el nombre largo del archivo, descartarlo
+                        if (str_contains(strtoupper($folioArchivo), 'PAGO-MUESTRA') || str_contains($folioArchivo, '---') || strlen($folioArchivo) > 25) {
+                            $folioArchivo = !empty($rutaXmlFinal) ? $folioArchivo : '-';
+                        }
+
+                        if ($folioArchivo !== '-') {
+                            $foliosComb[] = $folioArchivo;
+                        }
                         
                         if (!$rutaXmlFinal && !empty($datosMuestra['path_xml_mue'])) {
                             $rutaXmlFinal = $datosMuestra['path_xml_mue'];
@@ -6834,11 +7055,11 @@ class AuditoriaImpuestosController extends Controller
 
                 if (!$huboCoincidencia) {
                     $sumaFacturasMXN = -1;
-                    $folioFinal = $listaMuestras[0]['folio'] ?? 'S/F';
+                    $folioFinal = '-';
                     $rutaXmlFinal = $listaMuestras[0]['path_xml_mue'] ?? null;
                     $rutaPdfFinal = $listaMuestras[0]['path_pdf_mue'] ?? null;
                 } else {
-                    $folioFinal = implode(' | ', array_unique($foliosComb));
+                    $folioFinal = !empty($foliosComb) ? implode(' | ', array_unique($foliosComb)) : '-';
                 }
 
                 $montoTotalReportar = $sumaFacturasMXN > 0 ? (float) $sumaFacturasMXN : 0.0;
@@ -6846,21 +7067,21 @@ class AuditoriaImpuestosController extends Controller
                 $estado = $this->compararMontos_Muestras($montoSC, (float) $sumaFacturasMXN);
 
                 $muestrasParaGuardar[] = [
-                    'operacion_id' => $operacionId['id_operacion'],
-                    'pedimento_id' => $pedimentoSucioYId['id_pedimiento'],
-                    'operation_type' => isset($mapeadoFacturas['pedimentos_importacion'][$numPedRef]) ? Importacion::class : Exportacion::class,
-                    'tipo_documento' => 'muestras',
-                    'concepto_llave' => 'principal',
-                    'folio' => $folioFinal,
-                    'fecha_documento' => now()->format('Y-m-d'),
-                    'monto_total' => $montoTotalReportar, 
-                    'monto_total_mxn' => $sumaFacturasMXN,
+                    'operacion_id'        => $operacionId['id_operacion'],
+                    'pedimento_id'        => $pedimentoSucioYId['id_pedimiento'],
+                    'operation_type'      => isset($mapeadoFacturas['pedimentos_importacion'][$numPedRef]) ? Importacion::class : Exportacion::class,
+                    'tipo_documento'      => 'muestras',
+                    'concepto_llave'      => 'principal',
+                    'folio'               => $folioFinal,
+                    'fecha_documento'     => now()->format('Y-m-d'),
+                    'monto_total'         => $montoTotalReportar, 
+                    'monto_total_mxn'     => $sumaFacturasMXN,
                     'monto_diferencia_sc' => round($montoSC - $montoTotalReportar, 2),
-                    'moneda_documento' => $monedaDoc,
-                    'estado' => $estado,
-                    'ruta_xml' => $rutaXmlFinal,
-                    'ruta_pdf' => $rutaPdfFinal,
-                    'updated_at' => now(),
+                    'moneda_documento'    => $monedaDoc,
+                    'estado'              => $estado,
+                    'ruta_xml'            => $rutaXmlFinal,
+                    'ruta_pdf'            => $rutaPdfFinal,
+                    'updated_at'          => now(),
                 ];
             }
 
@@ -7297,8 +7518,23 @@ class AuditoriaImpuestosController extends Controller
             }
 
             // EXTRACCIÓN DE FOLIO
-            if ($folio === null && preg_match('/(?:Factura|Invoice|No\.)\s*[:]?\s*(\d{5,})/i', $texto, $matchFolio)) {
-                $folio = trim($matchFolio[1]);
+            if ($folio === null) {
+                // 1. Serie y Folio explícitos (ej. Serie: NOG Folio: 23132)
+                if (preg_match('/(?:Serie|SERIE)\s*[:]?\s*([A-Za-z]+)\s*(?:Folio|FOLIO|No\.?)\s*[:]?\s*(\d+)/i', $texto, $matchSF)) {
+                    $folio = strtoupper(trim($matchSF[1])) . trim($matchSF[2]);
+                }
+                // 2. Factura / Folio con serie y dígitos (ej: Factura: NOG23132, Folio: NOG-23132, Factura No. NOG23132)
+                elseif (preg_match('/(?:Factura|Invoice|Folio|Recibo|Comprobante|No\.)\s*[:#]?\s*([A-Za-z]{2,5}[-\s]?\d{3,8})\b/i', $texto, $matchFolioAlfa)) {
+                    $folio = strtoupper(str_replace(['-', ' '], '', trim($matchFolioAlfa[1])));
+                }
+                // 3. Patrón directo NOG (Nogales) + número (ej. NOG23132, NOG 23132, NOG-23132)
+                elseif (preg_match('/\b(NOG)[-\s]?(\d{4,6})\b/i', $texto, $matchNog)) {
+                    $folio = strtoupper(trim($matchNog[1])) . trim($matchNog[2]);
+                }
+                // 4. Fallback tradicional numérico
+                elseif (preg_match('/(?:Factura|Invoice|No\.|Folio)\s*[:]?\s*(\d{5,})/i', $texto, $matchFolio)) {
+                    $folio = trim($matchFolio[1]);
+                }
             }
 
             return [
