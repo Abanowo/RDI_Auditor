@@ -170,11 +170,11 @@ class EnviarReportesAuditoriaMail extends Mailable
         }
 
         // 2. Adjuntar Reportes Globales (Excel)
-        if (Storage::disk('storageOldProyect')->exists($this->tarea->ruta_reporte_impuestos)) {
+        if (!empty($this->tarea->ruta_reporte_impuestos) && Storage::disk('storageOldProyect')->exists($this->tarea->ruta_reporte_impuestos)) {
             $email->attachFromStorageDisk('storageOldProyect', $this->tarea->ruta_reporte_impuestos, $this->tarea->nombre_reporte_impuestos);
         }
 
-        if (Storage::disk('storageOldProyect')->exists($this->tarea->ruta_reporte_impuestos_pendientes)) {
+        if (!empty($this->tarea->ruta_reporte_impuestos_pendientes) && Storage::disk('storageOldProyect')->exists($this->tarea->ruta_reporte_impuestos_pendientes)) {
             $email->attachFromStorageDisk('storageOldProyect', $this->tarea->ruta_reporte_impuestos_pendientes, $this->tarea->nombre_reporte_pendientes);
         }
 
