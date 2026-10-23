@@ -1722,7 +1722,9 @@ class AuditoriaImpuestosController extends Controller
             $tarea->update([
                 'mapeo_completo_facturas' => $rutaRelativa
             ]);
-            Storage::delete($rutaMapeo);
+            if (!empty($rutaMapeo)) {
+                Storage::delete($rutaMapeo);
+            }
             Log::info("Ruta del mapeo guardada en la Tarea #{$tarea->id}.");
 
             Log::info("--- [FIN] Mapeo de facturas completado con éxito. ---");
@@ -4256,6 +4258,47 @@ class AuditoriaImpuestosController extends Controller
         Log::info("Tarea #{$tarea->id}: Extrayendo ALMAN (Cruce de Información con ZLO activado y forzado)...");
 
         try {
+            // ====================================================================
+            // 0. OBTENER ÚNICAMENTE LOS PEDIMENTOS Y CONTENEDORES DE ESTA TAREA
+            // ====================================================================
+            $pedimentosJson = $tarea->pedimentos_procesados;
+            $pedimentosDeLaTarea = $pedimentosJson ? json_decode($pedimentosJson, true) : [];
+            $pedimentosAuditoria = [];
+
+            foreach ($pedimentosDeLaTarea as $p) {
+                if (preg_match('/[4-7]\d{6}/', (string) $p, $m)) {
+                    $pedimentosAuditoria[] = $m[0];
+                }
+            }
+
+            if (empty($pedimentosAuditoria) && empty($soloContenedores)) {
+                Log::info("Tarea #{$tarea->id}: No hay pedimentos para auditar en esta tarea. Se omite ALMAN.");
+                return ['code' => 0, 'message' => 'completado'];
+            }
+
+            if (empty($soloContenedores)) {
+                $soloContenedores = [];
+                $idsPed = Pedimento::where(function ($q) use ($pedimentosAuditoria) {
+                    foreach ($pedimentosAuditoria as $ped) {
+                        $q->orWhere('num_pedimiento', 'LIKE', "%{$ped}%");
+                    }
+                })->pluck('id_pedimiento');
+
+                if ($idsPed->isNotEmpty()) {
+                    $contsDb = Importacion::whereIn('id_pedimiento', $idsPed)->whereNotNull('contenedor')->pluck('contenedor')
+                        ->merge(Exportacion::whereIn('id_pedimiento', $idsPed)->whereNotNull('contenedor')->pluck('contenedor'));
+
+                    foreach ($contsDb as $cStr) {
+                        if (preg_match_all('/[A-Za-z]{4}[\s\-]*\d{7}/', (string) $cStr, $matches)) {
+                            foreach ($matches[0] as $c) {
+                                $soloContenedores[] = strtoupper(preg_replace('/[^A-Z0-9]/', '', $c));
+                            }
+                        }
+                    }
+                }
+                $soloContenedores = array_values(array_unique($soloContenedores));
+            }
+
             if (app()->environment('production')) {
                 $urlBase = "https://docs.google.com/spreadsheets/d/1FvhWp2AeOyoiv1KIrmQNOKf9ZoDRy5L7HVd5FcRQBio/gviz/tq?tqx=out:csv&_cb=" . time();
             } else {
@@ -4406,7 +4449,9 @@ class AuditoriaImpuestosController extends Controller
                         }
                     }
                 }
-                if ($idxFolio !== -1 && $idxContenedor !== -1 && $idxTotal !== -1) break;
+                if ($idxFolio !== -1 && $idxContenedor !== -1 && $idxTotal !== -1) {
+                    break;
+                }
             }
 
             $fCol = $idxFolio !== -1 ? $idxFolio : 1;
@@ -4477,6 +4522,26 @@ class AuditoriaImpuestosController extends Controller
 
                     if ($pedimentoLimpio === '' && $ultimoPedimentoALMAN !== '') {
                         $pedimentoLimpio = $ultimoPedimentoALMAN;
+                    }
+
+                    // --- FILTRO: PROCESAR ÚNICAMENTE SI PERTENECE A LA TAREA ACTUAL ---
+                    $esDeLaTarea = false;
+
+                    if (!empty($pedimentoLimpio) && in_array($pedimentoLimpio, $pedimentosAuditoria, true)) {
+                        $esDeLaTarea = true;
+                    }
+
+                    if (!$esDeLaTarea && !empty($soloContenedores)) {
+                        foreach ($contenedoresAExtraer as $cont) {
+                            if (in_array($cont, $soloContenedores, true)) {
+                                $esDeLaTarea = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!$esDeLaTarea) {
+                        continue;
                     }
 
                     if (count($contenedoresAExtraer) > 0) {
@@ -4658,6 +4723,7 @@ class AuditoriaImpuestosController extends Controller
         try {
             // AUMENTAMOS EL TIMEOUT A 180 SEGUNDOS (3 Minutos)
             $response = Http::timeout(180) 
+                ->withoutVerifying()
                 ->withBody(json_encode($payload), 'application/json')
                 ->post($almacenWebhookUrl);
 
@@ -4683,6 +4749,52 @@ class AuditoriaImpuestosController extends Controller
         Log::info("Tarea #{$tarea->id}: Procesando Traslado Local (Motor CSV a prueba de saltos de línea)...");
 
         try {
+            // ====================================================================
+            // 0. OBTENER CONTENEDORES EXCLUSIVOS DE ESTA TAREA SI NO VIENEN DADOS
+            // ====================================================================
+            if (empty($soloContenedores)) {
+                $pedimentosJson = $tarea->pedimentos_procesados;
+                $pedimentosDeLaTarea = $pedimentosJson ? json_decode($pedimentosJson, true) : [];
+                $pedimentosAuditoria = [];
+
+                foreach ($pedimentosDeLaTarea as $p) {
+                    if (preg_match('/[4-7]\d{6}/', (string) $p, $m)) {
+                        $pedimentosAuditoria[] = $m[0];
+                    }
+                }
+
+                if (empty($pedimentosAuditoria)) {
+                    Log::info("Tarea #{$tarea->id}: No hay pedimentos para Traslado Local en esta tarea. Se omite.");
+                    return ['code' => 0, 'message' => 'completado'];
+                }
+
+                $idsPed = Pedimento::where(function ($q) use ($pedimentosAuditoria) {
+                    foreach ($pedimentosAuditoria as $ped) {
+                        $q->orWhere('num_pedimiento', 'LIKE', "%{$ped}%");
+                    }
+                })->pluck('id_pedimiento');
+
+                $soloContenedores = [];
+                if ($idsPed->isNotEmpty()) {
+                    $contsDb = Importacion::whereIn('id_pedimiento', $idsPed)->whereNotNull('contenedor')->pluck('contenedor')
+                        ->merge(Exportacion::whereIn('id_pedimiento', $idsPed)->whereNotNull('contenedor')->pluck('contenedor'));
+
+                    foreach ($contsDb as $cStr) {
+                        if (preg_match_all('/[A-Za-z]{4}[\s\-]*\d{7}/', (string) $cStr, $matches)) {
+                            foreach ($matches[0] as $c) {
+                                $soloContenedores[] = strtoupper(preg_replace('/[^A-Z0-9]/', '', $c));
+                            }
+                        }
+                    }
+                }
+                $soloContenedores = array_values(array_unique($soloContenedores));
+
+                if (empty($soloContenedores)) {
+                    Log::info("Tarea #{$tarea->id}: Las operaciones de esta tarea no tienen contenedores registrados. Se omite Traslado Local.");
+                    return ['code' => 0, 'message' => 'completado'];
+                }
+            }
+
             if (app()->environment('production')) {
                 $csvUrl = "https://docs.google.com/spreadsheets/d/1FvhWp2AeOyoiv1KIrmQNOKf9ZoDRy5L7HVd5FcRQBio/gviz/tq?tqx=out:csv&sheet=EXTRAS&_cb=" . time();
             } else {
@@ -4858,7 +4970,7 @@ class AuditoriaImpuestosController extends Controller
                 ];
             }
 
-            $paquetes = array_chunk($payloadParaSheets, 20);
+            $paquetes = array_chunk($payloadParaSheets, 10);
             foreach ($paquetes as $idx => $paquete) {
                 $esUltimo = ($idx === count($paquetes) - 1);
                 $this->enviarDatosTrasladoLocalSpecializedWebhook($paquete, $esUltimo);
@@ -4899,6 +5011,7 @@ class AuditoriaImpuestosController extends Controller
 
         try {
             $response = Http::timeout(180) 
+                ->retry(2, 3000)
                 ->withoutVerifying()
                 ->withBody(json_encode($payload), 'application/json')
                 ->post($webhookUrl);
