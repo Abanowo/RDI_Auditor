@@ -52,7 +52,7 @@ class EnviarReporteDiarioConceptos extends Command
                 $clienteNombre = $ingreso->getRawOriginal('cliente');
             }
 
-            $clienteUpper = strtoupper($clienteNombre);
+            $clienteUpper = strtoupper(trim($clienteNombre));
 
             $isTransportactics = str_contains($clienteUpper, 'TRANSPORTACTIC') || str_contains($sucursalFull, 'TRANSPORTACTIC');
             $esIntshipperts    = str_contains($clienteUpper, 'INTSHIPPERT')    || str_contains($sucursalFull, 'INTSHIPPERT');
@@ -115,8 +115,11 @@ class EnviarReporteDiarioConceptos extends Command
                         $pagoProvVal = (float) $op->pago_proveedor;
                         $gananciaVal = (float) ($op->ganancia != 0 ? $op->ganancia : ($fleteVal - $pagoProvVal));
 
+                        $provFlete = !empty($op->proveedor_flete) ? $op->proveedor_flete : ($ingreso->proveedor_flete ?: 'TRANSPORTACTICS');
+                        $facFlete  = $op->factura_flete ?? ($ingreso->factura_flete ?: '--');
+
                         $conceptosOp = [
-                            'FLETE (XML)'    => ['monto' => $fleteVal, 'prov' => !empty($op->proveedor_flete) ? $op->proveedor_flete : ($ingreso->proveedor_flete ?: 'TRANSPORTACTICS'), 'fac' => $op->factura_flete ?? ($ingreso->factura_flete ?: '--')],
+                            'FLETE (XML)'    => ['monto' => $fleteVal, 'prov' => $provFlete, 'fac' => $facFlete],
                             'PAGO PROVEEDOR' => ['monto' => $pagoProvVal, 'prov' => 'PROVEEDOR EXT.', 'fac' => '--'],
                             'GANANCIA'       => ['monto' => $gananciaVal, 'prov' => 'TRANSPORTACTICS', 'fac' => '--'],
                         ];
@@ -124,24 +127,42 @@ class EnviarReporteDiarioConceptos extends Command
                         $anticipoVal = (float) $op->anticipo;
                         $fleteVal    = (float) ($op->flete > 0 ? $op->flete : $op->monto_cfdi);
 
+                        $provFlete = !empty($op->proveedor_flete) ? $op->proveedor_flete : ($ingreso->proveedor_flete ?: 'INTSHIPPERTS');
+                        $facFlete  = $op->factura_flete ?? ($ingreso->factura_flete ?: '--');
+
                         $conceptosOp = [
-                            'ALMAN / FLETE'  => ['monto' => $anticipoVal, 'prov' => '--', 'fac' => '--'],
-                            'ANTICIPO'       => ['monto' => $fleteVal, 'prov' => !empty($op->proveedor_flete) ? $op->proveedor_flete : ($ingreso->proveedor_flete ?: 'INTSHIPPERTS'), 'fac' => $op->factura_flete ?? ($ingreso->factura_flete ?: '--')],
+                            'ALMAN / FLETE' => ['monto' => $anticipoVal, 'prov' => '--', 'fac' => '--'],
+                            'ANTICIPO'      => ['monto' => $fleteVal, 'prov' => $provFlete, 'fac' => $facFlete],
                         ];
                     } elseif ($esManzanillo) {
+                        $provFlete = !empty($op->proveedor_flete) ? $op->proveedor_flete : ($ingreso->proveedor_flete ?: 'TRANSPORTACTICS');
+                        $facFlete  = $op->factura_flete ?? ($ingreso->factura_flete ?: '--');
+
                         $conceptosOp = [
-                            'ANTICIPO'       => ['monto' => (float) ($op->anticipo ?? 0), 'prov' => '--', 'fac' => '--'],
-                            'GARANTIAS'      => ['monto' => (float) ($op->garantias ?? 0), 'prov' => 'NAVIERA', 'fac' => '--'],
-                            'DESG. NAVIERA'  => ['monto' => (float) ($op->desglose_naviera ?? 0), 'prov' => 'NAVIERA', 'fac' => '--'],
-                            'IMPUESTOS'      => ['monto' => (float) ($op->impuestos ?? 0), 'prov' => 'SAT / ADUANA', 'fac' => '--'],
-                            'ALM / FLETE'    => ['monto' => (float) ($op->flete ?? 0), 'prov' => !empty($op->proveedor_flete) ? $op->proveedor_flete : 'TRANSPORTACTICS', 'fac' => $op->factura_flete ?? '--'],
+                            'ANTICIPO'      => ['monto' => (float) ($op->anticipo ?? 0), 'prov' => '--', 'fac' => '--'],
+                            'GARANTIAS'     => ['monto' => (float) ($op->garantias ?? 0), 'prov' => 'NAVIERA', 'fac' => '--'],
+                            'DESG. NAVIERA' => ['monto' => (float) ($op->desglose_naviera ?? 0), 'prov' => 'NAVIERA', 'fac' => '--'],
+                            'IMPUESTOS'     => ['monto' => (float) ($op->impuestos ?? 0), 'prov' => 'SAT / ADUANA', 'fac' => '--'],
+                            'ALM / FLETE'   => ['monto' => (float) ($op->flete ?? 0), 'prov' => $provFlete, 'fac' => $facFlete],
                         ];
                     } else {
+                        $provManiobras = !empty($op->proveedor_maniobras) ? $op->proveedor_maniobras : ($ingreso->proveedor_maniobras ?: 'SAFINSA');
+                        $facManiobras  = $op->factura_maniobras ?? ($ingreso->factura_maniobras ?: '--');
+
+                        $provFlete = !empty($op->proveedor_flete) ? $op->proveedor_flete : ($ingreso->proveedor_flete ?: 'TRANSPORTACTICS');
+                        $facFlete  = $op->factura_flete ?? ($ingreso->factura_flete ?: '--');
+
+                        $provMuestras = !empty($op->proveedor_muestras) ? $op->proveedor_muestras : ($ingreso->proveedor_muestras ?: '--');
+                        $facMuestras  = $op->factura_muestras ?? ($ingreso->factura_muestras ?: '--');
+
+                        $provLlc = !empty($op->proveedor_llc) ? $op->proveedor_llc : ($ingreso->proveedor_llc ?: 'LLC');
+                        $facLlc  = $op->factura_llc ?? ($ingreso->factura_llc ?: '--');
+
                         $conceptosOp = [
-                            'MANIOBRAS'      => ['monto' => (float) ($op->maniobras ?? 0), 'prov' => !empty($op->proveedor_maniobras) ? $op->proveedor_maniobras : 'SAFINSA', 'fac' => $op->factura_maniobras ?? '--'],
-                            'FLETE'          => ['monto' => (float) ($op->flete ?? 0), 'prov' => !empty($op->proveedor_flete) ? $op->proveedor_flete : 'TRANSPORTACTICS', 'fac' => $op->factura_flete ?? '--'],
-                            'MUESTRAS'       => ['monto' => (float) ($op->muestras ?? 0), 'prov' => !empty($op->proveedor_muestras) ? $op->proveedor_muestras : '--', 'fac' => $op->factura_muestras ?? '--'],
-                            'LLC'            => ['monto' => (float) ($op->llc ?? 0), 'prov' => !empty($op->proveedor_llc) ? $op->proveedor_llc : 'LLC', 'fac' => $op->factura_llc ?? '--'],
+                            'MANIOBRAS' => ['monto' => (float) ($op->maniobras ?? 0), 'prov' => $provManiobras, 'fac' => $facManiobras],
+                            'FLETE'     => ['monto' => (float) ($op->flete ?? 0), 'prov' => $provFlete, 'fac' => $facFlete],
+                            'MUESTRAS'  => ['monto' => (float) ($op->muestras ?? 0), 'prov' => $provMuestras, 'fac' => $facMuestras],
+                            'LLC'       => ['monto' => (float) ($op->llc ?? 0), 'prov' => $provLlc, 'fac' => $facLlc],
                         ];
                     }
 
@@ -149,11 +170,11 @@ class EnviarReporteDiarioConceptos extends Command
                         if ($datos['monto'] != 0) {
                             $procesadoEnOperaciones = true;
                             $facturaP = (!empty($datos['fac']) && $datos['fac'] !== '-' && $datos['fac'] !== 'N/A') ? $datos['fac'] : '--';
-                            $proveedor = !empty($datos['prov']) ? strtoupper(trim($datos['prov'])) : '--';
+                            $proveedor = (!empty($datos['prov']) && $datos['prov'] !== '-') ? strtoupper(trim($datos['prov'])) : '--';
 
                             $reporteDesglosado[$sucursalSeccion][$pxcc][] = [
                                 'sucursal_cod' => $sucursalCod,
-                                'cliente'      => strtoupper($clienteNombre),
+                                'cliente'      => strtoupper(trim($clienteNombre ?: 'SIN CLIENTE')),
                                 'pedimento'    => $pedimentoOp,
                                 'proveedor'    => $proveedor,
                                 'factura_p'    => $facturaP,
@@ -166,48 +187,52 @@ class EnviarReporteDiarioConceptos extends Command
                 }
             }
 
-            // 2. RESPALDO CABECERA
+            // 2. RESPALDO CABECERA (Si no tiene operaciones pivote)
             if (!$procesadoEnOperaciones) {
                 $pedimentoHeader = $ingreso->pedimento_detectado ?: ($ingreso->referencia ?: $facturaSCHeader);
 
                 if ($isTransportactics) {
-                    $fleteVal = (float) $ingreso->flete;
+                    $fleteVal    = (float) $ingreso->flete;
                     $pagoProvVal = (float) $ingreso->pago_proveedor;
                     $gananciaVal = (float) ($ingreso->ganancia ?: ($fleteVal - $pagoProvVal));
 
                     $conceptosHeader = [
                         'FLETE (XML)'    => ['monto' => $fleteVal, 'prov' => !empty($ingreso->proveedor_flete) ? $ingreso->proveedor_flete : 'TRANSPORTACTICS', 'fac' => $ingreso->factura_flete ?: '--'],
+                        'PAGO PROVEEDOR' => ['monto' => $pagoProvVal, 'prov' => 'PROVEEDOR EXT.', 'fac' => '--'],
+                        'GANANCIA'       => ['monto' => $gananciaVal, 'prov' => 'TRANSPORTACTICS', 'fac' => '--'],
                     ];
                 } elseif ($esIntshipperts) {
                     $conceptosHeader = [
-                        'ALMAN / FLETE'  => ['monto' => (float) $ingreso->anticipo, 'prov' => '--', 'fac' => '--'],
-                        'ANTICIPO'       => ['monto' => (float) $ingreso->flete, 'prov' => !empty($ingreso->proveedor_flete) ? $ingreso->proveedor_flete : 'INTSHIPPERTS', 'fac' => $ingreso->factura_flete ?: '--'],
+                        'ALMAN / FLETE' => ['monto' => (float) $ingreso->anticipo, 'prov' => '--', 'fac' => '--'],
+                        'ANTICIPO'      => ['monto' => (float) $ingreso->flete, 'prov' => !empty($ingreso->proveedor_flete) ? $ingreso->proveedor_flete : 'INTSHIPPERTS', 'fac' => $ingreso->factura_flete ?: '--'],
                     ];
                 } elseif ($esManzanillo) {
                     $conceptosHeader = [
-                        'ANTICIPO'       => ['monto' => (float) $ingreso->anticipo, 'prov' => '--', 'fac' => '--'],
-                        'GARANTIAS'      => ['monto' => (float) $ingreso->garantias, 'prov' => 'NAVIERA', 'fac' => '--'],
-                        'DESG. NAVIERA'  => ['monto' => (float) $ingreso->desglose_naviera, 'prov' => 'NAVIERA', 'fac' => '--'],
-                        'ALM / FLETE'    => ['monto' => (float) $ingreso->flete, 'prov' => !empty($ingreso->proveedor_flete) ? $ingreso->proveedor_flete : 'TRANSPORTACTICS', 'fac' => $ingreso->factura_flete ?: '--'],
+                        'ANTICIPO'      => ['monto' => (float) $ingreso->anticipo, 'prov' => '--', 'fac' => '--'],
+                        'GARANTIAS'     => ['monto' => (float) $ingreso->garantias, 'prov' => 'NAVIERA', 'fac' => '--'],
+                        'DESG. NAVIERA' => ['monto' => (float) $ingreso->desglose_naviera, 'prov' => 'NAVIERA', 'fac' => '--'],
+                        'IMPUESTOS'     => ['monto' => (float) $ingreso->impuestos, 'prov' => 'SAT / ADUANA', 'fac' => '--'],
+                        'ALM / FLETE'   => ['monto' => (float) $ingreso->flete, 'prov' => !empty($ingreso->proveedor_flete) ? $ingreso->proveedor_flete : 'TRANSPORTACTICS', 'fac' => $ingreso->factura_flete ?: '--'],
                     ];
                 } else {
                     $conceptosHeader = [
-                        'MANIOBRAS'      => ['monto' => (float) $ingreso->maniobras,   'prov' => $ingreso->proveedor_maniobras ?: 'SAFINSA', 'fac' => $ingreso->factura_maniobras ?: '--'],
-                        'FLETE'          => ['monto' => (float) $ingreso->flete,       'prov' => $ingreso->proveedor_flete ?: 'TRANSPORTACTICS', 'fac' => $ingreso->factura_flete ?: '--'],
-                        'MUESTRAS'       => ['monto' => (float) $ingreso->muestras,    'prov' => $ingreso->proveedor_muestras ?: '--', 'fac' => $ingreso->factura_muestras ?: '--'],
-                        'LLC'            => ['monto' => (float) $ingreso->llc,         'prov' => $ingreso->proveedor_llc ?: 'LLC', 'fac' => $ingreso->factura_llc ?: '--'],
+                        'MANIOBRAS' => ['monto' => (float) $ingreso->maniobras, 'prov' => $ingreso->proveedor_maniobras ?: 'SAFINSA', 'fac' => $ingreso->factura_maniobras ?: '--'],
+                        'FLETE'     => ['monto' => (float) $ingreso->flete,     'prov' => $ingreso->proveedor_flete ?: 'TRANSPORTACTICS', 'fac' => $ingreso->factura_flete ?: '--'],
+                        'MUESTRAS'  => ['monto' => (float) $ingreso->muestras,  'prov' => $ingreso->proveedor_muestras ?: '--', 'fac' => $ingreso->factura_muestras ?: '--'],
+                        'LLC'       => ['monto' => (float) $ingreso->llc,       'prov' => $ingreso->proveedor_llc ?: 'LLC', 'fac' => $ingreso->factura_llc ?: '--'],
                     ];
                 }
 
                 foreach ($conceptosHeader as $pxcc => $datos) {
                     if ($datos['monto'] != 0) {
                         $facturaP = (!empty($datos['fac']) && $datos['fac'] !== '-' && $datos['fac'] !== 'N/A') ? $datos['fac'] : '--';
+                        $proveedor = (!empty($datos['prov']) && $datos['prov'] !== '-') ? strtoupper(trim($datos['prov'])) : '--';
 
                         $reporteDesglosado[$sucursalSeccion][$pxcc][] = [
                             'sucursal_cod' => $sucursalCod,
-                            'cliente'      => strtoupper($clienteNombre),
+                            'cliente'      => strtoupper(trim($clienteNombre ?: 'SIN CLIENTE')),
                             'pedimento'    => $pedimentoHeader,
-                            'proveedor'    => strtoupper($datos['prov']),
+                            'proveedor'    => $proveedor,
                             'factura_p'    => $facturaP,
                             'monto'        => $datos['monto'],
                             'moneda'       => $moneda,
@@ -218,11 +243,12 @@ class EnviarReporteDiarioConceptos extends Command
             }
         }
 
-        if(app()->environment('production')) {
+        if (app()->environment('production')) {
             $destinatarios = ['finanzas@intactics.com', 'oscar.sandoval@intactics.com', 'sayda.leyva@intactics.com'];
         } else {
             $destinatarios = ['carlos.perez@intactics.com'];
         }
+        
         $fechaFormateada = Carbon::parse($fechaConsulta)->format('d/m/Y');
 
         try {
