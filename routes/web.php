@@ -3,6 +3,7 @@ use App\Http\Controllers\AuditoriaImpuestosController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\IngresoConciliadoController;
 use App\Http\Controllers\ControlProveedoresController;
+use App\Http\Controllers\CotizacionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -76,6 +77,37 @@ Route::post('/saldos-favor/{id}/notificar', [IngresoConciliadoController::class,
 Route::put('/saldos-favor/{id}/reactivar', [IngresoConciliadoController::class, 'reactivarSaldo']);
 Route::put('/saldos-favor/{id}', [IngresoConciliadoController::class, 'updateSaldo']);
 Route::delete('/saldos-favor/{id}', [IngresoConciliadoController::class, 'destroySaldo']);
+
+// =====================================================================
+// RUTAS PARA EL MÓDULO DE CLIENTES Y COTIZACIONES (Consumidas por Vue)
+// =====================================================================
+
+// Tabla de clientes (tabla "empresas")
+Route::prefix('clientes')->group(function () {
+    Route::get('/datos', [CotizacionController::class, 'clientes']);
+    Route::get('/exportar', [CotizacionController::class, 'exportarClientes']);
+});
+
+Route::prefix('cotizaciones')->group(function () {
+    // 🔥 1. RUTAS ESPECÍFICAS (SIN {cotizacion}) - SIEMPRE VAN ARRIBA
+    Route::get('/nueva', [CotizacionController::class, 'nueva']);
+    Route::get('/empresa/{empresa}', [CotizacionController::class, 'paraEmpresa']);
+    Route::post('/preview', [CotizacionController::class, 'preview']);
+    Route::post('/pdf-borrador', [CotizacionController::class, 'pdfBorrador']);
+    Route::post('/', [CotizacionController::class, 'store']);
+
+    // 🔥 2. RUTAS DINÁMICAS (CON {cotizacion}) - SIEMPRE VAN DEBAJO
+    Route::get('/{cotizacion}/pdf', [CotizacionController::class, 'pdf']);
+    Route::post('/{cotizacion}/enviar', [CotizacionController::class, 'enviar']);
+    Route::post('/{cotizacion}/terminos', [CotizacionController::class, 'terminoStore']);
+    Route::get('/{cotizacion}', [CotizacionController::class, 'show']);
+    Route::put('/{cotizacion}', [CotizacionController::class, 'update']);
+    Route::delete('/{cotizacion}', [CotizacionController::class, 'destroy']);
+});
+
+// Términos y condiciones de una cotización (botones Guardar / Eliminar)
+Route::put('/cotizacion-terminos/{termino}', [CotizacionController::class, 'terminoUpdate']);
+Route::delete('/cotizacion-terminos/{termino}', [CotizacionController::class, 'terminoDestroy']);
 
 Route::get('/datos-usuario-actual', function () {
     return response()->json(auth()->user());
