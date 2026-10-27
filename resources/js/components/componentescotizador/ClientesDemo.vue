@@ -50,6 +50,15 @@
         <!-- ===== Barra ===== -->
         <div class="ct-barra">
             <b><i class="fas fa-building"></i> EMPRESAS: {{ meta.total }}</b>
+            <button type="button" class="ct-btn ct-btn--naranja" @click="nuevaCotizacion">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+                    <path d="M14 3v5h5" />
+                    <path d="M12 11v6M9 14h6" />
+                </svg>
+                Generar cotización
+            </button>
             <a v-if="rutas.crear" :href="ruta('crear')" class="ct-btn ct-btn--verde" @click.prevent="ir('crear')"><i
                     class="fas fa-plus"></i> Crear registro</a>
             <a :href="urlExportar" class="ct-btn ct-btn--azul"><i class="fas fa-file-excel"></i> Exportar</a>
@@ -103,7 +112,7 @@
                                     <!-- Etapa Cotización: abre el modal del generador -->
                                     <button v-if="et.clave === 'cotizacion'" :key="j" type="button"
                                         class="ct-etapa ct-etapa--boton" :class="'ct-etapa--' + et.estado"
-                                        :title="(e.cot_total ? 'Abrir cotización' : 'Generar cotización') + ' (' + estados[et.estado] + ')'"
+                                        :title="(e.cot_total ? 'Abrir cotización' : 'Generar cotización') + ' (' + (et.estado === 'completa' ? 'aprobada por el cliente y autorizada' : (et.estado === 'proceso' ? 'faltan aprobaciones' : 'sin cotización')) + ')'"
                                         :aria-label="e.cot_total ? 'Abrir cotización de ' + e.nombre : 'Generar cotización para ' + e.nombre"
                                         @click="abrirCotizacion(e)">
                                         <svg viewBox="0 0 24 24" width="15" height="15" fill="none"
@@ -127,6 +136,7 @@
                                     <div :style="{ width: e.progreso + '%' }"></div>
                                 </div>
                             </div>
+
                         </td>
                         <td class="ct-suc">{{ e.sucursal || '—' }}</td>
                         <td class="ct-sector">{{ e.sector || '—' }}</td>
@@ -309,6 +319,7 @@ export default {
             const qs = this.queryString(true);
             window.history.replaceState(window.history.state, '', window.location.pathname + (qs ? '?' + qs : ''));
         },
+
 
         /** Cambio en un multiselect de los filtros */
         filtrar(campo, valor) {

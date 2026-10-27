@@ -37,6 +37,21 @@
                 <template v-else>
                     <div v-for="(a, i) in avisosServidor" :key="'av' + i" class="cz-alert cz-alert-warn">{{ a }}</div>
 
+                    <!-- Respuesta del cliente desde el enlace del correo -->
+                    <div v-if="respuesta.estado === 'aprobada' && respuesta.por" class="cz-alert cz-alert-ok">
+                        <b>✓ Aprobada por el cliente:</b> {{ respuesta.por }} · {{ respuesta.fecha }}
+                        <div v-if="respuesta.comentario" class="cz-alert-nota">“{{ respuesta.comentario }}”</div>
+                    </div>
+                    <div v-else-if="respuesta.estado === 'cambios'" class="cz-alert cz-alert-warn">
+                        <b>✎ El cliente solicitó cambios:</b> {{ respuesta.por }} · {{ respuesta.fecha }}
+                        <div v-if="respuesta.comentario" class="cz-alert-nota">“{{ respuesta.comentario }}”</div>
+                        <div class="cz-alert-nota">Haz los ajustes y vuelve a enviarla: el cliente recibirá un enlace
+                            nuevo.</div>
+                    </div>
+                    <div v-else-if="respuesta.enviada" class="cz-alert cz-alert-info">
+                        Enviada al cliente el {{ respuesta.enviada }}. Esperando su aprobación desde el correo.
+                    </div>
+
                     <div v-if="errores.length" class="cz-alert cz-alert-err">
                         <b>No se guardó la cotización. Corrige lo siguiente:</b>
                         <ul>
@@ -93,15 +108,12 @@
                                     :title="usuario.nombre ? (usuario.simulado ? 'Sesión simulada: ' : 'Sesión: ') + usuario.nombre : ''"><span>Vendedor
                                         / atentamente</span>
                                     <input v-model="header.vendedor" maxlength="255"></label>
-
-                                <div class="cz-field"><span class="cz-green-label">Aprobación por cliente</span>
-                                    <label class="cz-approve is-on">
-                                        <input v-model="header.aprobada" type="checkbox">
-                                        <span>Aprobada por cliente</span>
-                                    </label>
-                                </div>
                             </div>
                         </section>
+
+                        <aprobaciones-internas v-if="id" :datos="aprobaciones" :cotizacion-id="id"
+                            :aprobada-cliente="!!header.aprobada" :base-url="baseUrl"
+                            @actualizado="(d) => { aprobaciones = d; }" @aviso="aviso" />
 
                         <div v-if="!secciones.length" class="cz-alert cz-alert-err">
                             <b>No hay bloques de conceptos configurados.</b>
@@ -213,6 +225,9 @@
                 </label>
                 <p v-if="envio.resultado" class="cz-send-msg" :class="{ 'is-err': envio.error }">{{ envio.resultado }}
                 </p>
+                <p v-if="envio.enlace && !envio.error" class="cz-muted cz-enlace">
+                    Enlace de aprobación: <a :href="envio.enlace" target="_blank" rel="noopener">{{ envio.enlace }}</a>
+                </p>
                 <div class="cz-modal-btns">
                     <button type="button" class="b-ghost b-ghost--light" @click="envio.abierto = false">{{ envio.enviado
                         ?
@@ -239,6 +254,7 @@ import 'vue-ctk-date-time-picker/dist/vue-ctk-date-time-picker.css';
 import axios from 'axios';
 import BloqueConceptos from './BloqueConceptos.vue';
 import CampoCorreos from './CampoCorreos.vue';
+import AprobacionesInternas from './AprobacionesInternas.vue';
 import TerminosCondiciones from './TerminosCondiciones.vue';
 
 let llave = 0;
@@ -262,7 +278,7 @@ function encabezadoVacio() {
 export default {
     name: 'CotizacionGenerador',
 
-    components: { BloqueConceptos, TerminosCondiciones, CampoCorreos, Multiselect, VueCtkDateTimePicker },
+    components: { BloqueConceptos, TerminosCondiciones, CampoCorreos, AprobacionesInternas, Multiselect, VueCtkDateTimePicker },
 
     props: {
         baseUrl: { type: String, default: '' },
@@ -290,6 +306,10 @@ export default {
             terminosDefault: {},
             mensajeCorreo: '',
             usuario: { nombre: null, email: null, simulado: false },
+            // Dirección / Desarrollo de negocios / Contabilidad
+            aprobaciones: { estado: 'sin_iniciar', areas: [] },
+            // Aprobación del cliente desde el correo: pendiente | aprobada | cambios
+            respuesta: { estado: 'pendiente', por: null, fecha: null, comentario: null, enviada: null },
             // { start: fecha, end: valida_hasta } del VueCtkDateTimePicker en modo rango
             rangoVigencia: null,
             // Total con IVA de cada bloque, por id de sección (lo emite BloqueConceptos)
@@ -301,7 +321,7 @@ export default {
             cargandoPreview: false,
             generandoPdf: false,
             descargando: false,
-            envio: { abierto: false, para: [], cc: [], asunto: '', ultimoAsunto: '', mensaje: '', ultimoDefecto: '', enviando: false, enviado: false, resultado: '', error: false },
+            envio: { abierto: false, enlace: '', para: [], cc: [], asunto: '', ultimoAsunto: '', mensaje: '', ultimoDefecto: '', enviando: false, enviado: false, resultado: '', error: false },
             toast: '',
         };
     },
@@ -383,7 +403,9 @@ export default {
                 return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
                     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
             };
-            return (this.folio || 'cotizacion-borrador') + '-' + (limpiar(this.header.cliente) || 'cliente') + '.pdf';
+            // El folio ya trae el cliente: COTN26102026001-asimex-global.pdf
+            if (this.folio) return this.folio + '.pdf';
+            return 'cotizacion-borrador-' + (limpiar(this.header.cliente) || 'cliente') + '.pdf';
         },
         hayCambios() {
             return this.instantanea !== null && JSON.stringify(this.cuerpo()) !== this.instantanea;
@@ -521,6 +543,8 @@ export default {
             this.terminosDefault = p.terminosDefault || {};
             this.mensajeCorreo = p.mensajeCorreo || '';
             this.usuario = Object.assign({ nombre: null, email: null, simulado: false }, p.usuario);
+            this.aprobaciones = p.aprobaciones || { estado: 'sin_iniciar', areas: [] };
+            this.respuesta = Object.assign({ estado: 'pendiente', por: null, fecha: null, comentario: null, enviada: null }, p.respuesta);
             // Cotización nueva: el vendedor es quien la está haciendo
             if (!p.id && !this.header.vendedor && this.usuario.nombre) {
                 this.header.vendedor = this.usuario.nombre;
@@ -708,7 +732,9 @@ export default {
                 .then((r) => {
                     this.envio.error = false;
                     this.envio.enviado = true;
-                    this.envio.resultado = r.data.mensaje;
+                    this.envio.resultado = r.data.mensaje + (r.data.aprobacion ? ' El cliente puede aprobarla desde el botón del correo.' : '');
+                    this.envio.enlace = r.data.aprobacion || '';
+                    this.respuesta.enviada = r.data.enviada_at;
                     this.$emit('guardada', { id: this.id, enviada_at: r.data.enviada_at });
                 })
                 .catch((e) => { this.envio.error = true; this.envio.resultado = this.mensajesError(e)[0]; })
@@ -1008,6 +1034,24 @@ body.cz-sin-scroll {
     background: #fefce8;
     color: #854d0e;
     border: 1px solid #fde68a;
+}
+
+.cz-alert-ok {
+    background: #f0fdf4;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.cz-alert-info {
+    background: #f8fafc;
+    color: #2A3A4D;
+    border: 1px solid #e5e7eb;
+}
+
+.cz-alert-nota {
+    margin-top: 4px;
+    font-size: 12.5px;
+    opacity: .9;
 }
 
 .cz-alert code {
@@ -1584,6 +1628,15 @@ body.cz-sin-scroll {
     background: #ecfdf5;
     font-size: 13px;
     color: #065f46;
+}
+
+.cz-enlace {
+    word-break: break-all;
+}
+
+.cz-enlace a {
+    color: var(--teal-d);
+    font-weight: 700;
 }
 
 .cz-send-msg.is-err {

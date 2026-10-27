@@ -180,6 +180,7 @@ class EmpresasQuery
         $q->leftJoinSub($cotizaciones, 'c', 'c.empresa_id', '=', 'e.' . $pk);
         $select[] = DB::raw('COALESCE(c.cot_total, 0) as cot_total');
         $select[] = DB::raw('COALESCE(c.cot_aprobada, 0) as cot_aprobada');
+        $select[] = 'c.cot_ultima as cot_ultima';   // última cotización (aprobaciones internas)
 
         // Vendedor = usuario que hizo la última cotización de la empresa
         if ($this->usaVendedorDeCotizacion()) {
@@ -394,14 +395,6 @@ class EmpresasQuery
         return Arr::get($this->cfg['vendedores'], 'llave', 'id') ?: 'id';
     }
 
-    /**
-     * Nombre del usuario en sesión para "Vendedor / atentamente" de una cotización nueva.
-     */
-    public function nombreUsuarioActual()
-    {
-        // Producción: usuario autenticado. Desarrollo: COTIZADOR_USUARIO_ID (ver UsuarioActual)
-        return app(UsuarioActual::class)->nombre();
-    }
 
     protected function estadoEtapa($valor, $tipo)
     {

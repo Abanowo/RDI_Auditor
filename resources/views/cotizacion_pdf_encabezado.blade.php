@@ -6,7 +6,7 @@
     <tr>
         <td class="enc-logo">
             @if($logo)
-                <img src="{{ $logo }}" alt="{{ $empresa['nombre'] }}" style="height:36pt; max-width:170pt">
+                <img src="{{ $logo }}" alt="{{ $empresa['nombre'] }}" style="height:52pt; max-width:240pt">
             @else
                 <table class="dots"><tr>
                     <td><table>

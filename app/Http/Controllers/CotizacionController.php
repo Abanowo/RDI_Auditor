@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\CotizacionRequest;
 use App\Mail\CotizacionMail;
+use App\Models\CotizacionAprobacion;
 use App\Models\Cotizacion;
 use App\Models\CotizacionConcepto;
 use App\Models\CotizacionTermino;
@@ -17,6 +18,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
 class CotizacionController extends Controller
@@ -57,6 +59,283 @@ class CotizacionController extends Controller
     }
 
     /* ------------------------------------------------------------------ *
+     |  Aprobación por el cliente desde el correo (rutas públicas, sin login)
+     * ------------------------------------------------------------------ */
+
+    /**
+     * GET cotizacion/aprobar/{token}  → página para aprobar o solicitar cambios
+     */
+    public function aprobacion($token)
+    {
+        $cotizacion = $this->cotizacionPorToken($token);
+        if (!$cotizacion) {
+            return response()->view('cotizacion_aprobacion', ['estado' => 'invalido', 'cotizacion' => null], 404);
+        }
+
+        $cotizacion->load('conceptos', 'terminos');
+        $estado = $cotizacion->estadoRespuesta();
+        if ($estado === 'pendiente' && $cotizacion->tokenVencido()) {
+            $estado = 'vencido';
+        }
+
+        return view('cotizacion_aprobacion', [
+            'estado'     => $estado,
+            'cotizacion' => $cotizacion,
+            'resumen'    => $this->calc->resumen($cotizacion, Seccion::activas()->get()),
+            'token'      => $token,
+        ]);
+    }
+
+    /**
+     * POST cotizacion/aprobar/{token}  → accion = aprobar | cambios
+     */
+    public function responderAprobacion(Request $request, $token)
+    {
+        $cotizacion = $this->cotizacionPorToken($token);
+        if (!$cotizacion) {
+            return response()->view('cotizacion_aprobacion', ['estado' => 'invalido', 'cotizacion' => null], 404);
+        }
+        if ($cotizacion->tokenVencido() && !$cotizacion->aprobada) {
+            return redirect('/cotizacion/aprobar/' . $token);
+        }
+
+        $datos = $request->validate([
+            'accion'     => 'required|in:aprobar,cambios',
+            'nombre'     => 'required|string|max:150',
+            'comentario' => 'nullable|string|max:3000|required_if:accion,cambios',
+        ], [
+            'nombre.required'        => 'Escribe tu nombre.',
+            'comentario.required_if' => 'Cuéntanos qué cambios necesitas.',
+        ]);
+
+        if ($datos['accion'] === 'aprobar' && !$request->boolean('acepto')) {
+            return back()->withInput()->withErrors(['acepto' => 'Confirma que aceptas la cotización y sus términos.']);
+        }
+
+        if (!$cotizacion->aprobada) {
+            if ($datos['accion'] === 'aprobar') {
+                $cotizacion->aprobada               = true;
+                $cotizacion->aprobada_at            = now();
+                $cotizacion->aprobada_por           = $datos['nombre'];
+                $cotizacion->aprobada_ip            = $request->ip();
+                $cotizacion->cambios_solicitados_at = null;
+            } else {
+                $cotizacion->cambios_solicitados_at = now();
+                $cotizacion->aprobada_por           = $datos['nombre'];
+            }
+            $cotizacion->respuesta_comentario = Arr::get($datos, 'comentario');
+            $cotizacion->save();
+
+            $this->avisarRespuesta($cotizacion);
+
+            if ($cotizacion->aprobada) {
+                $cotizacion->iniciarAprobacionesInternas();
+            }
+        }
+
+        return redirect('/cotizacion/aprobar/' . $token);
+    }
+
+    /**
+     * GET cotizacion/aprobar/{token}/pdf  → el cliente descarga su cotización
+     */
+    public function pdfAprobacion($token)
+    {
+        $cotizacion = $this->cotizacionPorToken($token);
+        abort_if(!$cotizacion, 404);
+        $cotizacion->load('conceptos', 'terminos');
+
+        try {
+            return $this->generarPdf($cotizacion)->stream($cotizacion->nombreArchivo());
+        } catch (\Throwable $e) {
+            abort(500, $e->getMessage());
+        }
+    }
+
+    protected function cotizacionPorToken($token)
+    {
+        if (!Schema::hasColumn('cotizaciones', 'token_aprobacion') || strlen((string) $token) < 32) {
+            return null;
+        }
+
+        return Cotizacion::where('token_aprobacion', $token)->first();
+    }
+
+    /** Avisa al coordinador que hizo la cotización (o a comercialización) que el cliente respondió. */
+    protected function avisarRespuesta(Cotizacion $cotizacion)
+    {
+        $coordinador = $cotizacion->user_id ? User::find($cotizacion->user_id) : null;
+        $destino     = $coordinador && $coordinador->email
+            ? $coordinador->email
+            : strtolower((string) config('cotizador.empresa.email'));
+
+        try {
+            Mail::to($destino)->send(new \App\Mail\CotizacionRespuestaMail($cotizacion));
+        } catch (\Throwable $e) {
+            report($e);   // la respuesta del cliente ya quedó guardada aunque falle el aviso
+        }
+    }
+
+    /* ------------------------------------------------------------------ *
+     |  Aprobaciones internas: Dirección, Desarrollo de negocios, Contabilidad
+     * ------------------------------------------------------------------ */
+
+    /**
+     * POST cotizaciones/{cotizacion}/aprobaciones/{area}   accion = aprobar | rechazar
+     */
+    public function responderAprobacionInterna(Request $request, Cotizacion $cotizacion, $area)
+    {
+        $areas = (array) config('cotizador.aprobaciones_internas');
+        if (!isset($areas[$area])) {
+            return response()->json(['message' => 'Área de aprobación no válida.'], 422);
+        }
+        if (!$cotizacion->aprobada) {
+            return response()->json(['message' => 'Primero debe aprobarla el cliente.'], 422);
+        }
+        if (!$this->puedeAprobar($area)) {
+            return response()->json(['message' => 'Tu usuario no puede aprobar por ' . $areas[$area]['nombre'] . '.'], 403);
+        }
+
+        $datos = $request->validate([
+            'accion'     => 'required|in:aprobar,rechazar',
+            'comentario' => 'nullable|string|max:3000|required_if:accion,rechazar',
+        ], ['comentario.required_if' => 'Escribe el motivo del rechazo.']);
+
+        $cotizacion->iniciarAprobacionesInternas();
+        $aprobacion = CotizacionAprobacion::where('cotizacion_id', $cotizacion->id)->where('area', $area)->firstOrFail();
+
+        $aprobacion->update([
+            'estado'         => $datos['accion'] === 'aprobar' ? 'aprobada' : 'rechazada',
+            'usuario_id'     => $this->idUsuario(),
+            'usuario_nombre' => $this->nombreUsuario(),
+            'comentario'     => Arr::get($datos, 'comentario'),
+            'respondida_at'  => now(),
+        ]);
+        // Las aprobaciones internas se llevan solo dentro del módulo (sin correos)
+        $despues = $cotizacion->estadoInterno();
+
+        $mensajes = [
+            'autorizada' => 'Cotización AUTORIZADA: aprobaron las tres áreas.',
+            'rechazada'  => 'Registraste el rechazo de ' . $areas[$area]['nombre'] . '.',
+            'pendiente'  => 'Aprobación de ' . $areas[$area]['nombre'] . ' registrada.',
+        ];
+
+        return response()->json([
+            'mensaje'      => $mensajes[$despues] ?? 'Listo.',
+            'aprobaciones' => $this->datosAprobaciones($cotizacion),
+        ]);
+    }
+
+    /**
+     * Agrega a cada empresa de la tabla el estado de las aprobaciones internas de su última cotización.
+     * Se consulta todo de una vez para no hacer una consulta por renglón.
+     */
+    protected function conAprobacionesInternas($empresas)
+    {
+        $ids   = $empresas->pluck('cotizacion_id')->filter()->values()->all();
+        $areas = (array) config('cotizador.aprobaciones_internas');
+        $hay   = !empty($ids) && Schema::hasTable('cotizacion_aprobaciones');
+
+        $cotizaciones = $hay ? Cotizacion::whereIn('id', $ids)->get(['id', 'folio', 'aprobada'])->keyBy('id') : collect();
+        $registros    = $hay ? CotizacionAprobacion::whereIn('cotizacion_id', $ids)->get()->groupBy('cotizacion_id') : collect();
+
+        return $empresas->map(function ($e) use ($cotizaciones, $registros, $areas) {
+            $cot = $e['cotizacion_id'] ? $cotizaciones->get($e['cotizacion_id']) : null;
+            $porArea = $cot ? $registros->get($cot->id, collect())->keyBy('area') : collect();
+
+            $lista = [];
+            foreach ($areas as $clave => $cfg) {
+                $a = $porArea->get($clave);
+                $lista[] = [
+                    'area'       => $clave,
+                    'nombre'     => $cfg['nombre'],
+                    'corto'      => isset($cfg['corto']) ? $cfg['corto'] : mb_strtoupper(mb_substr($cfg['nombre'], 0, 1, 'UTF-8'), 'UTF-8'),
+                    'estado'     => $a ? $a->estado : 'pendiente',
+                    'usuario'    => $a ? $a->usuario_nombre : null,
+                    'comentario' => $a ? $a->comentario : null,
+                    'fecha'      => $a && $a->respondida_at ? $a->respondida_at->format('d/m/Y H:i') : null,
+                    'puede'      => $this->puedeAprobar($clave),
+                ];
+            }
+
+            $estados = collect($lista)->pluck('estado');
+            $estado  = 'sin_iniciar';
+            if ($cot && $cot->aprobada) {
+                $estado = $estados->contains('rechazada') ? 'rechazada'
+                    : ($estados->every(function ($x) {
+                        return $x === 'aprobada';
+                    }) ? 'autorizada' : 'pendiente');
+            }
+
+            $e['folio']        = $cot ? $cot->folio : null;
+            $e['aprobada_cli'] = $cot ? (bool) $cot->aprobada : false;
+            $e['aprobaciones'] = ['estado' => $estado, 'areas' => $lista];
+
+            // Cuadro de Cotización en Progreso:
+            //   verde    = aprobada por el cliente Y autorizada por Dirección, Desarrollo de negocios y Contabilidad
+            //   amarillo = hay cotización, pero falta alguna aprobación
+            //   rojo     = sin cotización
+            if (!empty($e['etapas'])) {
+                foreach ($e['etapas'] as $i => $etapa) {
+                    if (isset($etapa['clave']) && $etapa['clave'] === 'cotizacion') {
+                        $e['etapas'][$i]['estado'] = $estado === 'autorizada'
+                            ? 'completa'
+                            : ($e['cot_total'] > 0 ? 'proceso' : 'pendiente');
+                    }
+                }
+                // Si el progreso se calcula con las etapas (sin columna "progreso"), se recalcula
+                if (!config('cotizador.clientes.columnas.progreso')) {
+                    $puntos = 0;
+                    foreach ($e['etapas'] as $etapa) {
+                        $puntos += $etapa['estado'] === 'completa' ? 1 : ($etapa['estado'] === 'proceso' ? 0.5 : 0);
+                    }
+                    $e['progreso']       = (int) round($puntos / count($e['etapas']) * 100);
+                    $e['progreso_color'] = $e['progreso'] >= 70 ? 'verde' : ($e['progreso'] >= 30 ? 'ambar' : 'rojo');
+                }
+            }
+
+            return $e;
+        });
+    }
+
+    /** ¿El usuario actual puede aprobar por esta área? (lista vacía en la configuración = cualquiera) */
+    protected function puedeAprobar($area)
+    {
+        $permitidos = (array) config('cotizador.aprobaciones_internas.' . $area . '.usuarios');
+        if (empty($permitidos)) {
+            return true;
+        }
+
+        return in_array((int) $this->idUsuario(), array_map('intval', $permitidos), true);
+    }
+
+    /** Lo que pinta AprobacionesInternas.vue */
+    protected function datosAprobaciones(Cotizacion $cotizacion)
+    {
+        $areas = (array) config('cotizador.aprobaciones_internas');
+        if (!$cotizacion->exists || !Schema::hasTable('cotizacion_aprobaciones')) {
+            return ['estado' => 'sin_iniciar', 'areas' => []];
+        }
+
+        $registros = $cotizacion->aprobacionesInternas()->get()->keyBy('area');
+        $lista = [];
+        foreach ($areas as $clave => $cfg) {
+            $a = $registros->get($clave);
+            $lista[] = [
+                'area'       => $clave,
+                'nombre'     => $cfg['nombre'],
+                'estado'     => $a ? $a->estado : 'pendiente',
+                'usuario'    => $a ? $a->usuario_nombre : null,
+                'comentario' => $a ? $a->comentario : null,
+                'fecha'      => $a && $a->respondida_at ? $a->respondida_at->format('d/m/Y H:i') : null,
+                'puede'      => $this->puedeAprobar($clave),
+            ];
+        }
+
+        return ['estado' => $cotizacion->estadoInterno(), 'areas' => $lista];
+    }
+
+    /* ------------------------------------------------------------------ *
      |  Tabla de clientes (simulación ClientesDemo.vue, tabla "empresas")
      * ------------------------------------------------------------------ */
 
@@ -89,8 +368,12 @@ class CotizacionController extends Controller
                 'vendedor_avatar_url' => $e->vendedor_avatar_url,
                 'cot_total'           => (int) $e->cot_total,
                 'cot_aprobada'        => (bool) $e->cot_aprobada,
+                'cotizacion_id'       => isset($e->cot_ultima) && $e->cot_ultima ? (int) $e->cot_ultima : null,
             ];
         });
+
+        // Aprobaciones internas de la última cotización de cada empresa (botones de la tabla)
+        $empresas = $this->conAprobacionesInternas($empresas);
 
         // Rutas de Vue Router / API configuradas; el componente reemplaza {id}
         $rutas = [];
@@ -314,6 +597,14 @@ class CotizacionController extends Controller
 
         $cotizacion->load('conceptos', 'terminos');
 
+        // Enlace para que el cliente apruebe desde el correo (uno nuevo en cada envío).
+        // Si ya estaba aprobada, el enlace muestra la confirmación de la aprobación.
+        $conAprobacion = Schema::hasColumn('cotizaciones', 'token_aprobacion');
+        if ($conAprobacion) {
+            $cotizacion->generarTokenAprobacion();
+            $cotizacion->save();
+        }
+
         try {
             $binario = $this->generarPdf($cotizacion)->output();
         } catch (\Throwable $e) {
@@ -348,10 +639,15 @@ class CotizacionController extends Controller
             $mensaje .= ' (MAIL_MAILER=log: el correo se guardó en storage/logs, no se envió de verdad.)';
         }
 
+        if (!$conAprobacion) {
+            $mensaje .= ' (Sin botón de aprobación: falta correr "php artisan migrate" para la migración 2026_10_26_000004.)';
+        }
+
         return response()->json([
-            'ok'         => true,
-            'mensaje'    => $mensaje,
-            'enviada_at' => $cotizacion->enviada_at->format('Y-m-d H:i'),
+            'ok'          => true,
+            'mensaje'     => $mensaje,
+            'enviada_at'  => $cotizacion->enviada_at->format('Y-m-d H:i'),
+            'aprobacion'  => $conAprobacion ? $cotizacion->urlAprobacion() : null,
         ]);
     }
 
@@ -417,6 +713,11 @@ class CotizacionController extends Controller
         $cotizacion->load('conceptos', 'terminos');
         $cotizacion->total_mxn = $this->calc->resumen($cotizacion, Seccion::activas()->get())['total'];
         $cotizacion->save();
+
+        // Si se marcó "Aprobada por cliente" en el generador, inician las aprobaciones internas
+        if ($cotizacion->aprobada) {
+            $cotizacion->iniciarAprobacionesInternas();
+        }
     }
 
     protected function construirBorrador(array $datos, $aprobada)
@@ -518,7 +819,7 @@ class CotizacionController extends Controller
         if (app()->environment('production')) {
             $remitente = auth()->user();
         } else {
-            $remitente = User::find(3);
+            $remitente = User::find(1);
         }
 
         return $remitente;
@@ -781,6 +1082,14 @@ class CotizacionController extends Controller
             })->values()->all(),
             'sucursales'       => app(CatalogoCotizador::class)->sucursales(),
             'avisos'           => app(CatalogoCotizador::class)->avisos(),
+            'aprobaciones'     => $this->datosAprobaciones($cotizacion),
+            'respuesta'        => [
+                'estado'     => $cotizacion->exists ? $cotizacion->estadoRespuesta() : 'pendiente',
+                'por'        => $cotizacion->aprobada_por,
+                'fecha'      => optional($cotizacion->aprobada ? $cotizacion->aprobada_at : $cotizacion->cambios_solicitados_at)->format('d/m/Y H:i'),
+                'comentario' => $cotizacion->respuesta_comentario,
+                'enviada'    => optional($cotizacion->enviada_at)->format('d/m/Y H:i'),
+            ],
             'terminosDefault'  => app(CatalogoCotizador::class)->terminos(),
             'mensajeCorreo'    => (string) config('cotizador.mensaje_correo'),
             'usuario'          => [

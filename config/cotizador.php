@@ -50,6 +50,46 @@ return [
     | Sucursales que aparecen en el selector "Puerto de entrada/salida" del generador,
     | en este orden. El nombre se toma de la tabla "sucursales" si existe ahí.
     */
+    /*
+    | Código de sucursal en el folio de la cotización: COT + código + DDMMAAAA + 001 + -cliente
+    | Ejemplo: COTN26102026001-asimex-global. Sin sucursal elegida, el folio va sin código.
+    */
+    /*
+    |--------------------------------------------------------------------------
+    | Aprobaciones internas (después de que el cliente aprueba)
+    |--------------------------------------------------------------------------
+    | Cada área aprueba o rechaza dentro del generador (no por correo). Cuando las tres
+    | aprueban, la cotización queda AUTORIZADA.
+    |   usuarios: id_usuario que pueden aprobar por esa área. Vacío = cualquier usuario.
+    */
+    'aprobaciones_internas' => [
+        'direccion' => [
+            'nombre'   => 'Dirección',
+            'corto'    => 'DIR',
+            'usuarios' => [],
+        ],
+        'desarrollo_negocios' => [
+            'nombre'   => 'Desarrollo de negocios',
+            'corto'    => 'DN',
+            'usuarios' => [],
+        ],
+        'contabilidad' => [
+            'nombre'   => 'Contabilidad',
+            'corto'    => 'CONT',
+            'usuarios' => [],
+        ],
+    ],
+
+    'folio_sucursal' => [
+        'NOGALES'    => 'N',
+        'TIJUANA'    => 'T',
+        'LAREDO'     => 'L',
+        'MEXICALI'   => 'MXL',
+        'MANZANILLO' => 'MZ',
+        'REYNOSA'    => 'REX',
+        'VERACRUZ'   => 'VER',
+    ],
+
     'sucursales_cotizador' => [
         'NOGALES'    => ['nombre' => 'Nogales',    'tipo' => 'Frontera'],
         'TIJUANA'    => ['nombre' => 'Tijuana',    'tipo' => 'Frontera'],

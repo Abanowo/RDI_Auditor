@@ -1,4 +1,5 @@
 <?php
+
 use App\Http\Controllers\AuditoriaImpuestosController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\IngresoConciliadoController;
@@ -100,10 +101,16 @@ Route::prefix('cotizaciones')->group(function () {
     Route::get('/{cotizacion}/pdf', [CotizacionController::class, 'pdf']);
     Route::post('/{cotizacion}/enviar', [CotizacionController::class, 'enviar']);
     Route::post('/{cotizacion}/terminos', [CotizacionController::class, 'terminoStore']);
+    Route::post('/{cotizacion}/aprobaciones/{area}', [CotizacionController::class, 'responderAprobacionInterna']);
     Route::get('/{cotizacion}', [CotizacionController::class, 'show']);
     Route::put('/{cotizacion}', [CotizacionController::class, 'update']);
     Route::delete('/{cotizacion}', [CotizacionController::class, 'destroy']);
 });
+
+// Aprobación de la cotización por el cliente desde el correo (públicas, sin login)
+Route::get('/cotizacion/aprobar/{token}', [CotizacionController::class, 'aprobacion']);
+Route::post('/cotizacion/aprobar/{token}', [CotizacionController::class, 'responderAprobacion']);
+Route::get('/cotizacion/aprobar/{token}/pdf', [CotizacionController::class, 'pdfAprobacion']);
 
 // Términos y condiciones de una cotización (botones Guardar / Eliminar)
 Route::put('/cotizacion-terminos/{termino}', [CotizacionController::class, 'terminoUpdate']);

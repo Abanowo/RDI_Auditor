@@ -86,8 +86,8 @@ $linea = '#e5e7eb';
                                 <tr>
                                     <td valign="middle">
                                         @if($urlLogo)
-                                        <img src="{{ $urlLogo }}" alt="{{ $empresa['nombre'] }}" height="42"
-                                            style="display:block; height:42px; width:auto; max-width:200px; border:0; outline:none;">
+                                        <img src="{{ $urlLogo }}" alt="{{ $empresa['nombre'] }}" height="64"
+                                            style="display:block; height:64px; width:auto; max-width:280px; border:0; outline:none;">
                                         @else
                                         <span style="font-family:Arial,Helvetica,sans-serif; font-size:22px; font-weight:bold; color:{{ $navy }}; letter-spacing:1px;">INTACTICS<span style="color:{{ $rojo }};">®</span></span>
                                         @endif
@@ -146,6 +146,28 @@ $linea = '#e5e7eb';
                             </table>
                         </td>
                     </tr>
+
+                    {{-- Botón para aprobar desde el correo --}}
+                    @if(!empty($urlAprobacion))
+                    <tr>
+                        <td align="center" style="padding:24px 36px 4px 36px;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                                <tr>
+                                    <td align="center" bgcolor="#38a169" style="border-radius:6px;">
+                                        <a href="{{ $urlAprobacion }}" target="_blank"
+                                            style="display:inline-block; padding:14px 30px; font-family:Arial,Helvetica,sans-serif; font-size:14px; font-weight:bold; color:#ffffff; text-decoration:none; border-radius:6px;">
+                                            Revisar y aprobar cotización
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                            <div style="padding-top:10px; font-family:Arial,Helvetica,sans-serif; font-size:11px; line-height:16px; color:{{ $gris }};">
+                                También puede solicitar cambios desde el mismo enlace.
+                                @if($cotizacion->token_expira_at) Disponible hasta el {{ \App\Models\Cotizacion::fechaLarga($cotizacion->token_expira_at) }}. @endif
+                            </div>
+                        </td>
+                    </tr>
+                    @endif
 
                     {{-- Firma del coordinador --}}
                     <tr>

@@ -18,6 +18,7 @@ class CotizacionMail extends Mailable
     public $firmaDatos;
     public $firmaMime;
     public $nombreRemitente;
+    public $urlAprobacion;
     protected $pdf;
     protected $responderA;
 
@@ -36,6 +37,7 @@ class CotizacionMail extends Mailable
         $this->firmaMime       = isset($remitente['firma_mime']) ? $remitente['firma_mime'] : 'image/png';
         $this->nombreRemitente = isset($remitente['nombre']) ? $remitente['nombre'] : null;
         $this->responderA      = isset($remitente['email']) ? $remitente['email'] : null;
+        $this->urlAprobacion   = $cotizacion->urlAprobacion();
     }
 
     public function build()
