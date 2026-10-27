@@ -29,6 +29,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Capsule\Manager;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
@@ -1172,39 +1173,34 @@ class AuditoriaImpuestosController extends Controller
                 $this->registrarEnvioVistaPrevia('multi', $hoja, $datosParaEnviar, $esUltimo);
                 return true;
             }
- 
+
             if (app()->environment('production')) {
                 $scriptUrl = 'https://script.google.com/macros/s/AKfycbzaLZjOImg1nz_nywOTYoc-iM-LFhtFeVPIf3biXstCcOLK1BXfBmiomg29--cdDuS4iw/exec'; // PRODUCCIÓN
             } else {
                 $scriptUrl = 'https://script.google.com/macros/s/AKfycbwYfBt6btEjIXLjnLBWlqEth9r7dricE1QOVAeAVK6wUEWitK1ZI3x2YRe5k243VvC5/exec'; // DESARROLLO
             }
- 
+
             Log::info("Enviando " . count($datosParaEnviar) . " registros a GPC Multi. Hoja: $hoja");
- 
-            $response = Http::timeout(400)->withoutVerifying()->post($scriptUrl, [
+
+            $resultado = $this->postAppsScript($scriptUrl, [
                 'hoja'       => $hoja,
                 'pedimentos' => $datosParaEnviar,
                 'es_ultimo'  => $esUltimo
             ]);
- 
-            Log::info("Respuesta Real de Google para {$hoja}: " . $response->body());
- 
-            if (!$response->successful()) {
-                Log::error("Error HTTP GPC Multi: " . $response->status());
+
+            if (!$resultado['ok']) {
+                Log::warning("GPC Multi ($hoja) no devolvió su respuesta JSON; revisa la hoja. " . $resultado['detalle']);
                 return false;
             }
- 
-            $cuerpo = $response->json();
-            if ($cuerpo === null) {
-                Log::error("GPC Multi no devolvió JSON (posible timeout). Respuesta: " . strip_tags($response->body()));
-                return false;
-            }
- 
+
+            $cuerpo = $resultado['json'];
+            Log::info("Respuesta Real de Google para {$hoja}: " . json_encode($cuerpo));
+
             if (isset($cuerpo['status']) && $cuerpo['status'] === 'error') {
                 Log::error("GPC Multi Error Interno: " . ($cuerpo['message'] ?? 'sin mensaje'));
                 return false;
             }
- 
+
             return true;
         } catch (\Throwable $e) {
             Log::error("Error enviando a Sheets Multi: " . $e->getMessage());
@@ -1418,6 +1414,53 @@ class AuditoriaImpuestosController extends Controller
         }
     }
 
+    private function postAppsScript(string $url, array $payload, int $timeout = 400): array
+    {
+        $maxIntentos = 4;
+
+        for ($intento = 1; $intento <= $maxIntentos; $intento++) {
+            $respuesta = Http::timeout($timeout)
+                ->withoutVerifying()
+                ->post($url, $payload);
+
+            $status = $respuesta->status();
+            $json = $respuesta->json();
+
+            if (is_array($json)) {
+                $mensaje = (string) ($json['message'] ?? '');
+                $estaOcupado = (($json['status'] ?? '') === 'error') && stripos($mensaje, 'ocupado') !== false;
+
+                if ($estaOcupado && $intento < $maxIntentos) {
+                    Log::warning("Apps Script ocupado (otra ejecución sigue corriendo). Reintento {$intento} de " . ($maxIntentos - 1) . " en 20 segundos...");
+                    sleep(20);
+                    continue;
+                }
+
+                if ($estaOcupado) {
+                    Log::error("Apps Script siguió ocupado después de {$maxIntentos} intentos: estos registros NO se escribieron en la hoja.");
+                }
+
+                return ['ok' => true, 'json' => $json, 'status' => $status, 'detalle' => ''];
+            }
+
+            // Llegó HTML: sacamos el título de la página para saber qué fue
+            $cuerpo = (string) $respuesta->body();
+            $titulo = preg_match('/<title[^>]*>(.*?)<\/title>/is', $cuerpo, $m)
+                ? trim(html_entity_decode(strip_tags($m[1])))
+                : '';
+            $extracto = mb_substr(trim(preg_replace('/\s+/', ' ', strip_tags($cuerpo))), 0, 200);
+
+            return [
+                'ok' => false,
+                'json' => null,
+                'status' => $status,
+                'detalle' => "HTTP {$status}" . ($titulo !== '' ? " | Página: {$titulo}" : '') . " | Inicio: {$extracto}"
+            ];
+        }
+
+        return ['ok' => false, 'json' => null, 'status' => 0, 'detalle' => 'Sin respuesta.'];
+    }
+
     /**
      * MÉTODOS DE ESCRITURA EN GOOGLE SHEETS (SIN CREDENCIALES, VÍA WEBHOOK)
      * Método universal para enviar cualquier concepto (Impuestos, Maniobras, Demoras, etc.)
@@ -1443,43 +1486,36 @@ class AuditoriaImpuestosController extends Controller
             } else {
                 // --- URLs de PRUEBAS / LOCAL ---
                 $urlZLO   = 'https://script.google.com/macros/s/AKfycbyXbQI3JkBufxYUXsYUUTmIIwJmYWuYDVOrYnV0xSXbTBe7lhNZvTjGBDKPuPoK7x6xpQ/exec';
-                // Si tienes un App Script de pruebas para las nuevas sucursales, reemplaza el link aquí abajo. 
-                // Por ahora le dejé el mismo que el de producción para evitar errores de variable indefinida.
                 $urlOtros = 'https://script.google.com/macros/s/AKfycbwYfBt6btEjIXLjnLBWlqEth9r7dricE1QOVAeAVK6wUEWitK1ZI3x2YRe5k243VvC5/exec';
             }
 
             // 2. Seleccionamos el script correcto según la sucursal
             $scriptUrl = ($sucursal === 'ZLO') ? $urlZLO : $urlOtros;
 
-            Log::info("Enviando " . count($datosParaEnviar) . " registros a GPC. Sucursal: $sucursal | Hoja: $hoja | Entorno: " . app()->environment());
+            Log::info("Enviando " . count($datosParaEnviar) . " registros a GPC. Sucursal: $sucursal | Hoja: $hoja | Último: " . ($esUltimo ? 'sí' : 'no') . " | Entorno: " . app()->environment());
 
-            // 3. Enviamos el payload
-            $response = Http::timeout(400)->withoutVerifying()->post($scriptUrl, [
+            // 3. Enviamos el payload siguiendo la redirección de Apps Script
+            $resultado = $this->postAppsScript($scriptUrl, [
                 'hoja'       => $hoja,
                 'pedimentos' => $datosParaEnviar,
                 'es_ultimo'  => $esUltimo
             ]);
 
-            // 4. Manejo de la respuesta y escudo Anti-Timeouts
-            if ($response->successful()) {
-                $cuerpoRespuesta = $response->json();
-                
-                // Escudo anti-timeouts HTML
-                if ($cuerpoRespuesta === null) {
-                    Log::error("Google Sheets no devolvió JSON. Posible TIMEOUT. Respuesta cruda: " . strip_tags($response->body()));
-                    return;
-                }
-
-                if(isset($cuerpoRespuesta['status']) && $cuerpoRespuesta['status'] === 'error') {
-                    Log::error("Google Sheets Error Interno: " . $cuerpoRespuesta['message']);
-                } else {
-                    $debugInfo = isset($cuerpoRespuesta['debug']) ? json_encode($cuerpoRespuesta['debug']) : 'Sin detalles';
-                    Log::info("Google Sheets respondió con Éxito. Detalle: " . $debugInfo);
-                }
-            } else {
-                Log::error("Google Sheets HTTP Error: " . $response->status());
+            // 4. Manejo de la respuesta
+            if (!$resultado['ok']) {
+                // doPost sí se ejecutó (los datos suelen quedar escritos), pero no llegó su respuesta
+                Log::warning("Google Sheets ($sucursal/$hoja) no devolvió su respuesta JSON; revisa la hoja. " . $resultado['detalle']);
+                return;
             }
 
+            $cuerpoRespuesta = $resultado['json'];
+
+            if (isset($cuerpoRespuesta['status']) && $cuerpoRespuesta['status'] === 'error') {
+                Log::error("Google Sheets Error Interno: " . ($cuerpoRespuesta['message'] ?? 'sin mensaje'));
+            } else {
+                $debugInfo = isset($cuerpoRespuesta['debug']) ? json_encode($cuerpoRespuesta['debug']) : 'Sin detalles';
+                Log::info("Google Sheets respondió con Éxito. Detalle: " . $debugInfo);
+            }
         } catch (\Throwable $e) {
             Log::error("Error al enviar datos a Google Sheets ($sucursal): " . $e->getMessage());
         }
@@ -2139,7 +2175,6 @@ class AuditoriaImpuestosController extends Controller
                 ];
 
                 if (!$datosFlete) {
-                    Log::info("🚛 [AUDITORIA FLETE | Ped: {$pedimentoLimpio}] Sin archivos de flete en el índice.");
                     continue;
                 }
 
@@ -2174,7 +2209,6 @@ class AuditoriaImpuestosController extends Controller
                 }
 
                 if ($totalFlete <= 0) {
-                    Log::warning("🚛 [AUDITORIA FLETE | Ped: {$pedimentoLimpio}] Se encontró archivo pero no se pudo leer el total.");
                     continue;
                 }
 
@@ -2187,8 +2221,6 @@ class AuditoriaImpuestosController extends Controller
                 $diferenciaSc = ($estado !== 'Sin SC!' && $estado !== 'Sin operacion!') 
                     ? round($montoSCMXN - $montoFleteMXN, 2) 
                     : $montoFleteMXN;
-
-                Log::info("🚛 [AUDITORIA FLETE | Ped: {$pedimentoLimpio}] Guardando en BD -> Total: {$totalFlete} {$monedaFlete} | Folio: {$folioFlete} | Estado: {$estado}");
 
                 $fletesParaGuardar[] = [
                     'operacion_id'        => $operacionId['id_operacion'],
@@ -4277,26 +4309,7 @@ class AuditoriaImpuestosController extends Controller
             }
 
             if (empty($soloContenedores)) {
-                $soloContenedores = [];
-                $idsPed = Pedimento::where(function ($q) use ($pedimentosAuditoria) {
-                    foreach ($pedimentosAuditoria as $ped) {
-                        $q->orWhere('num_pedimiento', 'LIKE', "%{$ped}%");
-                    }
-                })->pluck('id_pedimiento');
-
-                if ($idsPed->isNotEmpty()) {
-                    $contsDb = Importacion::whereIn('id_pedimiento', $idsPed)->whereNotNull('contenedor')->pluck('contenedor')
-                        ->merge(Exportacion::whereIn('id_pedimiento', $idsPed)->whereNotNull('contenedor')->pluck('contenedor'));
-
-                    foreach ($contsDb as $cStr) {
-                        if (preg_match_all('/[A-Za-z]{4}[\s\-]*\d{7}/', (string) $cStr, $matches)) {
-                            foreach ($matches[0] as $c) {
-                                $soloContenedores[] = strtoupper(preg_replace('/[^A-Z0-9]/', '', $c));
-                            }
-                        }
-                    }
-                }
-                $soloContenedores = array_values(array_unique($soloContenedores));
+                $soloContenedores = $this->contenedoresDePedimentos($pedimentosAuditoria);
             }
 
             if (app()->environment('production')) {
@@ -4721,13 +4734,12 @@ class AuditoriaImpuestosController extends Controller
         ];
 
         try {
-            // AUMENTAMOS EL TIMEOUT A 180 SEGUNDOS (3 Minutos)
-            $response = Http::timeout(180) 
-                ->withoutVerifying()
-                ->withBody(json_encode($payload), 'application/json')
-                ->post($almacenWebhookUrl);
-
-            /* Log::info("Almacén specialized webhook respondió con: " . $response->body()); */
+            $resultado = $this->postAppsScript($almacenWebhookUrl, $payload, 180);
+            if (!$resultado['ok']) {
+                Log::warning("ALMAN: Google Sheets no devolvió su respuesta JSON; revisa la hoja. " . $resultado['detalle']);
+            } elseif (($resultado['json']['status'] ?? '') === 'error') {
+                Log::error("ALMAN: Google Sheets Error Interno: " . ($resultado['json']['message'] ?? 'sin mensaje'));
+            }
         } catch (\Throwable $e) {
             Log::error("Error enviando datos al specialized webhook de Almacén: " . $e->getMessage());
         }
@@ -4768,26 +4780,8 @@ class AuditoriaImpuestosController extends Controller
                     return ['code' => 0, 'message' => 'completado'];
                 }
 
-                $idsPed = Pedimento::where(function ($q) use ($pedimentosAuditoria) {
-                    foreach ($pedimentosAuditoria as $ped) {
-                        $q->orWhere('num_pedimiento', 'LIKE', "%{$ped}%");
-                    }
-                })->pluck('id_pedimiento');
-
-                $soloContenedores = [];
-                if ($idsPed->isNotEmpty()) {
-                    $contsDb = Importacion::whereIn('id_pedimiento', $idsPed)->whereNotNull('contenedor')->pluck('contenedor')
-                        ->merge(Exportacion::whereIn('id_pedimiento', $idsPed)->whereNotNull('contenedor')->pluck('contenedor'));
-
-                    foreach ($contsDb as $cStr) {
-                        if (preg_match_all('/[A-Za-z]{4}[\s\-]*\d{7}/', (string) $cStr, $matches)) {
-                            foreach ($matches[0] as $c) {
-                                $soloContenedores[] = strtoupper(preg_replace('/[^A-Z0-9]/', '', $c));
-                            }
-                        }
-                    }
-                }
-                $soloContenedores = array_values(array_unique($soloContenedores));
+                // Solo consulta las tablas que sí tienen columna de contenedor
+                $soloContenedores = $this->contenedoresDePedimentos($pedimentosAuditoria);
 
                 if (empty($soloContenedores)) {
                     Log::info("Tarea #{$tarea->id}: Las operaciones de esta tarea no tienen contenedores registrados. Se omite Traslado Local.");
@@ -4800,7 +4794,7 @@ class AuditoriaImpuestosController extends Controller
             } else {
                 $csvUrl = "https://docs.google.com/spreadsheets/d/1yOcPGlvycRBCg5KpWs5-b8EmLQrUNPgh4aqurXQT1Uo/gviz/tq?tqx=out:csv&sheet=EXTRAS&_cb=" . time();
             }
-            
+
             $response = Http::withoutVerifying()->timeout(60)->get($csvUrl);
             if (!$response->successful()) {
                 throw new \Exception("Error al leer EXTRAS. HTTP: " . $response->status());
@@ -4809,13 +4803,13 @@ class AuditoriaImpuestosController extends Controller
             $stream = fopen('php://memory', 'r+');
             fwrite($stream, $response->body());
             rewind($stream);
-            
+
             $idxReferencia = -1;
             $idxContenedor = -1;
             $idxTotal = -1;
 
             $bloques = [];
-            $idxBloqueActivo = -1; 
+            $idxBloqueActivo = -1;
 
             // Leemos fila por fila respetando la estructura real del CSV
             while (($columnas = fgetcsv($stream)) !== false) {
@@ -4827,7 +4821,7 @@ class AuditoriaImpuestosController extends Controller
                 if ($idxReferencia === -1 || $idxContenedor === -1 || $idxTotal === -1) {
                     foreach ($columnas as $i => $col) {
                         $txt = strtolower(trim($col));
-                        
+
                         if ($idxReferencia === -1 && strpos($txt, 'referencia') !== false) {
                             $idxReferencia = $i;
                         }
@@ -4859,9 +4853,9 @@ class AuditoriaImpuestosController extends Controller
                             'monto' => $montoLimpio,
                             'contenedores' => []
                         ];
-                        $idxBloqueActivo = count($bloques) - 1; 
+                        $idxBloqueActivo = count($bloques) - 1;
                     } else {
-                        $idxBloqueActivo = -1; 
+                        $idxBloqueActivo = -1;
                     }
                 }
 
@@ -4870,13 +4864,13 @@ class AuditoriaImpuestosController extends Controller
                     // Busca el patrón exacto de contenedor ignorando basura alrededor
                     if (preg_match_all('/[A-Za-z]{4}[\s\-]*\d{7}/', $contenedorCelda, $matches)) {
                         foreach ($matches[0] as $cont) {
-                            $limpio = strtoupper(preg_replace('/[^A-Z0-9]/', '', $cont));
+                            $limpio = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $cont));
                             $bloques[$idxBloqueActivo]['contenedores'][] = $limpio;
                         }
                     } else {
                         $posiblesContenedores = preg_split('/[\s,\n\r]+/', $contenedorCelda);
                         foreach ($posiblesContenedores as $posible) {
-                            $limpio = strtoupper(preg_replace('/[^A-Z0-9]/', '', $posible));
+                            $limpio = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $posible));
                             if (strlen($limpio) >= 10 && strlen($limpio) <= 12) {
                                 $bloques[$idxBloqueActivo]['contenedores'][] = $limpio;
                             }
@@ -4892,7 +4886,7 @@ class AuditoriaImpuestosController extends Controller
             foreach ($bloques as $bloque) {
                 $contenedoresEnBloque = array_unique($bloque['contenedores'] ?? []);
                 $numContenedores = count($contenedoresEnBloque);
-                
+
                 if ($numContenedores > 0 && $bloque['monto'] > 0) {
                     // Dividimos el monto equitativamente entre los contenedores
                     $montoDividido = round($bloque['monto'] / $numContenedores, 2);
@@ -4917,12 +4911,12 @@ class AuditoriaImpuestosController extends Controller
             }
 
             // Búsqueda en Base de Datos
-            $contenedoresUnicosArray = array_unique($contenedoresUnicos);
+            $contenedoresUnicosArray = array_values(array_unique($contenedoresUnicos));
             $impos = collect();
-            
+
             $chunks = array_chunk($contenedoresUnicosArray, 50);
             foreach ($chunks as $chunk) {
-                $resultados = Importacion::where(function($q) use ($chunk) {
+                $resultados = Importacion::where(function ($q) use ($chunk) {
                     foreach ($chunk as $cont) {
                         $q->orWhere('contenedor', 'LIKE', '%' . $cont . '%');
                     }
@@ -4941,8 +4935,8 @@ class AuditoriaImpuestosController extends Controller
                 foreach ($contenedoresUnicosArray as $contBuscado) {
                     if (str_contains($contDb, $contBuscado)) {
                         $navierasDict[$contBuscado] = $op->naviera ?? '';
-                        $numPed = $pedimentosReales[$op->id_pedimiento] ?? (string)$op->id_pedimiento;
-                        
+                        $numPed = $pedimentosReales[$op->id_pedimiento] ?? (string) $op->id_pedimiento;
+
                         if (preg_match('/[4-7]\d{6}/', $numPed, $m)) {
                             $pedimentosDict[$contBuscado] = $m[0];
                         } else {
@@ -4960,10 +4954,10 @@ class AuditoriaImpuestosController extends Controller
                 $naviera = $navierasDict[$cont] ?? '';
 
                 $payloadParaSheets[] = [
-                    'pedimento'  => $pedimentoId, 
-                    'contenedor' => $cont, 
+                    'pedimento'  => $pedimentoId,
+                    'contenedor' => $cont,
                     'concepto'   => 'Traslado Local',
-                    'monto'      => round($item['monto'], 2), 
+                    'monto'      => round($item['monto'], 2),
                     'moneda'     => 'MXN',
                     'fecha'      => $item['fecha'],
                     'naviera'    => $naviera
@@ -4974,7 +4968,7 @@ class AuditoriaImpuestosController extends Controller
             foreach ($paquetes as $idx => $paquete) {
                 $esUltimo = ($idx === count($paquetes) - 1);
                 $this->enviarDatosTrasladoLocalSpecializedWebhook($paquete, $esUltimo);
-                sleep(2); 
+                sleep(2);
             }
 
             Log::info("¡Todos los contenedores de Traslados Locales se enviaron de forma individual con éxito!");
@@ -5010,11 +5004,12 @@ class AuditoriaImpuestosController extends Controller
         ];
 
         try {
-            $response = Http::timeout(180) 
-                ->retry(2, 3000)
-                ->withoutVerifying()
-                ->withBody(json_encode($payload), 'application/json')
-                ->post($webhookUrl);
+            $resultado = $this->postAppsScript($webhookUrl, $payload, 180);
+            if (!$resultado['ok']) {
+                Log::warning("Traslado Local: Google Sheets no devolvió su respuesta JSON; revisa la hoja. " . $resultado['detalle']);
+            } elseif (($resultado['json']['status'] ?? '') === 'error') {
+                Log::error("Traslado Local: Google Sheets Error Interno: " . ($resultado['json']['message'] ?? 'sin mensaje'));
+            }
         } catch (\Throwable $e) {
             Log::error("Error enviando datos al specialized webhook de Traslado Local: " . $e->getMessage());
         }
@@ -5695,7 +5690,6 @@ class AuditoriaImpuestosController extends Controller
 
                 if ($tipoDoc === 'flete') {
                     $proveedor = 'TRANSPORTACTICS';
-                    Log::info("🚛 [GPC FLETE | Ped: {$pedimentoLimpio}] Factura Flete encontrada -> Monto: {$aud->monto_total} | Folio: {$aud->folio} | Moneda: {$aud->moneda_documento}");
                 } elseif ($tipoDoc === 'pago_derecho') {
                     $proveedor = 'SENASICA';
                 } elseif ($tipoDoc === 'maniobras') {
@@ -7299,6 +7293,71 @@ class AuditoriaImpuestosController extends Controller
             Log::error("Error construyendo índice de maniobras: " . $e->getMessage());
         }
         return $indice;
+    }
+
+    private function columnaContenedor(string $tabla): ?string
+    {
+        static $cache = [];
+
+        if (array_key_exists($tabla, $cache)) {
+            return $cache[$tabla];
+        }
+
+        foreach (['contenedor', 'contenedores', 'num_contenedor', 'numero_contenedor'] as $columna) {
+            if (Schema::hasColumn($tabla, $columna)) {
+                return $cache[$tabla] = $columna;
+            }
+        }
+
+        return $cache[$tabla] = null;
+    }
+
+    /**
+     * Contenedores (limpios, sin espacios ni guiones) de las operaciones de los pedimentos dados.
+     * Solo consulta las tablas que sí tienen columna de contenedor.
+     */
+    private function contenedoresDePedimentos(array $pedimentosAuditoria): array
+    {
+        if (empty($pedimentosAuditoria)) {
+            return [];
+        }
+
+        $idsPed = Pedimento::where(function ($q) use ($pedimentosAuditoria) {
+            foreach ($pedimentosAuditoria as $ped) {
+                $q->orWhere('num_pedimiento', 'LIKE', "%{$ped}%");
+            }
+        })->pluck('id_pedimiento');
+
+        if ($idsPed->isEmpty()) {
+            return [];
+        }
+
+        $textos = collect();
+
+        $colImpo = $this->columnaContenedor('operaciones_importacion');
+        if ($colImpo) {
+            $textos = $textos->merge(
+                Importacion::whereIn('id_pedimiento', $idsPed)->whereNotNull($colImpo)->pluck($colImpo)
+            );
+        }
+
+        $colExpo = $this->columnaContenedor('operaciones_exportacion');
+        if ($colExpo) {
+            $textos = $textos->merge(
+                Exportacion::whereIn('id_pedimiento', $idsPed)->whereNotNull($colExpo)->pluck($colExpo)
+            );
+        }
+
+        $contenedores = [];
+        foreach ($textos as $texto) {
+            if (preg_match_all('/[A-Za-z]{4}[\s\-]*\d{7}/', (string) $texto, $matches)) {
+                foreach ($matches[0] as $c) {
+                    $contenedores[] = strtoupper(preg_replace('/[^A-Z0-9]/i', '', $c));
+                }
+            }
+        }
+
+        return array_values(array_unique($contenedores));
     }
 
     /**
