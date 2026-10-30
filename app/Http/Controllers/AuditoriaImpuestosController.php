@@ -1669,7 +1669,7 @@ class AuditoriaImpuestosController extends Controller
 
                 // Usamos la misma lógica de Regex estricto para mapear el ID correcto
                 $regexPattern = implode('|', array_map(function ($p) {
-                    return "[[:<:]]{$p}[[:>:]]";
+                    return '\\b' . preg_quote($p) . '\\b';
                 }, $keysPorEncontrar));
 
                 $busquedaGlobal = Pedimento::whereRaw("num_pedimiento REGEXP ?", [$regexPattern])->get();
@@ -5744,8 +5744,9 @@ class AuditoriaImpuestosController extends Controller
                                 $proveedor = $emisorMuestra;
                             }
 
-                            if (!empty($xmlMuestra['folio']) && ($esFolioInvalido($aud->folio) || str_contains(strtoupper($aud->folio), 'PAGO-MUESTRA'))) {
-                                $aud->folio = $xmlMuestra['folio'];
+                            // Tomar únicamente el número del folio
+                            if (!empty($xmlMuestra['folio'])) {
+                                $aud->folio = preg_replace('/^\D+/', '', trim($xmlMuestra['folio']));
                             }
                         }
                     }
@@ -5773,8 +5774,8 @@ class AuditoriaImpuestosController extends Controller
 
                         if (!empty($rutaPdfScan)) {
                             $pdfData = $this->extraerTotalDesdePdfProveedor($rutaPdfScan);
-                            if ($pdfData && $esFolioInvalido($aud->folio) && !empty($pdfData['folio'])) {
-                                $aud->folio = $pdfData['folio'];
+                            if ($pdfData && !empty($pdfData['folio'])) {
+                                $aud->folio = preg_replace('/^\D+/', '', trim($pdfData['folio']));
                             }
 
                             if (empty($proveedor) || $proveedor === $navieraOp || $proveedor === 'N/A') {
@@ -5806,8 +5807,8 @@ class AuditoriaImpuestosController extends Controller
                                         }
 
                                         if ($esFolioInvalido($aud->folio)) {
-                                            if (preg_match('/\b(NOG)[-\s]?(\d{4,6})\b/i', $textoPdf, $mNog)) {
-                                                $aud->folio = strtoupper(trim($mNog[1])) . trim($mNog[2]);
+                                            if (preg_match('/\b(?:NOG)?[-\s]?(\d{4,6})\b/i', $textoPdf, $mNog)) {
+                                                $aud->folio = trim($mNog[1]);
                                             }
                                         }
                                     }
@@ -5838,11 +5839,13 @@ class AuditoriaImpuestosController extends Controller
                     $folioFactura = '-';
                 }
 
-                // Normalización de Maniobras NOG (GS071195)
-                if ($tipoDoc === 'maniobras' && $sucursalCod === 'NOG' && !empty($folioFactura) && $folioFactura !== '-') {
-                    $folioFactura = strtoupper(trim($folioFactura));
-                    $soloNumero = preg_replace('/^GS0*[-\s]?/i', '', $folioFactura);
-                    $folioFactura = 'GS0' . $soloNumero;
+                // ============================================================
+                // REGLA MAESTRA: SÓLO EL NÚMERO DE FOLIO (SIN SERIE)
+                // Remueve prefijos de letras como NOG, TR, GS, etc.
+                // ============================================================
+                if (!empty($folioFactura) && $folioFactura !== '-') {
+                    $soloNumero = preg_replace('/^[A-Za-z\s\-_]+0*/', '', trim($folioFactura));
+                    $folioFactura = !empty($soloNumero) ? $soloNumero : trim($folioFactura);
                 }
 
                 // Desglose de maniobras NL
@@ -5898,6 +5901,8 @@ class AuditoriaImpuestosController extends Controller
 
                                 if ($esFolioInvalido($folioItem)) {
                                     $folioItem = '-';
+                                } else {
+                                    $folioItem = preg_replace('/^[A-Za-z\s\-_]+0*/', '', trim($folioItem)) ?: $folioItem;
                                 }
 
                                 $fechaItem = $infoExtraccion['fecha'] ? \Carbon\Carbon::parse($infoExtraccion['fecha'])->format('m-d-Y') : now()->format('m-d-Y');
@@ -6502,22 +6507,9 @@ class AuditoriaImpuestosController extends Controller
                 } catch (\Throwable $th) {
                     $xmlString = null;
                 }
-
-                if (!$xmlString) {
-                    try {
-                        $rutaAlt = 'https://intactics.nyc3.cdn.digitaloceanspaces.com/production/uploads/' . basename($rutaXml);
-                        $responseAlt = Http::withoutVerifying()->timeout(20)->get($rutaAlt);
-                        if ($responseAlt->successful()) {
-                            $xmlString = $responseAlt->body();
-                        }
-                    } catch (\Throwable $th) {
-                        $xmlString = null;
-                    }
-                }
             }
 
             if (!$xmlString) {
-                Log::warning("parsearXmlFlete: No se pudo obtener el contenido XML de: {$rutaXml}");
                 return ['total' => -1, 'moneda' => 'N/A', 'emisor' => '', 'fecha' => null, 'folio' => null];
             }
 
@@ -6532,8 +6524,7 @@ class AuditoriaImpuestosController extends Controller
             $moneda = 'MXN';
             $emisor = '';
             $fecha = null;
-            $folio = null;
-            $serie = '';
+            $folioNum = null;
 
             try {
                 $xmlObj = @simplexml_load_string($xmlString);
@@ -6546,87 +6537,51 @@ class AuditoriaImpuestosController extends Controller
 
                     if (isset($xmlObj['Moneda'])) {
                         $moneda = strtoupper((string) $xmlObj['Moneda']);
-                    } elseif (isset($xmlObj['moneda'])) {
-                        $moneda = strtoupper((string) $xmlObj['moneda']);
                     }
 
                     if (isset($xmlObj['Fecha'])) {
                         $fecha = explode('T', (string) $xmlObj['Fecha'])[0];
-                    } elseif (isset($xmlObj['fecha'])) {
-                        $fecha = explode('T', (string) $xmlObj['fecha'])[0];
-                    }
-
-                    if (isset($xmlObj['Serie'])) {
-                        $serie = trim((string) $xmlObj['Serie']);
-                    } elseif (isset($xmlObj['serie'])) {
-                        $serie = trim((string) $xmlObj['serie']);
                     }
 
                     if (isset($xmlObj['Folio'])) {
                         $folioRaw = (string) $xmlObj['Folio'];
                         $folioNum = str_contains($folioRaw, '_') ? last(explode('_', $folioRaw)) : $folioRaw;
-                        $folio = $serie . $folioNum;
-                    } elseif (isset($xmlObj['folio'])) {
-                        $folioRaw = (string) $xmlObj['folio'];
-                        $folioNum = str_contains($folioRaw, '_') ? last(explode('_', $folioRaw)) : $folioRaw;
-                        $folio = $serie . $folioNum;
                     }
 
                     $emisores = $xmlObj->xpath('//*[local-name()="Emisor"]');
                     if (!empty($emisores)) {
                         $emisor = trim((string) ($emisores[0]['Nombre'] ?? $emisores[0]['nombre'] ?? ''));
                     }
-
-                    if (empty($emisor)) {
-                        $namespaces = $xmlObj->getNamespaces(true);
-                        if (isset($namespaces['cfdi'])) {
-                            $emisorObj = $xmlObj->children($namespaces['cfdi'])->Emisor;
-                            if ($emisorObj && isset($emisorObj['Nombre'])) {
-                                $emisor = trim((string) $emisorObj['Nombre']);
-                            }
-                        }
-                    }
                 }
             } catch (\Throwable $th) {
-                // Continuar a los fallbacks regex si falla SimpleXML
+                // Fallback a regex
             }
 
-            // Fallbacks Regex si SimpleXML no obtuvo algún campo
-            if ($total === -1) {
-                if (preg_match('/(?:Comprobante|cfdi:Comprobante)[^>]+Total=["\']([0-9\,\.]+)["\']/is', $xmlString, $mTotal)) {
-                    $total = (float) str_replace(',', '', $mTotal[1]);
-                } elseif (preg_match('/(?:Total|total)=["\']([0-9\,\.]+)["\']/i', $xmlString, $mTotal)) {
-                    $total = (float) str_replace(',', '', $mTotal[1]);
-                }
+            if ($total === -1 && preg_match('/(?:Comprobante|cfdi:Comprobante)[^>]+Total=["\']([0-9\,\.]+)["\']/is', $xmlString, $mTotal)) {
+                $total = (float) str_replace(',', '', $mTotal[1]);
             }
 
-            if (empty($emisor)) {
-                if (preg_match('/(?:Emisor|cfdi:Emisor)[^>]+Nombre=["\']([^"\']+)["\']/is', $xmlString, $mEmisor)) {
-                    $emisor = trim($mEmisor[1]);
-                }
+            if (empty($emisor) && preg_match('/(?:Emisor|cfdi:Emisor)[^>]+Nombre=["\']([^"\']+)["\']/is', $xmlString, $mEmisor)) {
+                $emisor = trim($mEmisor[1]);
             }
 
-            if (empty($fecha)) {
-                if (preg_match('/(?:Fecha|fecha)=["\']([^"\']+)["\']/i', $xmlString, $mFecha)) {
-                    $fecha = explode('T', $mFecha[1])[0];
-                }
+            if (empty($fecha) && preg_match('/(?:Fecha|fecha)=["\']([^"\']+)["\']/i', $xmlString, $mFecha)) {
+                $fecha = explode('T', $mFecha[1])[0];
             }
 
-            if ($moneda === 'MXN') {
-                if (preg_match('/(?:Moneda|moneda)=["\']([A-Z]{3})["\']/i', $xmlString, $mMoneda)) {
-                    $moneda = strtoupper($mMoneda[1]);
-                }
+            if ($moneda === 'MXN' && preg_match('/(?:Moneda|moneda)=["\']([A-Z]{3})["\']/i', $xmlString, $mMoneda)) {
+                $moneda = strtoupper($mMoneda[1]);
             }
 
-            if (!$folio) {
-                if (empty($serie) && preg_match('/(?:Serie|serie)=["\']([^"\']+)["\']/i', $xmlString, $mSerie)) {
-                    $serie = trim($mSerie[1]);
-                }
-                if (preg_match('/(?:Folio|folio)=["\']([^"\']+)["\']/i', $xmlString, $mFolio)) {
-                    $folioRaw = $mFolio[1];
-                    $folioNum = str_contains($folioRaw, '_') ? last(explode('_', $folioRaw)) : $folioRaw;
-                    $folio = $serie . $folioNum;
-                }
+            if (!$folioNum && preg_match('/(?:Folio|folio)=["\']([^"\']+)["\']/i', $xmlString, $mFolio)) {
+                $folioRaw = $mFolio[1];
+                $folioNum = str_contains($folioRaw, '_') ? last(explode('_', $folioRaw)) : $folioRaw;
+            }
+
+            // Extraer EXCLUSIVAMENTE los dígitos numéricos
+            $folioLimpio = null;
+            if ($folioNum) {
+                $folioLimpio = preg_replace('/^\D+/', '', trim($folioNum)) ?: trim($folioNum);
             }
 
             return [
@@ -6634,11 +6589,11 @@ class AuditoriaImpuestosController extends Controller
                 'moneda' => $moneda,
                 'emisor' => $emisor,
                 'fecha'  => $fecha,
-                'folio'  => $folio ? strtoupper($folio) : null
+                'folio'  => $folioLimpio
             ];
 
         } catch (\Throwable $e) {
-            Log::error("Error crítico en parsearXmlFlete ({$rutaXml}): " . $e->getMessage());
+            Log::error("Error parseando XML ({$rutaXml}): " . $e->getMessage());
             return ['total' => -1, 'moneda' => 'N/A', 'emisor' => '', 'fecha' => null, 'folio' => null];
         }
     }
