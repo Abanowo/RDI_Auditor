@@ -1812,58 +1812,31 @@ class AuditoriaImpuestosController extends Controller
                 Log::info("SC: No hay pedimentos en la Tarea #{$tareaId} para procesar.");
                 return ['code' => 0, 'message' => 'completado'];
             }
+
             Log::info("Procesando Facturas SC para Tarea #{$tarea->id} en la sucursal: {$sucursal}");
-            
-            $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'];
-            $indicesOperaciones = $mapeadoFacturas['indices_importacion'] + $mapeadoFacturas['indices_exportacion'];
+
+            $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'] ?? [];
+            $indicesOperaciones = ($mapeadoFacturas['indices_importacion'] ?? []) + ($mapeadoFacturas['indices_exportacion'] ?? []);
 
             //--- YA UNA VEZ TENIENDO TODO A LA MANO
             // 3. Construimos el índice de SCs desde los archivos (tu lógica no cambia)
             $indiceSC = $this->construirIndiceSC($indicesOperaciones);
-            if (empty($indiceSC)) {
 
+            if (empty($indiceSC)) {
                 Log::info("No se encontraron archivos de SC para procesar en la sucursal {$sucursal}.");
                 $mapeadoFacturas['auditorias_sc'] = [];
-
-                // Adjuntamos el nuevo arreglo y lo parseamos a JSON
-                $contenidoJson = json_encode($mapeadoFacturas, JSON_PRETTY_PRINT);
-
-                // Creamos un archivo temporal y guardamos nuestro JSON en él.
-                $tempFilePath = tempnam(sys_get_temp_dir(), 'mapeo_json_');
-                file_put_contents($tempFilePath, $contenidoJson);
-
-                // Usamos Storage::putFile() para que Laravel genere el hash y lo guarde.
-                // Esto es el equivalente a ->store()
-                $rutaRelativa = Storage::putFile(
-                    'mapeo_completo_facturas', // La carpeta destino dentro de storage/app
-                    new File($tempFilePath) // Le pasamos el archivo temporal
-                );
-
-                Log::info("Mapeo actualizado con auditorias_sc!");
-
-                //Actualizamos la ruta por la que ya tiene las auditorias
-                $tarea->fresh()->update(
-                    [
-                        'mapeo_completo_facturas' => $rutaRelativa,
-                        'updated_at' => now(),
-                    ]
-                );
-
-                //Borramos el anterior
-                Storage::delete($rutaMapeo);
-
+                Storage::put($rutaMapeo, json_encode($mapeadoFacturas, JSON_PRETTY_PRINT));
                 return ['code' => 0, 'message' => 'completado'];
             }
-            Log::info("Se encontraron " . count($indiceSC) . " facturas SC en los archivos.");
+
+            Log::info("Se encontraron " . count($indiceSC) . " registros SC procesados.");
             $auditoriasParaGuardar = [];
             
             // === CAMBIO CLAVE: Iteramos sobre el mapa maestro, no sobre el índice SC ===
             foreach ($mapaPedimentoAId as $pedimentoExcel => $pedimentoReal) {
-                
-                $numPedBD = $pedimentoReal['num_pedimiento'];
-                
-                // Extraemos los 7 dígitos puros para que haga match con el índice SC
-                preg_match('/[4-7]\d{6}/', $numPedBD, $matchDigitos);
+                $numPedBD = trim($pedimentoReal['num_pedimiento'] ?? '');
+
+                preg_match('/[4-7]\d{6}/', $numPedBD . ' ' . $pedimentoExcel, $matchDigitos);
                 $pedimentoLimpio = $matchDigitos[0] ?? '';
 
                 // Buscamos en el índice SC usando todas las combinaciones posibles
@@ -1885,7 +1858,7 @@ class AuditoriaImpuestosController extends Controller
                 }
 
                 if (!$operacionIdVal || $tipoOperacionClass === "N/A") {
-                    continue; 
+                    continue;
                 }
 
                 $desgloseSC = 
@@ -1966,7 +1939,14 @@ class AuditoriaImpuestosController extends Controller
                         ->get();
 
                     if ($auditoriasImpuestos->isEmpty()) {
-                        Log::warning("[ALERTA RE-AUDITORIA] Se guardó la SC Folio {$folioSc} para el pedimento_id {$pedId}, ¡Pero no se encontró ningún cargo de impuestos en la BD para emparejarlo!");
+                        $auditoriasImpuestos = Auditoria::where('operacion_id', $scData['operacion_id'])
+                            ->where('operation_type', $tipoOp)
+                            ->where('tipo_documento', 'impuestos')
+                            ->get();
+                    }
+
+                    if ($auditoriasImpuestos->isEmpty()) {
+                        Log::warning("[ALERTA RE-AUDITORIA] SC Folio {$folioSc} guardada para pedimento_id {$pedId}, pero no se halló registro de impuestos.");
                         continue;
                     }
 
@@ -1982,82 +1962,25 @@ class AuditoriaImpuestosController extends Controller
                             'estado' => $nuevoEstado,
                             'monto_diferencia_sc' => $nuevaDiferencia
                         ]);
-                        
                     }
                 }
-                Log::info("Re-auditoría de Impuestos completada.");
 
-                Log::info("Actualizando mapeo...");
-                $idsPedDb = \Illuminate\Support\Arr::pluck($mapaPedimentoAId, 'id_pedimiento');
+                // Actualizar archivo de mapeo con las auditorias SC
+                $idsPedDb = Arr::pluck($mapaPedimentoAId, 'id_pedimiento');
                 $operacionesId = array_column($auditoriasParaGuardar, 'operacion_id');
 
-                $auditoriasSC = AuditoriaTotalSC::query()
+                $auditoriasSCRegistradas = AuditoriaTotalSC::query()
                     ->whereIn('operacion_id', $operacionesId)
                     ->orWhereIn('pedimento_id', $idsPedDb)
                     ->get()
-                    ->keyBy('pedimento_id'); // Es mucho más seguro mapear por pedimento_id
+                    ->keyBy('pedimento_id');
 
-                // Adjuntamos el nuevo arreglo y lo parseamos a JSON
-                $mapeadoFacturas['auditorias_sc'] = $auditoriasSC->toArray() ?? [];
-                $contenidoJson = json_encode($mapeadoFacturas, JSON_PRETTY_PRINT);
-
-                // Creamos un archivo temporal y guardamos nuestro JSON en él.
-                $tempFilePath = tempnam(sys_get_temp_dir(), 'mapeo_json_');
-                file_put_contents($tempFilePath, $contenidoJson);
-
-                // Usamos Storage::putFile() para que Laravel genere el hash y lo guarde.
-                // Esto es el equivalente a ->store()
-                $rutaRelativa = Storage::putFile(
-                    'mapeo_completo_facturas', // La carpeta destino dentro de storage/app
-                    new File($tempFilePath) // Le pasamos el archivo temporal
-                );
-
-                Log::info("Mapeo actualizado con auditorias_sc!");
-
-                //Actualizamos la ruta por la que ya tiene las auditorias
-                $tarea->fresh()->update(
-                    [
-                        'mapeo_completo_facturas' => $rutaRelativa,
-                        'updated_at' => now(),
-                    ]
-                );
-
-                //Borramos el anterior
-                Storage::delete($rutaMapeo);
-                Log::info("SCs guardadas, actualizadas y registradas con exito!");
-                return ['code' => 0, 'message' => 'completado'];
-            } else {
-
-                Log::info("No se encontraron SCs para guardar en la base de datos.");
-                $mapeadoFacturas['auditorias_sc'] = [];
-
-                // Adjuntamos el nuevo arreglo y lo parseamos a JSON
-                $contenidoJson = json_encode($mapeadoFacturas, JSON_PRETTY_PRINT);
-
-                // Creamos un archivo temporal y guardamos nuestro JSON en él.
-                $tempFilePath = tempnam(sys_get_temp_dir(), 'mapeo_json_');
-                file_put_contents($tempFilePath, $contenidoJson);
-
-                // Usamos Storage::putFile() para que Laravel genere el hash y lo guarde.
-                // Esto es el equivalente a ->store()
-                $rutaRelativa = Storage::putFile(
-                    'mapeo_completo_facturas', // La carpeta destino dentro de storage/app
-                    new File($tempFilePath) // Le pasamos el archivo temporal
-                );
-
-                Log::info("Mapeo actualizado con auditorias_sc!");
-
-                //Actualizamos la ruta por la que ya tiene las auditorias
-                $tarea->fresh()->update(
-                    [
-                        'mapeo_completo_facturas' => $rutaRelativa,
-                        'updated_at' => now(),
-                    ]
-                );
-
-                //Borramos el anterior
-                Storage::delete($rutaMapeo);
+                $mapeadoFacturas['auditorias_sc'] = $auditoriasSCRegistradas->toArray();
+                Storage::put($rutaMapeo, json_encode($mapeadoFacturas, JSON_PRETTY_PRINT));
+                Log::info("Mapeo universal actualizado con auditorias_sc exitosamente.");
             }
+
+            return ['code' => 0, 'message' => 'completado'];
         } catch (\Throwable $e) {
             $tarea->update(
                 [
@@ -2724,7 +2647,6 @@ class AuditoriaImpuestosController extends Controller
             return ['code' => 0, 'message' => 'completado'];
 
         } catch (\Throwable $e) {
-            Log::error("Error PDD: " . $e->getMessage() . " en la línea " . $e->getLine());
             return ['code' => 1, 'message' => $e];
         }
     }
@@ -3271,7 +3193,42 @@ class AuditoriaImpuestosController extends Controller
                     if (!$tipoFinal && (str_contains($normalizedPivot, 'rojo') || str_contains($normalizedPivot, 'reconocimiento'))) {
                         $tipoFinal = 'rojo';
                     }
- 
+
+                    // Variantes de Factura SC (Honorarios, SC, Cuenta de Gastos)
+                    if (!$tipoFinal) {
+                        if (str_contains($normalizedPivot, 'honorario') && !str_contains($normalizedPivot, 'llc')) {
+                            $tipoFinal = 'sc';
+                            $tipoOriginalMapeo = 'HONORARIOS-SC';
+                        } elseif ($normalizedPivot === 'sc' || str_contains($normalizedPivot, 'facturasc') || str_contains($normalizedPivot, 'cuentadegastos') || str_contains($normalizedPivot, 'cuentagastos')) {
+                            $tipoFinal = 'sc';
+                            $tipoOriginalMapeo = 'HONORARIOS-SC';
+                        }
+                    }
+
+                    // Variantes de Flete
+                    if (!$tipoFinal) {
+                        if (str_contains($normalizedPivot, 'flete') || str_contains($normalizedPivot, 'transportactics')) {
+                            $tipoFinal = 'flete';
+                            $tipoOriginalMapeo = 'TransporTactics';
+                        }
+                    }
+
+                    // Variantes de Muestras
+                    if (!$tipoFinal) {
+                        if (str_contains($normalizedPivot, 'muestra') || str_contains($normalizedPivot, 'mensajeria')) {
+                            $tipoFinal = 'muestras';
+                            $tipoOriginalMapeo = 'FACTURA-MUESTRA';
+                        }
+                    }
+
+                    // Variantes de Maniobras
+                    if (!$tipoFinal) {
+                        if (str_contains($normalizedPivot, 'maniobra')) {
+                            $tipoFinal = 'maniobras';
+                            $tipoOriginalMapeo = 'FACTURA-MANIOBRAS-EN-ALMACEN-FISCALIZADO';
+                        }
+                    }
+
                     if (!$tipoFinal) {
                         continue;
                     }
@@ -3304,6 +3261,7 @@ class AuditoriaImpuestosController extends Controller
                                 'update_date' => $fechaActualizacion,
                                 'tipo_documento' => $tipoFinal,
                                 'carpeta_original' => $carpetaOriginal,
+                                'folio' => $nombreBase,
                                 'ruta_pdf' => null,
                                 'ruta_xml' => null,
                                 'ruta_txt' => null,
@@ -3402,11 +3360,13 @@ class AuditoriaImpuestosController extends Controller
     private function construirIndiceSC(array $indicesOperacion): array
     {
         gc_collect_cycles();
-        try {
+        $indice = [];
 
-            $indice = [];
-            //$bar = $this->output->createProgressBar(count($indicesOperacion));
-            //$bar->start();
+        try {
+            $arrContextOptions = [
+                "ssl"  => ["verify_peer" => false, "verify_peer_name" => false],
+                "http" => ["ignore_errors" => true, "timeout" => 15]
+            ];
 
             foreach ($indicesOperacion as $pedimento => $datos) {
 
@@ -3415,12 +3375,14 @@ class AuditoriaImpuestosController extends Controller
                     //$bar->advance();
                     continue;
                 }
-                $te = $datos['tipo_operacion'];
-                $coleccionFacturas = collect($datos['facturas']);
+
+                $coleccionFacturas = collect($datos['facturas'] ?? []);
+
+                // Busca cualquier factura clasificada como SC (con pdf, txt o xml)
                 $facturaSC = $coleccionFacturas->first(function ($factura) {
-                    // La condición es la misma que ya tenías.
-                    return $factura['tipo_documento'] === 'sc' &&
-                        isset($factura['ruta_pdf']) && isset($factura['ruta_txt']);
+                    $tipo = strtolower($factura['tipo_documento'] ?? '');
+                    return ($tipo === 'sc' || str_contains($tipo, 'honorario'))
+                        && (!empty($factura['ruta_txt']) || !empty($factura['ruta_pdf']));
                 });
 
                 if (!$facturaSC) {
@@ -3429,153 +3391,159 @@ class AuditoriaImpuestosController extends Controller
                 }
 
                 $contenido = null;
-                try {   
-                    // Intento original: Lee el archivo desde la ruta directa en el storage
-                    $contenido = @file_get_contents($facturaSC['ruta_txt']);
-                } catch (\Throwable $th) {
-                    $contenido = null;
+
+                // 1. Intento con ruta_txt directa
+                if (!empty($facturaSC['ruta_txt'])) {
+                    try {
+                        $contenido = @file_get_contents($facturaSC['ruta_txt'], false, stream_context_create($arrContextOptions));
+                    } catch (\Throwable $th) {
+                        $contenido = null;
+                    }
+
+                    // Respaldo en DigitalOcean si la URL dio 404
+                    if (!$contenido || str_contains($http_response_header[0] ?? '', '404')) {
+                        $rutaAlt = 'https://intactics.nyc3.cdn.digitaloceanspaces.com/production/uploads/' . basename($facturaSC['ruta_txt']);
+                        $contenido = @file_get_contents($rutaAlt, false, stream_context_create($arrContextOptions));
+                    }
                 }
-                // Si el archivo no existe, OR si lo que leyó no es una SC real
-                if (!$contenido || stripos($contenido, '[encOBSERVACION]') === false) {
 
-                    $operacionID = $datos['operacion_id'];
-                    $url_txt = Http::withoutVerifying()->get("https://sistema.intactics.com/v3/operaciones/{$datos['tipo_operacion']}/{$operacionID}/get-files-txt-momentaneo");
+                // 2. Si no tiene [encOBSERVACION] o falló, consultar API get-files-txt-momentaneo
+                if (!$contenido || stripos($contenido, '[encOBSERVACION') === false) {
+                    $operacionID = $datos['operacion_id'] ?? null;
+                    $tipoOp = $datos['tipo_operacion'] ?? 'importaciones';
 
-                    if ($url_txt->successful()) {
-                        $urls = json_decode($url_txt->body(), true);
+                    if ($operacionID) {
+                        try {
+                            $urlApiTxt = "https://sistema.intactics.com/v3/operaciones/{$tipoOp}/{$operacionID}/get-files-txt-momentaneo";
+                            $resTxt = Http::withoutVerifying()->timeout(15)->get($urlApiTxt);
 
-                        //$arrContextOptions resuelve el siguiente error:
-                        //'file_get_contents(): SSL operation failed with code 1. OpenSSL Error messages:
-                        //error:1416F086:SSL routines:tls_process_server_certificate:certificate verify failed'
-                        $arrContextOptions = [
-                            "ssl" => [
-                                "verify_peer" => false,
-                                "verify_peer_name" => false,
-                            ],
-                        ];
+                            if ($resTxt->successful()) {
+                                $urls = json_decode($resTxt->body(), true);
 
-                        $rutaCorrecta = null;
-                        if ($urls && is_array($urls)) {
-                            // Limpiamos la ruta del PDF por si incluye parámetros extras en la URL
-                            $rutaPdfLimpia = explode('?', $facturaSC['ruta_pdf'] ?? '')[0];
-                            $nombrePdfBase = pathinfo($rutaPdfLimpia, PATHINFO_FILENAME);
-                            
-                            foreach ($urls as $url) {
-                                if (!isset($url['path'])) {
-                                    continue;
-                                }
-                                $pathLocal = strtolower($url['path']);
-                                
-                                // 1. Descartamos explícitamente los archivos de Notas de Cargo
-                                if (strpos($pathLocal, 'notacargo') === false) {
-                                    
-                                    // 2. Si el nombre del TXT coincide con el del PDF, encontramos el archivo exacto
-                                    if ($nombrePdfBase && strpos($pathLocal, strtolower($nombrePdfBase)) !== false) {
-                                        $rutaCorrecta = $url['path'];
-                                        break;
+                                if (is_array($urls) && !empty($urls)) {
+                                    $nombrePdfBase = pathinfo(explode('?', $facturaSC['ruta_pdf'] ?? '')[0], PATHINFO_FILENAME);
+                                    $rutaCandidata = null;
+
+                                    foreach ($urls as $u) {
+                                        $pathLocal = strtolower($u['path'] ?? '');
+                                        if (strpos($pathLocal, 'notacargo') === false) {
+                                            if ($nombrePdfBase && strpos($pathLocal, strtolower($nombrePdfBase)) !== false) {
+                                                $rutaCandidata = $u['path'];
+                                                break;
+                                            }
+                                            if (!$rutaCandidata) {
+                                                $rutaCandidata = $u['path'];
+                                            }
+                                        }
                                     }
-                                    
-                                    // 3. Si no hay coincidencia exacta de nombre pero es un TXT válido, lo dejamos como candidato
-                                    if (!$rutaCorrecta) {
-                                        $rutaCorrecta = $url['path'];
+
+                                    $rutaCandidata = $rutaCandidata ?: ($urls[0]['path'] ?? null);
+
+                                    if ($rutaCandidata) {
+                                        $urlFinalTxt = str_starts_with($rutaCandidata, 'http')
+                                            ? $rutaCandidata
+                                            : 'https://sistema.intactics.com' . $rutaCandidata;
+
+                                        $contenido = @file_get_contents($urlFinalTxt, false, stream_context_create($arrContextOptions));
+
+                                        if (!$contenido || str_contains($http_response_header[0] ?? '', '404')) {
+                                            $rutaAlt = 'https://intactics.nyc3.cdn.digitaloceanspaces.com/production/uploads/' . basename($rutaCandidata);
+                                            $contenido = @file_get_contents($rutaAlt, false, stream_context_create($arrContextOptions));
+                                        }
                                     }
                                 }
                             }
-                            
-                            // 4. Si el filtro estricto falló por completo, usamos el primer archivo como último recurso
-                            if (!$rutaCorrecta && count($urls) > 0) {
-                                $rutaCorrecta = $urls[0]['path'];
-                            }
-                        }
-
-                        if ($rutaCorrecta) {
-                            $contenido = @file_get_contents('https://sistema.intactics.com' . $rutaCorrecta, false, stream_context_create($arrContextOptions));
+                        } catch (\Throwable $e) {
+                            Log::warning("SC: Error consultando get-files-txt-momentaneo para operacion #{$operacionID}: " . $e->getMessage());
                         }
                     }
                 }
 
                 if (!$contenido) {
-                    //$bar->advance();
+                    Log::warning("SC: No se pudo leer el archivo TXT de SC para el pedimento {$pedimento}");
                     continue;
                 }
-                // Refinamiento: Regex más preciso para el pedimento en la observación.
-                // Explicación rápida del patrón:
-                // \[encOBSERVACION\]   -> busca la etiqueta
-                // [^\d]*               -> salta cualquier cosa no numérica hasta el primer dígito
-                // (?:\d{1,5}-)*        -> acepta prefijos como "3711-" o "3711-3711-" repetidos (opcional)
-                // ([45]\d{6})          -> captura el pedimento: 7 dígitos empezando con 4 o 5
-                // Se agregó [4-7] para aceptar pedimentos que inician con 4, 5, 6 o 7
-                if (preg_match('/\[encOBSERVACION\][^\r\n]*?(?:(?:\d{1,5}[-\s]*)+)?([4-7]\d{6})/i', $contenido, $matchesPedimento)) {
 
-                    $pedimentoLimpioBD = trim($matchesPedimento[1]);
-                    //[encTEXTOEXTRA1] = IMPUESTOS (EDC - SC)
-                    preg_match('/\[encTEXTOEXTRA1\](.*?)(\r|\n)/', $contenido, $matchM_Impuesto);
-                    //[encTEXTOEXTRA2] = EMISION DE CERTIFICADO INTERNACIONAL (PAGOS DE DERECHO - SADER)
-                    preg_match('/\[encTEXTOEXTRA2\](.*?)(\r|\n)/', $contenido, $matchM_PDD);
-                    //[encTEXTOEXTRA3] = GASTOS GENERADOS EN ESTADOS UNIDOS (LLC)
-                    preg_match('/\[encTEXTOEXTRA3\](.*?)(\r|\n)/', $contenido, $matchM_LLC);
-                    //[cteTEXTOEXTRA2] = FLETE (TRANSPORTACTICS)
-                    preg_match('/\[cteTEXTOEXTRA2\](.*?)(\r|\n)/', $contenido, $matchM_Tr);
-                    //[cteTEXTOEXTRA3] = MANIOBRAS
-                    preg_match('/\[cteTEXTOEXTRA3\](.*?)(\r|\n)/', $contenido, $matchM_Man);
-                    //[cteCTAMENSAJERIA] = MUESTRAS
-                    preg_match('/\[cteCTAMENSAJERIA\](.*?)(\r|\n)/', $contenido, $matchM_Mue);
-                    //[encFECHA] = FECHA (REALMENTE NO EXISTE EN LA SC)
-                    //preg_match('/\[encFECHA\](.*?)(\r|\n)/', $contenido, $matchFecha);
-                    //[encFOLIOVENTA] = FOLIO
-                    preg_match('/\[encFOLIOVENTA\](.*?)(\r|\n)/', $contenido, $matchFolio);
-                    //[cteCODMONEDA] = MONEDA
-                    preg_match('/\[cteCODMONEDA\](.*?)(\r|\n)/', $contenido, $matchMoneda);
-                    //[encIMPORTEEXTRA4] = TOTAL FACTURA SC (ESTE NO LO USO, PERO LO AGREGO)
-                    preg_match('/\[encIMPORTEEXTRA4\](.*?)(\r|\n)/', $contenido, $matchTotalSC);
+                // ==============================================================
+                // EXTRACCIÓN ROBUSTA DE PEDIMENTOS (MULTILÍNEA Y COMPARTIDOS)
+                // ==============================================================
+                $pedimentosDetectados = [];
 
-                    // Extraemos el tipo de cambio de [encTIPOCAMBIO] y en [cteIMPORTEEXTRA1]
-                    $matchTCCount = preg_match('/\[cteIMPORTEEXTRA1\]([^\r\n]*)/', $contenido, $matchTC);
-
-                    if ($matchTCCount == 0) {
-                        preg_match('/\[encTIPOCAMBIO\]([^\r\n]*)/', $contenido, $matchTC);
-                    } elseif (($matchTC[1] == "1" && $matchMoneda[1] == "2")) {
-                        preg_match('/\[encTIPOCAMBIO\]([^\r\n]*)/', $contenido, $matchTC);
+                // A. Buscar bloque de observación (soporta saltos de línea hasta el siguiente tag)
+                if (preg_match('/\[encOBSERVACION\w*\]([\s\S]*?)(?=\[\w+\]|$)/i', $contenido, $mObs)) {
+                    preg_match_all('/\b([4-7]\d{6})\b/', $mObs[1], $mDigitosObs);
+                    if (!empty($mDigitosObs[1])) {
+                        $pedimentosDetectados = array_merge($pedimentosDetectados, $mDigitosObs[1]);
                     }
-
-                    $indice[$pedimentoLimpioBD] =
-                        [
-                            'monto_impuestos' => isset($matchM_Impuesto[1]) && strlen($matchM_Impuesto[1]) > 0 ? (float) trim($matchM_Impuesto[1]) : -1,
-                            'monto_flete' => isset($matchM_Tr[1]) && strlen($matchM_Tr[1]) > 0 ? (float) trim($matchM_Tr[1]) : -1,
-                            'monto_llc' => isset($matchM_LLC[1]) && strlen($matchM_LLC[1]) > 0 ? (float) trim($matchM_LLC[1]) : -1,
-                            'monto_total_pdd' => isset($matchM_PDD[1]) && strlen($matchM_PDD[1]) > 0 ? (float) trim($matchM_PDD[1]) : -1,
-                            'monto_maniobras' => isset($matchM_Man[1]) && strlen($matchM_Man[1]) > 0 ? (float) trim($matchM_Man[1]) : -1,
-                            'monto_muestras' => isset($matchM_Mue[1]) && strlen($matchM_Mue[1]) > 0 ? (float) trim($matchM_Mue[1]) : -1,
-
-                            'folio_sc' => isset($matchFolio[1]) ? trim($matchFolio[1]) : null,
-                            'fecha_sc' => \Carbon\Carbon::parse(trim($facturaSC['update_date']))->format('Y-m-d'),
-                            //isset($matchFecha[2]) ? \Carbon\Carbon::parse(trim($matchFecha[1]))->format('Y-m-d') : now(), //ESTO PUEDES DECIRLE QUE TE LO IGUAL A NULL, NO HAY FECHA DENTRO DE LA SC
-                            'ruta_txt' => $facturaSC['ruta_txt'],
-                            'ruta_pdf' => $facturaSC['ruta_pdf'],
-                            'moneda' => isset($matchMoneda[1]) && $matchMoneda[1] == "1" ? "MXN" : "USD",
-                            'tipo_cambio' => isset($matchTC[1]) ? (float) trim($matchTC[1]) : 1.0,
-                            'monto_total_sc' => isset($matchTotalSC[1]) && strlen($matchTotalSC[1]) > 0 ? (float) trim($matchTotalSC[1]) : -1,
-                        ];
-
-                    // Guardamos un alias con el pedimento original del array (ej. 3711-6002071) por si la base de datos lo pide así
-                    if ($pedimentoLimpioBD !== $pedimento) {
-                        $indice[$pedimento] = $indice[$pedimentoLimpioBD];
-                    }
-
-                    $aux = $this->extraerMultiplesConceptos($contenido);
-                    if ($aux['monto_maniobras_2'] > $indice[$pedimentoLimpioBD]['monto_maniobras']) {
-                        $indice[$pedimentoLimpioBD]['monto_maniobras'] = $aux['monto_maniobras_2'];
-                        $indice[$pedimento]['monto_maniobras'] = $aux['monto_maniobras_2']; // Reflejo al alias
-                    }
-
-                    unset($aux['monto_maniobras_2']);
-                    $indice[$pedimentoLimpioBD] = array_merge($indice[$pedimentoLimpioBD], $aux);
-                    $indice[$pedimento] = array_merge($indice[$pedimento], $aux);
                 }
-                //$bar->advance();
+
+                // B. Búsqueda global de 7 dígitos en todo el archivo si la observación no trajo nada
+                if (empty($pedimentosDetectados)) {
+                    preg_match_all('/\b([4-7]\d{6})\b/', $contenido, $mDigitosGlobal);
+                    if (!empty($mDigitosGlobal[1])) {
+                        $pedimentosDetectados = array_merge($pedimentosDetectados, $mDigitosGlobal[1]);
+                    }
+                }
+
+                // C. PLAN MAESTRO: Si la SC está en este expediente, forzar el pedimento de la operación
+                preg_match('/[4-7]\d{6}/', (string) $pedimento, $mPedOp);
+                if (!empty($mPedOp[0])) {
+                    $pedimentosDetectados[] = $mPedOp[0];
+                }
+
+                $pedimentosDetectados = array_unique(array_filter($pedimentosDetectados));
+
+                // Extracción de montos e importes
+                preg_match('/\[encTEXTOEXTRA1\](.*?)(\r|\n)/', $contenido, $matchM_Impuesto);
+                preg_match('/\[encTEXTOEXTRA2\](.*?)(\r|\n)/', $contenido, $matchM_PDD);
+                preg_match('/\[encTEXTOEXTRA3\](.*?)(\r|\n)/', $contenido, $matchM_LLC);
+                preg_match('/\[cteTEXTOEXTRA2\](.*?)(\r|\n)/', $contenido, $matchM_Tr);
+                preg_match('/\[cteTEXTOEXTRA3\](.*?)(\r|\n)/', $contenido, $matchM_Man);
+                preg_match('/\[cteCTAMENSAJERIA\](.*?)(\r|\n)/', $contenido, $matchM_Mue);
+                preg_match('/\[encFOLIOVENTA\](.*?)(\r|\n)/', $contenido, $matchFolio);
+                preg_match('/\[cteCODMONEDA\](.*?)(\r|\n)/', $contenido, $matchMoneda);
+                preg_match('/\[encIMPORTEEXTRA4\](.*?)(\r|\n)/', $contenido, $matchTotalSC);
+
+                $matchTCCount = preg_match('/\[cteIMPORTEEXTRA1\]([^\r\n]*)/', $contenido, $matchTC);
+                if ($matchTCCount == 0 || (isset($matchTC[1]) && $matchTC[1] == "1" && isset($matchMoneda[1]) && $matchMoneda[1] == "2")) {
+                    preg_match('/\[encTIPOCAMBIO\]([^\r\n]*)/', $contenido, $matchTC);
+                }
+
+                $fechaSC = !empty($facturaSC['update_date'])
+                    ? \Carbon\Carbon::parse(trim($facturaSC['update_date']))->format('Y-m-d')
+                    : now()->format('Y-m-d');
+
+                $scDataExtraida = [
+                    'monto_impuestos' => isset($matchM_Impuesto[1]) && strlen(trim($matchM_Impuesto[1])) > 0 ? (float) trim($matchM_Impuesto[1]) : -1,
+                    'monto_flete'     => isset($matchM_Tr[1]) && strlen(trim($matchM_Tr[1])) > 0 ? (float) trim($matchM_Tr[1]) : -1,
+                    'monto_llc'       => isset($matchM_LLC[1]) && strlen(trim($matchM_LLC[1])) > 0 ? (float) trim($matchM_LLC[1]) : -1,
+                    'monto_total_pdd' => isset($matchM_PDD[1]) && strlen(trim($matchM_PDD[1])) > 0 ? (float) trim($matchM_PDD[1]) : -1,
+                    'monto_maniobras' => isset($matchM_Man[1]) && strlen(trim($matchM_Man[1])) > 0 ? (float) trim($matchM_Man[1]) : -1,
+                    'monto_muestras'  => isset($matchM_Mue[1]) && strlen(trim($matchM_Mue[1])) > 0 ? (float) trim($matchM_Mue[1]) : -1,
+                    'folio_sc'        => isset($matchFolio[1]) ? trim($matchFolio[1]) : null,
+                    'fecha_sc'        => $fechaSC,
+                    'ruta_txt'        => $facturaSC['ruta_txt'] ?? null,
+                    'ruta_pdf'        => $facturaSC['ruta_pdf'] ?? null,
+                    'moneda'          => isset($matchMoneda[1]) && trim($matchMoneda[1]) == "1" ? "MXN" : "USD",
+                    'tipo_cambio'     => isset($matchTC[1]) && (float) trim($matchTC[1]) > 0 ? (float) trim($matchTC[1]) : 1.0,
+                    'monto_total_sc'  => isset($matchTotalSC[1]) && strlen(trim($matchTotalSC[1])) > 0 ? (float) trim($matchTotalSC[1]) : -1,
+                ];
+
+                $aux = $this->extraerMultiplesConceptos($contenido);
+                if (($aux['monto_maniobras_2'] ?? -1) > $scDataExtraida['monto_maniobras']) {
+                    $scDataExtraida['monto_maniobras'] = $aux['monto_maniobras_2'];
+                }
+                unset($aux['monto_maniobras_2']);
+                $scDataExtraida = array_merge($scDataExtraida, $aux);
+
+                // Indexar para todos los pedimentos vinculados a este archivo
+                foreach ($pedimentosDetectados as $pNum) {
+                    $indice[$pNum] = $scDataExtraida;
+                }
+                $indice[$pedimento] = $scDataExtraida;
             }
         } catch (\Throwable $e) {
-            Log::error("Error buscando archivo para pedimento {$pedimento}: " . $e->getMessage());
+            Log::error("Error en construirIndiceSC: " . $e->getMessage() . " Línea: " . $e->getLine());
         }
         return $indice;
     }
@@ -6083,8 +6051,6 @@ class AuditoriaImpuestosController extends Controller
                             }
                         }
 
-                        Log::info("🚛 [RESCATE FLETE | Ped: {$pedimentoLimpio}] Archivo: {$fNombre} -> Total: {$total} {$moneda} | Folio: {$folio}");
-
                         if ($total <= 0) {
                             continue;
                         }
@@ -6833,7 +6799,6 @@ class AuditoriaImpuestosController extends Controller
 
             // 1. PDF sin texto (imagen escaneada)
             if (trim((string) $texto) === '') {
-                Log::warning("PDD: '{$nombreArchivo}' no tiene texto legible (probablemente es una imagen escaneada).");
                 return null;
             }
             $datos = [];
@@ -6907,7 +6872,6 @@ class AuditoriaImpuestosController extends Controller
 
             // 3. Tiene texto pero no coincide con el formato esperado
             if (empty($datos['llave_pago'])) {
-                Log::warning("PDD: '{$nombreArchivo}' no tiene llave de pago con el formato {$formato}. Inicio del texto: {$extracto}");
                 return null;
             }
 
