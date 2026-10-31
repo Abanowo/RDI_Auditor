@@ -156,6 +156,13 @@ class ProcesarAuditoriaCompleta extends Command
                     throw $status['message'];
                 }
 
+                gc_collect_cycles();
+                $this->info("Enviando Toma de Temperatura (ALMAN - TOMAS) a GPC...");
+                $status = $controller->enviarAGPCTomaTemperatura($tarea->id);
+                if ($status['code'] > 0) {
+                    throw $status['message'];
+                }
+
                 $this->info("--- FIN DE INSERCIONES EN GPC ---");
             } else {
                 // 4. IMPUESTOS (Fase 2)

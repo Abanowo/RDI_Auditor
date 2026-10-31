@@ -4983,6 +4983,232 @@ class AuditoriaImpuestosController extends Controller
         }
     }
 
+    /**
+     * Extrae el concepto "Toma de Temperatura" desde la pestaña TOMAS de ALMAN.
+     * Limitado ESTRICTAMENTE al contenedor del pedimento consultado y con proveedor ANDROS-GALTOR.
+     */
+    public function enviarAGPCTomaTemperatura($tareaId, ?array $soloContenedores = null)
+    {
+        gc_collect_cycles();
+        $tarea = ($tareaId instanceof AuditoriaTareas) ? $tareaId : AuditoriaTareas::find($tareaId);
+
+        if (!$tarea || ($tarea->exists && $tarea->status !== 'procesando')) {
+            return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
+        }
+
+        // ====================================================================
+        // 1. OBTENER EXCLUSIVAMENTE LOS CONTENEDORES DEL PEDIMENTO CONSULTADO
+        // ====================================================================
+        $infoContenedores = [];
+
+        // A) Si vienen del mapeo de la tarea
+        $rutaMapeo = $tarea->mapeo_completo_facturas ?? null;
+        if ($rutaMapeo && Storage::exists($rutaMapeo)) {
+            $mapeado = (array) json_decode(Storage::get($rutaMapeo), true);
+            $pedimentosTotales = $mapeado['pedimentos_totales'] ?? [];
+
+            foreach ($pedimentosTotales as $pedKey => $pedInfo) {
+                $opId = $pedInfo['id_operacion'] ?? null;
+                $tipoClass = (($pedInfo['tipo'] ?? '') === 'Importacion') ? Importacion::class : Exportacion::class;
+
+                $pedNum = trim($pedInfo['num_pedimiento'] ?? $pedKey);
+                if (preg_match('/[4-7]\d{6}/', $pedNum, $mPed)) {
+                    $pedNum = $mPed[0];
+                }
+
+                if ($opId) {
+                    $op = $tipoClass::with('cliente')->find($opId);
+                    if ($op && !empty($op->contenedor)) {
+                        if (preg_match_all('/[A-Za-z]{4}\s*\d{7}/', $op->contenedor, $mConts)) {
+                            foreach ($mConts[0] as $cRaw) {
+                                $cLimpio = strtoupper(preg_replace('/[^A-Z0-9]/', '', $cRaw));
+                                $infoContenedores[$cLimpio] = [
+                                    'pedimento' => $pedNum,
+                                    'cliente'   => optional($op->cliente)->nombre ?? '',
+                                    'bl'        => $op->bol ?? '',
+                                    'naviera'   => 'ANDROS-GALTOR'
+                                ];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // B) Si se envió un filtro explícito (ej. desde el botón Llenar GPC Directo)
+        if (!empty($soloContenedores)) {
+            $soloContsLimpios = array_map(function ($c) {
+                return strtoupper(preg_replace('/[^A-Z0-9]/', '', $c));
+            }, $soloContenedores);
+
+            foreach ($soloContsLimpios as $cReq) {
+                if (!isset($infoContenedores[$cReq])) {
+                    $op = Importacion::where('contenedor', 'LIKE', '%' . $cReq . '%')->with('cliente')->latest()->first()
+                        ?? Exportacion::where('contenedor', 'LIKE', '%' . $cReq . '%')->with('cliente')->latest()->first();
+
+                    $pedNum = '';
+                    if ($op && $op->id_pedimiento) {
+                        $pedModel = Pedimento::find($op->id_pedimiento);
+                        if ($pedModel && preg_match('/[4-7]\d{6}/', $pedModel->num_pedimiento, $mP)) {
+                            $pedNum = $mP[0];
+                        }
+                    }
+
+                    $infoContenedores[$cReq] = [
+                        'pedimento' => $pedNum ?: 'DESC_' . $cReq,
+                        'cliente'   => $op ? (optional($op->cliente)->nombre ?? '') : '',
+                        'bl'        => $op ? ($op->bol ?? '') : '',
+                        'naviera'   => 'ANDROS-GALTOR'
+                    ];
+                }
+            }
+
+            $infoContenedores = array_intersect_key($infoContenedores, array_flip($soloContsLimpios));
+        }
+
+        $contenedoresPermitidos = array_keys($infoContenedores);
+
+        if (empty($contenedoresPermitidos)) {
+            Log::info("Toma de Temperatura: El pedimento consultado no tiene contenedores registrados. Se omite el proceso.");
+            return ['code' => 0, 'message' => 'Omitido (sin contenedores en la operación)'];
+        }
+
+        Log::info("Tarea #{$tarea->id}: Buscando Toma de Temperatura ÚNICAMENTE para los contenedores: [" . implode(', ', $contenedoresPermitidos) . "]");
+
+        try {
+            if (app()->environment('production')) {
+                $urlBase = "https://docs.google.com/spreadsheets/d/1FvhWp2AeOyoiv1KIrmQNOKf9ZoDRy5L7HVd5FcRQBio/gviz/tq?tqx=out:csv&_cb=" . time();
+            } else {
+                $urlBase = "https://docs.google.com/spreadsheets/d/1yOcPGlvycRBCg5KpWs5-b8EmLQrUNPgh4aqurXQT1Uo/gviz/tq?tqx=out:csv&_cb=" . time();
+            }
+
+            $csvUrlTomas = $urlBase . "&sheet=TOMAS";
+
+            $response = Http::withoutVerifying()->timeout(60)->get($csvUrlTomas);
+            if (!$response->successful()) {
+                throw new \Exception("Error al leer la hoja TOMAS. HTTP: " . $response->status());
+            }
+
+            $stream = fopen('php://memory', 'r+');
+            fwrite($stream, $response->body());
+            rewind($stream);
+
+            $rows = [];
+            while (($cols = fgetcsv($stream)) !== false) {
+                if (empty(trim(implode('', $cols)))) {
+                    continue;
+                }
+                $rows[] = $cols;
+            }
+            fclose($stream);
+
+            if (empty($rows)) {
+                return ['code' => 0, 'message' => 'completado'];
+            }
+
+            $tomasEncontradas = [];
+
+            // ====================================================================
+            // 2. BUSCAR ÚNICAMENTE LOS CONTENEDORES AUTORIZADOS EN TOMAS
+            // ====================================================================
+            foreach ($rows as $cols) {
+                $contD = strtoupper(preg_replace('/[^A-Z0-9]/', '', trim($cols[3] ?? '')));
+                $contH = strtoupper(preg_replace('/[^A-Z0-9]/', '', trim($cols[7] ?? '')));
+
+                $contMatch = null;
+                if (in_array($contD, $contenedoresPermitidos, true)) {
+                    $contMatch = $contD;
+                } elseif (in_array($contH, $contenedoresPermitidos, true)) {
+                    $contMatch = $contH;
+                }
+
+                if (!$contMatch) {
+                    continue;
+                }
+
+                // Sumar Columna C (Total Andros) + Columna G (Total Galtor)
+                $totalCRaw = trim($cols[2] ?? '');
+                $totalGRaw = trim($cols[6] ?? '');
+                $fechaRaw  = trim($cols[0] ?? '') ?: trim($cols[4] ?? '');
+
+                $montoC = (float) filter_var(str_replace(',', '', $totalCRaw), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+                $montoG = (float) filter_var(str_replace(',', '', $totalGRaw), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+                $sumaMontos = round($montoC + $montoG, 2);
+
+                if ($sumaMontos > 0) {
+                    $tomasEncontradas[$contMatch][] = [
+                        'monto' => $sumaMontos,
+                        'fecha' => $fechaRaw
+                    ];
+                }
+            }
+
+            if (empty($tomasEncontradas)) {
+                Log::info("Toma de Temperatura: No se encontraron cobros en TOMAS para el contenedor del pedimento consultado.");
+                return ['code' => 0, 'message' => 'completado'];
+            }
+
+            // ====================================================================
+            // 3. ARMAR FILA PARA GOOGLE SHEETS
+            // ====================================================================
+            $filasParaSheets = [];
+            $conteoConceptos = [];
+
+            foreach ($tomasEncontradas as $cont => $registros) {
+                $infoBase = $infoContenedores[$cont];
+                $pedFinal = $infoBase['pedimento'];
+                $cliente  = $infoBase['cliente'];
+                $bl       = $infoBase['bl'];
+
+                $montoTotalCont = 0;
+                $fechaFinal = now()->format('Y-m-d');
+
+                foreach ($registros as $reg) {
+                    $montoTotalCont += $reg['monto'];
+                    if (!empty($reg['fecha'])) {
+                        try {
+                            $fechaFinal = \Carbon\Carbon::parse($reg['fecha'])->format('Y-m-d');
+                        } catch (\Throwable $e) { }
+                    }
+                }
+
+                $conteoConceptos[$pedFinal] = ($conteoConceptos[$pedFinal] ?? 0) + 1;
+                $idxActual = $conteoConceptos[$pedFinal];
+                $conceptoNombre = ($idxActual === 1) ? 'Toma de Temperatura' : 'Toma de Temperatura ' . $idxActual;
+
+                $filasParaSheets[] = [
+                    'fecha'      => $fechaFinal,
+                    'cliente'    => $cliente,
+                    'contenedor' => $cont,
+                    'bl'         => $bl,
+                    'naviera'    => 'ANDROS-GALTOR', // Columna G en ZLO
+                    'anticipo'   => '',
+                    'pedimento'  => $pedFinal,
+                    'concepto'   => $conceptoNombre,
+                    'monto'      => round($montoTotalCont, 2),
+                    'moneda'     => 'MXN',
+                ];
+            }
+
+            if (!empty($filasParaSheets)) {
+                Log::info("Toma de Temperatura: Enviando " . count($filasParaSheets) . " registro(s) con proveedor ANDROS-GALTOR a ZLO.");
+                $paquetes = array_chunk($filasParaSheets, 50);
+
+                foreach ($paquetes as $idx => $paquete) {
+                    $esUltimo = ($idx === count($paquetes) - 1);
+                    $this->enviarDatosAGoogleSheets($paquete, 'ZLO', 'ZLO', $esUltimo);
+                    sleep(1);
+                }
+            }
+
+            return ['code' => 0, 'message' => 'completado'];
+
+        } catch (\Throwable $e) {
+            Log::error("Error procesando Toma de Temperatura: " . $e->getMessage() . " Línea: " . $e->getLine());
+            return ['code' => 1, 'message' => $e];
+        }
+    }
+
     public function llenarGpcDirecto(Request $request)
     {
         $request->validate([
@@ -5191,8 +5417,9 @@ class AuditoriaImpuestosController extends Controller
  
             // Sin contenedores NO se llaman: sin filtro procesarían todas las operaciones
             if (!empty($contenedores)) {
-                $pasos['Almacen (ALMAN)'] = function () use ($tareaDirecta, $contenedores) { return $this->enviarAGPCFacturasDeAlmacen($tareaDirecta, $contenedores); };
-                $pasos['Traslado Local']  = function () use ($tareaDirecta, $contenedores) { return $this->enviarAGPCTrasladoLocal($tareaDirecta, $contenedores); };
+                $pasos['Almacen (ALMAN)']      = function () use ($tareaDirecta, $contenedores) { return $this->enviarAGPCFacturasDeAlmacen($tareaDirecta, $contenedores); };
+                $pasos['Traslado Local']       = function () use ($tareaDirecta, $contenedores) { return $this->enviarAGPCTrasladoLocal($tareaDirecta, $contenedores); };
+                $pasos['Toma de Temperatura']  = function () use ($tareaDirecta, $contenedores) { return $this->enviarAGPCTomaTemperatura($tareaDirecta, $contenedores); };
             }
  
             $fallas = [];
