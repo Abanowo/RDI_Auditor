@@ -36,7 +36,7 @@ export default {
   props: {
     show: { type: Boolean, default: false },
   },
-  emits: ["close"],
+  emits: ["close", "trigger-update"],
   methods: {
     close() {
       this.$emit("close");

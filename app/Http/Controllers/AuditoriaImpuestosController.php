@@ -36,6 +36,8 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 
+use Illuminate\Http\UploadedFile;
+use Illuminate\Validation\ValidationException;
 use Smalot\PdfParser\Parser;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -878,6 +880,12 @@ class AuditoriaImpuestosController extends Controller
                         }
                     }
                 }
+
+                if (trim((string) $textoPdf) === '') {
+                    throw new \Exception("El estado de cuenta es una imagen (escaneado) y no se puede leer. Sube el PDF original del banco.");
+                }
+ 
+                $operacionesLimpiasArray = $this->leerOperacionesEstadoDeCuentaPdf($textoPdf, $banco);
                 
                 $operacionesLimpias = collect($operacionesLimpiasArray)->unique(function ($item) {
                     $montoLimpio = (float) filter_var(str_replace(',', '', $item['cargo_str'] ?? 0), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
@@ -8896,16 +8904,35 @@ class AuditoriaImpuestosController extends Controller
     {
         $datosValidados = $request->validate(
             [
-                'estado_de_cuenta' => 'required|file', // Aceptamos cualquier archivo
+                'estado_de_cuenta' => 'required|file|mimes:pdf,xls,xlsx,csv,txt',
                 'banco' => 'required|string',
                 'sucursal' => 'required|string',
                 'archivos_extras.*' => 'nullable|file', // Para los archivos extra (opcional)
+            ],
+            [
+                'estado_de_cuenta.required' => 'Selecciona el estado de cuenta.',
+                'estado_de_cuenta.mimes'    => 'El estado de cuenta debe ser un PDF o un Excel (xls, xlsx, csv).',
             ]
         );
-
+ 
+        $archivo = $request->file('estado_de_cuenta');
+ 
+        // 0. Revisar el PDF ANTES de guardar nada ni crear la tarea
+        if (strtolower($archivo->getClientOriginalExtension()) === 'pdf') {
+            $problema = $this->validarPdfEstadoDeCuenta($archivo, $datosValidados['banco']);
+ 
+            if ($problema) {
+                Log::warning("Estado de cuenta rechazado ({$problema['motivo']}): " . $archivo->getClientOriginalName() . " | Banco: {$datosValidados['banco']} | Sucursal: {$datosValidados['sucursal']}");
+ 
+                throw ValidationException::withMessages([
+                    'estado_de_cuenta' => [$problema['mensaje']],
+                ]);
+            }
+        }
+ 
         // 1. Guardamos el estado de cuenta principal
-        $rutaPrincipal = $request->file('estado_de_cuenta')->store('operaciones/estados_de_cuenta');
-
+        $rutaPrincipal = $archivo->store('operaciones/estados_de_cuenta');
+ 
         // 2. Guardamos los archivos extra si existen
         $rutasExtras = [];
         if ($request->hasFile('archivos_extras')) {
@@ -8913,8 +8940,9 @@ class AuditoriaImpuestosController extends Controller
                 $rutasExtras[] = $file->store('importaciones/extras');
             }
         }
-
-        $nombreArchivo = $datosValidados['estado_de_cuenta']->getClientOriginalName();
+ 
+        $nombreArchivo = $archivo->getClientOriginalName();
+ 
         // 3. Creamos el registro de la nueva tarea en la base de datos
         AuditoriaTareas::create(
             [
@@ -8927,7 +8955,7 @@ class AuditoriaImpuestosController extends Controller
                 'status' => 'pendiente', // La tarea empieza como pendiente
             ]
         );
-
+ 
         // 4. Devolvemos una respuesta inmediata y exitosa al usuario
         return response()->json(
             [
@@ -8935,6 +8963,232 @@ class AuditoriaImpuestosController extends Controller
             ],
             202
         ); // 202 Accepted
+    }
+
+    /**
+     * Revisa que el PDF del estado de cuenta se pueda leer y tenga el formato del banco.
+     * Devuelve null si está bien, o ['motivo' => ..., 'mensaje' => ...] si no sirve.
+     */
+    private function validarPdfEstadoDeCuenta(UploadedFile $archivo, string $bancoSeleccionado): ?array
+    {
+        $banco = strtoupper(trim($bancoSeleccionado));
+        $nombre = $archivo->getClientOriginalName();
+ 
+        // 1. ¿Se puede abrir?
+        try {
+            $config = new \Smalot\PdfParser\Config();
+            $config->setRetainImageContent(false);
+            $parser = new Parser([], $config);
+            $pdf = $parser->parseFile($archivo->getRealPath());
+            $textoPdf = (string) $pdf->getText();
+        } catch (\Throwable $e) {
+            $detalle = $e->getMessage();
+            $protegido = stripos($detalle, 'encrypt') !== false || stripos($detalle, 'password') !== false;
+ 
+            return [
+                'motivo'  => $protegido ? 'protegido' : 'ilegible',
+                'mensaje' => $protegido
+                    ? "El archivo \"{$nombre}\" está protegido con contraseña. Descárgalo del banco sin contraseña y vuelve a subirlo."
+                    : "No se pudo abrir el archivo \"{$nombre}\". Puede estar dañado o no ser un PDF válido. Descárgalo de nuevo desde el banco.",
+            ];
+        }
+ 
+        // 2. ¿Tiene texto? (un PDF escaneado o una foto no tiene)
+        $textoUtil = preg_replace('/\s+/u', '', $textoPdf);
+        if (mb_strlen($textoUtil) < 30) {
+            return [
+                'motivo'  => 'imagen',
+                'mensaje' => "El archivo \"{$nombre}\" es una imagen (escaneado o foto) y no se puede leer. "
+                           . "Favor de subir el estado de cuenta en PDF original descargado de la banca en línea, no escaneado.",
+            ];
+        }
+ 
+        // 3. ¿Es del banco seleccionado?
+        $textoMayus = mb_strtoupper($textoPdf);
+        $pareceBBVA = str_contains($textoMayus, 'BBVA') || str_contains($textoPdf, 'Creando Oportunidades');
+        $pareceSantander = str_contains($textoMayus, 'SANTANDER');
+ 
+        if ($banco === 'BBVA' && $pareceSantander && !$pareceBBVA) {
+            return [
+                'motivo'  => 'banco_distinto',
+                'mensaje' => "Seleccionaste BBVA, pero el archivo \"{$nombre}\" parece un estado de cuenta de Santander. Revisa el banco seleccionado.",
+            ];
+        }
+        if ($banco === 'SANTANDER' && $pareceBBVA && !$pareceSantander) {
+            return [
+                'motivo'  => 'banco_distinto',
+                'mensaje' => "Seleccionaste Santander, pero el archivo \"{$nombre}\" parece un estado de cuenta de BBVA. Revisa el banco seleccionado.",
+            ];
+        }
+ 
+        // 4. ¿Se encuentran pagos de impuestos con pedimento? (misma lectura que la tarea)
+        $operaciones = $this->leerOperacionesEstadoDeCuentaPdf($textoPdf, $banco);
+ 
+        if (empty($operaciones)) {
+            return [
+                'motivo'  => 'sin_pedimentos',
+                'mensaje' => "El archivo \"{$nombre}\" se pudo leer, pero no tiene el formato del estado de cuenta de {$banco}: "
+                           . "no se encontró ningún pago de impuestos con número de pedimento. "
+                           . "Verifica que sea el estado de cuenta (no un comprobante u otro reporte) y que el banco seleccionado sea el correcto.",
+            ];
+        }
+ 
+        unset($pdf, $parser, $config, $textoPdf);
+        gc_collect_cycles();
+ 
+        return null;
+    }
+
+    /**
+     * Lee los pagos de impuestos (pedimento, fecha, cargo) del texto del estado de cuenta.
+     * Es la misma lógica que usaba importarImpuestosEnAuditorias(), separada para
+     * poder validar el archivo al subirlo.
+     *
+     * @return array<int, array{pedimento:string, fecha_str:string, cargo_str:string}>
+     */
+    private function leerOperacionesEstadoDeCuentaPdf(string $textoPdf, string $banco): array
+    {
+        $operacionesLimpiasArray = [];
+        $banco = strtoupper($banco);
+        $yearEstadoCuenta = date('Y');
+ 
+        if ($banco === 'BBVA') {
+            // 1. Encontramos Año y Mes base del documento (Fecha de Consulta / Periodo)
+            $monthEstadoCuenta = date('m');
+            if (preg_match('/(\d{2})\/(\d{2})\/(\d{4})/', $textoPdf, $mFecha)) {
+                $monthEstadoCuenta = $mFecha[2];
+                $yearEstadoCuenta = $mFecha[3];
+            }
+ 
+            // 2. ESTRATEGIA DE BLOQUES: Cortamos el texto por cada pago de impuestos
+            $bloques = preg_split('/PAGO\s+IMPUESTOS\s+ADUANALES/i', $textoPdf);
+ 
+            foreach ($bloques as $index => $bloque) {
+                if ($index === 0) {
+                    continue; // El índice 0 es el encabezado del estado de cuenta
+                }
+ 
+                if (preg_match('/(?:PEDMTO|PEDMT\s*O|PEDIMENTO)[\s:]*([4-7]\d{6})/i', $bloque, $mPed)) {
+                    $pedimento = $mPed[1];
+ 
+                    // La fecha está en los últimos 50 caracteres del bloque ANTERIOR
+                    $fechaCruda = '01';
+                    $textoAnterior = substr($bloques[$index - 1], -50);
+                    if (preg_match('/(\d{2}[-\/]\d{2}|\d{2})\s*$/', $textoAnterior, $mFechaOp)) {
+                        $fechaCruda = $mFechaOp[1];
+                    }
+ 
+                    // Monto ("$ 383.00", "-20,616.00", con distintos guiones de PDF)
+                    $montoStr = '0';
+                    if (preg_match('/(?:\$\s*([\d,]+\.\d{2})|([-\x{2012}\x{2013}\x{2014}\x{2212}]\s*[\d,]+\.\d{2}))/u', $bloque, $mMonto)) {
+                        $montoStr = !empty($mMonto[1]) ? $mMonto[1] : $mMonto[2];
+                    } elseif (preg_match('/([\d,]+\.\d{2})/', $bloque, $mMontoFallback)) {
+                        $montoStr = $mMontoFallback[1];
+                    }
+ 
+                    $montoLimpio = abs((float) filter_var(str_replace(',', '', $montoStr), FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION));
+ 
+                    $dia = '01';
+                    $mes = $monthEstadoCuenta;
+ 
+                    if (str_contains($fechaCruda, '-') || str_contains($fechaCruda, '/')) {
+                        $partes = preg_split('/[\-\/]/', $fechaCruda);
+                        $dia = str_pad($partes[0], 2, '0', STR_PAD_LEFT);
+                        $mes = str_pad($partes[1], 2, '0', STR_PAD_LEFT);
+                    } else {
+                        $dia = str_pad($fechaCruda, 2, '0', STR_PAD_LEFT);
+                    }
+ 
+                    try {
+                        $fechaParseada = \Carbon\Carbon::parse("{$yearEstadoCuenta}-{$mes}-{$dia}")->format('Y-m-d');
+                    } catch (\Exception $e) {
+                        $fechaParseada = now()->format('Y-m-d');
+                    }
+ 
+                    if ($montoLimpio > 0) {
+                        $operacionesLimpiasArray[] = [
+                            'pedimento' => $pedimento,
+                            'fecha_str' => $fechaParseada,
+                            'cargo_str' => (string) $montoLimpio,
+                        ];
+                    }
+                }
+            }
+ 
+            // 3. PLAN B (PDF con otro acomodo del texto)
+            if (empty($operacionesLimpiasArray)) {
+                $tipoSplit = '/(\d{2}-\d{2}\n.*PEDMT\s*O:\s*([\w\s\-\/]+)\n.*\n.*\n)/';
+                foreach (preg_split($tipoSplit, $textoPdf, -1, PREG_SPLIT_DELIM_CAPTURE) as $linea) {
+                    if (preg_match('/(\d{2}\/\d{2}\/(\d{4}))/', $linea, $matchYear)) {
+                        $yearEstadoCuenta = $matchYear[2];
+                    }
+                    if (strpos($linea, 'PEDMT') !== false && preg_match_all('/\b([4-7]\d{6})\b/', $linea, $matchPedimentos)) {
+                        preg_match('/\d{2}-\d{2}/', $linea, $matchFecha);
+                        preg_match('/\$\s*([0-9.,]+)/', $linea, $matchCargo);
+ 
+                        if (isset($matchFecha[0]) && isset($matchCargo[1])) {
+                            $fechaPed = $matchFecha[0] . "-{$yearEstadoCuenta}";
+                            foreach ($matchPedimentos[1] as $pedIndividual) {
+                                try {
+                                    $f = \Carbon\Carbon::createFromFormat('d-m-Y', $fechaPed)->format('Y-m-d');
+                                } catch (\Exception $e) {
+                                    $f = now()->format('Y-m-d');
+                                }
+ 
+                                $operacionesLimpiasArray[] = [
+                                    'pedimento' => $pedIndividual,
+                                    'fecha_str' => $f,
+                                    'cargo_str' => $matchCargo[1],
+                                ];
+                            }
+                        }
+                    }
+                }
+            }
+        } elseif ($banco === 'SANTANDER') {
+            $fechaEstadoCuenta = now()->format('Y-m-d');
+            if (preg_match('/Periodo:\s*\d{2}\/\d{2}\/\d{4}\s*al\s*(\d{2})\/(\d{2})\/(\d{4})/', $textoPdf, $mFecha)) {
+                $fechaEstadoCuenta = $mFecha[3] . '-' . $mFecha[2] . '-' . $mFecha[1];
+            }
+ 
+            // Atrapa el cargo sin importar si tiene 0.00 en medio
+            $patron = '/([\d,]+\.\d{2})\s+(?:(?![4-7]\d{6}\b)[\d,.\-]+\s+)*?([4-7]\d{6})\b/';
+ 
+            if (preg_match_all($patron, $textoPdf, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+                foreach ($matches as $match) {
+                    $cargoStr = $match[1][0];
+                    $pedimento = $match[2][0];
+                    $offsetMatch = $match[0][1];
+ 
+                    $montoFinal = (float) str_replace(',', '', $cargoStr);
+ 
+                    if ($montoFinal > 0) {
+                        $textoAnterior = substr($textoPdf, max(0, $offsetMatch - 150), 150);
+                        $textoAnteriorLimpio = preg_replace('/\s+/', '', $textoAnterior);
+                        $fechaTransaccion = $fechaEstadoCuenta;
+ 
+                        if (preg_match_all('/(0[1-9]|[12]\d|3[01])(0[1-9]|1[0-2])(20\d{2})/', $textoAnteriorLimpio, $mFechasTransaccion, PREG_SET_ORDER)) {
+                            $ultimaFechaEncontrada = end($mFechasTransaccion);
+                            $dia = $ultimaFechaEncontrada[1];
+                            $mes = $ultimaFechaEncontrada[2];
+                            $anio = $ultimaFechaEncontrada[3];
+ 
+                            if (checkdate((int) $mes, (int) $dia, (int) $anio)) {
+                                $fechaTransaccion = "$anio-$mes-$dia";
+                            }
+                        }
+ 
+                        $operacionesLimpiasArray[] = [
+                            'pedimento' => $pedimento,
+                            'fecha_str' => $fechaTransaccion,
+                            'cargo_str' => (string) $montoFinal
+                        ];
+                    }
+                }
+            }
+        }
+ 
+        return $operacionesLimpiasArray;
     }
 
     public function ejecutarComandoDeTareaEnCola(Request $request)

@@ -6,8 +6,11 @@
           >Estado de Cuenta (PDF o XLSX)</label
         >
         <div
-          class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md"
-          @change="handleFileUpload"
+          class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md transition-colors duration-200"
+          :class="zonaClase"
+          @dragover.prevent="arrastrando = true"
+          @dragleave.prevent="arrastrando = false"
+          @drop.prevent="handleDrop"
         >
           <div class="space-y-1 text-center">
             <svg
@@ -26,27 +29,11 @@
             </svg>
             <div class="flex text-sm text-gray-600">
               <label
-                v-if="selectedFile"
-                class="relative cursor-pointer bg-white rounded-md font-medium text-green-600 hover:opacity-80 focus-within:outline-none"
-              >
-                <span>Sube un archivo</span>
-                <input
-                  id="file-upload"
-                  name="file-upload"
-                  type="file"
-                  class="sr-only"
-                  ref="fileInput"
-                  :accept="acceptedFileTypes"
-                  @change="handleFileUpload"
-                />
-              </label>
-
-              <label
-                v-else
                 for="file-upload"
-                class="relative cursor-pointer bg-white rounded-md font-medium text-theme-primary hover:opacity-80 focus-within:outline-none"
+                class="relative cursor-pointer bg-white rounded-md font-medium hover:opacity-80 focus-within:outline-none"
+                :class="selectedFile ? 'text-green-600' : 'text-theme-primary'"
               >
-                <span>Sube un archivo</span>
+                <span>{{ selectedFile ? "Cambiar archivo" : "Sube un archivo" }}</span>
                 <input
                   id="file-upload"
                   name="file-upload"
@@ -54,6 +41,7 @@
                   class="sr-only"
                   ref="fileInput"
                   :accept="acceptedFileTypes"
+                  :disabled="isLoading"
                   @change="handleFileUpload"
                 />
               </label>
@@ -62,9 +50,30 @@
             <p class="text-xs text-gray-500">PDF, XLSX hasta 10MB</p>
           </div>
         </div>
-        <p v-if="selectedFile" class="mt-2 text-sm text-green-600 font-semibold">
+
+        <p v-if="selectedFile && !errorMessage" class="mt-2 text-sm text-green-600 font-semibold">
           Archivo seleccionado: {{ selectedFile.name }}
         </p>
+
+        <!-- Aviso: archivo incorrecto (imagen, dañado, otro banco, formato distinto...) -->
+        <div
+          v-if="errorMessage"
+          class="mt-3 flex items-start gap-2 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700"
+          role="alert"
+        >
+          <svg class="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"
+            />
+          </svg>
+          <div>
+            <p class="font-semibold">El estado de cuenta no se pudo procesar</p>
+            <p>{{ errorMessage }}</p>
+          </div>
+        </div>
       </div>
 
       <div>
@@ -74,6 +83,7 @@
         <select
           id="sucursal"
           v-model="selectedSucursal"
+          :disabled="isLoading"
           class="mt-1 block w-full border-2 border-gray-300 pl-3 pr-10 py-2 text-base focus:outline-none focus:ring-2  sm:text-sm rounded-md transition-all duration-300"
           :class="selectedSucursal ? 'border-green-500 border-2' : 'border-gray-300'"
         >
@@ -93,6 +103,7 @@
         <select
           id="bank"
           v-model="selectedBank"
+          :disabled="isLoading"
           class="mt-1 block w-full border-2 border-gray-300 pl-3 pr-10 py-2 text-base focus:outline-none focus:ring-2 sm:text-sm rounded-md transition-all duration-300"
           :class="selectedBank ? 'border-green-500 border-2' : 'border-gray-300'"
         >
@@ -109,15 +120,24 @@
         <button
           type="button"
           @click="submitForm"
-          :disabled="!isFormValid"
-          class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300"
+          :disabled="!isFormValid || isLoading"
+          class="w-full flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-300"
           :class="
             isFormValid
               ? 'bg-green-500 hover:bg-green-600 focus:ring-green-500'
               : 'bg-theme-primary'
           "
         >
-          Siguiente Paso
+          <svg
+            v-if="isLoading"
+            class="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+          </svg>
+          {{ isLoading ? "Revisando archivo..." : "Siguiente Paso" }}
         </button>
       </div>
     </div>
@@ -126,6 +146,7 @@
 
 <script>
 export default {
+  emits: ["upload-success"],
   data() {
     return {
       // 1. Datos para almacenar las selecciones del usuario
@@ -151,6 +172,7 @@ export default {
       // 3. Para manejar errores y notificaciones
       errorMessage: "",
       isLoading: false,
+      arrastrando: false,
     };
   },
 
@@ -161,9 +183,7 @@ export default {
      */
 
     isFormValid() {
-      // Esta función recalcula automáticamente su valor
-      // cada vez que una de estas 3 variables cambia.
-      return this.selectedFile && this.selectedBank && this.selectedSucursal;
+      return !!(this.selectedFile && this.selectedBank && this.selectedSucursal);
     },
     filteredBanks() {
       // Al devolver 'this.allBanks' directamente, la opción 'EXTERNO' 
@@ -183,12 +203,18 @@ export default {
     fileTypeHint() {
       return this.selectedBank === "EXTERNO" ? "XLSX" : "PDF";
     },
+    zonaClase() {
+      if (this.errorMessage) return "border-red-400 bg-red-50";
+      if (this.arrastrando) return "border-green-500 bg-green-50";
+      if (this.selectedFile) return "border-green-400";
+      return "border-gray-300";
+    },
   },
   watch: {
     /**
      * Este 'observador' se activa cada vez que 'selectedSucursal' cambia.
      */
-    selectedSucursal(newSucursal, oldSucursal) {
+    selectedSucursal() {
       // Verificamos si el banco que estaba seleccionado ('this.selectedBank')
       // existe en la nueva lista de bancos filtrados.
       const isCurrentBankValid = this.filteredBanks.some(
@@ -205,29 +231,37 @@ export default {
     // NUEVO: Observador para re-validar el archivo cuando el banco cambia
     selectedBank() {
         // Si ya hay un archivo seleccionado...
-      if (this.selectedFile) {
-        // ...y NO es válido para el nuevo banco seleccionado...
-        if (!this.isFileValid(this.selectedFile)) {
-           this.errorMessage = `El archivo ${this.selectedFile.name} no es un ${this.fileTypeHint}. Por favor, sube un archivo válido.`;
-          // ...lo limpiamos.
-          this.selectedFile = null;
-          this.$refs.fileInput.value = ''; // Limpia el input de archivo
-        } else {
-             this.errorMessage = "";
-        }
+      if (!this.selectedFile) {
+        return;
+      }
+      // ...y NO es válido para el nuevo banco seleccionado...
+      if (!this.isFileValid(this.selectedFile)) {
+        this.errorMessage = `El archivo ${this.selectedFile.name} no es un ${this.fileTypeHint}. Por favor, sube un archivo válido.`;
+        this.limpiarArchivo();
+      } else {
+        this.errorMessage = ""; 
       }
     },
   },
   methods: {
     // 5. Método para manejar la carga del archivo
     handleFileUpload(event) {
-      // Obtenemos el primer archivo seleccionado
-      this.errorMessage = ""; // Limpiamos errores previos
-      const file = event.target.files[0];
+      this.asignarArchivo(event.target.files[0], event.target);
+    },
+
+    handleDrop(event) {
+      this.arrastrando = false;
+      if (this.isLoading) return;
+      const file = event.dataTransfer && event.dataTransfer.files ? event.dataTransfer.files[0] : null;
+      this.asignarArchivo(file, null);
+    },
+
+    asignarArchivo(file, input) {
+      this.errorMessage = "";
 
       if (!file) {
-          this.selectedFile = null;
-          return;
+        this.selectedFile = null;
+        return;
       }
 
       // Validamos el archivo antes de asignarlo
@@ -237,25 +271,58 @@ export default {
         // Si no es válido, mostramos un error y limpiamos todo
         this.errorMessage = `Tipo de archivo incorrecto. Por favor, sube un ${this.fileTypeHint}.`;
         this.selectedFile = null;
-        event.target.value = ''; // Limpia el input para poder subir el mismo archivo (corregido) de nuevo
+        if (input) input.value = "";
+      }
+    },
+
+    limpiarArchivo() {
+      this.selectedFile = null;
+      if (this.$refs.fileInput) {
+        this.$refs.fileInput.value = "";
       }
     },
      // NUEVO: Método reutilizable para validar el archivo
     isFileValid(file) {
-        const isExcel = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || file.name.endsWith('.xlsx');
-        const isPdf = file.type === 'application/pdf' || file.name.endsWith('.pdf');
+      const nombre = (file.name || "").toLowerCase();
+      const isExcel = file.type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" || nombre.endsWith(".xlsx");
+      const isPdf = file.type === "application/pdf" || nombre.endsWith(".pdf");
 
-        if(this.selectedBank === 'EXTERNO') {
-            return isExcel;
-        }
-
-        return isPdf;
+      return this.selectedBank === "EXTERNO" ? isExcel : isPdf;
     },
 
+    // Mensaje claro a partir de la respuesta del servidor
+    mensajeDeError(error) {
+      const r = error && error.response;
 
-    // 6. Método que se ejecutará al hacer clic en el botón
+      if (!r) {
+        return "No se pudo comunicar con el servidor. Revisa tu conexión e inténtalo de nuevo.";
+      }
+
+      const data = r.data || {};
+
+      // 422: validación (PDF como imagen, dañado, con contraseña, otro banco, formato incorrecto)
+      if (r.status === 422) {
+        const errores = data.errors || {};
+        const primero = Object.values(errores)[0];
+        return (errores.estado_de_cuenta && errores.estado_de_cuenta[0])
+          || (Array.isArray(primero) ? primero[0] : null)
+          || data.message
+          || "El estado de cuenta no tiene el formato correcto.";
+      }
+
+      if (r.status === 413) {
+        return "El archivo es demasiado grande. El máximo es 10 MB.";
+      }
+
+      if (r.status === 419) {
+        return "Tu sesión expiró. Recarga la página e inténtalo de nuevo.";
+      }
+
+      return data.error || data.message || "Ocurrió un error inesperado al subir el estado de cuenta.";
+    },
+
     submitForm() {
-      if (!this.isFormValid) return;
+      if (!this.isFormValid || this.isLoading) return;
 
       this.isLoading = true;
       this.errorMessage = ""; // Limpiamos errores anteriores
@@ -288,9 +355,15 @@ export default {
         .catch((error) => {
           // Si algo falló en el backend...
           this.isLoading = false;
-          // Mostramos el error que nos devolvió el controlador
-          this.errorMessage =
-            error.response?.data?.error || "Ocurrió un error inesperado.";
+          this.errorMessage = this.mensajeDeError(error);
+
+          // El archivo rechazado se quita para que el usuario elija el correcto
+          if (error.response && error.response.status === 422) {
+            this.limpiarArchivo();
+          } else {
+            console.error("Error al subir el estado de cuenta:", error);
+          }
+
           alert(this.errorMessage);
         });
     },
