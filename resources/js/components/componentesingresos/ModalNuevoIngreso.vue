@@ -338,12 +338,7 @@ export default {
     },
     esIntshipperts() {
       const sucursalUpper = String(this.sucursalSeleccionada).toUpperCase();
-      const cliente = typeof this.form.cliente === 'object' && this.form.cliente !== null
-        ? this.form.cliente.nombre
-        : this.form.cliente;
-      const clienteUpper = String(cliente || '').toUpperCase();
-
-      return sucursalUpper.includes('INTSHIPPERT') || clienteUpper.includes('INTSHIPPERT') || this.checkIntshipperts;
+      return sucursalUpper.includes('INTSHIPPERT') || this.checkIntshipperts;
     },
     esManzanillo() {
       const sucursal = String(this.sucursalSeleccionada).toUpperCase();
@@ -351,12 +346,7 @@ export default {
     },
     esTransportactics() {
       const sucursalUpper = String(this.sucursalSeleccionada).toUpperCase();
-      const cliente = typeof this.form.cliente === 'object' && this.form.cliente !== null
-        ? this.form.cliente.nombre
-        : this.form.cliente;
-      const clienteUpper = String(cliente || '').toUpperCase();
-
-      return sucursalUpper.includes('TRANSPORTACTIC') || clienteUpper.includes('TRANSPORTACTIC') || this.checkTransportactics;
+      return sucursalUpper.includes('TRANSPORTACTIC') || this.checkTransportactics;
     },
 
     opcionesPedimentos() {

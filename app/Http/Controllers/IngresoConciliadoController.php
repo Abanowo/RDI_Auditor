@@ -3089,15 +3089,14 @@ class IngresoConciliadoController extends Controller
     /**
      * Determina qué columnas aplican al ingreso (mismo orden de prioridad que IngresoCard.vue).
      */
-    private function detectarTipoDesglose($sucursal, $cliente): string
+    private function detectarTipoDesglose($sucursal, $cliente = null): string
     {
         $sucursalUpper = strtoupper((string) $sucursal);
-        $clienteUpper  = strtoupper((string) $cliente);
- 
-        if (str_contains($sucursalUpper, 'INTSHIPPERT') || str_contains($clienteUpper, 'INTSHIPPERTS')) {
+
+        if (str_contains($sucursalUpper, 'INTSHIPPERT')) {
             return 'intshipperts';
         }
-        if (str_contains($sucursalUpper, 'TRANSPORTACTIC') || str_contains($clienteUpper, 'TRANSPORTACTICS')) {
+        if (str_contains($sucursalUpper, 'TRANSPORTACTIC')) {
             return 'transportactics';
         }
         if (str_contains($sucursalUpper, 'MANZANILLO') || str_contains($sucursalUpper, 'ZLO')) {
@@ -3928,7 +3927,7 @@ class IngresoConciliadoController extends Controller
                 $clienteNombre = $empresa ? strtoupper($empresa->nombre) : '';
             }
 
-            $isTransportactics = str_contains($clienteNombre, 'TRANSPORTACTICS') || str_contains($sucursal, 'TRANSPORTACTIC');
+            $isTransportactics = str_contains($sucursal, 'TRANSPORTACTIC');
             $esManzanillo = str_contains($sucursal, 'MANZANILLO') || str_contains($sucursal, 'ZLO') || str_contains($sucursal, 'INTSHIPPERT');
 
             $fleteReal = (float) str_replace(['$', ','], '', $request->flete ?? 0);
@@ -4161,7 +4160,7 @@ class IngresoConciliadoController extends Controller
             }
 
             $sucursalUpper = strtoupper($ingreso->sucursal_origen ?? '');
-            $isTransportactics = str_contains($clienteNombre, 'TRANSPORTACTICS') || str_contains($sucursalUpper, 'TRANSPORTACTIC');
+            $isTransportactics = str_contains($sucursalUpper, 'TRANSPORTACTIC');
             $esManzanillo = str_contains($sucursalUpper, 'MANZANILLO') || str_contains($sucursalUpper, 'ZLO') || str_contains($sucursalUpper, 'INTSHIPPERT');
 
             $fleteReal = (float) str_replace(['$', ','], '', $request->flete ?? $ingreso->flete);
