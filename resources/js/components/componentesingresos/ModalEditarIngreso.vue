@@ -716,6 +716,7 @@ export default {
                 this.$set(this.form, 'desglose_naviera', Number(datos.desglose_naviera) || 0);
                 this.$set(this.form, 'proveedor_maniobras', datos.proveedor_maniobras || null);
                 this.$set(this.form, 'factura_maniobras', datos.factura_maniobras || null);
+                this.$set(this.form, 'detalle_maniobras', datos.detalle_maniobras || []);
                 this.$set(this.form, 'proveedor_flete', datos.proveedor_flete || null);
                 this.$set(this.form, 'factura_flete', datos.factura_flete || null);
                 this.$set(this.form, 'proveedor_muestras', datos.proveedor_muestras || null);
@@ -947,6 +948,7 @@ export default {
                         ganancia: op.ganancia ?? (totalOps === 1 ? Number(this.form.ganancia || 0) : 0),
                         proveedor_maniobras: op.proveedor_maniobras ?? null,
                         factura_maniobras: op.factura_maniobras ?? null,
+                        detalle_maniobras: op.detalle_maniobras ?? (totalOps === 1 ? (this.form.detalle_maniobras || null) : null),
                         proveedor_flete: op.proveedor_flete ?? null,
                         factura_flete: op.factura_flete ?? null,
                         proveedor_muestras: op.proveedor_muestras ?? null,

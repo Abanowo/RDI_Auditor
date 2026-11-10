@@ -89,6 +89,7 @@ class EnviarReporteDiarioConceptos extends Command
             if ($ingreso->operaciones && $ingreso->operaciones->count() > 0) {
 
                 foreach ($ingreso->operaciones as $op) {
+                    $lineasManiobras = [];
                     $rawRef = trim($op->referencia ?? '');
                     $pedimentoOp = $rawRef ?: ($ingreso->pedimento_detectado ?: $facturaSCHeader);
                     $facturaSCOp = $facturaSCHeader;
@@ -148,6 +149,12 @@ class EnviarReporteDiarioConceptos extends Command
                     } else {
                         $provManiobras = !empty($op->proveedor_maniobras) ? $op->proveedor_maniobras : ($ingreso->proveedor_maniobras ?: 'SAFINSA');
                         $facManiobras  = $op->factura_maniobras ?? ($ingreso->factura_maniobras ?: '--');
+                        $lineasManiobras = $this->lineasManiobras(
+                            $op->detalle_maniobras ?? null,
+                            (float) ($op->maniobras ?? 0),
+                            $provManiobras,
+                            $facManiobras
+                        );
 
                         $provFlete = !empty($op->proveedor_flete) ? $op->proveedor_flete : ($ingreso->proveedor_flete ?: 'TRANSPORTACTICS');
                         $facFlete  = $op->factura_flete ?? ($ingreso->factura_flete ?: '--');
@@ -166,7 +173,13 @@ class EnviarReporteDiarioConceptos extends Command
                         ];
                     }
 
-                    foreach ($conceptosOp as $pxcc => $datos) {
+                    $lineasOp = $lineasManiobras;
+                    foreach ($conceptosOp as $pxcc => $d) {
+                        $lineasOp[] = $d + ['pxcc' => $pxcc];
+                    }
+
+                    foreach ($lineasOp as $datos) {
+                        $pxcc = $datos['pxcc'];
                         if ($datos['monto'] != 0) {
                             $procesadoEnOperaciones = true;
                             $facturaP = (!empty($datos['fac']) && $datos['fac'] !== '-' && $datos['fac'] !== 'N/A') ? $datos['fac'] : '--';
@@ -259,5 +272,41 @@ class EnviarReporteDiarioConceptos extends Command
         }
 
         return 0;
+    }
+    private function lineasManiobras($detalleRaw, float $montoManiobras, string $provDefault, string $facDefault): array
+    {
+        $detalle = is_string($detalleRaw) ? json_decode($detalleRaw, true) : $detalleRaw;
+
+        if (is_array($detalle) && !empty($detalle)) {
+            $suma = 0;
+            foreach ($detalle as $l) {
+                $suma += (float) ($l['monto'] ?? 0);
+            }
+
+            // Si alguien editó el monto a mano y ya no cuadra, se usa la línea única
+            if (abs($suma - $montoManiobras) <= 0.05) {
+                $lineas = [];
+                foreach ($detalle as $l) {
+                    $lineas[] = [
+                        'pxcc'  => $this->normalizarConceptoManiobra($l['concepto'] ?? 'MANIOBRAS'),
+                        'monto' => (float) ($l['monto'] ?? 0),
+                        'prov'  => !empty($l['proveedor']) ? $l['proveedor'] : '--',
+                        'fac'   => !empty($l['factura']) ? $l['factura'] : '--',
+                    ];
+                }
+                return $lineas;
+            }
+        }
+
+        return [['pxcc' => 'MANIOBRAS', 'monto' => $montoManiobras, 'prov' => $provDefault, 'fac' => $facDefault]];
+    }
+
+    private function normalizarConceptoManiobra(string $concepto): string
+    {
+        $c = strtoupper(trim($concepto));
+        if (str_contains($c, 'FERROVIARIA')) return 'FERROVIARIAS';   // agrupa "FERROVIARIAS 2"
+        if (str_contains($c, 'FUMIGACI'))    return 'FUMIGACION';
+        if (str_contains($c, 'MANIOBRA'))    return 'MANIOBRAS';
+        return $c !== '' ? $c : 'MANIOBRAS';
     }
 }

@@ -716,6 +716,7 @@ class IngresoConciliadoController extends Controller
                     'desglose_naviera' => 0,
                     'proveedor_maniobras' => null,
                     'factura_maniobras' => null,
+                    'detalle_maniobras' => [],
                     'proveedor_flete' => null,
                     'factura_flete' => null,
                     'proveedor_muestras' => null,
@@ -1529,6 +1530,7 @@ class IngresoConciliadoController extends Controller
 
                 $op_prov_maniobras = null;
                 $op_fac_maniobras = null;
+                $op_detalle_maniobras = [];
                 $op_prov_flete = null;
                 $op_fac_flete = null;
                 $op_prov_muestras = null;
@@ -1579,6 +1581,14 @@ class IngresoConciliadoController extends Controller
                                 $resultados['factura_maniobras'] = $factura;
                                 $op_fac_maniobras = $factura;
                             }
+                            $lineaManiobra = [
+                                'concepto'  => $concepto,          // FERROVIARIAS, FERROVIARIAS 2, FUMIGACION, MANIOBRAS...
+                                'proveedor' => $proveedor ?: null,
+                                'factura'   => $factura ?: null,
+                                'monto'     => round($montoLimpio, 2),
+                            ];
+                            $op_detalle_maniobras[] = $lineaManiobra;
+                            $resultados['detalle_maniobras'][] = $lineaManiobra;
                         } elseif (str_contains($concepto, 'FLETE')) {
                             $resultados['flete'] += $montoLimpio;
                             $op_flete += $montoLimpio;
@@ -1736,6 +1746,7 @@ class IngresoConciliadoController extends Controller
                         'factura_muestras'    => $op_fac_muestras,
                         'proveedor_llc'       => $op_prov_llc,
                         'factura_llc'         => $op_fac_llc,
+                        'detalle_maniobras'   => $op_detalle_maniobras,
                     ];
                 }
             }
@@ -1786,6 +1797,53 @@ class IngresoConciliadoController extends Controller
         }
         $limpio = str_replace(['$', ',', ' ', 'MXN', 'USD'], '', strtoupper((string) $valor));
         return is_numeric($limpio) ? (float) $limpio : 0.0;
+    }
+    private function normalizarDetalleManiobras($detalle): array
+    {
+        if (is_string($detalle)) {
+            $detalle = json_decode($detalle, true);
+        }
+        if (!is_array($detalle)) {
+            return [];
+        }
+
+        $permitidos = ['PAGADO', 'PAGADO POR ANT'];
+        $limpio = [];
+
+        foreach ($detalle as $linea) {
+            if (!is_array($linea)) {
+                continue;
+            }
+            $monto = round((float) str_replace(['$', ',', ' '], '', (string) ($linea['monto'] ?? 0)), 2);
+            $proveedor = trim((string) ($linea['proveedor'] ?? ''));
+            $factura = trim((string) ($linea['factura'] ?? ''));
+
+            if ($monto == 0 && $proveedor === '' && $factura === '') {
+                continue;
+            }
+
+            $estatus = strtoupper(trim((string) ($linea['estatus'] ?? '')));
+
+            $limpio[] = [
+                'concepto'  => strtoupper(trim((string) ($linea['concepto'] ?? ''))) ?: 'MANIOBRAS',
+                'proveedor' => $proveedor !== '' ? $proveedor : null,
+                'factura'   => $factura !== '' ? $factura : null,
+                'monto'     => $monto,
+                'estatus'   => in_array($estatus, $permitidos, true) ? $estatus : null,
+            ];
+        }
+
+        return $limpio;
+    }
+
+    private function obtenerDetalleManiobras($op, Request $request, int $totalElementos): ?string
+    {
+        $detalle = is_array($op) ? ($op['detalle_maniobras'] ?? null) : null;
+        if (empty($detalle) && $totalElementos === 1) {
+            $detalle = $request->input('detalle_maniobras');
+        }
+        $limpio = $this->normalizarDetalleManiobras($detalle);
+        return empty($limpio) ? null : json_encode($limpio, JSON_UNESCAPED_UNICODE);
     }
 
     /**
@@ -2809,6 +2867,7 @@ class IngresoConciliadoController extends Controller
             'filas.*.referencia'          => 'required|string|distinct',
             'filas.*.referencia_original' => 'nullable|string',
             'recalcular_totales'          => 'nullable|boolean',
+            'filas.*.detalle_maniobras' => 'nullable|array',
         ], [
             'filas.*.referencia.required' => 'Todas las operaciones necesitan una referencia.',
             'filas.*.referencia.distinct' => 'Hay referencias repetidas en el desglose.',
@@ -2915,7 +2974,25 @@ class IngresoConciliadoController extends Controller
                     $valorEstatus = isset($fila[$campo]) ? strtoupper(trim((string) $fila[$campo])) : '';
                     $datos[$campo] = in_array($valorEstatus, $estatusPermitidos, true) ? $valorEstatus : null;
                 }
- 
+                $detalle = $this->normalizarDetalleManiobras($fila['detalle_maniobras'] ?? null);
+
+                if (!empty($detalle)) {
+                    // La columna maniobras siempre es la suma de sus conceptos
+                    $datos['maniobras'] = round(array_sum(array_column($detalle, 'monto')), 2);
+
+                    // Proveedor/factura "principal" para vistas que solo leen una columna
+                    $conProveedor = array_values(array_filter($detalle, fn($l) => !empty($l['proveedor'])));
+                    $datos['proveedor_maniobras'] = $conProveedor[0]['proveedor'] ?? null;
+                    $conFactura = array_values(array_filter($detalle, fn($l) => !empty($l['factura'])));
+                    $datos['factura_maniobras'] = $conFactura[0]['factura'] ?? null;
+
+                    // Estatus general: solo si todas las líneas tienen el mismo
+                    $estatusUnicos = array_values(array_unique(array_map(fn($l) => $l['estatus'] ?? '', $detalle)));
+                    $datos['estatus_pago_maniobras'] = (count($estatusUnicos) === 1 && $estatusUnicos[0] !== '') ? $estatusUnicos[0] : null;
+                }
+
+                $datos['detalle_maniobras'] = empty($detalle) ? null : json_encode($detalle, JSON_UNESCAPED_UNICODE);
+
                 $gpcFila = 0;
                 foreach ($conceptosGpc as $concepto) {
                     $gpcFila += $datos[$concepto];
@@ -3055,7 +3132,7 @@ class IngresoConciliadoController extends Controller
                     $fila->pedimento = $pedimentosExpo->get($fila->operacion_id);
                 }
             }
- 
+            $fila->detalle_maniobras = $this->normalizarDetalleManiobras($fila->detalle_maniobras ?? null);
             return $fila;
         })->values();
     }
@@ -4070,6 +4147,7 @@ class IngresoConciliadoController extends Controller
 
                         'proveedor_maniobras' => $textoOp('proveedor_maniobras', 'proveedor_maniobras'),
                         'factura_maniobras'   => $textoOp('factura_maniobras', 'factura_maniobras'),
+                        'detalle_maniobras' => $this->obtenerDetalleManiobras($op, $request, $totalElementos),
                         'proveedor_flete'     => $textoOp('proveedor_flete', 'proveedor_flete'),
                         'factura_flete'       => $textoOp('factura_flete', 'factura_flete'),
                         'proveedor_muestras'  => $textoOp('proveedor_muestras', 'proveedor_muestras'),

@@ -713,6 +713,7 @@ export default {
 
         this.form.proveedor_maniobras = datos.proveedor_maniobras || null;
         this.form.factura_maniobras = datos.factura_maniobras || null;
+        this.form.detalle_maniobras = datos.detalle_maniobras || [];
         this.form.proveedor_flete = datos.proveedor_flete || null;
         this.form.factura_flete = datos.factura_flete || null;
         this.form.proveedor_muestras = datos.proveedor_muestras || null;
@@ -939,6 +940,7 @@ export default {
             // Proveedores y Facturas
             proveedor_maniobras: op.proveedor_maniobras,
             factura_maniobras: op.factura_maniobras,
+            detalle_maniobras: op.detalle_maniobras || null,
             proveedor_flete: op.proveedor_flete,
             factura_flete: op.factura_flete,
             proveedor_muestras: op.proveedor_muestras,

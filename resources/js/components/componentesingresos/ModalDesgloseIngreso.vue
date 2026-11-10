@@ -138,10 +138,16 @@
                     </td>
 
                     <td v-for="concepto in conceptos" :key="'td-' + fila._uid + '-' + concepto.key" class="px-3 py-3">
-                      <input type="number" step="0.01" v-model.number="fila[concepto.key]" :disabled="bloqueado"
-                        class="w-full px-3 py-2 border rounded-md text-right font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-600"
-                        :class="aNumero(fila[concepto.key]) !== 0 ? 'border-green-300 bg-green-50 text-green-800' : 'border-gray-300'">
-                    </td>
+                        <input type="number" step="0.01" v-model.number="fila[concepto.key]"
+                          :disabled="bloqueado || (concepto.key === 'maniobras' && tieneDetalle(fila))"
+                          :title="concepto.key === 'maniobras' && tieneDetalle(fila) ? 'Suma de sus conceptos. Edítalos en Pagos a proveedores.' : ''"
+                          class="w-full px-3 py-2 border rounded-md text-right font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-600"
+                          :class="aNumero(fila[concepto.key]) !== 0 ? 'border-green-300 bg-green-50 text-green-800' : 'border-gray-300'">
+                        <p v-if="concepto.key === 'maniobras' && tieneDetalle(fila)"
+                          class="text-sm font-semibold text-amber-700 text-right mt-1">
+                          {{ fila.detalle_maniobras.length }} conceptos
+                        </p>
+                      </td>
 
                     <td v-if="mostrarGpc" class="px-4 py-3 text-right">
                       <span class="inline-block py-2 font-black text-gray-800">{{ formatearDinero(totalGpcFila(fila)) }}</span>
@@ -176,17 +182,27 @@
                         <div v-for="prov in proveedores" :key="'prov-' + fila._uid + '-' + prov.concepto"
                           class="bg-white border border-gray-200 rounded-lg p-3">
                           <p class="text-base font-black text-gray-700 mb-2">{{ prov.concepto }}</p>
+
                           <label class="block text-sm font-bold text-gray-500 mb-1">Proveedor</label>
                           <input type="text" v-model="fila[prov.proveedor]" :disabled="bloqueado"
                             class="w-full px-3 py-1.5 mb-2 border border-gray-300 rounded-md text-base focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100">
                           <label class="block text-sm font-bold text-gray-500 mb-1">Factura</label>
                           <input type="text" v-model="fila[prov.factura]" :disabled="bloqueado"
                             class="w-full px-3 py-1.5 mb-2 border border-gray-300 rounded-md text-base focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100">
-                          <template v-if="prov.montoUsd">
-                            <label class="block text-sm font-bold text-blue-700 mb-1">Monto en dólares (USD)</label>
-                            <input type="number" step="0.01" v-model.number="fila[prov.montoUsd]" :disabled="bloqueado"
-                              class="w-full px-3 py-1.5 mb-2 border border-blue-300 bg-blue-50 rounded-md text-base text-right font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100">
-                          </template>
+                           <template v-if="prov.monto === 'maniobras' && tieneDetalle(fila)">
+                              <div v-for="det in fila.detalle_maniobras" :key="'res-' + det._uid"
+                                class="flex justify-between text-sm border-b border-gray-100 py-1">
+                                <span class="font-bold text-gray-700">{{ det.concepto }} <span
+                                    class="font-normal text-gray-500">· {{ det.proveedor || 'Sin proveedor'
+                                    }}</span></span>
+                                <span class="font-bold">{{ formatearDinero(det.monto) }}</span>
+                              </div>
+                              <button type="button" @click="vista = 'proveedores'"
+                                class="mt-2 text-sm font-bold text-blue-600 hover:underline">
+                                Editar en Pagos a proveedores
+                              </button>
+                            </template>
+
                           <label class="block text-sm font-bold text-gray-500 mb-1">Estatus de pago</label>
                           <select v-model="fila[prov.estatus]" :disabled="bloqueado"
                             class="w-full px-3 py-1.5 border rounded-md text-base font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -231,6 +247,12 @@
             <span class="text-xl leading-none">+</span> Agregar operación
           </button>
           </div>
+
+        <datalist id="conceptos-maniobras">
+            <option value="MANIOBRAS"></option>
+            <option value="FERROVIARIAS"></option>
+            <option value="FUMIGACION"></option>
+          </datalist>
 
           <!-- ============================================== -->
           <!-- PAGOS A PROVEEDORES                            -->
@@ -283,59 +305,80 @@
                       <th class="px-3 py-3 text-center min-w-[170px]">Estatus</th>
                     </tr>
                   </thead>
-                  <template v-for="(fila, indiceFila) in filas">
-                    <tbody :key="'grupo-' + fila._uid" class="text-gray-800"
+                  <template v-for="(bloque, indiceFila) in bloquesProveedor">
+                    <tbody :key="'grupo-' + bloque.fila._uid" class="text-gray-800"
                       :class="indiceFila > 0 ? 'border-t-4 border-gray-200' : ''">
-                      <tr v-for="(prov, indiceConcepto) in proveedores" :key="fila._uid + '-' + prov.monto"
+                      <tr v-for="(linea, indiceConcepto) in bloque.lineas" :key="linea.key"
                         class="border-b border-gray-100"
-                        :class="lineaVacia(fila, prov) ? 'bg-gray-50/60' : 'bg-white'">
+                        :class="lineaVacia(linea) ? 'bg-gray-50/60' : (linea.esDetalle ? 'bg-amber-50/40' : 'bg-white')">
 
-                        <!-- Datos de la operación (una sola vez por bloque, como en el Sheet) -->
-                        <td v-if="indiceConcepto === 0" :rowspan="proveedores.length"
-                          class="px-3 py-2 text-center font-semibold align-middle border-r border-gray-100">{{ sucursalCorta }}</td>
-                        <td v-if="indiceConcepto === 0" :rowspan="proveedores.length"
-                          class="px-3 py-2 text-center font-bold align-middle border-r border-gray-100">{{ ingreso.cliente_nombre }}</td>
-                        <td v-if="indiceConcepto === 0" :rowspan="proveedores.length"
-                          class="px-3 py-2 text-center font-semibold align-middle border-r border-gray-100">{{ fila.pedimento || '—' }}</td>
+                        <td v-if="indiceConcepto === 0" :rowspan="bloque.lineas.length"
+                          class="px-3 py-2 text-center font-semibold align-middle border-r border-gray-100">{{
+                          sucursalCorta }}</td>
+                        <td v-if="indiceConcepto === 0" :rowspan="bloque.lineas.length"
+                          class="px-3 py-2 text-center font-bold align-middle border-r border-gray-100">{{
+                          ingreso.cliente_nombre }}</td>
+                        <td v-if="indiceConcepto === 0" :rowspan="bloque.lineas.length"
+                          class="px-3 py-2 text-center font-semibold align-middle border-r border-gray-100">{{
+                            bloque.fila.pedimento || '—' }}</td>
 
+                        <!-- PXCC: editable en las líneas de maniobras desglosadas -->
                         <td class="px-3 py-2 text-center font-bold uppercase"
-                          :class="lineaVacia(fila, prov) ? 'text-gray-400' : 'text-gray-800'">{{ prov.concepto }}</td>
+                          :class="lineaVacia(linea) ? 'text-gray-400' : 'text-gray-800'">
+                          {{ linea.concepto }}
+                        </td>
+
                         <td class="px-3 py-1.5">
-                          <input type="text" v-model="fila[prov.proveedor]" :disabled="bloqueado"
+                          <input type="text" v-model="linea.obj[linea.campoProveedor]" :disabled="bloqueado"
                             class="w-full min-w-[190px] px-2 py-1.5 border border-gray-300 rounded-md text-center uppercase focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:border-transparent">
                         </td>
                         <td class="px-3 py-1.5">
-                          <input type="text" v-model="fila[prov.factura]" :disabled="bloqueado"
+                          <input type="text" v-model="linea.obj[linea.campoFactura]" :disabled="bloqueado"
                             class="w-full min-w-[150px] px-2 py-1.5 border border-gray-300 rounded-md text-center focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:border-transparent">
                         </td>
                         <td class="px-3 py-1.5">
-                          <!-- LLC: se paga en dólares (columna K del Sheet) -->
-                          <template v-if="prov.montoUsd">
-                            <input type="number" step="0.01" v-model.number="fila[prov.montoUsd]" :disabled="bloqueado"
+                          <template v-if="linea.campoUsd">
+                            <input type="number" step="0.01" v-model.number="linea.obj[linea.campoUsd]"
+                              :disabled="bloqueado"
                               class="w-full min-w-[150px] px-2 py-1.5 border border-blue-300 bg-blue-50 rounded-md text-right font-bold text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:border-transparent">
-                            <p v-if="aNumero(fila[prov.monto]) !== 0" class="text-sm font-semibold text-gray-500 text-right mt-1">
-                              Equivale a {{ formatearDinero(fila[prov.monto]) }} {{ moneda }}
+                            <p v-if="aNumero(linea.obj[linea.campoMonto]) !== 0"
+                              class="text-sm font-semibold text-gray-500 text-right mt-1">
+                              Equivale a {{ formatearDinero(linea.obj[linea.campoMonto]) }} {{ moneda }}
                             </p>
                           </template>
-                          <input v-else type="number" step="0.01" v-model.number="fila[prov.monto]" :disabled="bloqueado"
+                          <input v-else type="number" step="0.01" v-model.number="linea.obj[linea.campoMonto]"
+                            :disabled="bloqueado" @input="linea.esDetalle && sincronizarManiobras(bloque.fila)"
                             class="w-full min-w-[150px] px-2 py-1.5 border border-gray-300 rounded-md text-right font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:border-transparent">
                         </td>
                         <td class="px-3 py-2 text-center">
-                          <span v-if="prov.monedaFija" class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-bold">{{ monedaLinea({ fila, prov }) }}</span>
-                          <span v-else class="font-semibold">{{ monedaLinea({ fila, prov }) }}</span>
+                          <span v-if="linea.monedaFija"
+                            class="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-bold">{{ monedaLinea(linea)
+                            }}</span>
+                          <span v-else class="font-semibold">{{ monedaLinea(linea) }}</span>
                         </td>
 
-                        <td v-if="indiceConcepto === 0" :rowspan="proveedores.length"
+                        <td v-if="indiceConcepto === 0" :rowspan="bloque.lineas.length"
                           class="px-3 py-2 text-center align-middle border-l border-gray-100">
-                          <span class="inline-block px-3 py-1 rounded bg-green-100 text-green-800 font-bold">{{ folioScDeFila(fila) }}</span>
+                          <span class="inline-block px-3 py-1 rounded bg-green-100 text-green-800 font-bold">{{
+                            folioScDeFila(bloque.fila) }}</span>
                         </td>
 
                         <td class="px-3 py-1.5">
-                          <select v-model="fila[prov.estatus]" :disabled="bloqueado"
+                          <select v-model="linea.obj[linea.campoEstatus]" :disabled="bloqueado"
                             class="w-full min-w-[190px] px-2 py-1.5 border rounded-md font-bold text-center focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed"
-                            :class="claseEstatus(fila[prov.estatus])">
-                            <option v-for="opcion in estatusPago" :key="'est-' + opcion.value" :value="opcion.value">{{ opcion.label }}</option>
+                            :class="claseEstatus(linea.obj[linea.campoEstatus])">
+                            <option v-for="opcion in estatusPago" :key="'est-' + opcion.value" :value="opcion.value">{{
+                              opcion.label }}</option>
                           </select>
+                        </td>
+                      </tr>
+
+                      <tr v-if="!bloqueado" :key="'add-' + bloque.fila._uid">
+                        <td colspan="10" class="px-3 py-1.5 text-right">
+                          <button type="button" @click="agregarLineaManiobra(bloque.fila)"
+                            class="text-sm font-bold text-amber-700 bg-amber-100 hover:bg-amber-200 px-3 py-1.5 rounded-lg transition-colors">
+                            + Agregar concepto de maniobras (ferroviarias, fumigación…)
+                          </button>
                         </td>
                       </tr>
                     </tbody>
@@ -518,17 +561,14 @@ export default {
       return ciudad ? abreviaturas[ciudad] : (sucursal || 'N/A');
     },
     // Una línea por cada concepto de cada operación (todas, como en el Sheet)
-    lineasProveedor() {
+    bloquesProveedor() {
       if (!this.tieneProveedores) {
         return [];
       }
-      const lineas = [];
-      this.filas.forEach(fila => {
-        PROVEEDORES.forEach(prov => {
-          lineas.push({ key: fila._uid + '-' + prov.monto, fila, prov });
-        });
-      });
-      return lineas;
+      return this.filas.map(fila => ({ fila, lineas: this.lineasDeFila(fila) }));
+    },
+    lineasProveedor() {
+      return this.bloquesProveedor.reduce((acc, bloque) => acc.concat(bloque.lineas), []);
     },
     // Totales separados por moneda (la LLC siempre se paga en dólares)
     totalesPorMoneda() {
@@ -543,7 +583,7 @@ export default {
           grupos[moneda] = { moneda, total: 0, pendiente: 0, pagado: 0 };
         }
         grupos[moneda].total = this.redondear(grupos[moneda].total + monto);
-        if (linea.fila[linea.prov.estatus]) {
+        if (linea.obj[linea.campoEstatus]) {
           grupos[moneda].pagado = this.redondear(grupos[moneda].pagado + monto);
         } else {
           grupos[moneda].pendiente = this.redondear(grupos[moneda].pendiente + monto);
@@ -562,14 +602,14 @@ export default {
         if (monto === 0) {
           return;
         }
-        const nombre = String(linea.fila[linea.prov.proveedor] || '').trim().toUpperCase() || 'Sin proveedor';
+        const nombre = String(linea.obj[linea.campoProveedor] || '').trim().toUpperCase() || 'Sin proveedor';
         const moneda = this.monedaLinea(linea);
         const llave = nombre + '|' + moneda;
         if (!grupos[llave]) {
           grupos[llave] = { llave, proveedor: nombre, moneda, total: 0, pendiente: 0 };
         }
         grupos[llave].total = this.redondear(grupos[llave].total + monto);
-        if (!linea.fila[linea.prov.estatus]) {
+        if (!linea.obj[linea.campoEstatus]) {
           grupos[llave].pendiente = this.redondear(grupos[llave].pendiente + monto);
         }
       });
@@ -658,6 +698,7 @@ export default {
       CAMPOS_TEXTO.forEach(campo => {
         fila[campo] = raw && raw[campo] ? String(raw[campo]) : '';
       });
+      fila.detalle_maniobras = this.normalizarDetalle(raw ? raw.detalle_maniobras : null);
       return fila;
     },
 
@@ -673,6 +714,13 @@ export default {
         CAMPOS_TEXTO.forEach(campo => {
           salida[campo] = f[campo] ? String(f[campo]).trim() : '';
         });
+        salida.detalle_maniobras = (f.detalle_maniobras || []).map(l => ({
+          concepto: String(l.concepto || '').trim().toUpperCase() || 'MANIOBRAS',
+          proveedor: String(l.proveedor || '').trim(),
+          factura: String(l.factura || '').trim(),
+          monto: this.redondear(this.aNumero(l.monto)),
+          estatus: l.estatus || ''
+        }));
         return salida;
       });
     },
@@ -729,21 +777,103 @@ export default {
       return fila.referencia_original ? 'Sin operación vinculada' : 'Captura manual (nueva)';
     },
 
-    // La LLC se paga en dólares; el resto en la moneda del ingreso
+    lineasDeFila(fila) {
+      const lineas = [];
+      PROVEEDORES.forEach(prov => {
+        if (prov.monto === 'maniobras' && this.tieneDetalle(fila)) {
+          fila.detalle_maniobras.forEach(det => {
+            lineas.push({
+              key: fila._uid + '-man-' + det._uid,
+              concepto: det.concepto,
+              obj: det,
+              esDetalle: true,
+              campoMonto: 'monto',
+              campoProveedor: 'proveedor',
+              campoFactura: 'factura',
+              campoEstatus: 'estatus',
+              campoUsd: null,
+              monedaFija: null
+            });
+          });
+          return;
+        }
+        lineas.push({
+          key: fila._uid + '-' + prov.monto,
+          concepto: prov.concepto,
+          obj: fila,
+          esDetalle: false,
+          campoMonto: prov.monto,
+          campoProveedor: prov.proveedor,
+          campoFactura: prov.factura,
+          campoEstatus: prov.estatus,
+          campoUsd: prov.montoUsd || null,
+          monedaFija: prov.monedaFija || null
+        });
+      });
+      return lineas;
+    },
+
     monedaLinea(linea) {
-      return linea.prov.monedaFija || this.moneda;
+      return linea.monedaFija || this.moneda;
     },
 
-    // Monto a pagar: para la LLC es el monto en dólares, para los demás el monto del concepto
     montoLinea(linea) {
-      const campo = linea.prov.montoUsd || linea.prov.monto;
-      return this.aNumero(linea.fila[campo]);
+      return this.aNumero(linea.obj[linea.campoUsd || linea.campoMonto]);
     },
 
-    lineaVacia(fila, prov) {
-      const sinMonto = this.montoLinea({ fila, prov }) === 0 && this.aNumero(fila[prov.monto]) === 0;
-      const sinProveedor = String(fila[prov.proveedor] || '').trim() === '';
+    lineaVacia(linea) {
+      const sinMonto = this.montoLinea(linea) === 0 && this.aNumero(linea.obj[linea.campoMonto]) === 0;
+      const sinProveedor = String(linea.obj[linea.campoProveedor] || '').trim() === '';
       return sinMonto && sinProveedor;
+    },
+
+    normalizarDetalle(valor) {
+      let lista = valor;
+      if (typeof lista === 'string') {
+        try { lista = JSON.parse(lista); } catch (e) { lista = []; }
+      }
+      return Array.isArray(lista) ? lista.map(l => this.nuevaLineaManiobra(l)) : [];
+    },
+
+    nuevaLineaManiobra(l = {}) {
+      return {
+        _uid: ++contadorUid,
+        concepto: String(l.concepto || 'MANIOBRAS').toUpperCase(),
+        proveedor: l.proveedor ? String(l.proveedor) : '',
+        factura: l.factura ? String(l.factura) : '',
+        monto: this.aNumero(l.monto),
+        estatus: l.estatus || ''
+      };
+    },
+
+    tieneDetalle(fila) {
+      return Array.isArray(fila.detalle_maniobras) && fila.detalle_maniobras.length > 0;
+    },
+
+    sincronizarManiobras(fila) {
+      if (this.tieneDetalle(fila)) {
+        fila.maniobras = this.redondear(fila.detalle_maniobras.reduce((acc, l) => acc + this.aNumero(l.monto), 0));
+      }
+    },
+
+    agregarLineaManiobra(fila) {
+      // Si aún no hay detalle, la maniobra actual se vuelve la primera línea
+      if (!this.tieneDetalle(fila) && (this.aNumero(fila.maniobras) !== 0 || fila.proveedor_maniobras)) {
+        fila.detalle_maniobras.push(this.nuevaLineaManiobra({
+          concepto: 'MANIOBRAS',
+          proveedor: fila.proveedor_maniobras,
+          factura: fila.factura_maniobras,
+          monto: fila.maniobras,
+          estatus: fila.estatus_pago_maniobras
+        }));
+      }
+      fila.detalle_maniobras.push(this.nuevaLineaManiobra({ concepto: 'FERROVIARIAS' }));
+      this.sincronizarManiobras(fila);
+    },
+
+    quitarLineaManiobra(fila, linea) {
+      fila.detalle_maniobras = fila.detalle_maniobras.filter(l => l._uid !== linea._uid);
+      this.sincronizarManiobras(fila);
     },
 
     // La referencia suele venir como "FOLIO SC - PEDIMENTO - CLIENTE"; se muestra solo el folio
