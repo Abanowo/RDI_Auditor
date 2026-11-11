@@ -4109,125 +4109,132 @@ class AuditoriaImpuestosController extends Controller
     {
         gc_collect_cycles();
         $tarea = ($tareaId instanceof AuditoriaTareas) ? $tareaId : AuditoriaTareas::find($tareaId);
-        
+ 
         if (!$tarea || $tarea->status !== 'procesando') {
             return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
         }
-
+ 
         Log::info("Tarea #{$tarea->id}: Iniciando extracción de Total de Almacenaje...");
-
+ 
         try {
             $rutaMapeo = $tarea->mapeo_completo_facturas;
             if (!$rutaMapeo || !Storage::exists($rutaMapeo)) {
                 return ['code' => 1, 'message' => new \Exception("No se encontró el archivo de mapeo universal.")];
             }
-
+ 
             $mapeadoFacturas = (array) json_decode(Storage::get($rutaMapeo), true);
             $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'] ?? [];
             $indicesOperaciones = ($mapeadoFacturas['indices_importacion'] ?? []) + ($mapeadoFacturas['indices_exportacion'] ?? []);
-
+ 
             $auditoriasSC = $mapeadoFacturas['auditorias_sc'] ?? [];
             $indiceTiposCambio = [];
             foreach ($auditoriasSC as $auditoria) {
                 $desglose = is_array($auditoria['desglose_conceptos']) ? $auditoria['desglose_conceptos'] : json_decode($auditoria['desglose_conceptos'], true);
                 $indiceTiposCambio[$auditoria['pedimento_id']] = (float) ($desglose['tipo_cambio'] ?? 1.0);
             }
-
+ 
             $indiceAlmacen = $this->construirIndiceOperacionesAlmacenaje($indicesOperaciones);
-            $almacenajeParaSheets = []; 
-
+            $almacenajeParaSheets = [];
+ 
             foreach ($mapaPedimentoAId as $pedimentoLimpio => $datosId) {
-                $listaFacturasAlmacen = $indiceAlmacen[$pedimentoLimpio] ?? [];
+                $listaFacturasAlmacen = $this->facturasDelPedimento($indiceAlmacen, $pedimentoLimpio, $datosId);
                 if (empty($listaFacturasAlmacen)) {
                     continue;
                 }
-
+ 
                 $opId = $datosId['id_operacion'];
                 $tipoOp = ($datosId['tipo'] == 'Importacion') ? Importacion::class : Exportacion::class;
-                
+ 
                 try {
                     $queryOp = ($tipoOp === Importacion::class) ? Importacion::with('cliente')->find($opId) : Exportacion::with('cliente')->find($opId);
                 } catch (\Throwable $e) {
                     Log::error("Error consultando BD (Almacenaje) pedimento {$pedimentoLimpio}: " . $e->getMessage());
                     $queryOp = null;
                 }
-
+ 
                 $filasTemp = [];
-                $montosRegistrados = [];
-
+                $facturasVistas = [];
+ 
                 foreach ($listaFacturasAlmacen as $factura) {
+                    $rutaXml = $factura['ruta_xml'] ?? null;
+                    $rutaPdf = $factura['ruta_pdf'] ?? null;
+ 
                     try {
-                        $info = $this->extraerMontoYNaviera($factura['ruta_xml'] ?? null, $factura['ruta_pdf'] ?? null);
+                        $info = $this->extraerMontoYNaviera($rutaXml, $rutaPdf);
                     } catch (\Throwable $e) {
                         Log::error("Error extracción (Almacenaje) pedimento {$pedimentoLimpio}: " . $e->getMessage());
                         continue;
                     }
-
-                    if ($info['monto'] > 0) {
-                        $tipoCambio = $indiceTiposCambio[$datosId['id_pedimiento']] ?? 1.0;
-                        $montoMXN = $info['monto'];
-                        
-                        try {
-                            if (!empty($factura['ruta_xml'])) {
-                                $xmlData = $this->parsearXmlFlete($factura['ruta_xml']);
-                                if ($xmlData && strtoupper($xmlData['moneda']) === 'USD') {
-                                    $montoMXN = round($info['monto'] * $tipoCambio, 2);
-                                }
-                            }
-                        } catch (\Throwable $e) {
-                            Log::error("Error parseando moneda en XML (Almacenaje) pedimento {$pedimentoLimpio}: " . $e->getMessage());
-                        }
-
-                        try {
-                            $numeroDeContenedores = $this->contarContenedoresUniversal($factura['ruta_xml'] ?? null, $factura['ruta_pdf'] ?? null);
-                            $montoDivididoMXN = round($montoMXN / $numeroDeContenedores, 2);
-                        } catch (\Throwable $e) {
-                            Log::error("Error contando contenedores (Almacenaje) pedimento {$pedimentoLimpio}: " . $e->getMessage());
-                            $montoDivididoMXN = $montoMXN; 
-                        }
-
-                        $montoKey = (string)$montoDivididoMXN;
-                        if (in_array($montoKey, $montosRegistrados)) {
-                            continue;
-                        }
-                        $montosRegistrados[] = $montoKey;
-
-                        $indexActual = count($filasTemp);
-                        
-                        if ($indexActual === 0 || $indexActual === 1) {
-                            $conceptoNombre = 'Almacen';
-                        } else {
-                            $conceptoNombre = 'Almacen ' . ($indexActual + 1);
-                        }
-                        
-                        $filasTemp[] = [
-                            'fecha'      => $info['fecha'] ?: now()->format('Y-m-d'),
-                            'cliente'    => $queryOp ? optional($queryOp->cliente)->nombre : '',
-                            'contenedor' => $queryOp ? ($queryOp->contenedor ?? '') : '',
-                            'bl'         => $queryOp ? ($queryOp->bol ?? '') : '', 
-                            'naviera'    => $info['naviera'], 
-                            'pedimento'  => $pedimentoLimpio,
-                            'concepto'   => $conceptoNombre,
-                            'monto'      => (float) $montoDivididoMXN,
-                            'moneda'     => 'MXN'
-                        ];
+ 
+                    if ($info['monto'] <= 0) {
+                        continue;
                     }
+ 
+                    $tipoCambio = $indiceTiposCambio[$datosId['id_pedimiento']] ?? 1.0;
+                    $montoMXN = $info['monto'];
+ 
+                    try {
+                        if (!empty($rutaXml)) {
+                            $xmlData = $this->parsearXmlFlete($rutaXml);
+                            if ($xmlData && strtoupper($xmlData['moneda']) === 'USD') {
+                                $montoMXN = round($info['monto'] * $tipoCambio, 2);
+                            }
+                        }
+                    } catch (\Throwable $e) {
+                        Log::error("Error parseando moneda en XML (Almacenaje) pedimento {$pedimentoLimpio}: " . $e->getMessage());
+                    }
+ 
+                    try {
+                        $numeroDeContenedores = $this->contarContenedoresUniversal($rutaXml, $rutaPdf);
+                        $montoDivididoMXN = round($montoMXN / $numeroDeContenedores, 2);
+                    } catch (\Throwable $e) {
+                        Log::error("Error contando contenedores (Almacenaje) pedimento {$pedimentoLimpio}: " . $e->getMessage());
+                        $montoDivididoMXN = $montoMXN;
+                    }
+ 
+                    // Factura repetida: mismo UUID / folio en el mismo pedimento
+                    [$llave, $descripcion] = $this->llaveFactura($rutaXml, $rutaPdf, $montoDivididoMXN);
+                    if (isset($facturasVistas[$llave])) {
+                        Log::info("Almacenaje: Ped {$pedimentoLimpio} | Factura repetida ({$descripcion}), se omite: " . ($rutaPdf ?? $rutaXml));
+                        continue;
+                    }
+                    $facturasVistas[$llave] = true;
+ 
+                    $indexActual = count($filasTemp);
+ 
+                    if ($indexActual === 0 || $indexActual === 1) {
+                        $conceptoNombre = 'Almacen';
+                    } else {
+                        $conceptoNombre = 'Almacen ' . ($indexActual + 1);
+                    }
+ 
+                    $filasTemp[] = [
+                        'fecha'      => $info['fecha'] ?: now()->format('Y-m-d'),
+                        'cliente'    => $queryOp ? optional($queryOp->cliente)->nombre : '',
+                        'contenedor' => $queryOp ? ($queryOp->contenedor ?? '') : '',
+                        'bl'         => $queryOp ? ($queryOp->bol ?? '') : '',
+                        'naviera'    => $info['naviera'],
+                        'pedimento'  => $pedimentoLimpio,
+                        'concepto'   => $conceptoNombre,
+                        'monto'      => (float) $montoDivididoMXN,
+                        'moneda'     => 'MXN'
+                    ];
                 }
-
+ 
                 if (!empty($filasTemp)) {
                     $sumaConsolidada = 0;
                     foreach ($filasTemp as $fila) {
                         $sumaConsolidada += $fila['monto'];
                     }
-                    
+ 
                     $filaFinal = $filasTemp[0];
-                    $filaFinal['monto'] = $sumaConsolidada;
-                    $filaFinal['concepto'] = 'Almacen'; 
-                    
+                    $filaFinal['monto'] = round($sumaConsolidada, 2);
+                    $filaFinal['concepto'] = 'Almacen';
+ 
                     $almacenajeParaSheets[] = $filaFinal;
                 }
             }
-
+ 
             if (!empty($almacenajeParaSheets)) {
                 $paquetes = array_chunk($almacenajeParaSheets, 50);
                 foreach ($paquetes as $idx => $paquete) {
@@ -4243,9 +4250,9 @@ class AuditoriaImpuestosController extends Controller
             } else {
                 Log::info("Almacenaje: No se encontraron datos válidos para enviar a Sheets.");
             }
-
+ 
             return ['code' => 0, 'message' => 'completado'];
-
+ 
         } catch (\Throwable $e) {
             Log::error("Error extrayendo Total de Almacenaje a GPC: " . $e->getMessage());
             return ['code' => 1, 'message' => $e];
@@ -7577,27 +7584,27 @@ class AuditoriaImpuestosController extends Controller
     {
         gc_collect_cycles();
         $tarea = ($tareaId instanceof AuditoriaTareas) ? $tareaId : AuditoriaTareas::find($tareaId);
-
+ 
         if (!$tarea || ($tarea->exists && $tarea->status !== 'procesando')) {
             return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
         }
-
+ 
         if (strtoupper($tarea->sucursal ?? '') !== 'ZLO') {
             return ['code' => 0, 'message' => 'Omitido (Conceptos Extra solo aplica a ZLO)'];
         }
-
+ 
         Log::info("Tarea #{$tarea->id}: Iniciando extracción de Conceptos Especiales ZLO para GPC...");
-
+ 
         try {
             $rutaMapeo = $tarea->mapeo_completo_facturas;
             if (!$rutaMapeo || !Storage::exists($rutaMapeo)) {
                 return ['code' => 1, 'message' => new \Exception("No se encontró el archivo de mapeo universal.")];
             }
-
+ 
             $mapeadoFacturas = (array) json_decode(Storage::get($rutaMapeo), true);
             $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'] ?? [];
             $indicesOperaciones = ($mapeadoFacturas['indices_importacion'] ?? []) + ($mapeadoFacturas['indices_exportacion'] ?? []);
-
+ 
             // Tipos de cambio por pedimento (desde la SC) para facturas en USD
             $indiceTiposCambio = [];
             foreach (($mapeadoFacturas['auditorias_sc'] ?? []) as $auditoria) {
@@ -7606,7 +7613,7 @@ class AuditoriaImpuestosController extends Controller
                     : json_decode($auditoria['desglose_conceptos'], true);
                 $indiceTiposCambio[$auditoria['pedimento_id']] = (float) ($desglose['tipo_cambio'] ?? 1.0);
             }
-
+ 
             // ==========================================================
             // ANTI-DUPLICADOS: facturas que ya tomaron los otros conceptos
             // ==========================================================
@@ -7622,28 +7629,28 @@ class AuditoriaImpuestosController extends Controller
                     }
                 }
             };
-
+ 
             $registrarRutas($this->construirIndiceOperacionesTerminales($indicesOperaciones), ['path_pdf_man', 'path_xml_man']);
             $registrarRutas($this->construirIndiceOperacionesVacios($indicesOperaciones), ['ruta_pdf', 'ruta_xml']);
             $registrarRutas($this->construirIndiceOperacionesAlmacenaje($indicesOperaciones), ['ruta_pdf', 'ruta_xml']);
             $registrarRutas($this->construirIndiceOperacionesLogipuerto($indicesOperaciones), ['ruta_pdf', 'ruta_xml']);
-
+ 
             $indiceCandidatos = $this->construirIndiceConceptosEspecialesZLO($indicesOperaciones);
-
+ 
             $especialesParaSheets = [];
             $resumen = [];
-
+ 
             foreach ($mapaPedimentoAId as $pedimentoLimpio => $datosId) {
                 $pedimentoSucio = trim($datosId['num_pedimiento'] ?? '');
                 $candidatos = $indiceCandidatos[$pedimentoSucio] ?? $indiceCandidatos[$pedimentoLimpio] ?? [];
-
+ 
                 if (empty($candidatos)) {
                     continue;
                 }
-
+ 
                 $opId = $datosId['id_operacion'] ?? null;
                 $tipoOp = (($datosId['tipo'] ?? '') === 'Importacion') ? Importacion::class : Exportacion::class;
-
+ 
                 $queryOp = null;
                 try {
                     if ($opId) {
@@ -7655,60 +7662,61 @@ class AuditoriaImpuestosController extends Controller
                     Log::error("Conceptos ZLO: error consultando BD para pedimento {$pedimentoLimpio}: " . $e->getMessage());
                     $queryOp = null;
                 }
-
+ 
                 $nombreCliente = $queryOp ? (optional($queryOp->cliente)->nombre ?? '') : '';
                 $tipoCambio = $indiceTiposCambio[$datosId['id_pedimiento']] ?? 1.0;
-
+ 
                 $conceptosCount = [];
-                $montosRegistrados = [];
-
+                $facturasVistas = [];
+ 
                 foreach ($candidatos as $candidato) {
                     $yaReclamada = (!empty($candidato['ruta_pdf']) && isset($rutasReclamadas[$candidato['ruta_pdf']]))
                                 || (!empty($candidato['ruta_xml']) && isset($rutasReclamadas[$candidato['ruta_xml']]));
-
+ 
                     // 1. Clasificación por nombre de archivo
                     $concepto = $this->clasificarConceptoEspecialZLO($candidato['carpeta'], $candidato['nombre_archivo']);
-
+ 
                     // 2. Por descripciones del XML SOLO si ningún otro concepto tomó ya esta factura
                     if (!$concepto && !$yaReclamada && !empty($candidato['ruta_xml'])) {
                         $textoXml = $this->obtenerTextoClasificacionXml($candidato['ruta_xml']);
                         $concepto = $this->clasificarConceptoEspecialZLO($candidato['carpeta'], $candidato['nombre_archivo'] . ' ' . $textoXml);
                     }
-
+ 
                     if (!$concepto) {
                         if (preg_match('/CONEXION|LIMPIEZA|LAVADO/', $candidato['nombre_archivo'])) {
                             Log::warning("Conceptos ZLO: Ped {$pedimentoLimpio} | Archivo en carpeta '{$candidato['carpeta']}' fuera de las carpetas permitidas. Se omite: " . ($candidato['ruta_pdf'] ?? $candidato['ruta_xml']));
                         }
                         continue;
                     }
-
+ 
                     $datosFactura = $this->extraerDatosFacturaProveedorZLO($candidato['ruta_xml'], $candidato['ruta_pdf'], $tipoCambio);
-
+ 
                     if ($datosFactura['monto'] <= 0) {
                         Log::warning("Conceptos ZLO: {$concepto} sin monto legible en pedimento {$pedimentoLimpio} | " . ($candidato['ruta_pdf'] ?? $candidato['ruta_xml']));
                         continue;
                     }
-
+ 
                     $baseConcepto = $concepto;
                     $proveedor = $datosFactura['proveedor'];
-
+ 
                     if ($concepto === 'Accesa') {
                         $baseConcepto = 'Almacen ACCESSA';
                         $proveedor = 'ACCESSA';
                     }
-
-                    // Anti-duplicados: mismo concepto + mismo monto en el mismo pedimento
-                    $llaveMonto = $baseConcepto . '_' . round($datosFactura['monto'], 2);
-                    if (isset($montosRegistrados[$llaveMonto])) {
+ 
+                    // Factura repetida: mismo UUID / folio en el mismo pedimento (sin folio: concepto + monto)
+                    [$llave, $descripcion] = $this->llaveFactura($candidato['ruta_xml'], $candidato['ruta_pdf'], $datosFactura['monto'], $baseConcepto . '|');
+                    if (isset($facturasVistas[$llave])) {
+                        Log::info("Conceptos ZLO: Ped {$pedimentoLimpio} | {$baseConcepto} | Factura repetida ({$descripcion}), se omite: " . ($candidato['ruta_pdf'] ?? $candidato['ruta_xml']));
                         continue;
                     }
-                    $montosRegistrados[$llaveMonto] = true;
-
+                    $facturasVistas[$llave] = true;
+ 
                     $conceptosCount[$baseConcepto] = ($conceptosCount[$baseConcepto] ?? 0) + 1;
                     $conceptoNombre = $baseConcepto . ($conceptosCount[$baseConcepto] > 1 ? ' ' . $conceptosCount[$baseConcepto] : '');
-
+ 
                     $resumen[$baseConcepto] = ($resumen[$baseConcepto] ?? 0) + 1;
-
+ 
                     $especialesParaSheets[] = [
                         'fecha'      => $datosFactura['fecha'],
                         'cliente'    => $nombreCliente,
@@ -7722,13 +7730,13 @@ class AuditoriaImpuestosController extends Controller
                     ];
                 }
             }
-
+ 
             Log::info("Conceptos Especiales ZLO detectados: " . json_encode($resumen));
-
+ 
             if (!empty($especialesParaSheets)) {
                 Log::info("Conceptos Especiales ZLO listos para enviar a GPC: " . count($especialesParaSheets));
                 $paquetes = array_chunk($especialesParaSheets, 50);
-
+ 
                 foreach ($paquetes as $index => $paquete) {
                     $esUltimo = ($index === count($paquetes) - 1);
                     try {
@@ -7742,7 +7750,7 @@ class AuditoriaImpuestosController extends Controller
             } else {
                 Log::info("Conceptos Especiales ZLO: no se encontraron facturas con monto para enviar.");
             }
-
+ 
             return ['code' => 0, 'message' => 'completado'];
         } catch (\Throwable $e) {
             Log::error("Error enviando Conceptos Especiales ZLO a GPC: " . $e->getMessage() . " en la línea " . $e->getLine());
@@ -8234,103 +8242,229 @@ class AuditoriaImpuestosController extends Controller
         return $indice;
     }
 
+    /**
+     * Llave única de una factura para detectar repetidas dentro de un pedimento.
+     * Solo se lee el XML (CFDI). Si no hay XML o no trae UUID/folio, se usa el monto
+     * como respaldo (comportamiento anterior).
+     * Devuelve [llave, descripción legible para el log].
+     *
+     * $rutaPdf no se lee; se recibe solo para no cambiar las llamadas.
+     */
+    private function llaveFactura(?string $rutaXml, ?string $rutaPdf, float $montoRespaldo, string $prefijoRespaldo = ''): array
+    {
+        $id = $this->identidadFacturaXml($rutaXml);
+ 
+        if (!empty($id['uuid'])) {
+            return ['UUID:' . $id['uuid'], "UUID {$id['uuid']}"];
+        }
+ 
+        if (!empty($id['folio'])) {
+            $serieFolio = strtoupper(trim(($id['serie'] ?? '') . $id['folio']));
+            $emisor = $id['rfc_emisor'] ?? '';
+            return ['FOLIO:' . $emisor . '|' . $serieFolio, 'folio ' . $serieFolio . ($emisor ? " ({$emisor})" : '')];
+        }
+ 
+        // Sin XML o sin folio: respaldo por monto
+        $monto = number_format(round($montoRespaldo, 2), 2, '.', '');
+        return ['MONTO:' . $prefijoRespaldo . $monto, "monto {$monto} (sin XML con folio)"];
+    }
+ 
+    /**
+     * UUID, serie, folio y RFC del emisor leídos del XML (CFDI).
+     */
+    private function identidadFacturaXml(?string $rutaXml): array
+    {
+        static $cache = [];
+ 
+        $datos = ['uuid' => null, 'serie' => null, 'folio' => null, 'rfc_emisor' => null];
+ 
+        if (empty($rutaXml)) {
+            return $datos;
+        }
+        if (isset($cache[$rutaXml])) {
+            return $cache[$rutaXml];
+        }
+ 
+        $xml = $this->descargarTextoDocumento($rutaXml);
+ 
+        if ($xml) {
+            if (preg_match('/TimbreFiscalDigital[^>]*\sUUID=["\']([0-9A-Fa-f\-]{36})["\']/s', $xml, $m)) {
+                $datos['uuid'] = strtoupper($m[1]);
+            }
+            if (preg_match('/<(?:\w+:)?Comprobante\b[^>]*>/s', $xml, $mComprobante)) {
+                $etiqueta = $mComprobante[0];
+                if (preg_match('/\sSerie=["\']([^"\']*)["\']/', $etiqueta, $m)) {
+                    $datos['serie'] = trim($m[1]);
+                }
+                if (preg_match('/\sFolio=["\']([^"\']*)["\']/', $etiqueta, $m)) {
+                    $datos['folio'] = trim($m[1]);
+                }
+            }
+            if (preg_match('/<(?:\w+:)?Emisor\b[^>]*\sRfc=["\']([^"\']+)["\']/s', $xml, $m)) {
+                $datos['rfc_emisor'] = strtoupper(trim($m[1]));
+            }
+        }
+ 
+        return $cache[$rutaXml] = $datos;
+    }
+ 
+    /**
+     * Descarga el XML con respaldo en DigitalOcean (una sola vez por corrida).
+     */
+    private function descargarTextoDocumento(string $ruta): ?string
+    {
+        static $cache = [];
+        if (array_key_exists($ruta, $cache)) {
+            return $cache[$ruta];
+        }
+ 
+        $candidatas = [$ruta, 'https://intactics.nyc3.cdn.digitaloceanspaces.com/production/uploads/' . basename((string) parse_url($ruta, PHP_URL_PATH))];
+ 
+        foreach ($candidatas as $url) {
+            try {
+                $resp = Http::withoutVerifying()->timeout(15)->get($url);
+                if ($resp->successful() && trim($resp->body()) !== '') {
+                    return $cache[$ruta] = $resp->body();
+                }
+            } catch (\Throwable $e) {
+                // siguiente candidata
+            }
+        }
+ 
+        return $cache[$ruta] = null;
+    }
+
+    /**
+     * Facturas de un pedimento dentro de un índice.
+     * Los índices de la tarea usan como llave el num_pedimiento "sucio" de la BD
+     * (ej. "26 16 3711 6032655"); el botón Llenar GPC usa los 7 dígitos.
+     * Se prueban las dos y, si no, cualquier llave que contenga los 7 dígitos.
+     */
+    private function facturasDelPedimento(array $indice, string $pedimentoLimpio, array $datosId): array
+    {
+        $sucio = trim($datosId['num_pedimiento'] ?? '');
+ 
+        if ($sucio !== '' && !empty($indice[$sucio])) {
+            return $indice[$sucio];
+        }
+        if (!empty($indice[$pedimentoLimpio])) {
+            return $indice[$pedimentoLimpio];
+        }
+ 
+        if (preg_match('/[4-7]\d{6}/', $pedimentoLimpio . ' ' . $sucio, $m)) {
+            foreach ($indice as $llave => $lista) {
+                if (!empty($lista) && str_contains((string) $llave, $m[0])) {
+                    return $lista;
+                }
+            }
+        }
+ 
+        return [];
+    }
+
     public function enviarAGPCTerminales($tareaId)
     {
         gc_collect_cycles();
         $tarea = ($tareaId instanceof AuditoriaTareas) ? $tareaId : AuditoriaTareas::find($tareaId);
-
+ 
         if (!$tarea || $tarea->status !== 'procesando') {
             return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
         }
-
+ 
         Log::info("Tarea #{$tarea->id}: Iniciando envío de Terminales a GPC...");
-
+ 
         try {
             $mapeadoFacturas = (array) json_decode(Storage::get($tarea->mapeo_completo_facturas), true);
             $indicesOperaciones = ($mapeadoFacturas['indices_importacion'] ?? []) + ($mapeadoFacturas['indices_exportacion'] ?? []);
             $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'] ?? [];
-            
+ 
             $indiceManiobras = $this->construirIndiceOperacionesTerminales($indicesOperaciones);
-            $maniobrasParaSheets = []; 
-
+            $maniobrasParaSheets = [];
+ 
             foreach ($mapaPedimentoAId as $pedimentoLimpio => $datosId) {
                 $pedimentoSucio = trim($datosId['num_pedimiento'] ?? '');
                 $listaFacturasManiobra = $indiceManiobras[$pedimentoSucio] ?? $indiceManiobras[$pedimentoLimpio] ?? [];
-                
+ 
                 if (empty($listaFacturasManiobra)) {
                     continue;
                 }
-
+ 
                 $opId = $datosId['id_operacion'];
                 $tipoOp = ($datosId['tipo'] == 'Importacion') ? Importacion::class : Exportacion::class;
-                
+ 
                 try {
                     $queryOp = ($tipoOp === Importacion::class) ? Importacion::with('cliente')->find($opId) : Exportacion::with('cliente')->find($opId);
                 } catch (\Throwable $e) {
                     Log::error("Error consultando BD (Terminales) para pedimento {$pedimentoLimpio}: " . $e->getMessage());
                     $queryOp = null;
                 }
-
+ 
                 $filasTemp = [];
-                $montosRegistrados = []; 
-
+                $facturasVistas = [];
+ 
                 foreach ($listaFacturasManiobra as $datosManiobra) {
+                    $rutaXml = $datosManiobra['path_xml_man'] ?? null;
+                    $rutaPdf = $datosManiobra['path_pdf_man'] ?? null;
+ 
                     try {
-                        $infoExtraccion = $this->extraerMontoYNaviera($datosManiobra['path_xml_man'] ?? null, $datosManiobra['path_pdf_man'] ?? null);
+                        $infoExtraccion = $this->extraerMontoYNaviera($rutaXml, $rutaPdf);
                     } catch (\Throwable $e) {
                         Log::error("Error extracción (Terminales) en pedimento {$pedimentoLimpio}: " . $e->getMessage(), [
-                            'archivo' => $datosManiobra['path_pdf_man'] ?? 'Desconocido'
+                            'archivo' => $rutaPdf ?? 'Desconocido'
                         ]);
-                        continue; 
+                        continue;
                     }
-
-                    if ($infoExtraccion['monto'] > 0) {
-                        try {
-                            $numeroDeContenedores = $this->contarContenedoresUniversal($datosManiobra['path_xml_man'] ?? null, $datosManiobra['path_pdf_man'] ?? null);
-                            $montoDividido = round($infoExtraccion['monto'] / $numeroDeContenedores, 2);
-                        } catch (\Throwable $e) {
-                            Log::error("Error contando contenedores (Terminales) pedimento {$pedimentoLimpio}: " . $e->getMessage());
-                            $montoDividido = $infoExtraccion['monto'];
-                        }
-
-                        $montoKey = (string)$montoDividido;
-                        if (in_array($montoKey, $montosRegistrados)) {
-                            Log::info("Refrenando duplicado en GPC - Ped: {$pedimentoLimpio} | Monto: {$montoDividido} ya procesado.");
-                            continue;
-                        }
-
-                        $montosRegistrados[] = $montoKey;
-                        $indexActual = count($filasTemp);
-                        
-                        if ($indexActual === 0 || $indexActual === 1) {
-                            $conceptoNombre = 'Maniobras en Terminal';
-                        } else {
-                            $conceptoNombre = 'Maniobras en Terminal ' . ($indexActual + 1);
-                        }
-
-                        $filasTemp[] = [
-                            'fecha'      => $infoExtraccion['fecha'],
-                            'cliente'    => $queryOp ? optional($queryOp->cliente)->nombre : '',
-                            'contenedor' => $queryOp ? ($queryOp->contenedor ?? '') : '',
-                            'bl'         => $queryOp ? ($queryOp->bol ?? '') : '',
-                            'pedimento'  => $pedimentoLimpio,
-                            'concepto'   => $conceptoNombre,
-                            'monto'      => $montoDividido,
-                            'moneda'     => 'MXN',
-                            'naviera'    => $infoExtraccion['naviera']
-                        ];
+ 
+                    if ($infoExtraccion['monto'] <= 0) {
+                        continue;
                     }
+ 
+                    try {
+                        $numeroDeContenedores = $this->contarContenedoresUniversal($rutaXml, $rutaPdf);
+                        $montoDividido = round($infoExtraccion['monto'] / $numeroDeContenedores, 2);
+                    } catch (\Throwable $e) {
+                        Log::error("Error contando contenedores (Terminales) pedimento {$pedimentoLimpio}: " . $e->getMessage());
+                        $montoDividido = $infoExtraccion['monto'];
+                    }
+ 
+                    // Factura repetida: mismo UUID / folio en el mismo pedimento
+                    [$llave, $descripcion] = $this->llaveFactura($rutaXml, $rutaPdf, $montoDividido);
+                    if (isset($facturasVistas[$llave])) {
+                        Log::info("Terminales: Ped {$pedimentoLimpio} | Factura repetida ({$descripcion}), se omite: " . ($rutaPdf ?? $rutaXml));
+                        continue;
+                    }
+                    $facturasVistas[$llave] = true;
+ 
+                    $indexActual = count($filasTemp);
+ 
+                    if ($indexActual === 0 || $indexActual === 1) {
+                        $conceptoNombre = 'Maniobras en Terminal';
+                    } else {
+                        $conceptoNombre = 'Maniobras en Terminal ' . ($indexActual + 1);
+                    }
+ 
+                    $filasTemp[] = [
+                        'fecha'      => $infoExtraccion['fecha'],
+                        'cliente'    => $queryOp ? optional($queryOp->cliente)->nombre : '',
+                        'contenedor' => $queryOp ? ($queryOp->contenedor ?? '') : '',
+                        'bl'         => $queryOp ? ($queryOp->bol ?? '') : '',
+                        'pedimento'  => $pedimentoLimpio,
+                        'concepto'   => $conceptoNombre,
+                        'monto'      => $montoDividido,
+                        'moneda'     => 'MXN',
+                        'naviera'    => $infoExtraccion['naviera']
+                    ];
                 }
-
-                foreach($filasTemp as $filaFinal) {
+ 
+                foreach ($filasTemp as $filaFinal) {
                     $maniobrasParaSheets[] = $filaFinal;
                 }
             }
-
+ 
             if (!empty($maniobrasParaSheets)) {
                 Log::info("Terminales encontradas para enviar: " . count($maniobrasParaSheets));
                 $paquetes = array_chunk($maniobrasParaSheets, 50);
-                
+ 
                 foreach ($paquetes as $idx => $paquete) {
                     $esUltimo = ($idx === count($paquetes) - 1);
                     try {
@@ -8344,7 +8478,7 @@ class AuditoriaImpuestosController extends Controller
             } else {
                 Log::warning("No se encontraron montos de Terminales para enviar.");
             }
-
+ 
             return ['code' => 0, 'message' => 'completado'];
         } catch (\Throwable $e) {
             Log::error("Error General en Terminales: " . $e->getMessage());
@@ -8410,49 +8544,48 @@ class AuditoriaImpuestosController extends Controller
     {
         gc_collect_cycles();
         $indice = [];
-
+ 
         try {
             foreach ($indicesOperacion as $pedimento => $datos) {
                 if (isset($datos['error'])) {
                     continue;
                 }
-
-                $coleccionFacturas = collect($datos['facturas']);
-                
-                $facturasVacio = $coleccionFacturas->filter(function ($factura) {
+ 
+                foreach (($datos['facturas'] ?? []) as $nombreUnico => $factura) {
                     $tipo = strtolower($factura['tipo_documento'] ?? '');
-                    
-                    if ($tipo !== 'vacios' || empty($factura['ruta_pdf'])) {
-                        return false;
+                    $carpeta = strtolower($factura['carpeta_original'] ?? $tipo);
+ 
+                    if ($tipo !== 'vacios') {
+                        continue;
                     }
-
-                    $textoParaBuscar = strtolower(($factura['folio'] ?? '') . ' ' . ($factura['ruta_pdf'] ?? ''));
+ 
+                    if (empty($factura['ruta_pdf']) && empty($factura['ruta_xml'])) {
+                        continue;
+                    }
+ 
+                    $textoParaBuscar = strtolower(($factura['folio'] ?? '') . ' ' . ($factura['ruta_pdf'] ?? '') . ' ' . ($factura['ruta_xml'] ?? ''));
                     if (str_contains($textoParaBuscar, 'conexion') || str_contains($textoParaBuscar, 'limpieza') || str_contains($textoParaBuscar, 'lavado')) {
-                        return false;
+                        continue;
                     }
-
-                    if (!empty($factura['ruta_xml'])) {
-                        if (!$this->esFacturaDeVacioXML($factura['ruta_xml'])) {
-                            Log::info("Factura descartada inteligentemente: No es un cobro de vacío real (XML: {$factura['ruta_xml']})");
-                            return false;
-                        }
+ 
+                    // Reclasificada desde PROVEEDORES / TERMINAL: confirmar con el XML
+                    $esCarpetaVacios = str_contains($carpeta, 'vacio');
+                    if (!$esCarpetaVacios && !empty($factura['ruta_xml']) && !$this->esFacturaDeVacioXML($factura['ruta_xml'])) {
+                        Log::info("Vacíos: Ped {$pedimento} | '{$nombreUnico}' (carpeta {$carpeta}) no es un cobro de vacío según su XML. Se omite.");
+                        continue;
                     }
-
-                    return true;
-                });
-
-                foreach ($facturasVacio as $nombreUnico => $factura) {
+ 
                     $indice[$pedimento][] = [
                         'folio'    => $factura['folio'] ?? $nombreUnico,
                         'ruta_xml' => $factura['ruta_xml'] ?? null,
-                        'ruta_pdf' => $factura['ruta_pdf'],
+                        'ruta_pdf' => $factura['ruta_pdf'] ?? null,
                     ];
                 }
             }
         } catch (\Throwable $e) {
             Log::error("Error construyendo índice de vacíos: " . $e->getMessage());
         }
-
+ 
         return $indice;
     }
 
@@ -8553,95 +8686,103 @@ class AuditoriaImpuestosController extends Controller
     {
         gc_collect_cycles();
         $tarea = ($tareaId instanceof AuditoriaTareas) ? $tareaId : AuditoriaTareas::find($tareaId);
-
+ 
         if (!$tarea || $tarea->status !== 'procesando') {
             return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
         }
-
+ 
         Log::info("Tarea #{$tarea->id}: Iniciando extracción de Vacíos...");
-
+ 
         try {
             $rutaMapeo = $tarea->mapeo_completo_facturas;
             if (!$rutaMapeo || !Storage::exists($rutaMapeo)) {
                 return ['code' => 1, 'message' => new \Exception("No se encontró el archivo de mapeo universal.")];
             }
-
+ 
             $mapeadoFacturas = (array) json_decode(Storage::get($rutaMapeo), true);
             $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'] ?? [];
             $indicesOperaciones = ($mapeadoFacturas['indices_importacion'] ?? []) + ($mapeadoFacturas['indices_exportacion'] ?? []);
-            
+ 
             $indiceVacios = $this->construirIndiceOperacionesVacios($indicesOperaciones);
-            $vaciosParaSheets = []; 
-
+            Log::info("Vacíos: pedimentos con facturas de vacíos en el expediente: " . count($indiceVacios));
+            $vaciosParaSheets = [];
+ 
             foreach ($mapaPedimentoAId as $pedimentoLimpio => $datosId) {
-                $listaFacturasVacio = $indiceVacios[$pedimentoLimpio] ?? [];
+                $listaFacturasVacio = $this->facturasDelPedimento($indiceVacios, $pedimentoLimpio, $datosId);
                 if (empty($listaFacturasVacio)) {
                     continue;
                 }
-                
+ 
                 $opId = $datosId['id_operacion'];
                 $tipoOp = ($datosId['tipo'] == 'Importacion') ? Importacion::class : Exportacion::class;
-                
+ 
                 try {
                     $queryOp = ($tipoOp === Importacion::class) ? Importacion::with('cliente')->find($opId) : Exportacion::with('cliente')->find($opId);
                 } catch (\Throwable $e) {
                     Log::error("Error consultando BD (Vacíos) pedimento {$pedimentoLimpio}: " . $e->getMessage());
                     $queryOp = null;
                 }
-
+ 
                 $filasTemp = [];
-                $montosRegistrados = [];
-
+                $facturasVistas = [];
+ 
                 foreach ($listaFacturasVacio as $datosVacio) {
+                    $rutaXml = $datosVacio['ruta_xml'] ?? null;
+                    $rutaPdf = $datosVacio['ruta_pdf'] ?? null;
+ 
                     try {
-                        $infoExtraccion = $this->extraerMontoYNaviera($datosVacio['ruta_xml'] ?? null, $datosVacio['ruta_pdf'] ?? null);
+                        $infoExtraccion = $this->extraerMontoYNaviera($rutaXml, $rutaPdf);
                     } catch (\Throwable $e) {
                         Log::error("Error extracción de proveedor/monto (Vacíos) pedimento {$pedimentoLimpio}: " . $e->getMessage());
                         continue;
                     }
-
-                    if ($infoExtraccion['monto'] > 0) {
-                        try {
-                            $numeroDeContenedores = $this->contarContenedoresUniversal($datosVacio['ruta_xml'] ?? null, $datosVacio['ruta_pdf'] ?? null);
-                            $montoDividido = round($infoExtraccion['monto'] / $numeroDeContenedores, 2);
-                        } catch (\Throwable $e) {
-                            Log::error("Error dividiendo monto (Vacíos) pedimento {$pedimentoLimpio}: " . $e->getMessage());
-                            $montoDividido = $infoExtraccion['monto'];
-                        }
-
-                        $montoKey = (string)$montoDividido;
-                        if (in_array($montoKey, $montosRegistrados)) {
-                            continue;
-                        }
-                        $montosRegistrados[] = $montoKey;
-
-                        $indexActual = count($filasTemp);
-                        
-                        if ($indexActual === 0 || $indexActual === 1) {
-                            $conceptoNombre = 'Maniobras de Vacios';
-                        } else {
-                            $conceptoNombre = 'Maniobras de Vacios ' . ($indexActual + 1);
-                        }
-
-                        $filasTemp[] = [
-                            'fecha'      => $infoExtraccion['fecha'],
-                            'cliente'    => $queryOp ? optional($queryOp->cliente)->nombre : '',
-                            'contenedor' => $queryOp ? ($queryOp->contenedor ?? '') : '',
-                            'bl'         => $queryOp ? ($queryOp->bol ?? '') : '',
-                            'pedimento'  => $pedimentoLimpio,
-                            'concepto'   => $conceptoNombre, 
-                            'monto'      => $montoDividido, 
-                            'moneda'     => 'MXN',
-                            'naviera'    => $infoExtraccion['naviera']
-                        ];
+ 
+                    if ($infoExtraccion['monto'] <= 0) {
+                        continue;
                     }
+ 
+                    try {
+                        $numeroDeContenedores = $this->contarContenedoresUniversal($rutaXml, $rutaPdf);
+                        $montoDividido = round($infoExtraccion['monto'] / $numeroDeContenedores, 2);
+                    } catch (\Throwable $e) {
+                        Log::error("Error dividiendo monto (Vacíos) pedimento {$pedimentoLimpio}: " . $e->getMessage());
+                        $montoDividido = $infoExtraccion['monto'];
+                    }
+ 
+                    // Factura repetida: mismo UUID / folio en el mismo pedimento
+                    [$llave, $descripcion] = $this->llaveFactura($rutaXml, $rutaPdf, $montoDividido);
+                    if (isset($facturasVistas[$llave])) {
+                        Log::info("Vacíos: Ped {$pedimentoLimpio} | Factura repetida ({$descripcion}), se omite: " . ($rutaPdf ?? $rutaXml));
+                        continue;
+                    }
+                    $facturasVistas[$llave] = true;
+ 
+                    $indexActual = count($filasTemp);
+ 
+                    if ($indexActual === 0 || $indexActual === 1) {
+                        $conceptoNombre = 'Maniobras de Vacios';
+                    } else {
+                        $conceptoNombre = 'Maniobras de Vacios ' . ($indexActual + 1);
+                    }
+ 
+                    $filasTemp[] = [
+                        'fecha'      => $infoExtraccion['fecha'],
+                        'cliente'    => $queryOp ? optional($queryOp->cliente)->nombre : '',
+                        'contenedor' => $queryOp ? ($queryOp->contenedor ?? '') : '',
+                        'bl'         => $queryOp ? ($queryOp->bol ?? '') : '',
+                        'pedimento'  => $pedimentoLimpio,
+                        'concepto'   => $conceptoNombre,
+                        'monto'      => $montoDividido,
+                        'moneda'     => 'MXN',
+                        'naviera'    => $infoExtraccion['naviera']
+                    ];
                 }
-
-                foreach($filasTemp as $fila) {
+ 
+                foreach ($filasTemp as $fila) {
                     $vaciosParaSheets[] = $fila;
                 }
             }
-
+ 
             if (!empty($vaciosParaSheets)) {
                 Log::info("Vacíos listos para enviar a GPC: " . count($vaciosParaSheets));
                 $paquetes = array_chunk($vaciosParaSheets, 50);
@@ -8658,7 +8799,7 @@ class AuditoriaImpuestosController extends Controller
             } else {
                 Log::info("Vacíos: No se encontraron registros con monto para enviar a Sheets.");
             }
-
+ 
             return ['code' => 0, 'message' => 'completado'];
         } catch (\Throwable $e) {
             Log::error("Error General en Vacíos: " . $e->getMessage());
