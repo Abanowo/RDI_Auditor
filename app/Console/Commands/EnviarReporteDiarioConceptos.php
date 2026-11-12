@@ -166,7 +166,6 @@ class EnviarReporteDiarioConceptos extends Command
                         $facLlc  = $op->factura_llc ?? ($ingreso->factura_llc ?: '--');
 
                         $conceptosOp = [
-                            'MANIOBRAS' => ['monto' => (float) ($op->maniobras ?? 0), 'prov' => $provManiobras, 'fac' => $facManiobras],
                             'FLETE'     => ['monto' => (float) ($op->flete ?? 0), 'prov' => $provFlete, 'fac' => $facFlete],
                             'MUESTRAS'  => ['monto' => (float) ($op->muestras ?? 0), 'prov' => $provMuestras, 'fac' => $facMuestras],
                             'LLC'       => ['monto' => (float) ($op->llc ?? 0), 'prov' => $provLlc, 'fac' => $facLlc],
