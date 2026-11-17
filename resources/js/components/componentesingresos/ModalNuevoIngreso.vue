@@ -611,23 +611,40 @@ export default {
       this.form.cliente = nuevoCliente;
     },
     agregarReferenciaManual(nuevaReferencia) {
-      const texto = String(nuevaReferencia).trim();
-      if (!texto) {
+      // 1. Separar por comas (también acepta punto y coma, saltos de línea y tabuladores)
+      const fragmentos = String(nuevaReferencia || '')
+        .split(/[,;\n\r\t]+/)
+        .map(t => t.trim())
+        .filter(Boolean);
+
+      if (fragmentos.length === 0) {
         return;
       }
 
-      // 1. Lo agregamos al arreglo base si no existe
-      if (!this.opcionesReferenciasPredefinidas.includes(texto)) {
-        this.opcionesReferenciasPredefinidas.push(texto);
-      }
+      // 2. Copia de lo ya seleccionado + set para evitar duplicados
+      const actuales = Array.isArray(this.form.referenciasObj) ? [...this.form.referenciasObj] : [];
+      const yaSeleccionados = new Set(
+        actuales.map(r => String(typeof r === 'object' && r !== null ? (r.label || r.folio) : r).toUpperCase().trim())
+      );
 
-      // 2. Lo agregamos al formulario formateado como objeto
-      if (!this.form.referenciasObj) {
-        this.form.referenciasObj = [];
-      }
+      // 3. Agregar cada fragmento como etiqueta independiente
+      fragmentos.forEach(texto => {
+        const clave = texto.toUpperCase();
+        if (yaSeleccionados.has(clave)) {
+          return;
+        }
 
-      const nuevoObj = { label: texto, folio: texto };
-      this.form.referenciasObj.push(nuevoObj);
+        // Si ya existe como opción (p. ej. viene del Sheet con su cliente), reutilizamos ese objeto
+        const existente = this.opcionesReferenciasCombinadas.find(
+          o => String(o.label).toUpperCase().trim() === clave
+        );
+
+        actuales.push(existente || { label: texto, folio: texto });
+        yaSeleccionados.add(clave);
+      });
+
+      // 4. Asignación única para que el watcher de referenciasObj se dispare una sola vez
+      this.form.referenciasObj = actuales;
     },
     formatearDinero(monto) {
       return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(parseFloat(monto) || 0);

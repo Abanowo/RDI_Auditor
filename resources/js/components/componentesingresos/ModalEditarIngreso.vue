@@ -571,23 +571,45 @@ export default {
             this.form.referenciasObj.push(nuevoFolio);
         },
         agregarReferenciaManual(nuevaReferencia) {
-            const texto = String(nuevaReferencia).trim();
-            if (!texto) {
+            // 1. Separar por comas (también acepta punto y coma, saltos de línea y tabuladores)
+            const fragmentos = String(nuevaReferencia || '')
+                .split(/[,;\n\r\t]+/)
+                .map(t => t.trim())
+                .filter(Boolean);
+
+            if (fragmentos.length === 0) {
                 return;
             }
 
-            // 1. Lo agregamos al arreglo base si no existe
-            if (!this.opcionesReferenciasPredefinidas.includes(texto)) {
-                this.opcionesReferenciasPredefinidas.push(texto);
-            }
+            // Cliente actual, para conservar la misma estructura que arma mounted()
+            const clienteActual = typeof this.form.cliente === 'object' && this.form.cliente !== null
+                ? String(this.form.cliente.nombre || '').toUpperCase()
+                : String(this.form.cliente || '').toUpperCase();
 
-            // 2. Lo agregamos al formulario formateado como objeto
-            if (!this.form.referenciasObj) {
-                this.form.referenciasObj = [];
-            }
+            // 2. Copia de lo ya seleccionado + set para evitar duplicados
+            const actuales = Array.isArray(this.form.referenciasObj) ? [...this.form.referenciasObj] : [];
+            const yaSeleccionados = new Set(
+                actuales.map(r => String(typeof r === 'object' && r !== null ? (r.label || r.folio) : r).toUpperCase().trim())
+            );
 
-            const nuevoObj = { label: texto, folio: texto };
-            this.form.referenciasObj.push(nuevoObj);
+            // 3. Agregar cada fragmento como etiqueta independiente
+            fragmentos.forEach(texto => {
+                const clave = texto.toUpperCase();
+                if (yaSeleccionados.has(clave)) {
+                    return;
+                }
+
+                // Si ya existe como opción (p. ej. viene del Sheet), reutilizamos ese objeto
+                const existente = this.opcionesReferenciasCombinadas.find(
+                    o => String(o.label).toUpperCase().trim() === clave
+                );
+
+                actuales.push(existente || { label: texto, folio: texto, pedimento: texto, cliente: clienteActual });
+                yaSeleccionados.add(clave);
+            });
+
+            // 4. Asignación única para que el watcher de referenciasObj se dispare una sola vez
+            this.form.referenciasObj = actuales;
         },
 
         async cargarListaPedimentos() {
