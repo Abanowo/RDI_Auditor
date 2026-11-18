@@ -1304,29 +1304,23 @@ class IngresoConciliadoController extends Controller
             }
             fclose($stream);
 
+            // Solo se busca en las columnas que identifican la operación:
+            // C = Pedimento, I = Factura SC. Las facturas de proveedores (columna F)
+            // y demás columnas se ignoran para no mezclar bloques de otros clientes.
+            $colPedimentoSheet = 2; // Columna C
+            $colFacturaSC      = 8; // Columna I
+
             $bloquesEncontrados = [];
             foreach ($bloques as $bloque) {
-                $bloqueYaAgregado = false;
                 foreach ($bloque as $fila) {
-
-                    // Convertimos la fila a texto para evaluar coincidencia general a prueba de balas
-                    $textoFila = strtoupper(implode(' | ', $fila));
+                    $celdaPedimento = $fila[$colPedimentoSheet] ?? '';
+                    $celdaFacturaSC = $fila[$colFacturaSC] ?? '';
 
                     foreach ($terminosBuscados as $termino) {
-                        $termino = strtoupper(trim($termino));
-                        if ($termino === '') {
-                            continue;
-                        }
-
-                        // Evaluamos si el término buscado existe en cualquier lugar de la fila
-                        if (str_contains($textoFila, $termino)) {
+                        if ($this->celdaCoincide($celdaFacturaSC, $termino) || $this->celdaCoincide($celdaPedimento, $termino)) {
                             $bloquesEncontrados[] = $bloque;
-                            $bloqueYaAgregado = true;
-                            break;
+                            continue 3; // siguiente bloque
                         }
-                    }
-                    if ($bloqueYaAgregado) {
-                        break;
                     }
                 }
             }
@@ -1363,6 +1357,7 @@ class IngresoConciliadoController extends Controller
                 'desglose_naviera' => 0,
                 'proveedor_maniobras' => null,
                 'factura_maniobras' => null,
+                'detalle_maniobras' => [],
                 'proveedor_flete' => null,
                 'factura_flete' => null,
                 'proveedor_muestras' => null,
@@ -1783,6 +1778,24 @@ class IngresoConciliadoController extends Controller
             ]);
             return response()->json(['error' => 'Error interno: ' . $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Verifica si el término aparece en la celda como valor completo
+     * (no como parte de otro número): "70787" coincide con "70787", "NL 70787" o "F-70787",
+     * pero no con "170787" ni "707871".
+     */
+    private function celdaCoincide($celda, string $termino): bool
+    {
+        $celda = strtoupper(trim((string) $celda));
+        $termino = strtoupper(trim($termino));
+
+        if ($celda === '' || $termino === '') {
+            return false;
+        }
+
+        $patron = '/(?<![0-9A-Z])' . preg_quote($termino, '/') . '(?![0-9A-Z])/';
+        return preg_match($patron, $celda) === 1;
     }
     /**
      * Convierte a número valores que pueden venir como "12,345.67", "$ 1,200" o null.
