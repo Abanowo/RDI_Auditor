@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Schema;
 class CatalogoCotizador
 {
     /** Súbelo cuando cambien los catálogos de app/Services/catalogos para volver a sincronizar. */
-    const VERSION = 5;
+    const VERSION = 7;
 
     /** Llena los catálogos solo si están vacíos (no sobrescribe lo que ya editaste). */
     public function asegurar()
@@ -68,6 +68,10 @@ class CatalogoCotizador
             $avisos[] = 'Faltan los 197 Segmentos Contables del Excel y el filtro por sucursal: '
                 . 'ejecuta "php artisan migrate" (migración 2026_10_20_000003_add_sucursal_clave_sat_to_conceptos).';
         }
+        if (!Schema::hasColumn('cotizaciones', 'token_aprobacion')) {
+            $avisos[] = 'El correo se envía sin el botón "Revisar y aprobar cotización": ejecuta "php artisan migrate" '
+                . '(migración 2026_10_26_000004_add_aprobacion_por_token_to_cotizaciones).';
+        }
         foreach (['segmentos_contables.php', 'servicios_predefinidos.php', 'terminos.php'] as $archivo) {
             if (!is_file(__DIR__ . '/catalogos/' . $archivo)) {
                 $avisos[] = 'Falta el archivo app/Services/catalogos/' . $archivo
@@ -86,12 +90,10 @@ class CatalogoCotizador
             ['nombre' => 'Servicio de operación', 'titulo_pdf' => 'MANIOBRAS EN MEXICO (MAS IVA)',  'color' => 'azul',    'aplica_iva' => true],
             ['nombre' => 'Transporte',            'titulo_pdf' => 'TRANSPORTE (MAS IVA)',           'color' => 'naranja', 'aplica_iva' => true],
             ['nombre' => 'Impuestos',             'titulo_pdf' => 'IMPUESTOS & DERECHOS EN MEXICO', 'color' => 'naranja', 'aplica_iva' => false],
-            [
-                'nombre' => 'Intactics LLC - Gastos americanos pagados a cuenta de cliente',
-                'titulo_pdf' => 'SERVICIOS PRESTADOS EN USA (NO APLICA IVA)',
-                'color' => 'naranja',
-                'aplica_iva' => false
-            ],
+            ['nombre' => 'Intactics LLC - Gastos americanos pagados a cuenta de cliente',
+                                                  'titulo_pdf' => 'SERVICIOS PRESTADOS EN USA (NO APLICA IVA)', 'color' => 'naranja', 'aplica_iva' => false],
+            ['nombre' => 'Bodega en USA',         'titulo_pdf' => 'SERVICIOS DE BODEGA EN USA (NO APLICA IVA)', 'color' => 'naranja', 'aplica_iva' => false],
+            ['nombre' => 'Servicios adicionales', 'titulo_pdf' => 'SERVICIOS ADICIONALES (EN CASO DE REQUERIRSE)', 'color' => 'naranja', 'aplica_iva' => false],
             ['nombre' => 'Emisión de certificado internacional', 'titulo_pdf' => 'EMISIÓN DE CERTIFICADO INTERNACIONAL', 'color' => 'naranja', 'aplica_iva' => false],
             ['nombre' => 'Maniobras por cuenta de cliente',      'titulo_pdf' => 'MANIOBRAS POR CUENTA DE CLIENTE',      'color' => 'naranja', 'aplica_iva' => false],
             ['nombre' => 'Muestra',               'titulo_pdf' => 'MUESTRAS (MAS IVA)',             'color' => 'naranja', 'aplica_iva' => true],
@@ -146,12 +148,8 @@ class CatalogoCotizador
         // Versión anterior: los precios de N102/N105 del prototipo se habían pasado a N100/N102 del Excel
         if ($conSegmentos) ConceptoCatalogo::whereNotNull('clave_sat')
             ->where(function ($q) {
-                $q->where(function ($w) {
-                    $w->where('codigo', 'N100')->where('precio_usd', 60);
-                })
-                    ->orWhere(function ($w) {
-                        $w->where('codigo', 'N102')->where('precio_usd', 65);
-                    });
+                $q->where(function ($w) { $w->where('codigo', 'N100')->where('precio_usd', 60); })
+                  ->orWhere(function ($w) { $w->where('codigo', 'N102')->where('precio_usd', 65); });
             })
             ->update(['precio_usd' => 0]);
 

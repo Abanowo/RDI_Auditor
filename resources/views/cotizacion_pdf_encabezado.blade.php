@@ -1,7 +1,9 @@
-{{-- Franja de color superior derecha + logo + datos de la empresa --}}
-<div class="franja">
-    <span class="f1"></span><span class="f2"></span><span class="f3"></span>
-</div>
+{{-- Formas del encabezado (franja coral, diagonal, banda gris y rombos) + logo + datos de la empresa --}}
+@if(!empty($graficos['encabezado']))
+    <img class="enc-fondo" src="{{ $graficos['encabezado'] }}" alt="">
+@else
+    <div class="franja"><span class="f1"></span><span class="f2"></span><span class="f3"></span></div>
+@endif
 <table class="enc">
     <tr>
         <td class="enc-logo">

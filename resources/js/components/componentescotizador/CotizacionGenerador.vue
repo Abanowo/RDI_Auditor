@@ -102,18 +102,32 @@
                                             @click="cambiarTipo('EXPORTACION')"><i></i>Exportación</button>
                                     </div>
                                 </div>
-                                <label class="cz-field"><span>Producto / mercancía</span>
-                                    <input v-model="header.producto" maxlength="255"></label>
-                                <label class="cz-field"
-                                    :title="usuario.nombre ? (usuario.simulado ? 'Sesión simulada: ' : 'Sesión: ') + usuario.nombre : ''"><span>Vendedor
-                                        / atentamente</span>
-                                    <input v-model="header.vendedor" maxlength="255"></label>
+                                <div class="cz-field"><span>Producto / mercancía</span>
+                                    <multiselect :value="header.producto || null" :options="opcionesProducto"
+                                        :taggable="true" :show-labels="false" placeholder="Seleccione o escriba…"
+                                        tag-placeholder="Enter para usar este producto" open-direction="below"
+                                        class="cz-ms" @input="elegirProducto" @tag="elegirProducto">
+                                        <template slot="noResult">Enter para usarlo sin plantilla</template>
+                                    </multiselect>
+                                </div>
+                                <label class="cz-field" :title="tituloVendedor"><span>Vendedor / atentamente</span>
+                                    <div class="cz-bloqueado">
+                                        <input :value="header.vendedor" readonly tabindex="-1" aria-readonly="true">
+                                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none"
+                                            stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+                                            stroke-linejoin="round" aria-hidden="true">
+                                            <rect x="5" y="11" width="14" height="10" rx="2" />
+                                            <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+                                        </svg>
+                                    </div>
+                                </label>
+
                             </div>
                         </section>
 
                         <aprobaciones-internas v-if="id" :datos="aprobaciones" :cotizacion-id="id"
                             :aprobada-cliente="!!header.aprobada" :base-url="baseUrl"
-                            @actualizado="(d) => { aprobaciones = d; }" @aviso="aviso" />
+                            @actualizado="actualizarAprobaciones" @aviso="aviso" />
 
                         <div v-if="!secciones.length" class="cz-alert cz-alert-err">
                             <b>No hay bloques de conceptos configurados.</b>
@@ -136,7 +150,10 @@
 
                         <section class="cz-grand">
                             <div><small>Cotización</small><b>Total estimada:</b></div>
-                            <strong>${{ fmt(total) }} MXN</strong>
+                            <div class="cz-grand-montos">
+                                <strong>{{ totalMxnTexto }}</strong>
+                                <strong v-if="totalUsd" class="cz-grand-usd">{{ totalUsdTexto }}</strong>
+                            </div>
                         </section>
                     </div>
 
@@ -145,8 +162,8 @@
                         <div class="cz-preview-bar">
                             <div>
                                 <h3>Vista previa de hojas PDF</h3>
-                                <p>Consulte la diagramación y el formato físico de las hojas para impresión o guardado
-                                    digital.</p>
+                                <p>Para descargar o imprimir, usa los botones del visor del PDF (el archivo se guarda
+                                    con el folio).</p>
                             </div>
                             <button type="button" class="b-orange b-upper" @click="abrirEnvio">
                                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
@@ -156,28 +173,11 @@
                                 </svg>
                                 Enviar cotización
                             </button>
-                            <button type="button" class="b-green" :disabled="descargando" @click="descargarPdf">
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
-                                    stroke-width="2">
-                                    <path d="M12 3v12" />
-                                    <path d="m7 10 5 5 5-5" />
-                                    <path d="M5 21h14" />
-                                </svg>
-                                {{ descargando ? 'Generando PDF…' : 'Descargar PDF' }}
-                            </button>
-                            <button type="button" class="b-ghost-dark" :disabled="generandoPdf"
-                                title="Abrir el PDF en otra pestaña para imprimir" @click="imprimirPdf">
-                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
-                                    stroke-width="2">
-                                    <path d="M6 9V2h12v7" />
-                                    <rect x="6" y="14" width="12" height="8" />
-                                    <path
-                                        d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
-                                </svg>
-                                {{ generandoPdf ? 'Abriendo…' : 'Imprimir' }}
-                            </button>
                         </div>
                         <div v-if="cargandoPreview" class="cz-cargando">Generando vista previa…</div>
+                        <!-- El PDF real (dompdf) dentro del visor del navegador: se ven las hojas tal como se imprimen -->
+                        <iframe v-else-if="previewPdfUrl" class="cz-frame" :src="srcPreviewPdf"
+                            title="Vista previa de la cotización"></iframe>
                         <iframe v-else class="cz-frame" :srcdoc="previewHtml"
                             title="Vista previa de la cotización"></iframe>
                     </div>
@@ -191,7 +191,7 @@
                     <button type="button" class="b-ghost" @click="cerrar">Cerrar Generador</button>
                     <button type="button" class="b-orange" :disabled="guardando || cargando || !!errorCarga"
                         @click="guardar">
-                        {{ guardando ? 'Guardando…' : 'Guardar Cotización' }}
+                        {{ textoGuardar }}
                     </button>
                 </div>
             </footer>
@@ -229,12 +229,12 @@
                     Enlace de aprobación: <a :href="envio.enlace" target="_blank" rel="noopener">{{ envio.enlace }}</a>
                 </p>
                 <div class="cz-modal-btns">
-                    <button type="button" class="b-ghost b-ghost--light" @click="envio.abierto = false">{{ envio.enviado
-                        ?
-                        'Cerrar' : 'Cancelar' }}</button>
+                    <button type="button" class="b-ghost b-ghost--light" @click="envio.abierto = false">{{
+                        textoCerrarEnvio
+                        }}</button>
                     <button type="button" class="b-orange" :disabled="envio.enviando || !envio.para.length"
                         @click="enviarCorreo">
-                        {{ envio.enviando ? 'Enviando…' : (envio.enviado ? 'Enviar de nuevo' : 'Enviar') }}
+                        {{ textoEnviar }}
                     </button>
                 </div>
             </div>
@@ -262,7 +262,7 @@ let llave = 0;
 function encabezadoVacio() {
     return {
         cliente: '', contacto: '', fecha: '', valida_hasta: '', puerto: '',
-        tipo_operacion: 'EXPORTACION', producto: '', vendedor: '', tipo_cambio: 0, aprobada: false,
+        tipo_operacion: '', producto: '', vendedor: '', tipo_cambio: 0, aprobada: false,
     };
 }
 
@@ -314,24 +314,64 @@ export default {
             rangoVigencia: null,
             // Total con IVA de cada bloque, por id de sección (lo emite BloqueConceptos)
             totalesBloque: {},
+            // Productos con plantilla de conceptos (PlantillasProductos.vue)
+            productos: [],
+            cargandoPlantilla: false,
 
             errores: [],
             instantanea: null,
             previewHtml: '',
+            // URL (blob) del PDF para la vista previa por hojas
+            previewPdfUrl: '',
             cargandoPreview: false,
-            generandoPdf: false,
-            descargando: false,
             envio: { abierto: false, enlace: '', para: [], cc: [], asunto: '', ultimoAsunto: '', mensaje: '', ultimoDefecto: '', enviando: false, enviado: false, resultado: '', error: false },
             toast: '',
         };
     },
 
     computed: {
+        /** Texto del template (fuera de {{ }} para que el formateador del editor no lo parta) */
+        srcPreviewPdf() {
+            return this.previewPdfUrl + '#view=FitH';
+        },
+        tituloVendedor() {
+            if (!this.usuario.nombre) return 'Se toma del usuario que hace la cotización';
+            return (this.usuario.simulado ? 'Sesión simulada: ' : 'Sesión: ') + this.usuario.nombre;
+        },
+        /** Texto del template (fuera de {{ }} para que el formateador del editor no lo parta) */
+        /** Texto del template (fuera de {{ }} para que el formateador del editor no lo parta) */
+        /** Texto del template (fuera de {{ }} para que el formateador del editor no lo parta) */
+        textoGuardar() {
+            return this.guardando ? 'Guardando…' : 'Guardar Cotización';
+        },
+        /** Texto del template (fuera de {{ }} para que el formateador del editor no lo parta) */
+        textoCerrarEnvio() {
+            return this.envio.enviado ? 'Cerrar' : 'Cancelar';
+        },
+        /** Texto del template (fuera de {{ }} para que el formateador del editor no lo parta) */
+        textoEnviar() {
+            if (this.envio.enviando) return 'Enviando…';
+            return this.envio.enviado ? 'Enviar de nuevo' : 'Enviar';
+        },
         /** Total estimado: suma de los totales que reporta cada BloqueConceptos (con IVA) */
-        total() {
-            const totales = this.totalesBloque;
-            const suma = this.secciones.reduce(function (acc, s) { return acc + (totales[s.id] || 0); }, 0);
-            return Math.round((suma + Number.EPSILON) * 100) / 100;
+        /** Totales por moneda: pesos y dólares no se convierten (eso se hace al facturar) */
+        totalMxn() { return this.sumaTotales('mxn'); },
+        totalUsd() { return this.sumaTotales('usd'); },
+        totalMxnTexto() { return '$' + this.fmt(this.totalMxn) + ' MXN'; },
+        totalUsdTexto() { return '$' + this.fmt(this.totalUsd) + ' USD'; },
+        /** Productos con plantilla + el escrito en esta cotización */
+        opcionesProducto() {
+            const lista = this.productos.slice();
+            if (this.header.producto && lista.indexOf(this.header.producto) === -1) lista.push(this.header.producto);
+            return lista;
+        },
+        tienePlantilla() {
+            const p = String(this.header.producto || '').trim().toLowerCase();
+            return !!p && this.productos.some(function (x) { return String(x).trim().toLowerCase() === p; });
+        },
+        /** La plantilla se carga sola cuando ya hay producto (con plantilla) y tipo de operación */
+        listoParaPlantilla() {
+            return this.tienePlantilla && !!this.header.tipo_operacion;
         },
         /** Sucursal del puerto escrito ("Nogales", "nuevo laredo"…) para filtrar los conceptos. */
         sucursalActiva() {
@@ -425,6 +465,7 @@ export default {
     },
 
     beforeDestroy() {
+        this.liberarPreviewPdf();
         document.removeEventListener('keydown', this.alTeclear);
         document.body.classList.remove('cz-sin-scroll');
     },
@@ -432,7 +473,17 @@ export default {
     methods: {
         fmt(n) { return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); },
         num(v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; },
-        guardarTotal(e) { this.$set(this.totalesBloque, e.id, e.total); },
+        guardarTotal(e) { this.$set(this.totalesBloque, e.id, { mxn: e.mxn || 0, usd: e.usd || 0 }); },
+        sumaTotales(moneda) {
+            const totales = this.totalesBloque;
+            const suma = this.secciones.reduce(function (acc, s) { return acc + ((totales[s.id] || {})[moneda] || 0); }, 0);
+            return Math.round((suma + Number.EPSILON) * 100) / 100;
+        },
+        /** Aprobación interna registrada: se actualiza la sección y la tabla de clientes al cerrar */
+        actualizarAprobaciones(datos) {
+            this.aprobaciones = datos;
+            this.$emit('guardada', { id: this.id, aprobaciones: datos });
+        },
 
         /** Rango validado: inicio = fecha de cotización, fin = válida hasta */
         aplicarVigencia() {
@@ -446,6 +497,49 @@ export default {
          * así que se quitan los conceptos capturados en los bloques que dependen de la sucursal.
          * Impuestos, LLC y Certificado (sin_sucursal) se conservan.
          */
+        /** Producto elegido o escrito: si tiene plantilla, ofrece cargar sus conceptos */
+        elegirProducto(valor) {
+            const nuevo = String(valor || '').trim();
+            if (nuevo === this.header.producto) return;
+            this.header.producto = nuevo;
+            if (this.listoParaPlantilla) this.cargarPlantilla(false);
+        },
+
+        /** Trae de la plantilla del producto los conceptos de cada bloque (según operación y sucursal) */
+        cargarPlantilla(silencioso) {
+            if (!this.header.producto) return;
+            const actuales = this.secciones.reduce(function (n, s) { return n + s.rows.length; }, 0);
+            if (actuales && !silencioso && !window.confirm('Se reemplazarán los ' + actuales + ' conceptos capturados por los de la plantilla de '
+                + this.header.producto + '. ¿Continuar?')) {
+                return;
+            }
+
+            this.cargandoPlantilla = true;
+            axios.get(this.baseUrl + '/plantillas/para-cotizacion', {
+                params: { producto: this.header.producto, tipo: this.header.tipo_operacion, sucursal: this.sucursalActiva || '' },
+            })
+                .then((r) => {
+                    const d = r.data || {};
+                    if (!d.plantilla) {
+                        this.aviso('No hay plantilla de ' + this.header.producto + ' para esta operación y sucursal.');
+                        return;
+                    }
+                    const porSeccion = d.conceptos || {};
+                    let total = 0;
+                    this.secciones.forEach(function (s) {
+                        const filas = (porSeccion[s.id] || []).map(function (f) {
+                            return Object.assign({ _k: 'c' + (++llave), nota: '', al_costo: false }, f);
+                        });
+                        total += filas.length;
+                        s.rows.splice(0, s.rows.length);
+                        filas.forEach(function (f) { s.rows.push(f); });
+                    });
+                    this.aviso('Se cargaron ' + total + ' conceptos de la plantilla de ' + d.plantilla.producto + '.');
+                })
+                .catch((e) => { this.aviso(this.mensajesError(e)[0]); })
+                .then(() => { this.cargandoPlantilla = false; });
+        },
+
         elegirSucursal(valor) {
             const nuevo = valor || '';
             if (nuevo === this.header.puerto) {
@@ -470,6 +564,9 @@ export default {
             }
 
             this.header.puerto = nuevo;
+
+            // Plantilla del producto para la nueva sucursal
+            if (this.listoParaPlantilla && nuevo) this.cargarPlantilla(!!total);
         },
 
         /* ---------- abrir / cerrar ---------- */
@@ -544,12 +641,14 @@ export default {
             this.mensajeCorreo = p.mensajeCorreo || '';
             this.usuario = Object.assign({ nombre: null, email: null, simulado: false }, p.usuario);
             this.aprobaciones = p.aprobaciones || { estado: 'sin_iniciar', areas: [] };
+            this.productos = p.productos || [];
             this.respuesta = Object.assign({ estado: 'pendiente', por: null, fecha: null, comentario: null, enviada: null }, p.respuesta);
             // Cotización nueva: el vendedor es quien la está haciendo
             if (!p.id && !this.header.vendedor && this.usuario.nombre) {
                 this.header.vendedor = this.usuario.nombre;
             }
             this.previewHtml = '';
+            this.liberarPreviewPdf();
             this.instantanea = JSON.stringify(this.cuerpo());
         },
 
@@ -566,6 +665,7 @@ export default {
 
             const nuevos = this.terminosDefault[tipo];
             if (!nuevos || !nuevos.length) {
+                if (this.listoParaPlantilla) this.cargarPlantilla(false);
                 return;
             }
 
@@ -585,6 +685,9 @@ export default {
                 return { _k: 'c' + (++llave), id: null, texto: texto, _estado: '', _ocupado: false };
             });
             this.aviso('Se cargaron los términos y condiciones de ' + nombre + '.');
+
+            // La plantilla del producto puede ser distinta para importación y exportación
+            if (this.listoParaPlantilla) this.cargarPlantilla(false);
         },
 
         /** Lo que se manda al servidor (mismo formato que CotizacionRequest). */
@@ -599,14 +702,17 @@ export default {
                         clave_sat: f.clave_sat || null,
                         descripcion: f.descripcion,
                         cantidad: f.cantidad,
-                        precio_usd: num(f.precio_usd),
-                        precio_mxn: num(f.precio_usd) > 0 ? 0 : num(f.precio_mxn),
+                        precio_usd: f.al_costo ? 0 : num(f.precio_usd),
+                        precio_mxn: f.al_costo || num(f.precio_usd) > 0 ? 0 : num(f.precio_mxn),
+                        al_costo: !!f.al_costo,
+                        nota: f.nota || null,
                         descripcion_doc: f.descripcion_doc,
                     };
                 });
             });
 
             return Object.assign({}, this.header, {
+                id: this.id,   // para que el PDF de borrador lleve el folio de esta cotización
                 empresa_id: this.empresaId,
                 conceptos: conceptos,
                 terminos: this.terminos.map(function (t) { return { texto: t.texto }; }),
@@ -642,51 +748,38 @@ export default {
         },
 
         /* ---------- vista previa / PDF ---------- */
+        /**
+         * Vista previa con el PDF real, dividido en hojas igual que al descargar o imprimir.
+         * Si el PDF no se puede generar (por ejemplo, falta dompdf), se muestra la vista HTML.
+         */
         verPreview() {
             this.tab = 'preview';
             this.cargandoPreview = true;
-            axios.post(this.baseUrl + '/cotizaciones/preview', this.cuerpo(), { responseType: 'text' })
-                .then((r) => { this.previewHtml = r.data; })
-                .catch((e) => { this.previewHtml = '<p style="font-family:Arial;padding:24px;color:#991b1b">' + this.mensajesError(e)[0] + '</p>'; })
+            // El servidor guarda el PDF y devuelve una URL con el nombre del archivo:
+            // así "Guardar" del visor conserva la nomenclatura (COTN19112026001-cliente.pdf)
+            axios.post(this.baseUrl + '/cotizaciones/pdf-vista', this.cuerpo())
+                .then((r) => {
+                    if (!r.data || !r.data.url) throw new Error('sin-url');
+                    this.liberarPreviewPdf();
+                    this.previewPdfUrl = r.data.url;
+                })
+                .catch(() => {
+                    this.liberarPreviewPdf();
+                    return axios.post(this.baseUrl + '/cotizaciones/preview', this.cuerpo(), { responseType: 'text' })
+                        .then((r) => { this.previewHtml = r.data; })
+                        .catch((e) => {
+                            // El servidor manda una página con el detalle del error: se muestra tal cual
+                            const r = e && e.response;
+                            this.previewHtml = (r && typeof r.data === 'string' && r.data.indexOf('<') !== -1)
+                                ? r.data
+                                : '<p style="font-family:Arial;padding:24px;color:#991b1b">' + this.mensajesError(e)[0] + '</p>';
+                        });
+                })
                 .then(() => { this.cargandoPreview = false; });
         },
-
-        /** Abre el PDF en otra pestaña para imprimir. */
-        imprimirPdf() {
-            // La ventana se abre antes de la petición para que el navegador no la bloquee
-            const ventana = window.open('', '_blank');
-            this.generandoPdf = true;
-            axios.post(this.baseUrl + '/cotizaciones/pdf-borrador', this.cuerpo(), { responseType: 'blob' })
-                .catch(this.leerErrorBlob)
-                .then((r) => {
-                    const url = URL.createObjectURL(new Blob([r.data], { type: 'application/pdf' }));
-                    if (ventana) ventana.location = url; else window.location = url;
-                    setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
-                })
-                .catch((e) => {
-                    if (ventana) ventana.close();
-                    this.aviso(this.mensajesError(e)[0]);
-                })
-                .then(() => { this.generandoPdf = false; });
-        },
-
-        /** Descarga el PDF de lo que está en pantalla (aunque no se haya guardado). */
-        descargarPdf() {
-            this.descargando = true;
-            axios.post(this.baseUrl + '/cotizaciones/pdf-borrador?descargar=1', this.cuerpo(), { responseType: 'blob' })
-                .catch(this.leerErrorBlob)
-                .then((r) => {
-                    const enlace = document.createElement('a');
-                    enlace.href = URL.createObjectURL(new Blob([r.data], { type: 'application/pdf' }));
-                    enlace.download = this.nombrePdf;
-                    document.body.appendChild(enlace);
-                    enlace.click();
-                    enlace.remove();
-                    setTimeout(function () { URL.revokeObjectURL(enlace.href); }, 60000);
-                    this.aviso('PDF descargado: ' + this.nombrePdf);
-                })
-                .catch((e) => { this.aviso(this.mensajesError(e)[0]); })
-                .then(() => { this.descargando = false; });
+        liberarPreviewPdf() {
+            if (this.previewPdfUrl && this.previewPdfUrl.indexOf('blob:') === 0) URL.revokeObjectURL(this.previewPdfUrl);
+            this.previewPdfUrl = '';
         },
 
         /* ---------- correo ---------- */
@@ -1346,6 +1439,19 @@ body.cz-sin-scroll {
     color: var(--navy);
 }
 
+.cz-grand-montos {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.cz-grand-usd {
+    border-color: #bfdbfe !important;
+    background: #eff6ff !important;
+    color: #1d5fa5 !important;
+}
+
 .cz-grand strong {
     padding: 10px 22px;
     border: 1px solid #fef08a;
@@ -1396,7 +1502,8 @@ body.cz-sin-scroll {
 .cz-frame {
     display: block;
     width: 100%;
-    height: 1100px;
+    height: calc(90vh - 230px);
+    min-height: 520px;
     border: 1px solid var(--gray-200);
     border-radius: 8px;
     background: var(--gray-100);
@@ -1610,6 +1717,27 @@ body.cz-sin-scroll {
     color: var(--teal-d);
     cursor: pointer;
 }
+
+.cz-bloqueado {
+    position: relative;
+}
+
+.cz-bloqueado input {
+    padding-right: 36px !important;
+    background: var(--gray-100) !important;
+    color: var(--gray-500) !important;
+    cursor: not-allowed;
+}
+
+.cz-bloqueado svg {
+    position: absolute;
+    top: 50%;
+    right: 13px;
+    transform: translateY(-50%);
+    color: var(--gray-400);
+    pointer-events: none;
+}
+
 
 .cz-modal-btns {
     display: flex;

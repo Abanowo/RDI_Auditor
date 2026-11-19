@@ -31,6 +31,32 @@ return [
         'Por maniobra',
         'Por muestra',
         'Por certificado',
+        'Por tarima',
+        'Por tarima / Por día',
+        'Por BOL',
+        'Por sello',
+        'Por hora extra',
+        // Usadas en las plantillas por producto
+        'Al costo',
+        'En rabón',
+        'En van o estaquita',
+        'Por MVE',
+        'Por cartón',
+        'Por cartón / Por noche',
+        'Por controlador',
+        'Por crate / Por noche',
+        'Por crate o equipo',
+        'Por documento',
+        'Por e-manifest',
+        'Por equipo',
+        'Por esquinero',
+        'Por etiqueta',
+        'Por fianza',
+        'Por fleje',
+        'Por producto',
+        'Por registro',
+        'Por tarima / Por noche',
+        'Sobre valor mercancía',
     ],
 
     /*
@@ -119,6 +145,8 @@ return [
         'Impuestos',
         'Intactics LLC - Gastos americanos pagados a cuenta de cliente',
         'Emisión de certificado internacional',
+        'Bodega en USA',
+        'Servicios adicionales',
     ],
 
     'prefijos_sucursal' => [
@@ -143,6 +171,12 @@ return [
         // Ruta relativa a /public. Si el archivo no existe se dibuja el logo con CSS.
         // Ruta relativa a /public (C:\xampp\htdocs\RDI_Auditor\public\images\INTACTICS ROJO.png)
         'logo'         => 'images/INTACTICS ROJO.png',
+        'sitio'        => 'INTACTICS',
+        // Pie del PDF, del correo y de la página de aprobación
+        'sucursales_pie' => [
+            'Frontera' => ['Nogales', 'Tijuana', 'Laredo', 'Mexicali', 'Reynosa'],
+            'Marítimo' => ['Manzanillo', 'Veracruz', 'Ensenada', 'Altamira'],
+        ],
     ],
 
     /*

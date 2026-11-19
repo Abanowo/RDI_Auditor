@@ -61,12 +61,20 @@
             </button>
             <a v-if="rutas.crear" :href="ruta('crear')" class="ct-btn ct-btn--verde" @click.prevent="ir('crear')"><i
                     class="fas fa-plus"></i> Crear registro</a>
+            <button type="button" class="ct-btn ct-btn--plantillas" @click="$refs.plantillas.abrir()">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4"
+                    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <path d="M3 9h18M9 21V9" />
+                </svg>
+                Plantillas
+            </button>
             <a :href="urlExportar" class="ct-btn ct-btn--azul"><i class="fas fa-file-excel"></i> Exportar</a>
         </div>
 
         <div v-if="avisos.length" class="ct-avisos">
             <b>Columnas de config/cotizador.php que no existen en tu base de datos (se ignoraron):</b>
-            {{ avisos.join(', ') }}
+            {{ avisosTexto }}
         </div>
 
         <!-- ===== Tabla ===== -->
@@ -183,6 +191,8 @@
             </div>
         </div>
 
+        <plantillas-productos ref="plantillas" :base-url="baseUrl" />
+
         <cotizacion-generador ref="generador" :base-url="baseUrl" @guardada="huboCambios = true"
             @cerrado="alCerrarGenerador" />
     </div>
@@ -195,6 +205,7 @@ import VueCtkDateTimePicker from 'vue-ctk-date-time-picker';
 import 'vue-ctk-date-time-picker/dist/vue-ctk-date-time-picker.css';
 import axios from 'axios';
 import CotizacionGenerador from './CotizacionGenerador.vue';
+import PlantillasProductos from './PlantillasProductos.vue';
 
 function leerUrl(route) {
     // Con Vue Router se lee de $route.query; sin router, de la barra de direcciones
@@ -227,7 +238,7 @@ function leerUrl(route) {
 export default {
     name: 'ClientesDemo',
 
-    components: { CotizacionGenerador, Multiselect, VueCtkDateTimePicker },
+    components: { CotizacionGenerador, PlantillasProductos, Multiselect, VueCtkDateTimePicker },
 
     props: {
         baseUrl: { type: String, default: '' },
@@ -254,6 +265,10 @@ export default {
     },
 
     computed: {
+        /** Texto del template (fuera de {{ }} para que el formateador del editor no lo parta) */
+        avisosTexto() {
+            return this.avisos.join(', ');
+        },
         vendedorElegido() {
             const id = this.filtros.vendedor;
             return id ? (this.opciones.vendedores.find(function (v) { return String(v.id) === String(id); }) || null) : null;
@@ -606,6 +621,13 @@ export default {
 .ct-btn--naranja {
     background: #f7931e;
     border: 0;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.ct-btn--plantillas {
+    border: 0;
+    background: #2A3A4D;
     cursor: pointer;
     font-family: inherit;
 }

@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\IngresoConciliadoController;
 use App\Http\Controllers\ControlProveedoresController;
 use App\Http\Controllers\CotizacionController;
+use App\Http\Controllers\PlantillaProductoController;
 
 /*
 |--------------------------------------------------------------------------
@@ -95,6 +96,8 @@ Route::prefix('cotizaciones')->group(function () {
     Route::get('/empresa/{empresa}', [CotizacionController::class, 'paraEmpresa']);
     Route::post('/preview', [CotizacionController::class, 'preview']);
     Route::post('/pdf-borrador', [CotizacionController::class, 'pdfBorrador']);
+    Route::post('/pdf-vista', [CotizacionController::class, 'pdfVista']);
+    Route::get('/pdf-vista/{token}/{nombre}', [CotizacionController::class, 'verPdfVista']);
     Route::post('/', [CotizacionController::class, 'store']);
 
     // 🔥 2. RUTAS DINÁMICAS (CON {cotizacion}) - SIEMPRE VAN DEBAJO
@@ -111,6 +114,21 @@ Route::prefix('cotizaciones')->group(function () {
 Route::get('/cotizacion/aprobar/{token}', [CotizacionController::class, 'aprobacion']);
 Route::post('/cotizacion/aprobar/{token}', [CotizacionController::class, 'responderAprobacion']);
 Route::get('/cotizacion/aprobar/{token}/pdf', [CotizacionController::class, 'pdfAprobacion']);
+
+// Generador de plantillas de conceptos por producto
+Route::prefix('plantillas')->group(function () {
+    // 🔥 1. RUTAS ESPECÍFICAS - SIEMPRE VAN ARRIBA
+    Route::get('/', [PlantillaProductoController::class, 'index']);
+    Route::get('/nueva', [PlantillaProductoController::class, 'nueva']);
+    Route::get('/para-cotizacion', [PlantillaProductoController::class, 'paraCotizacion']);
+    Route::post('/', [PlantillaProductoController::class, 'store']);
+
+    // 🔥 2. RUTAS DINÁMICAS (CON {plantilla}) - SIEMPRE VAN DEBAJO
+    Route::post('/{plantilla}/duplicar', [PlantillaProductoController::class, 'duplicar']);
+    Route::get('/{plantilla}', [PlantillaProductoController::class, 'show']);
+    Route::put('/{plantilla}', [PlantillaProductoController::class, 'update']);
+    Route::delete('/{plantilla}', [PlantillaProductoController::class, 'destroy']);
+});
 
 // Términos y condiciones de una cotización (botones Guardar / Eliminar)
 Route::put('/cotizacion-terminos/{termino}', [CotizacionController::class, 'terminoUpdate']);

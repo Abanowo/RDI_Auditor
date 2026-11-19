@@ -428,8 +428,12 @@ $operacion = $c && $c->tipo_operacion === 'IMPORTACION' ? 'Importación' : 'Expo
                     <div class="dato"><span>Vigencia</span><b>{{ $c->valida_hasta ? 'Hasta el ' . \App\Models\Cotizacion::fechaLarga($c->valida_hasta) : '—' }}</b></div>
                 </div>
 
-                @if(!empty($resumen['total']))
-                <div class="total"><span>Total estimado (con IVA donde aplica)</span><b>${{ number_format($resumen['total'], 2) }} MXN</b></div>
+                @if(!empty($resumen['total']) || !empty($resumen['total_usd']))
+                <div class="total"><span>Total estimado (con IVA donde aplica)</span>
+                    <b>${{ number_format($resumen['total'], 2) }} MXN
+                        @if(!empty($resumen['total_usd'])) + ${{ number_format($resumen['total_usd'], 2) }} USD @endif
+                    </b>
+                </div>
                 @endif
 
                 <a class="pdf" href="{{ url('/cotizacion/aprobar/' . $token . '/pdf') }}" target="_blank" rel="noopener">📄 Ver cotización en PDF</a>
@@ -481,7 +485,11 @@ $operacion = $c && $c->tipo_operacion === 'IMPORTACION' ? 'Importación' : 'Expo
             </div>
             @endif
 
-            <div class="pie">NOGALES • TIJUANA • LAREDO • MEXICALI • REYNOSA • MANZANILLO • VERACRUZ</div>
+            <div class="pie">
+                @foreach((array) config('cotizador.empresa.sucursales_pie') as $tipo => $lista)
+                <div><span style="color:#fca5a5">{{ mb_strtoupper($tipo, 'UTF-8') }}:</span> {{ mb_strtoupper(implode(' • ', $lista), 'UTF-8') }}</div>
+                @endforeach
+            </div>
         </div>
         <p class="nota">{{ $empresa['razon_social'] }} · {{ strtolower($empresa['email']) }}</p>
     </div>

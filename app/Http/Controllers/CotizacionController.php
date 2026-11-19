@@ -528,9 +528,88 @@ class CotizacionController extends Controller
             return response($this->htmlErrores($validator->errors()->all()));
         }
 
-        $cotizacion = $this->construirBorrador($validator->validated(), $request->boolean('aprobada'));
+        try {
+            $cotizacion = $this->construirBorrador($validator->validated(), $request->boolean('aprobada'));
+            $cotizacion->folio = $this->folioBorrador($cotizacion, $request->input('id'));
 
-        return view('cotizacion_pdf', $this->datosPdf($cotizacion, 'html'));
+            return response(view('cotizacion_pdf', $this->datosPdf($cotizacion, 'html'))->render());
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response($this->htmlErrores(['No se pudo generar la vista previa: ' . $this->detalleError($e)]), 500);
+        }
+    }
+
+    /**
+     * POST cotizaciones/pdf-vista
+     * Genera el PDF de lo que hay en pantalla y lo deja guardado un rato en el servidor.
+     * Devuelve una URL que ya trae el nombre del archivo (COTN19112026001-cliente.pdf),
+     * para que al guardarlo desde el visor del navegador conserve la nomenclatura
+     * (con un blob: el navegador inventa un nombre al azar).
+     */
+    public function pdfVista(Request $request)
+    {
+        $validator = $this->validadorBorrador($request);
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Corrige los datos de la cotización antes de generar el PDF.',
+                'errors'  => $validator->errors(),
+            ], 422);
+        }
+
+        try {
+            $cotizacion = $this->construirBorrador($validator->validated(), $request->boolean('aprobada'));
+            $cotizacion->folio = $this->folioBorrador($cotizacion, $request->input('id'));
+            $binario = $this->generarPdf($cotizacion)->output();
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json(['message' => 'No se pudo generar el PDF: ' . $this->detalleError($e)], 500);
+        }
+
+        $carpeta = storage_path('app' . DIRECTORY_SEPARATOR . 'cotizador_vistas');
+        if (!is_dir($carpeta)) {
+            @mkdir($carpeta, 0775, true);
+        }
+        // Limpia los PDF de vista previa de más de 2 horas
+        foreach ((array) glob($carpeta . DIRECTORY_SEPARATOR . '*.pdf') as $viejo) {
+            if (@filemtime($viejo) < time() - 7200) {
+                @unlink($viejo);
+            }
+        }
+
+        $token  = \Illuminate\Support\Str::random(40);
+        file_put_contents($carpeta . DIRECTORY_SEPARATOR . $token . '.pdf', $binario);
+        $nombre = $cotizacion->nombreArchivo();
+
+        return response()->json([
+            'url'    => url('/cotizaciones/pdf-vista/' . $token . '/' . rawurlencode($nombre)),
+            'nombre' => $nombre,
+        ]);
+    }
+
+    /**
+     * GET cotizaciones/pdf-vista/{token}/{nombre}
+     * Muestra el PDF en el navegador con su nombre (inline; "Guardar" usa ese nombre).
+     */
+    public function verPdfVista($token, $nombre)
+    {
+        abort_unless(preg_match('/^[A-Za-z0-9]{40}$/', $token), 404);
+        $ruta = storage_path('app' . DIRECTORY_SEPARATOR . 'cotizador_vistas' . DIRECTORY_SEPARATOR . $token . '.pdf');
+        abort_unless(is_file($ruta), 404, 'La vista previa expiró. Vuelve a abrir la pestaña "Vista previa (PDF)".');
+
+        $nombre = preg_replace('/[^A-Za-z0-9._-]+/', '-', $nombre) ?: 'cotizacion.pdf';
+
+        return response()->file($ruta, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="' . $nombre . '"',
+        ]);
+    }
+
+    /** "mensaje (archivo.php:línea)" para mostrar en pantalla qué falló */
+    protected function detalleError(\Throwable $e)
+    {
+        return $e->getMessage() . ' (' . basename($e->getFile()) . ':' . $e->getLine() . ')';
     }
 
     /**
@@ -547,12 +626,15 @@ class CotizacionController extends Controller
             ], 422);
         }
 
-        $cotizacion = $this->construirBorrador($validator->validated(), $request->boolean('aprobada'));
-
         try {
+            $cotizacion = $this->construirBorrador($validator->validated(), $request->boolean('aprobada'));
+            $cotizacion->folio = $this->folioBorrador($cotizacion, $request->input('id'));
             $pdf = $this->generarPdf($cotizacion);
+            $pdf->output();   // se genera aquí para que cualquier error se reporte con su detalle
         } catch (\Throwable $e) {
-            return response()->json(['message' => $e->getMessage()], 500);
+            report($e);
+
+            return response()->json(['message' => 'No se pudo generar el PDF: ' . $this->detalleError($e)], 500);
         }
 
         // ?descargar=1 → archivo para guardar; sin parámetro → se abre en el navegador (imprimir)
@@ -711,13 +793,42 @@ class CotizacionController extends Controller
         $cotizacion->terminos()->saveMany($this->terminosDesdeDatos($datos));
 
         $cotizacion->load('conceptos', 'terminos');
-        $cotizacion->total_mxn = $this->calc->resumen($cotizacion, Seccion::activas()->get())['total'];
+        $resumen               = $this->calc->resumen($cotizacion, Seccion::activas()->get());
+        $cotizacion->total_mxn = $resumen['total'];
+        if (Schema::hasColumn('cotizaciones', 'total_usd')) {
+            $cotizacion->total_usd = $resumen['total_usd'];
+        }
         $cotizacion->save();
 
         // Si se marcó "Aprobada por cliente" en el generador, inician las aprobaciones internas
         if ($cotizacion->aprobada) {
             $cotizacion->iniciarAprobacionesInternas();
         }
+    }
+
+    /**
+     * Folio del PDF de borrador con la misma nomenclatura que al guardar
+     * (COT + sucursal + DDMMAAAA + número del cliente + -cliente):
+     *  - cotización ya enviada: su folio definitivo;
+     *  - guardada sin enviar: el folio que tendrá con los datos que hay en pantalla;
+     *  - nueva: el que le tocará al guardarla.
+     */
+    protected function folioBorrador(Cotizacion $borrador, $id)
+    {
+        $existente = $id ? Cotizacion::find($id) : null;
+        if ($existente && $existente->enviada_at && $existente->folio) {
+            return $existente->folio;
+        }
+        if ($existente) {
+            $borrador->id     = $existente->id;
+            $borrador->exists = true;           // solo para calcular el folio; el borrador no se guarda
+            $folio            = $borrador->generarFolio();
+            $borrador->exists = false;
+
+            return $folio;
+        }
+
+        return $borrador->generarFolio();
     }
 
     protected function construirBorrador(array $datos, $aprobada)
@@ -749,8 +860,9 @@ class CotizacionController extends Controller
 
             foreach ((array) $filas as $fila) {
                 $cantidad = (float) Arr::get($fila, 'cantidad', 0);
-                $usd      = (float) Arr::get($fila, 'precio_usd', 0);
-                $mxn      = $usd > 0 ? 0.0 : (float) Arr::get($fila, 'precio_mxn', 0);
+                $alCosto  = (bool) Arr::get($fila, 'al_costo', false);
+                $usd      = $alCosto ? 0.0 : (float) Arr::get($fila, 'precio_usd', 0);
+                $mxn      = ($alCosto || $usd > 0) ? 0.0 : (float) Arr::get($fila, 'precio_mxn', 0);
 
                 $conceptos->push(new CotizacionConcepto([
                     'seccion_id'      => (int) $seccionId,
@@ -760,8 +872,10 @@ class CotizacionController extends Controller
                     'cantidad'        => $cantidad,
                     'precio_usd'      => $usd,
                     'precio_mxn'      => $mxn,
-                    'importe_mxn'     => $this->calc->importe($cantidad, $usd, $mxn, $tipoCambio),
+                    'importe_mxn'     => $this->calc->importe($cantidad, $usd, $mxn),   // dólares no se convierten
                     'descripcion_doc' => $fila['descripcion_doc'],
+                    'al_costo'        => $alCosto,
+                    'nota'            => trim((string) Arr::get($fila, 'nota', '')) ?: null,
                     'orden'           => $orden++,
                 ]));
             }
@@ -819,7 +933,7 @@ class CotizacionController extends Controller
         if (app()->environment('production')) {
             $remitente = auth()->user();
         } else {
-            $remitente = User::find(1);
+            $remitente = User::find(3);
         }
 
         return $remitente;
@@ -956,9 +1070,40 @@ class CotizacionController extends Controller
             );
         }
 
-        return app('dompdf.wrapper')
+        // El texto usa las fuentes base de PDF (Helvetica y Courier). Los íconos son de Font Awesome
+        // (public/fonts/fontawesome) y dompdf guarda sus medidas en storage/fonts: la carpeta debe existir
+        // y poderse escribir; si no, los íconos no se dibujan.
+        $fuentes = storage_path('fonts');
+        if (!is_dir($fuentes)) {
+            @mkdir($fuentes, 0775, true);
+        }
+        if (!is_writable($fuentes)) {
+            throw new \RuntimeException('La carpeta ' . $fuentes . ' no tiene permisos de escritura; dompdf la necesita para los íconos de Font Awesome.');
+        }
+        $wrapper = app('dompdf.wrapper');
+        $this->registrarFontAwesome($wrapper->getDomPDF());
+
+        return $wrapper
             ->loadView('cotizacion_pdf', $this->datosPdf($cotizacion, 'pdf'))
             ->setPaper('letter', 'portrait');
+    }
+
+    /**
+     * Registra las fuentes de Font Awesome directamente en dompdf con la ruta del archivo.
+     * Así los íconos funcionan aunque dompdf no pueda leer la ruta del @font-face del CSS
+     * (en Windows "C:/…" lo interpreta como protocolo y los íconos salen como "?").
+     */
+    protected function registrarFontAwesome($dompdf)
+    {
+        $metricas = $dompdf->getFontMetrics();
+        $familias = array_change_key_case((array) $metricas->getFontFamilies(), CASE_LOWER);
+
+        foreach (['FA6 Solid' => 'fa-solid-900.ttf', 'FA6 Brands' => 'fa-brands-400.ttf'] as $familia => $archivo) {
+            $ruta = public_path('fonts' . DIRECTORY_SEPARATOR . 'fontawesome' . DIRECTORY_SEPARATOR . $archivo);
+            if (!isset($familias[strtolower($familia)]) && is_file($ruta)) {
+                $metricas->registerFont(['family' => $familia, 'style' => 'normal', 'weight' => 'normal'], $ruta);
+            }
+        }
     }
 
     protected function datosPdf(Cotizacion $cotizacion, $modo)
@@ -981,7 +1126,30 @@ class CotizacionController extends Controller
             'empresa'    => $empresa,
             'logo'       => $logo,
             'modo'       => $modo,
+            'graficos'   => $this->graficosPdf(),
         ];
+    }
+
+    /**
+     * Formas del encabezado y del pie del PDF (public/images/pdf/encabezado.png y pie.png),
+     * incrustadas en base64. Los íconos (camión, barco, globo y redes sociales) están hechos
+     * con HTML y CSS dentro de cotizacion_pdf.blade.php: no usan imágenes ni fuentes de íconos.
+     */
+    protected function graficosPdf()
+    {
+        $carpeta  = public_path('images' . DIRECTORY_SEPARATOR . 'pdf') . DIRECTORY_SEPARATOR;
+        $graficos = [];
+
+        foreach (['encabezado', 'pie'] as $nombre) {
+            $graficos[$nombre] = $this->incrustar($carpeta . $nombre . '.png', 'image/png');
+        }
+
+        return $graficos;
+    }
+
+    protected function incrustar($ruta, $mime)
+    {
+        return is_file($ruta) ? 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($ruta)) : null;
     }
 
     /**
@@ -1006,7 +1174,7 @@ class CotizacionController extends Controller
         $cotizacion = new Cotizacion([
             'fecha'          => now(),
             'valida_hasta'   => now()->endOfYear(),
-            'tipo_operacion' => 'EXPORTACION',
+            'tipo_operacion' => null,   // sin preseleccionar: se elige en el generador
             'tipo_cambio'    => config('cotizador.tipo_cambio'),
             'vendedor'       => $this->nombreUsuario(),
         ]);
@@ -1027,7 +1195,8 @@ class CotizacionController extends Controller
 
         $cotizacion->setRelation('conceptos', collect());
         // Términos de importación o exportación según el tipo de operación
-        $terminos = app(CatalogoCotizador::class)->terminos($cotizacion->tipo_operacion);
+        // Sin tipo de operación todavía: los términos se cargan al elegir Importación o Exportación
+        $terminos = $cotizacion->tipo_operacion ? app(CatalogoCotizador::class)->terminos($cotizacion->tipo_operacion) : [];
         $cotizacion->setRelation('terminos', collect($terminos)->map(function ($texto) {
             return new CotizacionTermino(['texto' => $texto]);
         }));
@@ -1073,7 +1242,7 @@ class CotizacionController extends Controller
                         return $c->only(['id', 'sucursal', 'codigo', 'clave_sat', 'descripcion', 'precio_usd', 'precio_mxn', 'descripcion_doc']);
                     })->values()->all(),
                     'rows'       => $porSeccion->get($seccion->id, collect())->map(function ($c) {
-                        return $c->only(['codigo', 'clave_sat', 'descripcion', 'cantidad', 'precio_usd', 'precio_mxn', 'descripcion_doc']);
+                        return $c->only(['codigo', 'clave_sat', 'descripcion', 'cantidad', 'precio_usd', 'precio_mxn', 'descripcion_doc', 'al_costo', 'nota']);
                     })->values()->all(),
                 ];
             })->values()->all(),
@@ -1083,6 +1252,10 @@ class CotizacionController extends Controller
             'sucursales'       => app(CatalogoCotizador::class)->sucursales(),
             'avisos'           => app(CatalogoCotizador::class)->avisos(),
             'aprobaciones'     => $this->datosAprobaciones($cotizacion),
+            // Productos con plantilla de conceptos (combo "Producto / mercancía")
+            'productos'        => \Illuminate\Support\Facades\Schema::hasTable('plantillas_productos')
+                ? \App\Models\PlantillaProducto::where('activo', true)->orderBy('producto')->pluck('producto')->unique()->values()->all()
+                : [],
             'respuesta'        => [
                 'estado'     => $cotizacion->exists ? $cotizacion->estadoRespuesta() : 'pendiente',
                 'por'        => $cotizacion->aprobada_por,

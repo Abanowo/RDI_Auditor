@@ -9,8 +9,8 @@ class CotizacionConcepto extends Model
     protected $table = 'cotizacion_conceptos';
 
     protected $fillable = [
-        'cotizacion_id', 'seccion_id', 'codigo', 'descripcion', 'cantidad',
-        'precio_usd', 'precio_mxn', 'importe_mxn', 'descripcion_doc', 'orden',
+        'cotizacion_id', 'seccion_id', 'codigo', 'clave_sat', 'descripcion', 'cantidad',
+        'precio_usd', 'precio_mxn', 'importe_mxn', 'descripcion_doc', 'al_costo', 'nota', 'orden',
     ];
 
     protected $casts = [
@@ -18,6 +18,7 @@ class CotizacionConcepto extends Model
         'precio_usd'  => 'float',
         'precio_mxn'  => 'float',
         'importe_mxn' => 'float',
+        'al_costo'    => 'boolean',
         'orden'       => 'integer',
     ];
 
@@ -36,6 +37,9 @@ class CotizacionConcepto extends Model
      */
     public function tarifaTexto()
     {
+        if ($this->al_costo) {
+            return 'Al costo';
+        }
         if ($this->esDolares()) {
             return '$' . number_format($this->precio_usd, 2) . ' Dlls';
         }

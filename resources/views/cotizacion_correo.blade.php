@@ -35,7 +35,7 @@ $urlFirma = $firmaUrl;
 
 $fecha = \App\Models\Cotizacion::fechaLarga($cotizacion->fecha);
 $validaHasta = \App\Models\Cotizacion::fechaLarga($cotizacion->valida_hasta);
-$sucursales = 'NOGALES • TIJUANA • LAREDO • MEXICALI • REYNOSA • MANZANILLO • VERACRUZ';
+$pieSucursales = (array) config('cotizador.empresa.sucursales_pie');
 
 $rojo = '#d32f2f';
 $navy = '#2A3A4D';
@@ -195,7 +195,11 @@ $linea = '#e5e7eb';
                     {{-- Pie: sucursales, dirección y sitio --}}
                     <tr>
                         <td style="padding:16px 36px; background:{{ $navy }}; font-family:Arial,Helvetica,sans-serif; text-align:center;">
-                            <div style="font-size:10px; font-weight:bold; letter-spacing:1.5px; color:#ffffff;">{{ $sucursales }}</div>
+                            @foreach($pieSucursales as $tipo => $lista)
+                            <div style="padding-top:2px; font-size:10px; font-weight:bold; letter-spacing:1.2px; color:#ffffff;">
+                                <span style="color:#fca5a5;">{{ mb_strtoupper($tipo, 'UTF-8') }}:</span> {{ mb_strtoupper(implode(' • ', $lista), 'UTF-8') }}
+                            </div>
+                            @endforeach
                             <div style="padding-top:8px; font-size:11px; line-height:16px; color:#cbd5e1;">
                                 {{ implode(' ', $empresa['direccion']) }}
                             </div>
@@ -203,7 +207,7 @@ $linea = '#e5e7eb';
                     </tr>
                     <tr>
                         <td style="padding:9px 36px; background:{{ $rojo }}; font-family:Arial,Helvetica,sans-serif; text-align:center;">
-                            <a href="https://www.intactics.com" style="font-size:11px; font-weight:bold; letter-spacing:2px; color:#ffffff; text-decoration:none;">WWW.INTACTICS.COM</a>
+                            <a style="font-size:11px; font-weight:bold; letter-spacing:2px; color:#ffffff; text-decoration:none;">INTACTICS</a>
                         </td>
                     </tr>
                 </table>

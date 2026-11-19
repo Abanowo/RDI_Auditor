@@ -32,14 +32,24 @@ class CotizacionRequest extends FormRequest
             'conceptos'                   => 'nullable|array',
             'conceptos.*'                 => 'array',
             'conceptos.*.*.codigo'        => 'nullable|string|max:20',
+            'conceptos.*.*.clave_sat'     => 'nullable|string|max:20',
             'conceptos.*.*.descripcion'   => 'required|string|max:255',
             'conceptos.*.*.cantidad'      => 'required|numeric|min:0',
             'conceptos.*.*.precio_usd'    => 'nullable|numeric|min:0',
             'conceptos.*.*.precio_mxn'    => 'nullable|numeric|min:0',
             'conceptos.*.*.descripcion_doc' => ['required', 'string', Rule::in(config('cotizador.descripciones_doc'))],
+            'conceptos.*.*.al_costo'      => 'nullable|boolean',
+            'conceptos.*.*.nota'          => 'nullable|string|max:2000',
 
             'terminos'         => 'nullable|array',
             'terminos.*.texto' => 'nullable|string|max:3000',
+        ];
+    }
+
+    public function messages()
+    {
+        return [
+            'tipo_operacion.required' => 'Elige el tipo de operación: Importación o Exportación.',
         ];
     }
 

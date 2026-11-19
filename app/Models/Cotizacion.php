@@ -13,8 +13,17 @@ class Cotizacion extends Model
     protected $table = 'cotizaciones';
 
     protected $fillable = [
-        'empresa_id', 'cliente', 'contacto', 'fecha', 'valida_hasta', 'puerto', 'tipo_operacion',
-        'producto', 'vendedor', 'tipo_cambio', 'aprobada',
+        'empresa_id',
+        'cliente',
+        'contacto',
+        'fecha',
+        'valida_hasta',
+        'puerto',
+        'tipo_operacion',
+        'producto',
+        'vendedor',
+        'tipo_cambio',
+        'aprobada',
     ];
 
     protected $casts = [
@@ -27,6 +36,7 @@ class Cotizacion extends Model
         'cambios_solicitados_at' => 'datetime',
         'tipo_cambio'  => 'float',
         'total_mxn'    => 'float',
+        'total_usd'    => 'float',
     ];
 
     protected static function booted()
@@ -58,14 +68,18 @@ class Cotizacion extends Model
         $codigo = $clave ? (string) config('cotizador.folio_sucursal.' . $clave, '') : '';
         $fecha  = ($this->fecha ?: now())->format('dmY');
 
-        // Número de cotización del cliente: cuántas cotizaciones tiene hasta esta (incluida)
-        $consulta = static::withTrashed()->where('id', '<=', $this->id);
+        // Número de cotización del cliente: cuántas cotizaciones tiene hasta esta (incluida).
+        // Si todavía no se guarda (vista previa / PDF borrador), es la siguiente que le tocaría.
+        $consulta = static::withTrashed();
+        if ($this->exists) {
+            $consulta->where('id', '<=', $this->id);
+        }
         if ($this->empresa_id) {
             $consulta->where('empresa_id', $this->empresa_id);
         } else {
             $consulta->whereNull('empresa_id')->where('cliente', $this->cliente);
         }
-        $numero = str_pad((string) max(1, $consulta->count()), 3, '0', STR_PAD_LEFT);
+        $numero = str_pad((string) max(1, $consulta->count() + ($this->exists ? 0 : 1)), 3, '0', STR_PAD_LEFT);
 
         $cliente = substr(\Illuminate\Support\Str::slug($this->cliente ?: 'cliente'), 0, 120);
         $base    = 'COT' . $codigo . $fecha . $numero . '-' . $cliente;
@@ -73,7 +87,9 @@ class Cotizacion extends Model
         // Si otra cotización ya tiene ese folio (clientes con el mismo nombre), se agrega -2, -3…
         $folio = $base;
         $n     = 2;
-        while (static::withTrashed()->where('folio', $folio)->where('id', '<>', $this->id)->exists()) {
+        while (static::withTrashed()->where('folio', $folio)->when($this->exists, function ($q) {
+            $q->where('id', '<>', $this->id);
+        })->exists()) {
             $folio = $base . '-' . $n++;
         }
 
@@ -98,13 +114,7 @@ class Cotizacion extends Model
 
     public function urlAprobacion()
     {
-        if (!$this->token_aprobacion) {
-            return null;
-        }
-        // Dirección pública con la que el CLIENTE abre el enlace (no 127.0.0.1 ni localhost)
-        $base = rtrim((string) config('cotizador.url_publica'), '/') ?: url('/');
-
-        return $base . '/cotizacion/aprobar/' . $this->token_aprobacion;
+        return $this->token_aprobacion ? url('/cotizacion/aprobar/' . $this->token_aprobacion) : null;
     }
 
     public function tokenVencido()
@@ -131,7 +141,7 @@ class Cotizacion extends Model
 
     /**
      * Crea las aprobaciones pendientes de cada área (una vez que el cliente aprobó).
-     * Devuelve las que se crearon en esta llamada (para avisar solo a esas áreas).
+     * Devuelve las que se crearon en esta llamada.
      */
     public function iniciarAprobacionesInternas()
     {
@@ -167,7 +177,9 @@ class Cotizacion extends Model
             return 'rechazada';
         }
 
-        return $estados->every(function ($e) { return $e === 'aprobada'; }) ? 'autorizada' : 'pendiente';
+        return $estados->every(function ($e) {
+            return $e === 'aprobada';
+        }) ? 'autorizada' : 'pendiente';
     }
 
     public function conceptos()
