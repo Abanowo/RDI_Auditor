@@ -3619,48 +3619,56 @@ class AuditoriaImpuestosController extends Controller
     {
         $carpeta = strtolower($carpeta);
         $t = Str::upper(Str::ascii($texto));
- 
+
         $enProveedores = str_contains($carpeta, 'proveedor');
         $enTerminal    = str_contains($carpeta, 'terminal');
         $enVacios      = str_contains($carpeta, 'vacio');
         $enManiobras   = str_contains($carpeta, 'maniobra');
         $enRojo        = str_contains($carpeta, 'rojo');
- 
+
         // Logipuerto tiene su propio concepto
         if (str_contains($t, 'LOGIPUERTO') || str_contains($t, 'LOGI PUERTO')) {
             return null;
         }
- 
+
         // RECONOCIMIENTO: todo lo que esté en la carpeta de ROJO
         if ($enRojo) {
             return 'Reconocimiento';
         }
- 
+
+        // INCUMPLIMIENTO / ENTREGA NO REALIZADA / REPROGRAMACIÓN: PROVEEDORES o TERMINAL
+        if ($enProveedores || $enTerminal) {
+            $nuevo = $this->conceptoIncumplimientoZLO($t);
+            if ($nuevo) {
+                return $nuevo;
+            }
+        }
+
         // ACCESA: MANIOBRAS o PROVEEDORES
         if (($enManiobras || $enProveedores) && (str_contains($t, 'ACCESA') || str_contains($t, 'ACCESSA'))) {
             return 'Accesa';
         }
- 
+
         // RECONOCIMIENTO: MANIOBRAS o PROVEEDORES (con palabra clave)
         if (($enManiobras || $enProveedores) && (str_contains($t, 'RECONOCIMIENTO') || str_contains($t, 'PREVIO'))) {
             return 'Reconocimiento';
         }
- 
+
         // REACOMODO: PROVEEDORES, TERMINAL o MANIOBRAS
         if (($enProveedores || $enTerminal || $enManiobras) && str_contains($t, 'REACOMODO')) {
             return 'Reacomodo';
         }
- 
+
         // CONEXIONES: PROVEEDORES o TERMINAL
         if (str_contains($t, 'CONEXION')) {
             return ($enProveedores || $enTerminal) ? 'Conexiones' : null;
         }
- 
+
         // LIMPIEZA: PROVEEDORES o VACÍOS
         if (str_contains($t, 'LIMPIEZA') || str_contains($t, 'LAVADO')) {
             return ($enProveedores || $enVacios) ? 'Limpieza' : null;
         }
- 
+
         return null;
     }
  
@@ -4961,6 +4969,70 @@ class AuditoriaImpuestosController extends Controller
             Log::error("Error en Traslado Local: " . $e->getMessage() . " línea " . $e->getLine());
             return ['code' => 1, 'message' => $e];
         }
+    }
+
+    /**
+     * Incumplimiento / Entrega no Realizada / Reprogramacion a partir de un texto
+     * (nombre de archivo o descripciones del XML). null si no es ninguno.
+     * Tolera guiones, guiones bajos, acentos y mayúsculas/minúsculas.
+     */
+    private function conceptoIncumplimientoZLO(string $texto): ?string
+    {
+        $t = Str::upper(Str::ascii(str_replace(['-', '_', '.'], ' ', $texto)));
+        $t = preg_replace('/\s+/', ' ', $t);
+
+        if (str_contains($t, 'INCUMPLIMIENTO')) {
+            return 'Incumplimiento';
+        }
+        if (preg_match('/ENTREGA\s*NO\s*(REALIZADA|EFECTUADA)/', $t) || str_contains($t, 'NO REALIZADA')) {
+            return 'Entrega no Realizada';
+        }
+        if (str_contains($t, 'REPROGRAMACION') || str_contains($t, 'REPROGRAMADA')) {
+            return 'Reprogramacion';
+        }
+
+        return null;
+    }
+    
+    /**
+     * Revisa las descripciones de los conceptos del XML.
+     * Devuelve el concepto si la factura es de Incumplimiento / Entrega no Realizada /
+     * Reprogramacion y NO trae además cobros de maniobra, almacenaje o vacíos
+     * (una factura de maniobras con un renglón extra se queda en Terminales).
+     */
+    private function conceptoIncumplimientoEnXml(?string $rutaXml): ?string
+    {
+        static $cache = [];
+
+        if (empty($rutaXml)) {
+            return null;
+        }
+        if (array_key_exists($rutaXml, $cache)) {
+            return $cache[$rutaXml];
+        }
+
+        $xml = $this->descargarTextoDocumento($rutaXml);
+        if (!$xml || !preg_match_all('/Descripcion=["\']([^"\']*)["\']/i', $xml, $m)) {
+            return $cache[$rutaXml] = null;
+        }
+
+        $encontrado = null;
+        foreach ($m[1] as $descripcion) {
+            $descripcion = html_entity_decode($descripcion);
+            $concepto = $this->conceptoIncumplimientoZLO($descripcion);
+
+            if ($concepto) {
+                $encontrado = $encontrado ?? $concepto;
+                continue;
+            }
+
+            $d = Str::upper(Str::ascii($descripcion));
+            if (str_contains($d, 'MANIOBRA') || str_contains($d, 'ALMACEN') || str_contains($d, 'VACIO')) {
+                return $cache[$rutaXml] = null; // factura mixta: se queda en su concepto normal
+            }
+        }
+
+        return $cache[$rutaXml] = $encontrado;
     }
 
     /**
@@ -8144,33 +8216,33 @@ class AuditoriaImpuestosController extends Controller
         gc_collect_cycles();
         $indice = [];
         $palabrasLogipuerto = array_map('strtolower', $this->palabrasClaveLogipuerto());
- 
+
         try {
             foreach ($indicesOperacion as $pedimento => $datos) {
                 if (isset($datos['error'])) {
                     continue;
                 }
- 
+
                 $coleccionFacturas = collect($datos['facturas']);
                 $facturasAgrupadas = [];
- 
+
                 foreach ($coleccionFacturas as $factura) {
                     $rutaF = $factura['ruta_pdf'] ?? $factura['ruta_xml'] ?? '';
                     if (empty($rutaF)) {
                         continue;
                     }
- 
+
                     $filename = pathinfo(parse_url($rutaF, PHP_URL_PATH), PATHINFO_FILENAME);
- 
+
                     // Deduplicador natural
                     $nombreLimpio = preg_replace('/^\d+[-_]+/', '', $filename);
                     $nombreLimpio = preg_replace('/[-_\s]?\(\d+\)$/', '', $nombreLimpio);
                     $nombreLimpio = preg_replace('/[-_]+\d+$/', '', $nombreLimpio);
- 
+
                     if (empty($nombreLimpio)) {
                         $nombreLimpio = 'UNK_' . uniqid();
                     }
- 
+
                     if (!isset($facturasAgrupadas[$nombreLimpio])) {
                         $facturasAgrupadas[$nombreLimpio] = [
                             'ruta_pdf' => null,
@@ -8180,7 +8252,7 @@ class AuditoriaImpuestosController extends Controller
                             'nombre_archivo_real' => strtolower($filename)
                         ];
                     }
- 
+
                     if (!empty($factura['ruta_pdf'])) {
                         $facturasAgrupadas[$nombreLimpio]['ruta_pdf'] = $factura['ruta_pdf'];
                     }
@@ -8202,6 +8274,17 @@ class AuditoriaImpuestosController extends Controller
 
                     $tieneArchivo = !empty($factura['ruta_pdf']) || !empty($factura['ruta_xml']);
                     if (!$tieneArchivo) {
+                        continue;
+                    }
+
+                    // Incumplimiento / Entrega no Realizada / Reprogramación van por su propio concepto
+                    $conceptoPropio = $this->conceptoIncumplimientoZLO($textoParaBuscar);
+                    if (!$conceptoPropio && $enTerminal && !empty($factura['ruta_xml'])) {
+                        // En TERMINAL la carpeta basta para ser terminal: el XML confirma si es otro cobro
+                        $conceptoPropio = $this->conceptoIncumplimientoEnXml($factura['ruta_xml']);
+                    }
+                    if ($conceptoPropio) {
+                        Log::info("Terminales: Ped {$pedimento} | '{$factura['nombre_archivo_real']}' se envía como '{$conceptoPropio}', no como Maniobras en Terminal.");
                         continue;
                     }
 
@@ -8544,37 +8627,42 @@ class AuditoriaImpuestosController extends Controller
     {
         gc_collect_cycles();
         $indice = [];
- 
+
         try {
             foreach ($indicesOperacion as $pedimento => $datos) {
                 if (isset($datos['error'])) {
                     continue;
                 }
- 
+
                 foreach (($datos['facturas'] ?? []) as $nombreUnico => $factura) {
                     $tipo = strtolower($factura['tipo_documento'] ?? '');
                     $carpeta = strtolower($factura['carpeta_original'] ?? $tipo);
- 
+
                     if ($tipo !== 'vacios') {
                         continue;
                     }
- 
+
                     if (empty($factura['ruta_pdf']) && empty($factura['ruta_xml'])) {
                         continue;
                     }
- 
+
                     $textoParaBuscar = strtolower(($factura['folio'] ?? '') . ' ' . ($factura['ruta_pdf'] ?? '') . ' ' . ($factura['ruta_xml'] ?? ''));
                     if (str_contains($textoParaBuscar, 'conexion') || str_contains($textoParaBuscar, 'limpieza') || str_contains($textoParaBuscar, 'lavado')) {
                         continue;
                     }
- 
+
+                    // Incumplimiento / Entrega no Realizada / Reprogramación van por su propio concepto
+                    if ($this->conceptoIncumplimientoZLO($textoParaBuscar)) {
+                        continue;
+                    }
+
                     // Reclasificada desde PROVEEDORES / TERMINAL: confirmar con el XML
                     $esCarpetaVacios = str_contains($carpeta, 'vacio');
                     if (!$esCarpetaVacios && !empty($factura['ruta_xml']) && !$this->esFacturaDeVacioXML($factura['ruta_xml'])) {
                         Log::info("Vacíos: Ped {$pedimento} | '{$nombreUnico}' (carpeta {$carpeta}) no es un cobro de vacío según su XML. Se omite.");
                         continue;
                     }
- 
+
                     $indice[$pedimento][] = [
                         'folio'    => $factura['folio'] ?? $nombreUnico,
                         'ruta_xml' => $factura['ruta_xml'] ?? null,
@@ -8585,7 +8673,7 @@ class AuditoriaImpuestosController extends Controller
         } catch (\Throwable $e) {
             Log::error("Error construyendo índice de vacíos: " . $e->getMessage());
         }
- 
+
         return $indice;
     }
 
