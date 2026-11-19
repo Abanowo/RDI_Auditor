@@ -58,17 +58,19 @@ class GeneradorTxtRep
     const OMITIR_LINEAS_VACIAS = true;
 
     /**
-     * Escribir [saldarFOLIO]. En false la factura se identifica solo por su UUID:
-     * el folio se sigue usando internamente para encontrar el XML, y el UUID pasa a ser obligatorio.
+     * Escribir [SaldarFOLIO]. Según la guía técnica de SyncCOM (nov. 2026), CONTPAQi localiza la factura
+     * con concepto + serie + folio y recupera el UUID por su cuenta.
      * Se controla con config/rep.php → incluir_folio (REP_INCLUIR_FOLIO en el .env).
      */
-    const INCLUIR_FOLIO_EN_SALDAR = false;
+    const INCLUIR_FOLIO_EN_SALDAR = true;
 
     /**
-     * Escribir el UUID de cada factura después de [saldarIMPORTE].
-     * Se puede desactivar con REP_INCLUIR_UUID=false en el .env (config/rep.php → incluir_uuid).
+     * Escribir el UUID de cada factura. No se incluye: según la guía técnica de SyncCOM,
+     * el SDK de CONTPAQi lo obtiene con concepto + serie + folio.
+     * El UUID se sigue leyendo del XML para validar y mostrarlo en el modal.
+     * Se controla con config/rep.php → incluir_uuid (REP_INCLUIR_UUID en el .env).
      */
-    const INCLUIR_UUID_EN_SALDAR = true;
+    const INCLUIR_UUID_EN_SALDAR = false;
 
     /** Descriptor con el que se escribe el UUID (config/rep.php → descriptor_uuid) */
     const DESCRIPTOR_UUID_SALDAR = 'saldarUUID';
@@ -105,6 +107,9 @@ class GeneradorTxtRep
 
     /** @var array Caché de XML descargados: url => datos */
     private $cacheXml = [];
+
+    /** @var array Caché de las listas de XML por operación: "tipo-id" => [urls] */
+    private $cacheArchivos = [];
 
     /** @var array Caché de respuestas del endpoint de empresas: id => json */
     private $cacheEmpresas = [];
@@ -408,7 +413,7 @@ class GeneradorTxtRep
         }
 
         $lineas = [];
-        $lineas[] = $this->linea('cteCODIGO', $this->soloCodigo($codigo), 15);
+        $lineas[] = $this->linea('cteCodigo', $this->soloCodigo($codigo), 15);
         $lineas[] = $this->linea('cteRAZONSOCIAL', $this->mayus($this->campo($c, 'cteRAZONSOCIAL')), 60);
         $lineas[] = $this->linea('cteNOMBRELARGO', $this->campo($c, 'cteNOMBRELARGO'), 254);
         $lineas[] = $this->linea('cteRFC', $this->soloRfc($this->campo($c, 'cteRFC')), 13);
@@ -593,7 +598,7 @@ class GeneradorTxtRep
         $lineas[] = $this->linea('pagoHORA', '', 10);
         // Solo se expresa cuando no hay documentos a saldar; si los hay, SyncCOM lo calcula
         $lineas[] = $this->linea('pagoIMPORTE', $conDocumentos ? '' : $this->formatearImporte($datos['importe'] ?? 0), 40);
-        $lineas[] = $this->linea('pagoFOLIO', (string) max(0, (int) ($datos['folio_pago'] ?? 0)), 20);
+        $lineas[] = $this->linea('pagoFolio', (string) max(0, (int) ($datos['folio_pago'] ?? 0)), 20);
 
         return $lineas;
     }
@@ -637,12 +642,12 @@ class GeneradorTxtRep
                 $this->errores["saldarUUID#{$numero}"] = "No se encontró el UUID de la factura {$serie} {$folio}; sin folio ni UUID, SyncCOM no podría identificarla.";
             }
 
-            $lineas[] = $this->linea('saldarDOCUMENTO', $concepto, 30);
-            $lineas[] = $this->linea('saldarSERIE', $this->soloCodigo($serie), 7);
+            $lineas[] = $this->linea('SaldarDOCUMENTO', $concepto, 30);
+            $lineas[] = $this->linea('SaldarSERIE', $this->soloCodigo($serie), 7);
             if ($incluirFolio) {
-                $lineas[] = $this->linea('saldarFOLIO', $folio, 20);
+                $lineas[] = $this->linea('SaldarFOLIO', $folio, 20);
             }
-            $lineas[] = $this->linea('saldarIMPORTE', $this->formatearImporte($importe), 40);
+            $lineas[] = $this->linea('SaldarImporte', $this->formatearImporte($importe), 40);
             // Sin folio, el UUID siempre se escribe: es lo único que identifica la factura
             if ($uuid !== '' && ($incluirUuid || !$incluirFolio)) {
                 $lineas[] = $this->linea((string) config('rep.descriptor_uuid', self::DESCRIPTOR_UUID_SALDAR), $uuid, 36);
@@ -747,9 +752,15 @@ class GeneradorTxtRep
                 continue;
             }
 
-            $operaciones = !empty($documento['operaciones']) ? $documento['operaciones'] : $operacionesIngreso;
-            $encontrado = null;
+            // Primero en las operaciones ligadas a ese folio; si no está, en todas las del ingreso
+            $operaciones = !empty($documento['operaciones']) ? $documento['operaciones'] : [];
+            foreach ($operacionesIngreso as $op) {
+                if (!in_array($op, $operaciones, true)) {
+                    $operaciones[] = $op;
+                }
+            }
 
+            $encontrado = null;
             foreach ($operaciones as $op) {
                 $encontrado = $this->buscarXmlFactura($op['type'], $op['id'], $folio, (string) ($documento['serie'] ?? ''));
                 if ($encontrado) {
@@ -763,6 +774,9 @@ class GeneradorTxtRep
             }
 
             $documentos[$i]['uuid'] = $encontrado['uuid'];
+            if ($encontrado['folio_numero'] !== '') {
+                $documentos[$i]['folio'] = $encontrado['folio_numero'];
+            }
 
             // La serie real es la del XML (un REP de Nogales puede saldar facturas ZLO)
             if ($encontrado['serie'] !== '') {
@@ -804,7 +818,7 @@ class GeneradorTxtRep
             $ids[] = (int) $padre;
         }
 
-        $folioBuscado = ltrim($folio, '0');
+        $folioBuscado = ltrim($this->soloDigitos($folio), '0');
         $serieBuscada = strtoupper(trim($serie));
         $sinCoincidirSerie = null;
 
@@ -814,7 +828,7 @@ class GeneradorTxtRep
                 if (!$datos || $datos['uuid'] === '' || $datos['tipo'] === 'P') {
                     continue;
                 }
-                if (ltrim($datos['folio'], '0') !== $folioBuscado) {
+                if ($folioBuscado === '' || $datos['folio_numero'] !== $folioBuscado) {
                     continue;
                 }
                 if ($serieBuscada === '' || $datos['serie'] === $serieBuscada) {
@@ -828,6 +842,16 @@ class GeneradorTxtRep
     }
 
     private function archivosXmlDeOperacion(string $tipoApi, int $operacionId): array
+    {
+        $llave = $tipoApi . '-' . $operacionId;
+        if (array_key_exists($llave, $this->cacheArchivos)) {
+            return $this->cacheArchivos[$llave];
+        }
+
+        return $this->cacheArchivos[$llave] = $this->descargarListaXml($tipoApi, $operacionId);
+    }
+
+    private function descargarListaXml(string $tipoApi, int $operacionId): array
     {
         try {
             $url = sprintf(self::URL_ARCHIVOS_OPERACION, $tipoApi, $operacionId);
@@ -899,12 +923,18 @@ class GeneradorTxtRep
             return preg_match('/\s' . $nombre . '\s*=\s*["\']([^"\']*)["\']/', $atributos, $m) ? trim($m[1]) : '';
         };
 
-        $datos = ['uuid' => $uuid, 'tipo' => '', 'folio' => '', 'serie' => '', 'total' => 0.0, 'lugar_expedicion' => ''];
+        $datos = ['uuid' => $uuid, 'tipo' => '', 'folio' => '', 'folio_numero' => '', 'serie' => '', 'total' => 0.0, 'lugar_expedicion' => ''];
 
         if (preg_match('/<(?:\w+:)?Comprobante\b([^>]*)>/s', $xml, $mComp)) {
             $attrs = $mComp[1];
             $datos['tipo']  = strtoupper($atributo('TipoDeComprobante', $attrs));
-            $datos['folio'] = $this->soloAlfanumerico($atributo('Folio', $attrs));
+            $folioCrudo = $atributo('Folio', $attrs);
+            if (str_contains($folioCrudo, '_')) {
+                $partesFolio = explode('_', $folioCrudo);
+                $folioCrudo = end($partesFolio);
+            }
+            $datos['folio'] = $this->soloAlfanumerico($folioCrudo);
+            $datos['folio_numero'] = ltrim($this->soloDigitos($folioCrudo), '0');
             $datos['serie'] = strtoupper($atributo('Serie', $attrs));
             $datos['total'] = (float) str_replace(',', '', $atributo('Total', $attrs));
             $datos['lugar_expedicion'] = $this->soloDigitos($atributo('LugarExpedicion', $attrs));
