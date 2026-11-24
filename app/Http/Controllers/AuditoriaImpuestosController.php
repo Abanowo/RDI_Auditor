@@ -8684,89 +8684,136 @@ class AuditoriaImpuestosController extends Controller
      */
     private function contarContenedoresUniversal(?string $rutaXml, ?string $rutaPdf): int
     {
+        $resultado = $this->contenedoresDeFactura($rutaXml, $rutaPdf);
+        $total = max(1, $resultado['cantidad']);
+
+        if ($total > 1) {
+            Log::info("Contenedores: la factura cobra {$total} contenedores (" . ($resultado['origen'])
+                . (empty($resultado['contenedores']) ? '' : ': ' . implode(', ', $resultado['contenedores']))
+                . "). Se divide el monto. | " . ($rutaXml ?: $rutaPdf));
+        }
+
+        return $total;
+    }
+
+    /**
+     * Contenedores de una factura: primero el XML, luego el PDF.
+     *
+     * @return array{cantidad: int, contenedores: array, origen: string}
+     */
+    private function contenedoresDeFactura(?string $rutaXml, ?string $rutaPdf): array
+    {
+        static $cache = [];
+        $clave = ($rutaXml ?? '') . '|' . ($rutaPdf ?? '');
+        if (isset($cache[$clave])) {
+            return $cache[$clave];
+        }
+
+        $cantidadVacios = 0;
+
+        // 1. XML: descripciones de los conceptos
+        if (!empty($rutaXml)) {
+            $xml = $this->descargarTextoDocumento($rutaXml);
+
+            if ($xml && preg_match_all('/<(?:\w+:)?Concepto\b[^>]*>/i', $xml, $mConceptos)) {
+                $descripciones = [];
+
+                foreach ($mConceptos[0] as $etiqueta) {
+                    $descripcion = preg_match('/\sDescripcion=["\']([^"\']*)["\']/i', $etiqueta, $m) ? html_entity_decode($m[1]) : '';
+                    $descripciones[] = $descripcion;
+
+                    // Vacíos sin contenedor escrito: la cantidad del concepto de vacío
+                    if (
+                        str_contains(Str::upper(Str::ascii($descripcion)), 'VACIO')
+                        && preg_match('/\sCantidad=["\']([\d.]+)["\']/i', $etiqueta, $mCant)
+                    ) {
+                        $cantidadVacios = max($cantidadVacios, (int) floor((float) $mCant[1]));
+                    }
+                }
+
+                $contenedores = $this->contenedoresEnTexto(implode(' ', $descripciones));
+                if (!empty($contenedores)) {
+                    return $cache[$clave] = ['cantidad' => count($contenedores), 'contenedores' => $contenedores, 'origen' => 'XML'];
+                }
+            }
+        }
+
+        // 2. PDF: texto de la factura
         if (!empty($rutaPdf)) {
             try {
-                $arrContextOptions = [
-                    "ssl" => ["verify_peer" => false, "verify_peer_name" => false],
-                    "http" => ["ignore_errors" => true, "timeout" => 15]
-                ];
-                
-                $contenidoPdf = @file_get_contents($rutaPdf, false, stream_context_create($arrContextOptions));
-                
-                if (!$contenidoPdf || str_contains($http_response_header[0] ?? '', '404')) {
-                    $rutaAlternativa = 'https://intactics.nyc3.cdn.digitaloceanspaces.com/production/uploads/' . basename($rutaPdf);
-                    $contenidoPdf = @file_get_contents($rutaAlternativa, false, stream_context_create($arrContextOptions));
-                }
-
-                if ($contenidoPdf) {
+                $contenidoPdf = $this->descargarTextoDocumento($rutaPdf);
+                if ($contenidoPdf && str_contains(substr($contenidoPdf, 0, 1024), '%PDF')) {
                     $config = new \Smalot\PdfParser\Config();
                     $config->setRetainImageContent(false);
-                    $parser = new Parser([], $config); 
-                    $pdf = $parser->parseContent($contenidoPdf);
-                    $textoPdf = $pdf->getText();
+                    $textoPdf = (string) (new Parser([], $config))->parseContent($contenidoPdf)->getText();
 
-                    if (preg_match_all('/\b([A-Z]{4}\d{7})\b/', $textoPdf, $matches)) {
-                        $contenedoresUnicos = array_unique($matches[1]);
-                        if (count($contenedoresUnicos) > 0) {
-                            return count($contenedoresUnicos);
-                        }
+                    $contenedores = $this->contenedoresEnTexto($textoPdf);
+                    if (!empty($contenedores)) {
+                        return $cache[$clave] = ['cantidad' => count($contenedores), 'contenedores' => $contenedores, 'origen' => 'PDF'];
                     }
                 }
             } catch (\Throwable $th) {
-                Log::warning("No se pudo leer el PDF para contenedores, saltando a XML. Archivo: {$rutaPdf} | Error: " . $th->getMessage());
+                Log::warning("Contenedores: no se pudo leer el PDF {$rutaPdf}: " . $th->getMessage());
             }
         }
 
-        if (!empty($rutaXml)) {
-            try {
-                $arrContextOptions = [
-                    "ssl" => ["verify_peer" => false, "verify_peer_name" => false],
-                    "http" => ["ignore_errors" => true]
-                ];
-                
-                $xmlString = @file_get_contents($rutaXml, false, stream_context_create($arrContextOptions));
-                
-                if (!$xmlString || str_contains($http_response_header[0] ?? '', '404')) {
-                    $rutaAlternativa = 'https://intactics.nyc3.cdn.digitaloceanspaces.com/production/uploads/' . basename($rutaXml);
-                    $xmlString = @file_get_contents($rutaAlternativa, false, stream_context_create($arrContextOptions));
-                }
+        // 3. Vacíos sin contenedor escrito
+        if ($cantidadVacios > 1) {
+            return $cache[$clave] = ['cantidad' => $cantidadVacios, 'contenedores' => [], 'origen' => 'cantidad del concepto de vacío en el XML'];
+        }
 
-                if ($xmlString) {
-                    $xmlObj = @simplexml_load_string($xmlString);
-                    if ($xmlObj !== false) {
-                        $namespaces = $xmlObj->getNamespaces(true);
-                        $cfdi = $xmlObj->children($namespaces['cfdi'] ?? 'cfdi');
-                        
-                        if (isset($cfdi->Conceptos->Concepto)) {
-                            $cantidadMaxima = 0;
-                            
-                            foreach ($cfdi->Conceptos->Concepto as $concepto) {
-                                $descripcion = strtoupper((string) ($concepto['Descripcion'] ?? ''));
-                                $claveProdServ = trim((string) ($concepto['ClaveProdServ'] ?? ''));
-                                
-                                if (str_contains($descripcion, 'VACIO') || str_contains($descripcion, 'ALMACEN') || 
-                                    str_contains($descripcion, 'MANIOBRA') || str_contains($descripcion, 'MUELLE') ||
-                                    in_array($claveProdServ, ['78141800', '78131702', '78101802'])) {
-                                    
-                                    $cantidadActual = (float) $concepto['Cantidad'];
-                                    if ($cantidadActual > $cantidadMaxima) {
-                                        $cantidadMaxima = $cantidadActual;
-                                    }
-                                }
-                            }
-                            
-                            if ($cantidadMaxima > 0) {
-                                return (int) $cantidadMaxima;
-                            }
-                        }
-                    }
+        return $cache[$clave] = ['cantidad' => 1, 'contenedores' => [], 'origen' => 'sin contenedores en la factura'];
+    }
+
+    /**
+     * Contenedores distintos (con dígito verificador válido) dentro de un texto.
+     * Acepta "SEKU9016022", "SEKU 901602-2", "SEKU-9016022".
+     */
+    private function contenedoresEnTexto(string $texto): array
+    {
+        $texto = strtoupper($texto);
+        $encontrados = [];
+
+        if (preg_match_all('/(?<![A-Z0-9])([A-Z]{3}[UJZ])[\s\-]?(\d{6})[\s\-]?(\d)(?![0-9])/', $texto, $m, PREG_SET_ORDER)) {
+            foreach ($m as $coincidencia) {
+                $codigo = $coincidencia[1] . $coincidencia[2] . $coincidencia[3];
+                if ($this->esContenedorValido($codigo)) {
+                    $encontrados[$codigo] = true;
                 }
-            } catch (\Throwable $th) {
-                // Falla silenciosa permitida en último recurso
             }
         }
 
-        return 1; 
+        return array_keys($encontrados);
+    }
+
+    /**
+     * Dígito verificador de contenedor (ISO 6346).
+     */
+    private function esContenedorValido(string $codigo): bool
+    {
+        if (!preg_match('/^[A-Z]{4}\d{7}$/', $codigo)) {
+            return false;
+        }
+
+        static $valores = null;
+        if ($valores === null) {
+            $valores = [];
+            $v = 10;
+            foreach (range('A', 'Z') as $letra) {
+                if ($v % 11 === 0) {
+                    $v++;
+                }
+                $valores[$letra] = $v++;
+            }
+        }
+
+        $suma = 0;
+        for ($i = 0; $i < 10; $i++) {
+            $caracter = $codigo[$i];
+            $suma += (ctype_alpha($caracter) ? $valores[$caracter] : (int) $caracter) * (2 ** $i);
+        }
+
+        return (($suma % 11) % 10) === (int) $codigo[10];
     }
 
     // Enviar a Google Sheets el resultado de Vacíos
