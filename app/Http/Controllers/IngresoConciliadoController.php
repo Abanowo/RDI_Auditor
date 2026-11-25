@@ -106,6 +106,7 @@ class IngresoConciliadoController extends Controller
             ->addSelect([
                 'folio_complemento' => ComplementoPago::select('folio')
                     ->whereColumn('ingreso_conciliado_id', 'ingresos_conciliados.id')
+                    ->whereNotNull('folio')
                     ->orderBy('created_at', 'desc')
                     ->limit(1)
             ]);
@@ -213,6 +214,8 @@ class IngresoConciliadoController extends Controller
         $kpis = [
             'depositos'  => (clone $query)->sum('ingresos_conciliados.monto_deposito'),
             'honorarios' => (clone $query)->sum('ingresos_conciliados.honorarios'),
+            'honorariosPendientes' => round((float) $this->calcularFacturasHonorarios($request->input('sucursal'))->sum('saldo_pendiente'), 2),
+            'gpcPendientes' => round((float) $this->calcularFacturasHonorarios($request->input('sucursal'))->sum('gpc_pendiente'), 2),
 
             'notaCargo'  => (clone $query)->sum(DB::raw("
                 CASE 
@@ -230,8 +233,51 @@ class IngresoConciliadoController extends Controller
         $perPage = $request->input('per_page', 10);
         $resultados = $query->orderBy('ingresos_conciliados.created_at', 'desc')->paginate($perPage);
 
+        // Estado de las facturas de honorarios que abonó cada ingreso de la página
+        $items = collect($resultados->items());
+        $ids = $items->pluck('id')->all();
+
+        $foliosPorIngreso = empty($ids) ? collect() : DB::table('ingreso_operacion')
+            ->whereIn('ingreso_id', $ids)
+            ->whereNotNull('folio_factura')
+            ->where('folio_factura', '!=', '')
+            ->get(['ingreso_id', 'folio_factura', 'monto_cfdi', 'monto_gpc'])
+            ->groupBy('ingreso_id');
+
+        $foliosUnicos = $foliosPorIngreso->flatten(1)->pluck('folio_factura')->unique()->values()->all();
+        $estadosFacturas = $this->calcularFacturasHonorarios(null, $foliosUnicos)->keyBy('llave');
+
+        $items->each(function ($ingreso) use ($foliosPorIngreso, $estadosFacturas) {
+            $base = $this->sucursalBaseFactura($ingreso->sucursal_origen);
+
+            $lista = collect($foliosPorIngreso->get($ingreso->id, []))
+                ->groupBy('folio_factura')
+                ->map(function ($filas, $folio) use ($estadosFacturas, $base, $ingreso) {
+                    $estado = $estadosFacturas->get($base . '|' . $folio);
+                    $pago = collect($estado['pagos'] ?? [])->firstWhere('ingreso_id', $ingreso->id);
+
+                return [
+                    'folio'              => (string) $folio,
+                    'total_facturado'    => $estado['total_facturado'] ?? 0,
+                    'saldo_pendiente'    => $estado['saldo_pendiente'] ?? 0,
+                    'estatus_honorarios' => $estado['estatus_honorarios'] ?? null,
+                    'gpc_facturado'      => $estado['gpc_facturado'] ?? 0,
+                    'gpc_pendiente'      => $estado['gpc_pendiente'] ?? 0,
+                    'estatus_gpc'        => $estado['estatus_gpc'] ?? null,
+                    'estatus'            => $estado['estatus'] ?? 'PENDIENTE',
+                    'monto'              => round((float) $filas->sum('monto_cfdi'), 2),
+                    'monto_gpc'          => round((float) $filas->sum('monto_gpc'), 2),
+                    'parcialidad'        => $pago['parcialidad'] ?? null,
+                    'parcialidad_gpc'    => $pago['parcialidad_gpc'] ?? null,
+                ];
+                })
+                ->values();
+
+            $ingreso->setAttribute('facturas_honorarios', $lista);
+        });
+
         return response()->json([
-            'data'  => $resultados->items(),
+            'data'  => $items->values(),
             'total' => $resultados->total(),
             'kpis'  => $kpis
         ]);
@@ -1195,6 +1241,8 @@ class IngresoConciliadoController extends Controller
                             'id'               => $idOp,
                             'type'             => $opType,
                             'folio'            => $folioLimpio,
+                            'folio_factura'    => $this->normalizarFolioFactura($folioLimpio) ?: null,
+                            'pedimento'        => $pedimentoBusqueda,
                             'monto_cfdi'       => round($op_cfdi, 2),
                             'monto_gpc'        => round($op_gpc, 2),
                             'anticipo'         => round($anticipoPref, 2),
@@ -1269,6 +1317,7 @@ class IngresoConciliadoController extends Controller
                     }
                 }
 
+                $this->adjuntarFacturasHonorarios($resultados, $sucursalBuscada, $request->input('ingreso_id'));
                 // [LOG TEMPORAL]
                 Log::info('[ZLO] Resultado final', [
                     'impuestos'        => $resultados['impuestos'],
@@ -1434,65 +1483,16 @@ class IngresoConciliadoController extends Controller
                         ->get();
 
                     if ($esExpoSucursal) {
-                        // 1. Prioridad en Exportación para sucursales EXPO
-                        foreach ($exposCandidatas as $cand) {
-                            $textoUbicacion = strtoupper($cand->sucursal ?? '');
-                            foreach ($terminosSucursal as $term) {
-                                if (str_contains($textoUbicacion, $term)) {
-                                    $expo = $cand;
-                                    break 2;
-                                }
-                            }
-                        }
-
-                        if (!$expo && $exposCandidatas->isNotEmpty()) {
-                            $expo = $exposCandidatas->first();
-                        }
-
-                        // Fallback a Importación si no se halló en Exportación
+                        // Sucursales EXPO: primero exportación, si no hay, importación
+                        $expo = $this->elegirOperacionDeSucursal($exposCandidatas, $ciudadBase, $terminosSucursal);
                         if (!$expo) {
-                            foreach ($imposCandidatas as $cand) {
-                                $textoUbicacion = strtoupper(($cand->sucursal ?? '') . ' ' . ($cand->aduana ?? ''));
-                                foreach ($terminosSucursal as $term) {
-                                    if (str_contains($textoUbicacion, $term)) {
-                                        $impo = $cand;
-                                        break 2;
-                                    }
-                                }
-                            }
-                            if (!$impo && $imposCandidatas->isNotEmpty()) {
-                                $impo = $imposCandidatas->first();
-                            }
+                            $impo = $this->elegirOperacionDeSucursal($imposCandidatas, $ciudadBase, $terminosSucursal);
                         }
                     } else {
-                        // Flujo normal para sucursales IMPO
-                        foreach ($imposCandidatas as $cand) {
-                            $textoUbicacion = strtoupper(($cand->sucursal ?? '') . ' ' . ($cand->aduana ?? ''));
-                            foreach ($terminosSucursal as $term) {
-                                if (str_contains($textoUbicacion, $term)) {
-                                    $impo = $cand;
-                                    break 2;
-                                }
-                            }
-                        }
-
-                        if (!$impo && $imposCandidatas->isNotEmpty()) {
-                            $impo = $imposCandidatas->first();
-                        }
-
+                        // Sucursales IMPO: primero importación, si no hay, exportación
+                        $impo = $this->elegirOperacionDeSucursal($imposCandidatas, $ciudadBase, $terminosSucursal);
                         if (!$impo) {
-                            foreach ($exposCandidatas as $cand) {
-                                $textoUbicacion = strtoupper($cand->sucursal ?? '');
-                                foreach ($terminosSucursal as $term) {
-                                    if (str_contains($textoUbicacion, $term)) {
-                                        $expo = $cand;
-                                        break 2;
-                                    }
-                                }
-                            }
-                            if (!$expo && $exposCandidatas->isNotEmpty()) {
-                                $expo = $exposCandidatas->first();
-                            }
+                            $expo = $this->elegirOperacionDeSucursal($exposCandidatas, $ciudadBase, $terminosSucursal);
                         }
                     }
                 }
@@ -1532,8 +1532,25 @@ class IngresoConciliadoController extends Controller
                 $op_fac_muestras = null;
                 $op_prov_llc = null;
                 $op_fac_llc = null;
+                $resXml = null;
+
+                // Honorarios según el Sheet: respaldo si no se encuentra el XML de la factura
+                $op_honorariosSheet = 0;
+                foreach ($bloqueFinal as $filaHon) {
+                    $conceptoHon = strtoupper(trim($filaHon[3] ?? ''));
+                    if (str_contains($conceptoHon, 'HONORARIO')) {
+                        $op_honorariosSheet += (float) filter_var($filaHon[6] ?? '0', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+                    }
+                }
 
                 if ($quiereNotaCargo) {
+                    $op_honorariosSheet = 0;
+                    foreach ($bloqueFinal as $filaHon) {
+                        $conceptoHon = strtoupper(trim($filaHon[3] ?? ''));
+                        if (str_contains($conceptoHon, 'HONORARIO')) {
+                            $op_honorariosSheet += (float) filter_var($filaHon[6] ?? '0', FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+                        }
+                    }
                     $clientesDesgloseNL = ['CENTRO ABARROTERO DEL BAJIO', 'ALMACENADORA Y MAQUILAS', 'ALMACENADORAS Y MAQUILA', 'ALMACENADORAS Y MAQUILAS', 'SURTIDORA DEL BAJIO'];
 
                     $esLaredo = str_contains($sucursalBuscada, 'LAREDO');
@@ -1557,8 +1574,7 @@ class IngresoConciliadoController extends Controller
                         }
 
                         if (str_contains($concepto, 'HONORARIO')) {
-                            $resultados['honorarios'] += $montoLimpio;
-                            $op_honorarios += $montoLimpio;
+                            // Los honorarios se calculan aparte: XML primero y, si no hay, el Sheet
                         } elseif (str_contains($concepto, 'IMPUEST')) {
                             $resultados['impuestos'] += $montoLimpio;
                             $op_impuestos += $montoLimpio;
@@ -1630,6 +1646,11 @@ class IngresoConciliadoController extends Controller
                     if (!empty($folioFacturaEnSheet) || !empty($pedimentoReal)) {
                         $folioLimpio = preg_replace('/[^0-9]/', '', $folioFacturaEnSheet);
 
+                        if ($op_honorarios <= 0 && $op_honorariosSheet > 0 && ($quiereCFDI || $quiereNotaCargo)) {
+                            $op_honorarios = round($op_honorariosSheet, 2);
+                            $resultados['honorarios'] += $op_honorarios;
+                        }
+
                         if ($idOp) {
                             $archivos = [];
 
@@ -1700,9 +1721,30 @@ class IngresoConciliadoController extends Controller
                                 if ($folioXmlBlock) {
                                     $resultados['folio_sc'][] = $folioXmlBlock;
                                 }
+
+                                // [LOG] Por qué no se tomaron honorarios del XML
+                                if ($honorariosXmlBlock <= 0) {
+                                    Log::info('[CFDI] No se obtuvieron honorarios del XML', [
+                                        'idOp'        => $idOp,
+                                        'idPadre'     => $idPadre,
+                                        'folio'       => $folioLimpio,
+                                        'pedimento'   => $pedimentoReal,
+                                        'xml_totales' => count(array_filter($archivos, fn($a) => strtolower(pathinfo($a['name'] ?? '', PATHINFO_EXTENSION)) === 'xml')),
+                                        'candidatos'  => array_values(array_map(fn($a) => ($a['name'] ?? '') . ' [' . ($a['pivot']['type'] ?? '') . ']', $candidatos)),
+                                        'ultimo_xml'  => $resXml['debug'] ?? null,
+                                    ]);
+                                }
+                            } else {
+                                Log::info('[CFDI] La operación no tiene archivos', ['idOp' => $idOp, 'idPadre' => $idPadre]);
                             }
                         }
                     }
+                }
+
+                // Honorarios de la operación: el XML tiene prioridad; si no se encontró, se usa el Sheet
+                if ($op_honorarios <= 0 && $op_honorariosSheet > 0 && ($quiereCFDI || $quiereNotaCargo)) {
+                    $op_honorarios = round($op_honorariosSheet, 2);
+                    $resultados['honorarios'] += $op_honorarios;
                 }
 
                 if ($idOp) {
@@ -1719,6 +1761,8 @@ class IngresoConciliadoController extends Controller
                         'id'                  => $idOp,
                         'type'                => $opType,
                         'folio'               => $folioFacturaEnSheet,
+                        'folio_factura'       => $this->normalizarFolioFactura($folioFacturaEnSheet) ?: null,
+                        'pedimento'           => $pedimentoReal,
                         'monto_cfdi'          => round($op_cfdi, 2),
                         'monto_gpc'           => round($op_gpc, 2),
 
@@ -1770,6 +1814,9 @@ class IngresoConciliadoController extends Controller
                 }
             }
 
+            // Facturas de honorarios: lo facturado, lo pagado antes y lo pendiente
+            $this->adjuntarFacturasHonorarios($resultados, $sucursalBuscada, $request->input('ingreso_id'));
+
             return response()->json($resultados);
         } catch (\Exception $e) {
             Log::error('[buscarEnSheet] ' . $e->getMessage(), [
@@ -1778,6 +1825,100 @@ class IngresoConciliadoController extends Controller
             ]);
             return response()->json(['error' => 'Error interno: ' . $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Folio de la factura de honorarios de una operación. La referencia puede ser el folio o el pedimento:
+     * 1. El folio que mandó el modal (viene de la columna I del Sheet).
+     * 2. El folio con que ya se registró antes esa misma operación (mismo pedimento).
+     * 3. Un segmento de la referencia que no sea pedimento (7 dígitos) ni patente (4 dígitos antes del pedimento).
+     */
+    private function folioFacturaDeOperacion($op): ?string
+    {
+        if (!is_array($op)) {
+            return null;
+        }
+
+        // 1. Lo que mandó el modal
+        $folio = $this->normalizarFolioFactura($op['folio_factura'] ?? '');
+        if ($folio !== '') {
+            return $folio;
+        }
+
+        // Sin factura de honorarios ni nota de cargo no hay nada que controlar
+        $tieneFactura = $this->aNumero($op['honorarios_facturado'] ?? 0) > 0;
+        $tieneNota    = $this->aNumero($op['gpc_facturado'] ?? 0) > 0;
+        if (!$tieneFactura && !$tieneNota) {
+            return null;
+        }
+
+        // 2. La misma operación (mismo pedimento) ya se registró antes con su folio
+        $opId = $op['id'] ?? $op['operacion_id'] ?? null;
+        $opType = $op['type'] ?? $op['operacion_type'] ?? null;
+
+        if (is_numeric($opId) && !empty($opType)) {
+            $folioPrevio = DB::table('ingreso_operacion')
+                ->where('operacion_id', (int) $opId)
+                ->where('operacion_type', $opType)
+                ->whereNotNull('folio_factura')
+                ->where('folio_factura', '!=', '')
+                ->orderBy('id', 'desc')
+                ->value('folio_factura');
+
+            if (!empty($folioPrevio)) {
+                return (string) $folioPrevio;
+            }
+        }
+
+        // 3. De la referencia, descartando pedimentos, patentes y nombres
+        $texto = (string) ($op['referencia'] ?? $op['folio'] ?? '');
+        $partes = array_values(array_filter(array_map('trim', preg_split('/\s+-\s+|,/', $texto))));
+
+        foreach ($partes as $i => $parte) {
+            // Solo segmentos tipo "71081", "F-71081" o "ZLO1234" (descarta nombres, "S/F", "3739-6005233", etc.)
+            if (!preg_match('/^(?:[A-Z]{1,5}[\s\-:]*)?\d{1,8}$/i', $parte)) {
+                continue;
+            }
+
+            $digitos = preg_replace('/\D/', '', $parte);
+            $siguiente = preg_replace('/\D/', '', $partes[$i + 1] ?? '');
+
+            if (strlen($digitos) === 7) {
+                continue; // Es un pedimento
+            }
+            if (strlen($digitos) === 4 && strlen($siguiente) === 7) {
+                continue; // Es la patente que va antes del pedimento
+            }
+
+            $candidato = $this->normalizarFolioFactura($digitos);
+            if ($candidato !== '') {
+                return $candidato;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Suma lo abonado a un folio en otros ingresos (excluye el que se está editando).
+     * $columna: monto_cfdi (honorarios) o monto_gpc (nota de cargo).
+     */
+    private function sumaAbonosFolio(string $folio, string $sucursalBase, string $columna, $excluirIngresoId = null): float
+    {
+        if (!in_array($columna, ['monto_cfdi', 'monto_gpc'], true)) {
+            return 0.0;
+        }
+
+        $consulta = DB::table('ingreso_operacion as o')
+            ->join('ingresos_conciliados as i', 'i.id', '=', 'o.ingreso_id')
+            ->where('o.folio_factura', $folio)
+            ->where('i.sucursal_origen', 'LIKE', $sucursalBase . '%');
+
+        if (!empty($excluirIngresoId)) {
+            $consulta->where('o.ingreso_id', '!=', (int) $excluirIngresoId);
+        }
+
+        return round((float) $consulta->sum('o.' . $columna), 2);
     }
 
     /**
@@ -1796,6 +1937,401 @@ class IngresoConciliadoController extends Controller
 
         $patron = '/(?<![0-9A-Z])' . preg_quote($termino, '/') . '(?![0-9A-Z])/';
         return preg_match($patron, $celda) === 1;
+    }
+    /**
+     * Folio normalizado: solo dígitos y sin ceros a la izquierda ("F-070787" → "70787").
+     */
+    private function normalizarFolioFactura($folio): string
+    {
+        return ltrim(preg_replace('/[^0-9]/', '', (string) $folio), '0');
+    }
+
+    /**
+     * Ciudad de la sucursal sin IMPO/EXPO ("LAREDO EXPO" → "LAREDO").
+     */
+    private function sucursalBaseFactura($sucursal): string
+    {
+        $s = strtoupper(trim((string) $sucursal));
+        $s = str_replace(['TRANSPORTACTICS', 'INTSHIPPERTS', ' IMPO', ' EXPO'], '', $s);
+        return trim(preg_replace('/\s+/', ' ', $s));
+    }
+
+    /**
+     * Lo abonado a una factura en otros ingresos (excluye el que se está editando).
+     */
+    private function pagadoFacturaHonorarios(string $folio, string $sucursalBase, $excluirIngresoId = null): float
+    {
+        return $this->sumaAbonosFolio($folio, $sucursalBase, 'monto_cfdi', $excluirIngresoId);
+    }
+
+    private function pagadoNotaCargo(string $folio, string $sucursalBase, $excluirIngresoId = null): float
+    {
+        return $this->sumaAbonosFolio($folio, $sucursalBase, 'monto_gpc', $excluirIngresoId);
+    }
+
+    /**
+     * Facturas de honorarios a partir de las operaciones que encontró buscarEnSheet.
+     * Si una factura cubre varias operaciones, se toma una sola vez.
+     */
+    private function armarFacturasHonorarios(array $operaciones, string $sucursal, $excluirIngresoId = null): array
+    {
+        $base = $this->sucursalBaseFactura($sucursal);
+        $porFolio = [];
+
+        foreach ($operaciones as $op) {
+            $total = round((float) ($op['monto_cfdi'] ?? 0), 2);
+            $folio = $this->normalizarFolioFactura($op['folio_factura'] ?? $op['folio'] ?? '');
+            if ($total <= 0 || $folio === '') {
+                continue;
+            }
+            $porFolio[$folio] = max($porFolio[$folio] ?? 0, $total);
+        }
+
+        $lista = [];
+        foreach ($porFolio as $folio => $total) {
+            $pagado = $this->pagadoFacturaHonorarios((string) $folio, $base, $excluirIngresoId);
+            $pendiente = max(0, round($total - $pagado, 2));
+
+            $lista[] = [
+                'folio'           => (string) $folio,
+                'total_facturado' => $total,
+                'pagado_previo'   => $pagado,
+                'pendiente'       => $pendiente,
+                'abono'           => $pendiente, // por defecto se propone liquidar
+            ];
+        }
+
+        return $lista;
+    }
+
+    /**
+     * Notas de cargo (GPC) a partir de las operaciones que encontró buscarEnSheet.
+     * Si un folio cubre varias operaciones, se suman sus GPC (cada operación tiene sus propios gastos).
+     */
+    private function armarNotasCargo(array $operaciones, string $sucursal, $excluirIngresoId = null): array
+    {
+        $base = $this->sucursalBaseFactura($sucursal);
+        $porFolio = [];
+
+        foreach ($operaciones as $op) {
+            $total = round((float) ($op['monto_gpc'] ?? 0), 2);
+            $folio = $this->normalizarFolioFactura($op['folio_factura'] ?? $op['folio'] ?? '');
+            if ($total <= 0 || $folio === '') {
+                continue;
+            }
+            $porFolio[$folio] = round(($porFolio[$folio] ?? 0) + $total, 2);
+        }
+
+        $lista = [];
+        foreach ($porFolio as $folio => $total) {
+            $pagado = $this->pagadoNotaCargo((string) $folio, $base, $excluirIngresoId);
+            $pendiente = max(0, round($total - $pagado, 2));
+
+            $lista[] = [
+                'folio'           => (string) $folio,
+                'total_facturado' => $total,
+                'pagado_previo'   => $pagado,
+                'pendiente'       => $pendiente,
+                'abono'           => $pendiente, // por defecto se propone liquidar
+            ];
+        }
+
+        return $lista;
+    }
+
+    /**
+     * Agrega las facturas a la respuesta de buscarEnSheet y descuenta de los honorarios
+     * lo que ya se abonó en ingresos anteriores.
+     */
+    private function adjuntarFacturasHonorarios(array &$resultados, string $sucursal, $excluirIngresoId = null): void
+    {
+        $operaciones = $resultados['operaciones'] ?? [];
+
+        $facturas = $this->armarFacturasHonorarios($operaciones, $sucursal, $excluirIngresoId);
+        $resultados['facturas_honorarios'] = $facturas;
+
+        if (!empty($facturas)) {
+            $pagadoPrevio = array_sum(array_column($facturas, 'pagado_previo'));
+            $resultados['honorarios'] = max(0, round((float) $resultados['honorarios'] - $pagadoPrevio, 2));
+        }
+
+        $resultados['notas_cargo'] = $this->armarNotasCargo($operaciones, $sucursal, $excluirIngresoId);
+    }
+
+    /**
+     * Valida que ningún abono exceda lo pendiente de su factura.
+     */
+    private function validarAbonosFacturas($operaciones, string $sucursal, $excluirIngresoId = null): void
+    {
+        if (!is_array($operaciones)) {
+            return;
+        }
+
+        $base = $this->sucursalBaseFactura($sucursal);
+        $abonosFactura = [];
+        $totalesFactura = [];
+        $abonosNota = [];
+        $totalesNota = [];
+
+        foreach ($operaciones as $op) {
+            if (!is_array($op)) {
+                continue;
+            }
+            $folio = (string) $this->folioFacturaDeOperacion($op);
+            if ($folio === '') {
+                continue;
+            }
+
+            $abonosFactura[$folio]  = ($abonosFactura[$folio] ?? 0) + $this->aNumero($op['monto_cfdi'] ?? 0);
+            $totalesFactura[$folio] = max($totalesFactura[$folio] ?? 0, $this->aNumero($op['honorarios_facturado'] ?? 0));
+
+            $abonosNota[$folio]  = ($abonosNota[$folio] ?? 0) + $this->aNumero($op['monto_gpc'] ?? 0);
+            $totalesNota[$folio] = max($totalesNota[$folio] ?? 0, $this->aNumero($op['gpc_facturado'] ?? 0));
+        }
+
+        foreach ($abonosFactura as $folio => $abono) {
+            $total = $totalesFactura[$folio] ?? 0;
+            if ($total <= 0) {
+                continue;
+            }
+            $pendiente = round($total - $this->pagadoFacturaHonorarios((string) $folio, $base, $excluirIngresoId), 2);
+
+            if (round($abono, 2) - $pendiente > 0.05) {
+                throw new \DomainException(sprintf(
+                    'El abono de $%s a la factura de honorarios %s excede su saldo pendiente de $%s.',
+                    number_format($abono, 2),
+                    $folio,
+                    number_format(max(0, $pendiente), 2)
+                ));
+            }
+        }
+
+        foreach ($abonosNota as $folio => $abono) {
+            $total = $totalesNota[$folio] ?? 0;
+            if ($total <= 0) {
+                continue;
+            }
+            $pendiente = round($total - $this->pagadoNotaCargo((string) $folio, $base, $excluirIngresoId), 2);
+
+            // Tolerancia un poco mayor por el redondeo del prorrateo de conceptos
+            if (round($abono, 2) - $pendiente > 0.10) {
+                throw new \DomainException(sprintf(
+                    'El abono de $%s a la nota de cargo %s excede su saldo pendiente de $%s.',
+                    number_format($abono, 2),
+                    $folio,
+                    number_format(max(0, $pendiente), 2)
+                ));
+            }
+        }
+    }
+
+    /**
+     * Estado de las facturas de honorarios (facturado, pagado, pendiente, parcialidades),
+     * calculado directamente desde ingreso_operacion.
+     */
+    private function calcularFacturasHonorarios($sucursal = null, ?array $folios = null)
+    {
+        if (is_array($folios) && empty($folios)) {
+            return collect();
+        }
+
+        $consulta = DB::table('ingreso_operacion as o')
+            ->join('ingresos_conciliados as i', 'i.id', '=', 'o.ingreso_id')
+            ->leftJoin('empresas as e', 'e.id', '=', 'i.cliente_id')
+            ->whereNotNull('o.folio_factura')
+            ->where('o.folio_factura', '!=', '')
+            ->select(
+                'o.id',
+                'o.ingreso_id',
+                'o.folio_factura',
+                'o.honorarios_facturado',
+                'o.monto_cfdi',
+                'o.gpc_facturado',
+                'o.monto_gpc',
+                'i.fecha',
+                'i.sucursal_origen',
+                'i.banco_receptor',
+                DB::raw('COALESCE(e.nombre, i.cliente) as cliente_nombre')
+            )
+            ->orderBy('i.fecha', 'asc')
+            ->orderBy('o.id', 'asc');
+
+        if (!empty($sucursal) && $sucursal !== 'Todas') {
+            $consulta->where('i.sucursal_origen', 'LIKE', '%' . strtoupper($sucursal) . '%');
+        }
+        if (is_array($folios)) {
+            $consulta->whereIn('o.folio_factura', $folios);
+        }
+
+        $grupos = [];
+        foreach ($consulta->get() as $fila) {
+            $base = $this->sucursalBaseFactura($fila->sucursal_origen);
+            $llave = $base . '|' . $fila->folio_factura;
+
+            if (!isset($grupos[$llave])) {
+                $grupos[$llave] = [
+                    'llave'           => $llave,
+                    'folio'           => $fila->folio_factura,
+                    'sucursal_base'   => $base,
+                    'cliente_nombre'  => $fila->cliente_nombre,
+                    'total_facturado' => 0.0,
+                    'gpc_facturado'   => 0.0,
+                    'pagos'           => [],
+                ];
+            }
+
+            $grupos[$llave]['total_facturado'] = max($grupos[$llave]['total_facturado'], (float) $fila->honorarios_facturado);
+            $grupos[$llave]['gpc_facturado']   = max($grupos[$llave]['gpc_facturado'], (float) $fila->gpc_facturado);
+
+            $montoCfdi = round((float) $fila->monto_cfdi, 2);
+            $montoGpc  = round((float) $fila->monto_gpc, 2);
+
+            if ($montoCfdi <= 0 && $montoGpc <= 0) {
+                continue;
+            }
+
+            // Un ingreso puede tener varias filas con el mismo folio: se agrupan en un solo abono
+            $idIngreso = $fila->ingreso_id;
+            if (!isset($grupos[$llave]['pagos'][$idIngreso])) {
+                $grupos[$llave]['pagos'][$idIngreso] = [
+                    'ingreso_id'     => $idIngreso,
+                    'fecha'          => $fila->fecha,
+                    'banco_receptor' => $fila->banco_receptor,
+                    'monto'          => 0.0,
+                    'monto_gpc'      => 0.0,
+                ];
+            }
+            $grupos[$llave]['pagos'][$idIngreso]['monto']     = round($grupos[$llave]['pagos'][$idIngreso]['monto'] + $montoCfdi, 2);
+            $grupos[$llave]['pagos'][$idIngreso]['monto_gpc'] = round($grupos[$llave]['pagos'][$idIngreso]['monto_gpc'] + $montoGpc, 2);
+        }
+
+        return collect($grupos)
+            ->filter(function ($g) {
+                return $g['total_facturado'] > 0 || $g['gpc_facturado'] > 0;
+            })
+            ->map(function ($g) {
+                $pagos = array_values($g['pagos']);
+
+                $saldoHonorarios = round($g['total_facturado'], 2);
+                $saldoGpc = round($g['gpc_facturado'], 2);
+                $parcialidadHonorarios = 0;
+                $parcialidadGpc = 0;
+
+                foreach ($pagos as &$pago) {
+                    // Honorarios
+                    $pago['parcialidad'] = null;
+                    $pago['saldo_anterior'] = $saldoHonorarios;
+                    if ($pago['monto'] > 0) {
+                        $parcialidadHonorarios++;
+                        $pago['parcialidad'] = $parcialidadHonorarios;
+                        $saldoHonorarios = round($saldoHonorarios - $pago['monto'], 2);
+                    }
+                    $pago['saldo_insoluto'] = max(0, $saldoHonorarios);
+
+                    // Nota de cargo
+                    $pago['parcialidad_gpc'] = null;
+                    $pago['saldo_anterior_gpc'] = $saldoGpc;
+                    if ($pago['monto_gpc'] > 0) {
+                        $parcialidadGpc++;
+                        $pago['parcialidad_gpc'] = $parcialidadGpc;
+                        $saldoGpc = round($saldoGpc - $pago['monto_gpc'], 2);
+                    }
+                    $pago['saldo_insoluto_gpc'] = max(0, $saldoGpc);
+                }
+                unset($pago);
+
+                $g['pagos'] = $pagos;
+
+                // Honorarios
+                $g['total_pagado']    = round(array_sum(array_column($pagos, 'monto')), 2);
+                $g['saldo_pendiente'] = max(0, round($g['total_facturado'] - $g['total_pagado'], 2));
+                $g['estatus_honorarios'] = $g['total_facturado'] > 0
+                    ? ($g['saldo_pendiente'] <= 0.05 ? 'LIQUIDADA' : 'PENDIENTE')
+                    : null;
+
+                // Nota de cargo
+                $g['gpc_pagado']    = round(array_sum(array_column($pagos, 'monto_gpc')), 2);
+                $g['gpc_pendiente'] = max(0, round($g['gpc_facturado'] - $g['gpc_pagado'], 2));
+                $g['estatus_gpc'] = $g['gpc_facturado'] > 0
+                    ? ($g['gpc_pendiente'] <= 0.10 ? 'LIQUIDADA' : 'PENDIENTE')
+                    : null;
+
+                // Estatus general del folio: pendiente si falta algo de cualquiera de los dos
+                $g['estatus'] = ($g['estatus_honorarios'] === 'PENDIENTE' || $g['estatus_gpc'] === 'PENDIENTE')
+                    ? 'PENDIENTE'
+                    : 'LIQUIDADA';
+
+                return $g;
+            })
+            ->values();
+    }
+
+    /**
+     * Facturas y abonos de un ingreso (para abrir el modal de edición).
+     */
+    public function facturasHonorariosIngreso($id)
+    {
+        $ingreso = IngresoConciliado::findOrFail($id);
+        $base = $this->sucursalBaseFactura($ingreso->sucursal_origen);
+
+        $filas = DB::table('ingreso_operacion')
+            ->where('ingreso_id', $id)
+            ->whereNotNull('folio_factura')
+            ->where('folio_factura', '!=', '')
+            ->get(['folio_factura', 'honorarios_facturado', 'monto_cfdi', 'gpc_facturado', 'monto_gpc']);
+
+        $facturas = [];
+        $notas = [];
+
+        foreach ($filas->groupBy('folio_factura') as $folio => $grupo) {
+            $totalHonorarios = round((float) $grupo->max('honorarios_facturado'), 2);
+            if ($totalHonorarios > 0) {
+                $pagadoOtros = $this->pagadoFacturaHonorarios((string) $folio, $base, $id);
+                $facturas[] = [
+                    'folio'           => (string) $folio,
+                    'total_facturado' => $totalHonorarios,
+                    'pagado_previo'   => $pagadoOtros,
+                    'pendiente'       => max(0, round($totalHonorarios - $pagadoOtros, 2)),
+                    'abono'           => round((float) $grupo->sum('monto_cfdi'), 2),
+                ];
+            }
+
+            $totalGpc = round((float) $grupo->max('gpc_facturado'), 2);
+            if ($totalGpc > 0) {
+                $pagadoOtrosGpc = $this->pagadoNotaCargo((string) $folio, $base, $id);
+                $notas[] = [
+                    'folio'           => (string) $folio,
+                    'total_facturado' => $totalGpc,
+                    'pagado_previo'   => $pagadoOtrosGpc,
+                    'pendiente'       => max(0, round($totalGpc - $pagadoOtrosGpc, 2)),
+                    'abono'           => round((float) $grupo->sum('monto_gpc'), 2),
+                ];
+            }
+        }
+
+        return response()->json([
+            'facturas' => $facturas,
+            'notas'    => $notas,
+        ]);
+    }
+
+    /**
+     * Listado de folios con facturas de honorarios y notas de cargo, con su historial de abonos.
+     */
+    public function indexFacturasHonorarios(Request $request)
+    {
+        $facturas = $this->calcularFacturasHonorarios($request->input('sucursal'));
+
+        $estatus = strtoupper((string) $request->input('estatus', 'PENDIENTE'));
+        if ($estatus !== 'TODAS') {
+            $facturas = $facturas->where('estatus', $estatus)->values();
+        }
+
+        return response()->json([
+            'data'                => $facturas,
+            'total_pendiente'     => round((float) $facturas->sum('saldo_pendiente'), 2),
+            'total_pendiente_gpc' => round((float) $facturas->sum('gpc_pendiente'), 2),
+        ]);
     }
     /**
      * Convierte a número valores que pueden venir como "12,345.67", "$ 1,200" o null.
@@ -1911,6 +2447,70 @@ class IngresoConciliadoController extends Controller
         }
 
         return false;
+    }
+
+    /**
+     * Ids de la tabla sucursales que corresponden a una ciudad ("NOGALES" → [1]).
+     */
+    private function idsSucursal(string $ciudadBase): array
+    {
+        static $cache = [];
+        $ciudadBase = strtoupper(trim($ciudadBase));
+
+        if (!isset($cache[$ciudadBase])) {
+            $cache[$ciudadBase] = $ciudadBase === ''
+                ? []
+                : Sucursales::where('nombre', 'LIKE', '%' . $ciudadBase . '%')
+                    ->pluck('id')
+                    ->map(fn($id) => (int) $id)
+                    ->all();
+        }
+
+        return $cache[$ciudadBase];
+    }
+
+    /**
+     * Elige, de las operaciones con el mismo pedimento, la que pertenece a la sucursal buscada:
+     * 1. Por id de sucursal (operaciones_importacion.sucursal / operaciones_exportacion.sucursal).
+     * 2. Por texto en sucursal o aduana (registros con nombre en lugar de id).
+     * 3. Una operación sin sucursal registrada.
+     * Nunca toma una operación de otra sucursal.
+     */
+    private function elegirOperacionDeSucursal($candidatas, string $ciudadBase, array $terminosSucursal)
+    {
+        if (!$candidatas || $candidatas->isEmpty()) {
+            return null;
+        }
+
+        // 1. Por id de sucursal
+        $ids = $this->idsSucursal($ciudadBase);
+        if (!empty($ids)) {
+            $operacion = $candidatas->first(function ($c) use ($ids) {
+                return is_numeric($c->sucursal ?? null) && in_array((int) $c->sucursal, $ids, true);
+            });
+            if ($operacion) {
+                return $operacion;
+            }
+        }
+
+        // 2. Por texto
+        $operacion = $candidatas->first(function ($c) use ($terminosSucursal) {
+            $texto = strtoupper(($c->sucursal ?? '') . ' ' . ($c->aduana ?? ''));
+            foreach ($terminosSucursal as $termino) {
+                if ($termino !== '' && !is_numeric($termino) && str_contains($texto, $termino)) {
+                    return true;
+                }
+            }
+            return false;
+        });
+        if ($operacion) {
+            return $operacion;
+        }
+
+        // 3. Sin sucursal registrada
+        return $candidatas->first(function ($c) {
+            return empty($c->sucursal) && empty($c->aduana);
+        });
     }
 
     /**
@@ -3345,12 +3945,30 @@ class IngresoConciliadoController extends Controller
         $nombreArchivo = 'REP_' . preg_replace('/[^A-Za-z0-9_\-]/', '', $codigo)
                        . '_' . $ingreso->id . '_' . date('Ymd_His') . '.txt';
 
-        // Copia en el servidor para tener historial de lo que se generó
-        Storage::disk('local')->put('rep/' . $nombreArchivo, $contenido);
+        // Se guarda junto a los PDF y XML de los complementos
+        $rutaTxt = 'complementos_pago/txt/' . $nombreArchivo;
+
+        /** @var \Illuminate\Filesystem\FilesystemAdapter $discoPersonalizado */
+        $discoPersonalizado = Storage::disk('storageOldProyect');
+        $discoPersonalizado->put($rutaTxt, $contenido);
+
+        // Registrar el TXT ligado al ingreso:
+        // si el ingreso ya tiene complemento, se le agrega el TXT; si no, se crea el registro solo con el ingreso y el TXT
+        $complemento = ComplementoPago::where('ingreso_conciliado_id', $ingreso->id)->latest()->first();
+
+        if ($complemento) {
+            $complemento->ruta_txt = $rutaTxt;
+            $complemento->save();
+        } else {
+            ComplementoPago::create([
+                'ingreso_conciliado_id' => $ingreso->id,
+                'ruta_txt'              => $rutaTxt,
+            ]);
+        }
 
         Log::info('[REP] TXT generado', [
             'ingreso_id' => $ingreso->id,
-            'archivo'    => $nombreArchivo,
+            'archivo'    => $rutaTxt,
             'timbrar'    => $opciones['timbrar'],
             'usuario'    => optional(auth()->user())->email,
         ]);
@@ -3746,7 +4364,10 @@ class IngresoConciliadoController extends Controller
     public function verComplementoPdf($id)
     {
         try {
-            $complemento = ComplementoPago::where('ingreso_conciliado_id', $id)->latest()->first();
+            $complemento = ComplementoPago::where('ingreso_conciliado_id', $id)
+                ->whereNotNull('folio')
+                ->latest()
+                ->first();
 
             if (!$complemento || !$complemento->folio) {
                 return response('<h1>Error 404</h1><p>No se encontró el Complemento.</p>', 404)->header('Content-Type', 'text/html');
@@ -4005,6 +4626,7 @@ class IngresoConciliadoController extends Controller
         ]);
         try {
             $sucursal = strtoupper($request->sucursal_origen ?? '');
+            $this->validarAbonosFacturas($request->input('operaciones'), $request->sucursal_origen ?? '');
             $clienteId = $request->cliente_id;
             $clienteManual = null;
             $clienteNombre = '';
@@ -4141,7 +4763,10 @@ class IngresoConciliadoController extends Controller
                         'ingreso_id'          => $ingreso->id,
                         'operacion_id'        => $opId,
                         'operacion_type'      => $opType,
-                        'referencia'          => $folioTexto,
+                        'referencia'           => $folioTexto,
+                        'folio_factura'        => $this->folioFacturaDeOperacion($op),
+                        'honorarios_facturado' => round($this->aNumero($op['honorarios_facturado'] ?? 0), 2),
+                        'gpc_facturado'        => round($this->aNumero($op['gpc_facturado'] ?? 0), 2),
                         'monto_cfdi'          => round($valorHonorarios, 2),
                         'monto_gpc'           => round($montoGpcVal, 2),
                         
@@ -4215,9 +4840,9 @@ class IngresoConciliadoController extends Controller
 
             DB::commit();
             return response()->json(['message' => 'Ingreso guardado exitosamente', 'data' => $ingreso]);
-        } catch (\Exception $e) {
+        } catch (\DomainException $e) {
             DB::rollBack();
-            return response()->json(['error' => 'Error al guardar: ' . $e->getMessage()], 500);
+            return response()->json(['error' => $e->getMessage()], 422);
         }
     }
 
@@ -4226,7 +4851,7 @@ class IngresoConciliadoController extends Controller
         DB::beginTransaction();
         try {
             $ingreso = IngresoConciliado::findOrFail($id);
-
+            $this->validarAbonosFacturas($request->input('operaciones'), $request->sucursal_origen ?? $ingreso->sucursal_origen, $ingreso->id);
             $ingreso->sucursal_origen = $request->sucursal_origen ?? $ingreso->sucursal_origen;
             $ingreso->banco_receptor = $request->banco_receptor ?? $ingreso->banco_receptor;
             $ingreso->fecha = $request->fecha ?? $ingreso->fecha;
@@ -4380,7 +5005,9 @@ class IngresoConciliadoController extends Controller
                     $dataInsert = [
                         'operacion_id'        => $opId,
                         'operacion_type'      => $opType,
-                        'referencia'          => $folioTexto,
+                        'referencia'           => $folioTexto,
+                        'folio_factura'        => $this->folioFacturaDeOperacion($op),
+                        'honorarios_facturado' => round($this->aNumero($op['honorarios_facturado'] ?? 0), 2),
                         'monto_cfdi'          => round($valorHonorarios, 2),
                         'monto_gpc'           => round($montoGpcVal, 2),
                         
@@ -4459,9 +5086,9 @@ class IngresoConciliadoController extends Controller
 
             DB::commit();
             return response()->json(['message' => 'Ingreso actualizado exitosamente', 'data' => $ingreso]);
-        } catch (\Exception $e) {
+        } catch (\DomainException $e) {
             DB::rollBack();
-            return response()->json(['error' => 'Error al actualizar: ' . $e->getMessage()], 500);
+            return response()->json(['error' => $e->getMessage()], 422);
         }
     }
     public function destroy($id)
@@ -4473,7 +5100,7 @@ class IngresoConciliadoController extends Controller
             // 1. Elimina automáticamente cualquier saldo (a favor o en contra) vinculado a este ingreso
             SaldoFavor::where('ingreso_conciliado_id', $ingreso->id)->delete();
 
-            // 2. Elimina las relaciones con las operaciones en la tabla pivote
+            // 2. Elimina las operaciones de la tabla pivote (y con ellas sus abonos a facturas de honorarios)
             DB::table('ingreso_operacion')->where('ingreso_id', $ingreso->id)->delete();
 
             // 3. Elimina el registro del ingreso

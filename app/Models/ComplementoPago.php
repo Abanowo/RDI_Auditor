@@ -14,6 +14,15 @@ class ComplementoPago extends Model
         'serie',
         'folio_factura',
         'folio',
-        'fecha'
+        'fecha',
+        'timbrado',
+        'ruta_pdf',
+        'ruta_xml',
+        'ruta_txt',
+    ];
+
+    protected $casts = [
+        'timbrado' => 'boolean',
+        'fecha'    => 'datetime',
     ];
 }

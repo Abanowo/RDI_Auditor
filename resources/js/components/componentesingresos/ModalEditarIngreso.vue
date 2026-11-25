@@ -91,7 +91,7 @@
 
         <div class="col-span-1">
           <label class="block text-base font-bold text-gray-500 uppercase mb-2">MONTO DEPÓSITO ($) *</label>
-          <input v-model="form.monto_deposito" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-5 py-4 text-3xl font-black text-purple-700 focus:outline-none focus:border-gray-400">
+            <input v-model="form.monto_deposito" @input="alCambiarDeposito" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-5 py-4 text-3xl font-black text-purple-700 focus:outline-none focus:border-gray-400">
         </div>
 
         <div class="col-span-2 flex items-center gap-8 mt-2 p-5 bg-gray-100 border border-gray-200 rounded-xl">
@@ -123,22 +123,72 @@
           </div>
 
           <div class="grid grid-cols-4 gap-6" v-else-if="esManzanillo">
-            <div><label class="block text-base text-gray-500 mb-2">Anticipo:</label><input v-model="form.anticipo" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
-            <div><label class="block text-base text-gray-500 mb-2">Garantías:</label><input v-model="form.garantias" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
-            <div><label class="block text-base text-gray-500 mb-2">Desglose Naviera:</label><input v-model="form.desglose_naviera" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
-            <div><label class="block text-base text-gray-500 mb-2">Impuestos:</label><input v-model="form.impuestos" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Anticipo:</label><input v-model="form.anticipo" type="number" step="0.01" placeholder="0.00" :readonly="tieneNotasCargo" :title="tituloConceptoNota" :class="tieneNotasCargo ? 'bg-gray-100 cursor-not-allowed' : ''" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Garantías:</label><input v-model="form.garantias" type="number" step="0.01" placeholder="0.00" :readonly="tieneNotasCargo" :title="tituloConceptoNota" :class="tieneNotasCargo ? 'bg-gray-100 cursor-not-allowed' : ''" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Desglose Naviera:</label><input v-model="form.desglose_naviera" type="number" step="0.01" placeholder="0.00" :readonly="tieneNotasCargo" :title="tituloConceptoNota" :class="tieneNotasCargo ? 'bg-gray-100 cursor-not-allowed' : ''" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Impuestos:</label><input v-model="form.impuestos" type="number" step="0.01" placeholder="0.00" :readonly="tieneNotasCargo" :title="tituloConceptoNota" :class="tieneNotasCargo ? 'bg-gray-100 cursor-not-allowed' : ''" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
             <div><label class="block text-base text-gray-500 mb-2">ALMAN / Flete:</label><input v-model="form.flete" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
-            <div><label class="block text-base text-gray-500 mb-2">Honorarios:</label><input v-model="form.honorarios" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Honorarios:</label><input v-model="form.honorarios" type="number" step="0.01" placeholder="0.00" :readonly="tieneFacturasHonorarios" :title="tieneFacturasHonorarios ? 'Suma de los abonos a las facturas de honorarios' : ''" :class="tieneFacturasHonorarios ? 'bg-gray-100 cursor-not-allowed' : ''" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
           </div>
 
           <div class="grid grid-cols-4 gap-6" v-else>
-            <div><label class="block text-base text-gray-500 mb-2">Honorarios:</label><input v-model="form.honorarios" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
-            <div><label class="block text-base text-gray-500 mb-2">Impuestos:</label><input v-model="form.impuestos" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
-            <div><label class="block text-base text-gray-500 mb-2">ECI:</label><input v-model="form.eci" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
-            <div><label class="block text-base text-gray-500 mb-2">Maniobras:</label><input v-model="form.maniobras" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
-            <div><label class="block text-base text-gray-500 mb-2">Flete:</label><input v-model="form.flete" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
-            <div><label class="block text-base text-gray-500 mb-2">Muestras:</label><input v-model="form.muestras" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
-            <div><label class="block text-base text-gray-500 mb-2">LLC:</label><input v-model="form.llc" type="number" step="0.01" placeholder="0.00" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Honorarios:</label><input v-model="form.honorarios" type="number" step="0.01" placeholder="0.00" :readonly="tieneFacturasHonorarios" :title="tieneFacturasHonorarios ? 'Suma de los abonos a las facturas de honorarios' : ''" :class="tieneFacturasHonorarios ? 'bg-gray-100 cursor-not-allowed' : ''" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Impuestos:</label><input v-model="form.impuestos" type="number" step="0.01" placeholder="0.00" :readonly="tieneNotasCargo" :title="tituloConceptoNota" :class="tieneNotasCargo ? 'bg-gray-100 cursor-not-allowed' : ''" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">ECI:</label><input v-model="form.eci" type="number" step="0.01" placeholder="0.00" :readonly="tieneNotasCargo" :title="tituloConceptoNota" :class="tieneNotasCargo ? 'bg-gray-100 cursor-not-allowed' : ''" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Maniobras:</label><input v-model="form.maniobras" type="number" step="0.01" placeholder="0.00" :readonly="tieneNotasCargo" :title="tituloConceptoNota" :class="tieneNotasCargo ? 'bg-gray-100 cursor-not-allowed' : ''" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Flete:</label><input v-model="form.flete" type="number" step="0.01" placeholder="0.00" :readonly="tieneNotasCargo" :title="tituloConceptoNota" :class="tieneNotasCargo ? 'bg-gray-100 cursor-not-allowed' : ''" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">Muestras:</label><input v-model="form.muestras" type="number" step="0.01" placeholder="0.00" :readonly="tieneNotasCargo" :title="tituloConceptoNota" :class="tieneNotasCargo ? 'bg-gray-100 cursor-not-allowed' : ''" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+            <div><label class="block text-base text-gray-500 mb-2">LLC:</label><input v-model="form.llc" type="number" step="0.01" placeholder="0.00" :readonly="tieneNotasCargo" :title="tituloConceptoNota" :class="tieneNotasCargo ? 'bg-gray-100 cursor-not-allowed' : ''" class="w-full border border-gray-300 rounded-lg px-4 py-3 text-xl focus:outline-none focus:border-gray-800"></div>
+          </div>
+
+          <!-- DOCUMENTOS CON PAGOS PARCIALES: NOTAS DE CARGO Y FACTURAS DE HONORARIOS -->
+          <div v-if="tieneNotasCargo || tieneFacturasHonorarios"
+            class="mt-6 p-5 bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col gap-6">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h5 class="text-base font-black uppercase tracking-wide text-gray-700">Pagos a cuenta de las facturas</h5>
+                <p class="text-sm text-gray-500">El abono es la parte de cada documento que cubre este depósito. Primero se cubre la nota de cargo y después los honorarios.</p>
+              </div>
+              <button type="button" @click="repartirDepositoEnFacturas"
+                class="px-4 py-2 rounded-lg bg-blue-100 text-blue-700 font-bold text-sm hover:bg-blue-200 transition-colors">
+                Calcular abono con el depósito
+              </button>
+            </div>
+
+            <div v-for="seccion in seccionesDocumentos" :key="'sec-' + seccion.llave" class="overflow-x-auto">
+              <p class="text-sm font-black uppercase text-gray-600 mb-2">{{ seccion.titulo }}</p>
+              <table class="w-full text-base">
+                <thead class="text-gray-500 text-sm font-bold uppercase border-b border-gray-200">
+                  <tr>
+                    <th class="text-left py-2 pr-3">Folio</th>
+                    <th class="text-right py-2 px-3">Facturado</th>
+                    <th class="text-right py-2 px-3">Pagado en otros ingresos</th>
+                    <th class="text-right py-2 px-3">Pendiente</th>
+                    <th class="text-right py-2 px-3">Abono</th>
+                    <th class="text-right py-2 pl-3">Queda</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="d in seccion.documentos" :key="seccion.llave + '-' + d.folio" class="border-b border-gray-100">
+                    <td class="py-2 pr-3 font-black text-gray-800">{{ d.folio }}</td>
+                    <td class="py-2 px-3 text-right">{{ formatearDinero(d.total_facturado) }}</td>
+                    <td class="py-2 px-3 text-right text-gray-500">{{ formatearDinero(d.pagado_previo) }}</td>
+                    <td class="py-2 px-3 text-right font-bold" :class="d.pendiente > 0 ? 'text-orange-600' : 'text-green-600'">
+                      {{ d.pendiente > 0 ? formatearDinero(d.pendiente) : 'Liquidada' }}
+                    </td>
+                    <td class="py-2 px-3 text-right">
+                      <input type="number" step="0.01" min="0" :max="d.pendiente" v-model.number="d.abono"
+                        :disabled="d.pendiente <= 0"
+                        @input="seccion.alCambiar(false)" @change="seccion.alCambiar(true)"
+                        class="w-40 border border-gray-300 rounded-lg px-3 py-2 text-right font-bold focus:outline-none focus:border-gray-800 disabled:bg-gray-100">
+                    </td>
+                    <td class="py-2 pl-3 text-right font-black" :class="restanteFactura(d) > 0 ? 'text-red-600' : 'text-green-600'">
+                      {{ restanteFactura(d) > 0 ? formatearDinero(restanteFactura(d)) : 'Se liquida' }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <div class="col-span-full mt-6 p-5 bg-white border border-gray-200 rounded-xl flex flex-wrap items-center justify-between shadow-sm">
@@ -170,7 +220,6 @@
   </div>
 </template>
 
-<!-- Usa el Script y Style del paso anterior (El Style idéntico al de NuevoIngreso) -->
 <script>
 import axios from 'axios';
 import Swal from 'sweetalert2';
@@ -224,12 +273,17 @@ export default {
                 desglose_naviera: null,
                 proveedor_maniobras: null,
                 factura_maniobras: null,
+                detalle_maniobras: [],
                 proveedor_flete: null,
                 factura_flete: null,
                 proveedor_muestras: null,
                 factura_muestras: null,
                 proveedor_llc: null,
                 factura_llc: null,
+                // Pagos parciales (null = aún no se cargan desde el servidor)
+                facturas_honorarios: null,
+                notas_cargo: null,
+                conceptos_gpc_base: null,
             },
             opcionesReferenciasPredefinidas: [
                 'Depósito de garantías',
@@ -280,6 +334,53 @@ export default {
             const sucursalUpper = String(this.sucursalSeleccionada).toUpperCase();
             return sucursalUpper.includes('MANZANILLO') && !this.esIntshipperts;
         },
+
+        // ==========================================
+        // PAGOS PARCIALES
+        // ==========================================
+        tieneFacturasHonorarios() {
+            return !this.esTransportactics && !this.esIntshipperts
+                && Array.isArray(this.form.facturas_honorarios) && this.form.facturas_honorarios.length > 0;
+        },
+        tieneNotasCargo() {
+            return !this.esTransportactics && !this.esIntshipperts
+                && Array.isArray(this.form.notas_cargo) && this.form.notas_cargo.length > 0;
+        },
+        // Conceptos que forman la nota de cargo (mismos que suma monto_gpc de cada operación en el backend)
+        conceptosNotaCargo() {
+            if (this.esTransportactics || this.esIntshipperts) {
+                return [];
+            }
+            if (this.esManzanillo) {
+                return ['anticipo', 'garantias', 'desglose_naviera', 'impuestos'];
+            }
+            return ['impuestos', 'eci', 'maniobras', 'flete', 'muestras', 'llc'];
+        },
+        tituloConceptoNota() {
+            return this.tieneNotasCargo ? 'Se calcula con el abono a la nota de cargo' : '';
+        },
+        // Tablas de documentos: primero la nota de cargo, después los honorarios
+        seccionesDocumentos() {
+            const secciones = [];
+            if (this.tieneNotasCargo) {
+                secciones.push({
+                    llave: 'nc',
+                    titulo: 'Nota de cargo (GPC)',
+                    documentos: this.form.notas_cargo,
+                    alCambiar: (limitar) => this.recalcularGpcDesdeNotas(limitar)
+                });
+            }
+            if (this.tieneFacturasHonorarios) {
+                secciones.push({
+                    llave: 'fh',
+                    titulo: 'Factura de honorarios (CFDI)',
+                    documentos: this.form.facturas_honorarios,
+                    alCambiar: (limitar) => this.recalcularHonorariosDesdeFacturas(limitar)
+                });
+            }
+            return secciones;
+        },
+
         opcionesPedimentos() {
             let sheetArray = Array.isArray(this.pedimentosSheet) ? this.pedimentosSheet : [];
             let filtrados = [];
@@ -486,7 +587,7 @@ export default {
         }
     },
     mounted() {
-        this.form = { ...this.form, ...this.ingresoBase };
+        this.form = { ...this.form, ...this.ingresoBase, facturas_honorarios: null, notas_cargo: null, conceptos_gpc_base: null };
 
         const sucursalBaseStr = String(this.form.sucursal_origen || '').toUpperCase();
         if (sucursalBaseStr.includes('TRANSPORTACTIC')) {
@@ -548,6 +649,9 @@ export default {
         if (this.form.sucursal_origen) {
             this.cargarListaPedimentos();
         }
+
+        // Facturas de honorarios y notas de cargo que abona este ingreso (pagos parciales)
+        this.cargarFacturasHonorarios();
     },
     methods: {
         agregarClienteManual(nuevoNombre) {
@@ -560,6 +664,206 @@ export default {
         },
         formatearDinero(monto) {
             return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2 }).format(parseFloat(monto) || 0);
+        },
+
+        // ==========================================
+        // PAGOS PARCIALES: FACTURAS DE HONORARIOS Y NOTAS DE CARGO
+        // ==========================================
+        async cargarFacturasHonorarios() {
+            if (!this.form.id) {
+                return;
+            }
+            try {
+                const response = await axios.get(`/ingresos-conciliados/${this.form.id}/facturas-honorarios`);
+                const data = response.data || {};
+                const facturas = Array.isArray(data) ? data : (data.facturas || []);
+                const notas = Array.isArray(data) ? [] : (data.notas || []);
+
+                this.$set(this.form, 'facturas_honorarios', facturas);
+
+                // factor_inicial: qué parte de la nota ya está reflejada en los montos guardados de este ingreso
+                this.$set(this.form, 'notas_cargo', notas.map(n => {
+                    const total = Number(n.total_facturado) || 0;
+                    return { ...n, factor_inicial: total > 0 ? (Number(n.abono) || 0) / total : 0 };
+                }));
+
+                this.capturarBaseGpcDesdeGuardado();
+            } catch (error) {
+                console.error('No se pudieron cargar las facturas de honorarios y notas de cargo', error);
+                this.$set(this.form, 'facturas_honorarios', null);
+                this.$set(this.form, 'notas_cargo', null);
+                this.form.conceptos_gpc_base = null;
+            }
+        },
+
+        redondear2(valor) {
+            return Math.round((Number(valor) || 0) * 100) / 100;
+        },
+
+        // Lo que quedará pendiente del documento después de este abono
+        restanteFactura(d) {
+            return Math.max(0, this.redondear2((Number(d.total_facturado) || 0) - (Number(d.pagado_previo) || 0) - (Number(d.abono) || 0)));
+        },
+
+        // Ajusta cada abono entre 0 y lo pendiente
+        limitarAbonos(lista) {
+            lista.forEach(d => {
+                const maximo = Number(d.pendiente) || 0;
+                d.abono = this.redondear2(Math.min(Math.max(Number(d.abono) || 0, 0), maximo));
+            });
+        },
+
+        // Honorarios del ingreso = suma de los abonos a las facturas
+        recalcularHonorariosDesdeFacturas(limitar = false) {
+            const lista = Array.isArray(this.form.facturas_honorarios) ? this.form.facturas_honorarios : [];
+            if (lista.length === 0) {
+                return;
+            }
+            if (limitar) {
+                this.limitarAbonos(lista);
+            }
+            this.$set(this.form, 'honorarios', this.redondear2(lista.reduce((acc, f) => acc + (Number(f.abono) || 0), 0)));
+        },
+
+        // Conceptos de la nota tal como vienen de una búsqueda nueva (montos completos)
+        capturarBaseGpc() {
+            if (!this.tieneNotasCargo) {
+                this.form.conceptos_gpc_base = null;
+                return;
+            }
+            const base = {};
+            this.conceptosNotaCargo.forEach(k => {
+                base[k] = Number(this.form[k]) || 0;
+            });
+            this.form.conceptos_gpc_base = base;
+        },
+
+        // Al abrir sin buscar: reconstruye los montos completos a partir de lo guardado (ya prorrateado)
+        capturarBaseGpcDesdeGuardado() {
+            if (!this.tieneNotasCargo) {
+                this.form.conceptos_gpc_base = null;
+                return;
+            }
+            const notas = this.form.notas_cargo;
+            const totalFacturado = notas.reduce((acc, n) => acc + (Number(n.total_facturado) || 0), 0);
+            const totalAbono = notas.reduce((acc, n) => acc + (Number(n.abono) || 0), 0);
+            const factorGuardado = totalFacturado > 0 ? totalAbono / totalFacturado : 0;
+
+            const base = {};
+            this.conceptosNotaCargo.forEach(k => {
+                const valor = Number(this.form[k]) || 0;
+                base[k] = factorGuardado > 0 ? this.redondear2(valor / factorGuardado) : valor;
+            });
+            this.form.conceptos_gpc_base = base;
+        },
+
+        // Prorratea los conceptos de la nota de cargo según lo abonado (abono / total facturado)
+        recalcularGpcDesdeNotas(limitar = false) {
+            const notas = Array.isArray(this.form.notas_cargo) ? this.form.notas_cargo : [];
+            const base = this.form.conceptos_gpc_base;
+            if (notas.length === 0 || !base) {
+                return;
+            }
+            if (limitar) {
+                this.limitarAbonos(notas);
+            }
+
+            const totalFacturado = notas.reduce((acc, n) => acc + (Number(n.total_facturado) || 0), 0);
+            const totalAbono = notas.reduce((acc, n) => acc + (Number(n.abono) || 0), 0);
+            const factor = totalFacturado > 0 ? totalAbono / totalFacturado : 0;
+
+            const llaves = this.conceptosNotaCargo;
+            let sumaBase = 0;
+            let mayor = null;
+            llaves.forEach(k => {
+                const v = Number(base[k]) || 0;
+                sumaBase += v;
+                if (mayor === null || v > (Number(base[mayor]) || 0)) {
+                    mayor = k;
+                }
+            });
+
+            let suma = 0;
+            llaves.forEach(k => {
+                const v = this.redondear2((Number(base[k]) || 0) * factor);
+                this.$set(this.form, k, v);
+                suma += v;
+            });
+
+            // El centavo que se pierda en el redondeo se ajusta en el concepto más grande
+            const diferencia = this.redondear2(this.redondear2(sumaBase * factor) - suma);
+            if (mayor && diferencia !== 0) {
+                this.$set(this.form, mayor, this.redondear2((Number(this.form[mayor]) || 0) + diferencia));
+            }
+        },
+
+        // Reparte el depósito: primero la nota de cargo, después los honorarios
+        repartirDepositoEnFacturas() {
+            let disponible = Math.max(0, this.redondear2(Number(this.form.monto_deposito) || 0));
+
+            if (this.tieneNotasCargo) {
+                this.form.notas_cargo.forEach(n => {
+                    const abono = Math.min(disponible, Number(n.pendiente) || 0);
+                    n.abono = this.redondear2(abono);
+                    disponible = this.redondear2(disponible - abono);
+                });
+                this.recalcularGpcDesdeNotas();
+
+                // GPC que no forma parte de la nota (p. ej. ALMAN / Flete en Manzanillo)
+                const gpcNotas = this.conceptosNotaCargo.reduce((acc, k) => acc + (Number(this.form[k]) || 0), 0);
+                disponible = Math.max(0, this.redondear2(disponible - (this.totalGPC - gpcNotas)));
+            } else {
+                disponible = Math.max(0, this.redondear2(disponible - this.totalGPC));
+            }
+
+            if (this.tieneFacturasHonorarios) {
+                this.form.facturas_honorarios.forEach(f => {
+                    const abono = Math.min(disponible, Number(f.pendiente) || 0);
+                    f.abono = this.redondear2(abono);
+                    disponible = this.redondear2(disponible - abono);
+                });
+                this.recalcularHonorariosDesdeFacturas();
+            }
+        },
+
+        claveFolio(folio) {
+            return String(folio || '').replace(/\D/g, '').replace(/^0+/, '');
+        },
+
+        // Documento (factura o nota) que corresponde al folio de una operación
+        documentoDeFolio(lista, folio) {
+            const clave = this.claveFolio(folio);
+            if (!clave || !Array.isArray(lista)) {
+                return null;
+            }
+            return lista.find(d => String(d.folio) === clave) || null;
+        },
+
+        // Cuánto se multiplican los conceptos de una operación según el abono a su nota de cargo.
+        // Si la nota se cargó de lo guardado, los montos de la operación ya traen el abono anterior.
+        multiplicadorNota(nota) {
+            const total = Number(nota.total_facturado) || 0;
+            const factor = total > 0 ? (Number(nota.abono) || 0) / total : 0;
+            const factorInicial = Number(nota.factor_inicial) || 0;
+            return factorInicial > 0 ? factor / factorInicial : factor;
+        },
+
+        // Aviso cuando la factura o la nota ya tienen pagos en otros ingresos
+        avisoPagosAnteriores(datos) {
+            const lineas = [];
+            const agregar = (lista, etiqueta) => {
+                (lista || []).filter(d => Number(d.pagado_previo) > 0).forEach(d => {
+                    if (Number(d.pendiente) <= 0) {
+                        lineas.push(`<b>La factura ${d.folio}:</b> ya está liquidada (${this.formatearDinero(d.total_facturado)}).`);
+                    } else {
+                        lineas.push(`<b>${etiqueta} ${d.folio}:</b> anticipo ${this.formatearDinero(d.total_facturado)}, ` +
+                            `pagado ${this.formatearDinero(d.pagado_previo)}. <b>pendiente ${this.formatearDinero(d.pendiente)}</b>.`);
+                    }
+                });
+            };
+            agregar(datos.notas_cargo, 'Nota de cargo');
+            agregar(datos.facturas_honorarios, 'Factura de honorarios');
+            return lineas;
         },
 
         agregarReferencia(newTag) {
@@ -693,7 +997,9 @@ export default {
                 const response = await axios.post('/ingresos-conciliados/buscar-sheet', {
                     pedimentos: pedimentosLimpios,
                     sucursal: this.sucursalReal,
-                    tipo_comprobante: this.tiposComprobanteArray
+                    tipo_comprobante: this.tiposComprobanteArray,
+                    // Para que los abonos de este mismo ingreso no cuenten como "pagado antes"
+                    ingreso_id: this.form.id || null
                 });
 
                 const datos = response.data;
@@ -752,6 +1058,13 @@ export default {
                 this.$set(this.form, 'operaciones', datos.operaciones || []);
                 this.$set(this.form, 'pago_proveedor', Number(datos.pago_proveedor) || 0);
 
+                // 🎯 PAGOS PARCIALES: notas de cargo (se prorratean los conceptos) y facturas de honorarios
+                this.$set(this.form, 'facturas_honorarios', (datos.facturas_honorarios || []).map(f => ({ ...f })));
+                this.$set(this.form, 'notas_cargo', (datos.notas_cargo || []).map(n => ({ ...n })));
+                this.capturarBaseGpc();
+                this.recalcularGpcDesdeNotas();
+                this.recalcularHonorariosDesdeFacturas();
+
                 // Recálculo del depósito
                 if (this.sumaTotal > 0) {
                     this.$set(this.form, 'monto_deposito', Number(this.sumaTotal.toFixed(2)));
@@ -765,13 +1078,23 @@ export default {
                     }
                 }
 
-                Swal.fire({
-                    title: '¡Datos listos!',
-                    text: 'Montos y operaciones actualizados.',
-                    icon: 'success',
-                    timer: 2000,
-                    showConfirmButton: false
-                });
+                // Aviso si la factura o la nota ya tienen pagos en otros ingresos
+                const lineasPagos = this.avisoPagosAnteriores(datos);
+                if (lineasPagos.length > 0) {
+                    Swal.fire({
+                        title: 'Documentos con pagos anteriores',
+                        html: `<div style="text-align:left">${lineasPagos.join('<br>')}</div>`,
+                        icon: 'info'
+                    });
+                } else {
+                    Swal.fire({
+                        title: '¡Datos listos!',
+                        text: 'Montos y operaciones actualizados.',
+                        icon: 'success',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                }
 
             } catch (error) {
                 console.error("🔍 ERROR CRUDO:", error);
@@ -891,8 +1214,12 @@ export default {
             if (this.form.referenciasObj && Array.isArray(this.form.referenciasObj) && this.form.referenciasObj.length > 0) {
                 const opsBuscadas = Array.isArray(this.form.operaciones) ? this.form.operaciones : [];
                 const pedimentosSheet = Array.isArray(this.pedimentosSheet) ? this.pedimentosSheet : [];
+                const llavesGpc = this.conceptosNotaCargo;
 
                 const totalOps = this.form.referenciasObj.length;
+
+                // Cada factura de honorarios se abona una sola vez aunque cubra varias operaciones
+                const foliosConAbono = new Set();
 
                 payload.operaciones = this.form.referenciasObj.map(ref => {
                     const textoOriginal = typeof ref === 'object'
@@ -909,11 +1236,22 @@ export default {
                         const oFolioLimpio = extraerFolioLimpio(o.folio || o.referencia || o.pedimento || o.id);
                         const oFolioRaw = String(o.folio || o.referencia || o.label || '').toUpperCase().trim();
 
+                        // Pedimento de la operación (7 dígitos), para cuando la referencia es el pedimento
+                        const oPedimento = (String(o.pedimento || '').match(/\d{7}/) || [])[0] || '';
+
                         return (folioLimpio && oFolioLimpio && (folioLimpio === oFolioLimpio || oFolioLimpio.includes(folioLimpio) || folioLimpio.includes(oFolioLimpio))) ||
-                            (oFolioRaw && (oFolioRaw === textoUpper || textoUpper.includes(oFolioRaw) || oFolioRaw.includes(textoUpper)));
+                            (oFolioRaw && (oFolioRaw === textoUpper || textoUpper.includes(oFolioRaw) || oFolioRaw.includes(textoUpper))) ||
+                            (oPedimento !== '' && textoUpper.includes(oPedimento));
                     };
 
                     let op = opsBuscadas.find(esCoincidencia) || pedimentosSheet.find(esCoincidencia) || {};
+
+                    // Si la operación viene de la tabla pivote como relación, sus columnas pueden estar en op.pivot
+                    const pivote = (op && op.pivot) ? op.pivot : {};
+                    const folioFacturaGuardado = op.folio_factura || pivote.folio_factura || null;
+                    const honorariosFacturadoGuardado = Number(op.honorarios_facturado ?? pivote.honorarios_facturado ?? 0) || 0;
+                    const gpcFacturadoGuardado = Number(op.gpc_facturado ?? pivote.gpc_facturado ?? 0) || 0;
+                    const montoGpcOperacion = Number(op.monto_gpc ?? pivote.monto_gpc ?? 0) || 0;
 
                     const opId = op.operacion_id || op.id || op.pedimento_id || null;
                     const opType = op.operation_type || op.operacion_type || op.type || 'GENERICO';
@@ -938,6 +1276,40 @@ export default {
                         }
                     }
 
+                    const folioOperacion = folioFacturaGuardado || op.folio;
+                    const claveFolio = this.claveFolio(folioOperacion);
+
+                    // Factura de honorarios: su CFDI es lo abonado (una sola vez por folio)
+                    let facturaOp = this.documentoDeFolio(this.form.facturas_honorarios, folioOperacion);
+                    let abonoFactura = null;
+
+                    if (facturaOp && !this.esTransportactics && !this.esIntshipperts) {
+                        abonoFactura = foliosConAbono.has(claveFolio) ? 0 : (Number(facturaOp.abono) || 0);
+                        foliosConAbono.add(claveFolio);
+                        montoCfdi = abonoFactura;
+                    } else {
+                        facturaOp = null;
+                    }
+
+                    // Nota de cargo: los conceptos y el GPC de la operación se prorratean según lo abonado
+                    let notaOp = this.documentoDeFolio(this.form.notas_cargo, folioOperacion);
+                    let multiplicadorGpc = null;
+
+                    if (notaOp && !this.esTransportactics && !this.esIntshipperts) {
+                        multiplicadorGpc = this.multiplicadorNota(notaOp);
+                        montoGpc = this.redondear2(montoGpcOperacion * multiplicadorGpc);
+                    } else {
+                        notaOp = null;
+                    }
+
+                    const conceptoOp = (llave) => {
+                        const valor = op[llave];
+                        if (multiplicadorGpc === null || !llavesGpc.includes(llave) || valor === undefined || valor === null || valor === '') {
+                            return valor;
+                        }
+                        return this.redondear2(Number(valor) * multiplicadorGpc);
+                    };
+
                     // Determinar el modelo dinámico
                     let pivoteType = opType;
                     if (pivoteType === 'GENERICO') {
@@ -955,17 +1327,23 @@ export default {
                         referencia: textoOriginal,
                         monto_cfdi: montoCfdi,
                         monto_gpc: montoGpc,
-                        honorarios: op.honorarios ?? (totalOps === 1 ? Number(this.form.honorarios || 0) : 0),
-                        impuestos: op.impuestos ?? (totalOps === 1 ? Number(this.form.impuestos || 0) : 0),
-                        eci: op.eci ?? (totalOps === 1 ? Number(this.form.eci || 0) : 0),
-                        maniobras: op.maniobras ?? (totalOps === 1 ? Number(this.form.maniobras || 0) : 0),
-                        flete: op.flete ?? (totalOps === 1 ? Number(this.form.flete || 0) : 0),
-                        muestras: op.muestras ?? (totalOps === 1 ? Number(this.form.muestras || 0) : 0),
-                        llc: op.llc ?? (totalOps === 1 ? Number(this.form.llc || 0) : 0),
+
+                        // Pagos parciales (factura de honorarios y nota de cargo)
+                        folio_factura: (facturaOp || notaOp) ? claveFolio : folioFacturaGuardado,
+                        honorarios_facturado: facturaOp ? (Number(facturaOp.total_facturado) || 0) : honorariosFacturadoGuardado,
+                        gpc_facturado: notaOp ? (Number(notaOp.total_facturado) || 0) : gpcFacturadoGuardado,
+
+                        honorarios: abonoFactura !== null ? abonoFactura : (op.honorarios ?? (totalOps === 1 ? Number(this.form.honorarios || 0) : 0)),
+                        impuestos: conceptoOp('impuestos') ?? (totalOps === 1 ? Number(this.form.impuestos || 0) : 0),
+                        eci: conceptoOp('eci') ?? (totalOps === 1 ? Number(this.form.eci || 0) : 0),
+                        maniobras: conceptoOp('maniobras') ?? (totalOps === 1 ? Number(this.form.maniobras || 0) : 0),
+                        flete: conceptoOp('flete') ?? (totalOps === 1 ? Number(this.form.flete || 0) : 0),
+                        muestras: conceptoOp('muestras') ?? (totalOps === 1 ? Number(this.form.muestras || 0) : 0),
+                        llc: conceptoOp('llc') ?? (totalOps === 1 ? Number(this.form.llc || 0) : 0),
                         llc_usd: op.llc_usd ?? (totalOps === 1 ? Number(this.form.llc_usd || 0) : 0),
-                        anticipo: op.anticipo ?? (totalOps === 1 ? Number(this.form.anticipo || 0) : 0),
-                        garantias: op.garantias ?? (totalOps === 1 ? Number(this.form.garantias || 0) : 0),
-                        desglose_naviera: op.desglose_naviera ?? (totalOps === 1 ? Number(this.form.desglose_naviera || 0) : 0),
+                        anticipo: conceptoOp('anticipo') ?? (totalOps === 1 ? Number(this.form.anticipo || 0) : 0),
+                        garantias: conceptoOp('garantias') ?? (totalOps === 1 ? Number(this.form.garantias || 0) : 0),
+                        desglose_naviera: conceptoOp('desglose_naviera') ?? (totalOps === 1 ? Number(this.form.desglose_naviera || 0) : 0),
                         pago_proveedor: op.pago_proveedor ?? (totalOps === 1 ? Number(this.form.pago_proveedor || 0) : 0),
                         ganancia: op.ganancia ?? (totalOps === 1 ? Number(this.form.ganancia || 0) : 0),
                         proveedor_maniobras: op.proveedor_maniobras ?? null,
@@ -985,6 +1363,9 @@ export default {
 
             delete payload.pedimento_detectado;
             delete payload.referenciasObj;
+            delete payload.facturas_honorarios;
+            delete payload.notas_cargo;
+            delete payload.conceptos_gpc_base;
 
             // 4. Tipo de comprobante
             if (this.tiposComprobanteArray.includes('CFDI') && this.tiposComprobanteArray.includes('Nota Cargo')) {

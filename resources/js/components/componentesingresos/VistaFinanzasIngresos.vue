@@ -27,7 +27,7 @@
     </div>
 
     <!-- TARJETAS DE INDICADORES (KPIs) -->
-    <div class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-6 mb-10">
+    <div class="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-6 mb-10">
 
       <!-- 1. INGRESOS TOTALES -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 border-l-4 flex justify-between items-center"
@@ -80,7 +80,25 @@
         </div>
       </div>
 
-      <!-- 4. SALDOS APLICADOS -->
+      <!-- 4. HONORARIOS POR COBRAR (FACTURAS CON PAGO PARCIAL) -->
+      <button type="button" @click="abrirPestanaFacturas"
+        class="text-left bg-white rounded-xl shadow-sm border border-gray-100 p-8 border-l-4 flex justify-between items-center hover:bg-amber-50 transition-colors"
+        style="border-left-color: #F59E0B;" title="Ver facturas con saldo pendiente">
+        <div>
+          <p class="text-base font-bold text-gray-400 uppercase tracking-wider mb-3">Honorarios por cobrar</p>
+          <p class="text-4xl font-black text-amber-600 mb-2">{{ formatearDinero(totalHonorariosPendientes) }}</p>
+          <p class="text-sm font-bold" style="color: #F59E0B;">Facturas con pago parcial</p>
+        </div>
+        <div class="w-16 h-16 rounded-xl bg-amber-100 text-amber-500 flex items-center justify-center shrink-0">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z">
+            </path>
+          </svg>
+        </div>
+      </button>
+
+      <!-- 5. SALDOS APLICADOS -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 border-l-4 flex justify-between items-center"
         style="border-left-color: #ED8936;">
         <div>
@@ -97,7 +115,7 @@
         </div>
       </div>
 
-      <!-- 5. SALDOS A FAVOR -->
+      <!-- 6. SALDOS A FAVOR -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 border-l-4 flex justify-between items-center"
         style="border-left-color: #4299E1;">
         <div>
@@ -114,7 +132,7 @@
         </div>
       </div>
 
-      <!-- 6. SALDOS EN CONTRA -->
+      <!-- 7. SALDOS EN CONTRA -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-8 border-l-4 flex justify-between items-center"
         style="border-left-color: #F54927;">
         <div>
@@ -146,6 +164,10 @@
         <button @click="activeTab = 'saldos_aplicados'"
           :class="['px-8 py-4 rounded-lg text-xl font-bold shadow-sm whitespace-nowrap transition-colors', activeTab === 'saldos_aplicados' ? 'bg-blue-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100']">
           Saldos Aplicados
+        </button>
+        <button @click="abrirPestanaFacturas"
+          :class="['px-8 py-4 rounded-lg text-xl font-bold shadow-sm whitespace-nowrap transition-colors', activeTab === 'facturas_saldo' ? 'bg-blue-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100']">
+          Facturas con saldo
         </button>
       </div>
     </div>
@@ -577,6 +599,94 @@
     </div>
 
     <!-- ============================================== -->
+    <!-- TAB 4: FACTURAS DE HONORARIOS CON SALDO        -->
+    <!-- ============================================== -->
+    <div v-show="activeTab === 'facturas_saldo'" class="flex-1 flex flex-col">
+      <div class="flex flex-wrap justify-between items-end mb-6 gap-4">
+        <div>
+          <h2 class="text-2xl font-black text-gray-700 uppercase tracking-wide">FACTURAS DE HONORARIOS CON PAGOS PARCIALES</h2>
+          <p class="text-lg text-gray-500 mt-3">Lo facturado, lo abonado en cada depósito y lo que falta por cobrar.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-3">
+          <div class="w-72">
+            <multiselect v-model="filtroClienteFacturas" :options="opcionesClientesFacturas" placeholder="Todos los clientes"
+              :searchable="true" :show-labels="false" class="custom-filter-multiselect"></multiselect>
+          </div>
+          <div class="flex gap-2">
+            <button v-for="op in opcionesEstatusFacturas" :key="'fe-' + op.id" type="button"
+              @click="cambiarEstatusFacturas(op.id)"
+              class="px-4 py-2.5 rounded-lg font-bold text-sm transition-colors"
+              :class="filtroEstatusFacturas === op.id ? 'bg-gray-800 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-100'">
+              {{ op.label }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto relative">
+        <div v-if="cargandoFacturas"
+          class="absolute inset-0 bg-white/60 z-10 flex items-center justify-center text-sm font-bold text-gray-500">
+          Cargando facturas...
+        </div>
+        <table class="w-full text-left">
+          <thead class="bg-gray-50 text-gray-800 text-sm font-black uppercase tracking-wider border-b border-gray-200">
+            <tr>
+              <th class="px-4 py-4">CLIENTE</th>
+              <th class="px-4 py-4">SUCURSAL</th>
+              <th class="px-4 py-4">FOLIO</th>
+              <th class="px-4 py-4 text-right">FACTURADO</th>
+              <th class="px-4 py-4 text-right">PAGADO</th>
+              <th class="px-4 py-4 text-right">PENDIENTE</th>
+              <th class="px-4 py-4">ABONOS</th>
+              <th class="px-4 py-4 text-center">ESTATUS</th>
+            </tr>
+          </thead>
+          <tbody class="text-gray-700 text-base">
+            <tr v-for="f in facturasHonorariosFiltradas" :key="'fac-' + f.llave" class="border-b border-gray-100 align-top">
+              <td class="px-4 py-4 font-bold text-gray-900">{{ f.cliente_nombre || 'Sin cliente' }}</td>
+              <td class="px-4 py-4">{{ f.sucursal_base }}</td>
+              <td class="px-4 py-4 font-black">{{ f.folio }}</td>
+              <td class="px-4 py-4 text-right whitespace-nowrap">{{ formatearDinero(f.total_facturado) }}</td>
+              <td class="px-4 py-4 text-right text-green-700 font-bold whitespace-nowrap">{{ formatearDinero(f.total_pagado) }}</td>
+              <td class="px-4 py-4 text-right font-black whitespace-nowrap" :class="f.saldo_pendiente > 0 ? 'text-red-600' : 'text-gray-400'">
+                {{ formatearDinero(f.saldo_pendiente) }}
+              </td>
+              <td class="px-4 py-4 text-sm">
+                <div v-for="p in f.pagos" :key="'pago-' + f.llave + '-' + p.parcialidad" class="whitespace-nowrap">
+                  <span class="font-bold">#{{ p.parcialidad }}</span>
+                  <span class="text-gray-500"> {{ p.fecha }}</span>
+                  <span class="font-semibold"> {{ formatearDinero(p.monto) }}</span>
+                  <span class="text-gray-400"> (queda {{ formatearDinero(p.saldo_insoluto) }})</span>
+                </div>
+                <span v-if="!f.pagos || f.pagos.length === 0" class="text-gray-400">Sin abonos</span>
+              </td>
+              <td class="px-4 py-4 text-center">
+                <span class="px-3 py-1 rounded-full uppercase text-xs font-black tracking-wider"
+                  :class="f.estatus === 'LIQUIDADA' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'">
+                  {{ f.estatus === 'LIQUIDADA' ? 'Liquidada' : 'Pendiente' }}
+                </span>
+              </td>
+            </tr>
+            <tr v-if="!cargandoFacturas && facturasHonorariosFiltradas.length === 0">
+              <td colspan="8" class="text-center py-12 text-gray-400 bg-gray-50 font-medium">
+                No hay facturas de honorarios en este estatus.
+              </td>
+            </tr>
+          </tbody>
+          <tfoot v-if="facturasHonorariosFiltradas.length > 0">
+            <tr class="bg-gray-100 border-t-2 border-gray-300 font-black text-gray-800">
+              <td colspan="3" class="px-4 py-3 text-right">Totales</td>
+              <td class="px-4 py-3 text-right whitespace-nowrap">{{ formatearDinero(totalesFacturas.facturado) }}</td>
+              <td class="px-4 py-3 text-right whitespace-nowrap text-green-700">{{ formatearDinero(totalesFacturas.pagado) }}</td>
+              <td class="px-4 py-3 text-right whitespace-nowrap text-red-600">{{ formatearDinero(totalesFacturas.pendiente) }}</td>
+              <td colspan="2"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============================================== -->
     <!-- MODALES                                        -->
     <!-- ============================================== -->
     <ModalNuevoIngreso v-if="showModal" :opciones-sucursal="opcionesSucursal" :opciones-banco="opcionesBanco"
@@ -669,6 +779,17 @@ export default {
       ingresosData: [],
       saldosData: [],
 
+      // FACTURAS DE HONORARIOS (PAGOS PARCIALES)
+      facturasHonorarios: [],
+      cargandoFacturas: false,
+      filtroEstatusFacturas: 'PENDIENTE',
+      filtroClienteFacturas: null,
+      opcionesEstatusFacturas: [
+        { id: 'PENDIENTE', label: 'Pendientes' },
+        { id: 'LIQUIDADA', label: 'Liquidadas' },
+        { id: 'TODAS', label: 'Todas' }
+      ],
+
       sucursalesBase: [],
       filtroSucursalActiva: 'Todas',
 
@@ -724,7 +845,8 @@ export default {
       kpisTotales: {
         depositos: null,
         honorarios: null,
-        notaCargo: null
+        notaCargo: null,
+        honorariosPendientes: null
       }
     }
   },
@@ -732,6 +854,7 @@ export default {
     this.cargarCatalogos();
     this.cargarIngresos();
     this.cargarSaldos();
+    this.cargarFacturasHonorarios();
     this.obtenerUsuarioActual();
   },
   computed: {
@@ -804,6 +927,37 @@ export default {
         return acc + gpc;
       }, 0);
     },
+    // Honorarios pendientes de cobrar en facturas con pago parcial
+    totalHonorariosPendientes() {
+      if (this.kpisTotales.honorariosPendientes !== null && this.kpisTotales.honorariosPendientes !== undefined) {
+        return this.kpisTotales.honorariosPendientes;
+      }
+      return 0;
+    },
+
+    // FACTURAS DE HONORARIOS: clientes que aparecen en la lista (para el filtro)
+    opcionesClientesFacturas() {
+      const nombres = this.facturasHonorarios.map(f => String(f.cliente_nombre || '').trim()).filter(Boolean);
+      return [...new Set(nombres)].sort();
+    },
+    facturasHonorariosFiltradas() {
+      if (!this.filtroClienteFacturas) {
+        return this.facturasHonorarios;
+      }
+      const filtro = String(this.filtroClienteFacturas).toUpperCase();
+      return this.facturasHonorarios.filter(f => String(f.cliente_nombre || '').toUpperCase() === filtro);
+    },
+    totalesFacturas() {
+      return this.facturasHonorariosFiltradas.reduce((acc, f) => {
+        acc.facturado += Number(f.total_facturado) || 0;
+        acc.pagado += Number(f.total_pagado) || 0;
+        acc.pendiente += Number(f.saldo_pendiente) || 0;
+        acc.gpcFacturado += Number(f.gpc_facturado) || 0;
+        acc.gpcPagado += Number(f.gpc_pagado) || 0;
+        acc.gpcPendiente += Number(f.gpc_pendiente) || 0;
+        return acc;
+      }, { facturado: 0, pagado: 0, pendiente: 0, gpcFacturado: 0, gpcPagado: 0, gpcPendiente: 0 });
+    },
 
     // FILTRADO DINÁMICO DE SALDOS VIGENTES A FAVOR
     saldosVigentesFiltrados() {
@@ -873,6 +1027,9 @@ export default {
     totalSaldosAplicados() {
       const lista = Array.isArray(this.saldosAplicadosFiltrados) ? this.saldosAplicadosFiltrados : [];
       return lista.reduce((acc, item) => acc + Math.abs(parseFloat(item.monto) || 0), 0);
+    },
+    totalGpcPendientes() {
+      return Number(this.kpisTotales.gpcPendientes) || 0;
     }
   },
   methods: {
@@ -892,18 +1049,17 @@ export default {
         if (!clienteSaldo.includes(clienteFiltro)) return false;
       }
 
-      // 3. Filtro por Servicio (InTactics, INTSHIPPERTS, Transportactics)
+      // 3. Filtro por Servicio (InTactics, INTSHIPPERTS, Transportactics): solo por sucursal
       if (this.filtrosSaldos.tipoServicio && this.filtrosSaldos.tipoServicio !== 'Todos') {
         const servicioFiltro = String(this.filtrosSaldos.tipoServicio).toUpperCase();
         const sucursalUpper = String(s.sucursal_origen || '').toUpperCase();
-        const clienteUpper = String(s.cliente || '').toUpperCase();
 
         if (servicioFiltro === 'TRANSPORTACTICS') {
-          if (!sucursalUpper.includes('TRANSPORTACTIC') && !clienteUpper.includes('TRANSPORTACTIC')) return false;
+          if (!sucursalUpper.includes('TRANSPORTACTIC')) return false;
         } else if (servicioFiltro === 'INTSHIPPERTS') {
-          if (!sucursalUpper.includes('INTSHIPPERT') && !clienteUpper.includes('INTSHIPPERT')) return false;
+          if (!sucursalUpper.includes('INTSHIPPERT')) return false;
         } else if (servicioFiltro === 'INTACTICS') {
-          if (sucursalUpper.includes('TRANSPORTACTIC') || clienteUpper.includes('TRANSPORTACTIC') || sucursalUpper.includes('INTSHIPPERT') || clienteUpper.includes('INTSHIPPERT')) return false;
+          if (sucursalUpper.includes('TRANSPORTACTIC') || sucursalUpper.includes('INTSHIPPERT')) return false;
         }
       }
 
@@ -935,6 +1091,7 @@ export default {
       this.filtroSucursalActiva = sucursal;
       this.currentPage = 1;
       this.cargarIngresos();
+      this.cargarFacturasHonorarios();
     },
 
     // Controles Paginación
@@ -984,6 +1141,8 @@ export default {
             this.kpisTotales.depositos = response.data.kpis.depositos;
             this.kpisTotales.honorarios = response.data.kpis.honorarios;
             this.kpisTotales.notaCargo = response.data.kpis.notaCargo;
+            this.kpisTotales.gpcPendientes = response.data.kpis.gpcPendientes;
+            this.kpisTotales.honorariosPendientes = response.data.kpis.honorariosPendientes;
           }
         } else {
           this.ingresosData = response.data.slice(0, 10);
@@ -995,6 +1154,37 @@ export default {
       } finally {
         this.cargandoRegistros = false;
       }
+    },
+
+    // ==========================================
+    // FACTURAS DE HONORARIOS (PAGOS PARCIALES)
+    // ==========================================
+    async cargarFacturasHonorarios() {
+      this.cargandoFacturas = true;
+      try {
+        const response = await axios.get('/facturas-honorarios', {
+          params: { estatus: this.filtroEstatusFacturas, sucursal: this.filtroSucursalActiva }
+        });
+        this.facturasHonorarios = Array.isArray(response.data.data) ? response.data.data : [];
+
+        // Si el cliente filtrado ya no aparece en la lista, se limpia el filtro
+        if (this.filtroClienteFacturas && !this.opcionesClientesFacturas.includes(this.filtroClienteFacturas)) {
+          this.filtroClienteFacturas = null;
+        }
+      } catch (error) {
+        console.error('Error cargando facturas de honorarios', error);
+        this.facturasHonorarios = [];
+      } finally {
+        this.cargandoFacturas = false;
+      }
+    },
+    cambiarEstatusFacturas(estatus) {
+      this.filtroEstatusFacturas = estatus;
+      this.cargarFacturasHonorarios();
+    },
+    abrirPestanaFacturas() {
+      this.activeTab = 'facturas_saldo';
+      this.cargarFacturasHonorarios();
     },
 
     limpiarFiltros() {
@@ -1012,6 +1202,7 @@ export default {
       };
       this.currentPage = 1;
       this.cargarIngresos();
+      this.cargarFacturasHonorarios();
     },
 
     limpiarFiltrosSaldos() {
@@ -1052,7 +1243,8 @@ export default {
       this.showModalEditarIngreso = false;
       await Promise.all([
         this.cargarIngresos(),
-        this.cargarSaldos()
+        this.cargarSaldos(),
+        this.cargarFacturasHonorarios()
       ]);
     },
     async cargarCatalogos() {
@@ -1205,7 +1397,8 @@ export default {
       this.showModal = false;
       await Promise.all([
         this.cargarIngresos(),
-        this.cargarSaldos()
+        this.cargarSaldos(),
+        this.cargarFacturasHonorarios()
       ]);
     },
     async eliminarFila(id) {
@@ -1225,7 +1418,8 @@ export default {
 
           await Promise.all([
             this.cargarIngresos(),
-            this.cargarSaldos()
+            this.cargarSaldos(),
+            this.cargarFacturasHonorarios()
           ]);
 
           Swal.fire({
@@ -1308,7 +1502,8 @@ export default {
       this.ingresoParaDesglose = null;
       await Promise.all([
         this.cargarIngresos(),
-        this.cargarSaldos()
+        this.cargarSaldos(),
+        this.cargarFacturasHonorarios()
       ]);
     }
   }

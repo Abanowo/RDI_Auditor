@@ -86,6 +86,31 @@
                 </div>
 
             </div>
+
+            <!-- FACTURAS DE HONORARIOS (PAGOS PARCIALES) -->
+            <div v-if="facturasHonorarios.length > 0" class="flex flex-wrap items-center gap-2">
+                <span class="text-sm font-bold text-gray-500 uppercase mr-1">Pagos a cuenta:</span>
+                <template v-for="f in facturasHonorarios">
+                    <span v-if="Number(f.total_facturado) > 0" :key="'fh-' + f.folio"
+                        class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-bold"
+                        :class="f.estatus_honorarios === 'LIQUIDADA' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-orange-100 text-orange-800 border-orange-200'">
+                        <span class="font-black">Honorarios {{ f.folio }}</span>
+                        <span class="font-semibold">Abono {{ formatearDinero(f.monto) }}<template v-if="f.parcialidad"> (parcialidad {{ f.parcialidad }})</template></span>
+                        <span class="px-2 py-0.5 rounded font-black" :class="f.estatus_honorarios === 'LIQUIDADA' ? 'bg-green-200' : 'bg-orange-200'">
+                            {{ f.estatus_honorarios === 'LIQUIDADA' ? 'Liquidada' : 'Pendiente ' + formatearDinero(f.saldo_pendiente) }}
+                        </span>
+                    </span>
+                    <span v-if="Number(f.gpc_facturado) > 0" :key="'nc-' + f.folio"
+                        class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-bold"
+                        :class="f.estatus_gpc === 'LIQUIDADA' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-orange-100 text-orange-800 border-orange-200'">
+                        <span class="font-black">Nota de cargo {{ f.folio }}</span>
+                        <span class="font-semibold">Abono {{ formatearDinero(f.monto_gpc) }}<template v-if="f.parcialidad_gpc"> (parcialidad {{ f.parcialidad_gpc }})</template></span>
+                        <span class="px-2 py-0.5 rounded font-black" :class="f.estatus_gpc === 'LIQUIDADA' ? 'bg-green-200' : 'bg-orange-200'">
+                            {{ f.estatus_gpc === 'LIQUIDADA' ? 'Liquidada' : 'Pendiente ' + formatearDinero(f.gpc_pendiente) }}
+                        </span>
+                    </span>
+                </template>
+            </div>
         </div>
 
         <!-- PIE DE LA TARJETA -->
@@ -208,8 +233,6 @@
 </template>
 
 <script>
-import Swal from 'sweetalert2';
-
 export default {
     name: 'IngresoCard',
     props: {
@@ -224,19 +247,23 @@ export default {
             return this.formatearReferenciaCorta(refBase);
         },
 
+        // El tipo de servicio se decide solo por la sucursal (no por el nombre del cliente)
         esRegistroIntshipperts() {
-            const nombreCliente = String(this.item.cliente || '').toUpperCase();
             const sucursalOrigen = String(this.item.sucursal_origen || '').toUpperCase();
-            return nombreCliente.includes('INTSHIPPERTS') || sucursalOrigen.includes('INTSHIPPERT');
+            return sucursalOrigen.includes('INTSHIPPERT');
         },
         esRegistroTransportactics() {
-            const nombreCliente = String(this.item.cliente || '').toUpperCase();
             const sucursalOrigen = String(this.item.sucursal_origen || '').toUpperCase();
-            return nombreCliente.includes('TRANSPORTACTICS') || sucursalOrigen.includes('TRANSPORTACTIC');
+            return sucursalOrigen.includes('TRANSPORTACTIC');
         },
         esRegistroManzanillo() {
             const sucursalOrigen = String(this.item.sucursal_origen || '').toUpperCase();
             return sucursalOrigen.includes('MANZANILLO');
+        },
+
+        // Facturas de honorarios que abonó este ingreso (las arma el index del controlador)
+        facturasHonorarios() {
+            return Array.isArray(this.item.facturas_honorarios) ? this.item.facturas_honorarios : [];
         },
 
         desgloseActivo() {
@@ -336,24 +363,22 @@ export default {
             }).filter(Boolean).join(', ');
         },
 
+        // Texto al pasar el cursor sobre la etiqueta de una factura
+        tituloFactura(f) {
+            const facturado = this.formatearDinero(f.total_facturado);
+            const pendiente = this.formatearDinero(f.saldo_pendiente);
+            return f.estatus === 'LIQUIDADA'
+                ? `Factura ${f.folio}: facturado ${facturado}, liquidada`
+                : `Factura ${f.folio}: facturado ${facturado}, pendiente ${pendiente}`;
+        },
+
         formatearDinero(monto) {
             return new Intl.NumberFormat('en-US', {
                 style: 'currency',
                 currency: 'USD',
                 minimumFractionDigits: 2
             }).format(parseFloat(monto) || 0);
-        },
-        abrirModalDesglose(item) {
-            this.ingresoParaDesglose = item;
-            this.showModalDesglose = true;
-        },
-        async onDesgloseActualizado() {
-            this.showModalDesglose = false;
-            await Promise.all([
-                this.cargarIngresos(),
-                this.cargarSaldos()
-            ]);
-        },
+        }
     }
 }
 </script>
