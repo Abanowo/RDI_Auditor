@@ -51,6 +51,12 @@ class AuditoriaImpuestosController extends Controller
         'intactics.nyc3.cdn.digitaloceanspaces.com',
     ];
 
+    const CONCEPTOS_ZLO_POR_CONTENEDOR = [
+        'Incumplimiento',
+        'Entrega no Realizada',
+        'Reprogramacion',
+    ];
+
     public function index(Request $request)
     {
         if ($request->wantsJson()) {
@@ -4993,12 +4999,40 @@ class AuditoriaImpuestosController extends Controller
 
         return null;
     }
-    
+
+    private function contenedoresParaDividirConcepto(?string $rutaXml, ?string $rutaPdf, $operacion, string $pedimento = ''): int
+    {
+        // Contenedores capturados en la operación (sin exigir dígito verificador)
+        $contsOperacion = [];
+        if (preg_match_all('/[A-Za-z]{4}[\s\-]*\d{7}/', (string) ($operacion->contenedor ?? ''), $m)) {
+            foreach ($m[0] as $c) {
+                $contsOperacion[strtoupper(preg_replace('/[^A-Z0-9]/i', '', $c))] = true;
+            }
+        }
+        $numeroOperacion = count($contsOperacion);
+
+        try {
+            $numeroFactura = $this->contarContenedoresUniversal($rutaXml, $rutaPdf);
+        } catch (\Throwable $e) {
+            $numeroFactura = 1;
+        }
+
+        $numero = max(1, $numeroOperacion, $numeroFactura);
+
+        if ($numero > 1) {
+            Log::info("Contenedores: Ped {$pedimento} | factura dividida entre {$numero} contenedores"
+                . " (operación: " . ($numeroOperacion ? implode(', ', array_keys($contsOperacion)) : 'sin contenedor capturado')
+                . " | factura: {$numeroFactura}) | " . ($rutaXml ?: $rutaPdf));
+        }
+
+        return $numero;
+    }
+
     /**
-     * Revisa las descripciones de los conceptos del XML.
-     * Devuelve el concepto si la factura es de Incumplimiento / Entrega no Realizada /
-     * Reprogramacion y NO trae además cobros de maniobra, almacenaje o vacíos
-     * (una factura de maniobras con un renglón extra se queda en Terminales).
+     * Concepto de la factura si TODOS sus renglones son de Incumplimiento /
+     * Entrega no Realizada / Reprogramacion. Si la factura también trae otros
+     * cobros (factura mixta), devuelve null: se queda en Terminales y solo sus
+     * renglones especiales se envían aparte (ver enviarAGPCConceptosExtraZLO).
      */
     private function conceptoIncumplimientoEnXml(?string $rutaXml): ?string
     {
@@ -5016,23 +5050,14 @@ class AuditoriaImpuestosController extends Controller
             return $cache[$rutaXml] = null;
         }
 
-        $encontrado = null;
         foreach ($m[1] as $descripcion) {
-            $descripcion = html_entity_decode($descripcion);
-            $concepto = $this->conceptoIncumplimientoZLO($descripcion);
-
+            $concepto = $this->conceptoIncumplimientoZLO(html_entity_decode($descripcion));
             if ($concepto) {
-                $encontrado = $encontrado ?? $concepto;
-                continue;
-            }
-
-            $d = Str::upper(Str::ascii($descripcion));
-            if (str_contains($d, 'MANIOBRA') || str_contains($d, 'ALMACEN') || str_contains($d, 'VACIO')) {
-                return $cache[$rutaXml] = null; // factura mixta: se queda en su concepto normal
+                return $cache[$rutaXml] = $concepto;
             }
         }
 
-        return $cache[$rutaXml] = $encontrado;
+        return $cache[$rutaXml] = null;
     }
 
     /**
@@ -7747,8 +7772,14 @@ class AuditoriaImpuestosController extends Controller
  
                     // 1. Clasificación por nombre de archivo
                     $concepto = $this->clasificarConceptoEspecialZLO($candidato['carpeta'], $candidato['nombre_archivo']);
- 
-                    // 2. Por descripciones del XML SOLO si ningún otro concepto tomó ya esta factura
+
+                    // 2. Entrega no Realizada / Incumplimiento / Reprogramación en los renglones del XML
+                    $enTerminalOProveedor = str_contains($candidato['carpeta'], 'proveedor') || str_contains($candidato['carpeta'], 'terminal');
+                    if (!$concepto && $enTerminalOProveedor && !empty($candidato['ruta_xml'])) {
+                        $concepto = $this->conceptoIncumplimientoEnXml($candidato['ruta_xml']);
+                    }
+
+                    // 3. Demás conceptos por descripciones del XML SOLO si ningún otro concepto tomó ya esta factura
                     if (!$concepto && !$yaReclamada && !empty($candidato['ruta_xml'])) {
                         $textoXml = $this->obtenerTextoClasificacionXml($candidato['ruta_xml']);
                         $concepto = $this->clasificarConceptoEspecialZLO($candidato['carpeta'], $candidato['nombre_archivo'] . ' ' . $textoXml);
@@ -7783,7 +7814,15 @@ class AuditoriaImpuestosController extends Controller
                         continue;
                     }
                     $facturasVistas[$llave] = true;
- 
+
+                    // Incumplimiento / Entrega no Realizada / Reprogramacion: la factura completa
+                    // se divide entre los contenedores de la operación (o de la factura, si son más)
+                    $montoConcepto = (float) $datosFactura['monto'];
+                    if (in_array($baseConcepto, self::CONCEPTOS_ZLO_POR_CONTENEDOR, true)) {
+                        $numeroDeContenedores = $this->contenedoresParaDividirConcepto($candidato['ruta_xml'], $candidato['ruta_pdf'], $queryOp, (string) $pedimentoLimpio);
+                        $montoConcepto = round($montoConcepto / $numeroDeContenedores, 2);
+                    }
+
                     $conceptosCount[$baseConcepto] = ($conceptosCount[$baseConcepto] ?? 0) + 1;
                     $conceptoNombre = $baseConcepto . ($conceptosCount[$baseConcepto] > 1 ? ' ' . $conceptosCount[$baseConcepto] : '');
  
@@ -7796,15 +7835,15 @@ class AuditoriaImpuestosController extends Controller
                         'bl'         => $queryOp ? ($queryOp->bol ?? '') : '',
                         'pedimento'  => $pedimentoLimpio,
                         'concepto'   => $conceptoNombre,
-                        'monto'      => (float) round($datosFactura['monto'], 2),
+                        'monto'      => (float) round($montoConcepto, 2),
                         'moneda'     => $datosFactura['moneda'],
                         'naviera'    => $proveedor ?: ''
                     ];
                 }
             }
- 
-            Log::info("Conceptos Especiales ZLO detectados: " . json_encode($resumen));
- 
+
+            Log::info("Conceptos Especiales ZLO detectados: " . json_encode($resumen, JSON_UNESCAPED_UNICODE));
+
             if (!empty($especialesParaSheets)) {
                 Log::info("Conceptos Especiales ZLO listos para enviar a GPC: " . count($especialesParaSheets));
                 $paquetes = array_chunk($especialesParaSheets, 50);
@@ -8279,8 +8318,7 @@ class AuditoriaImpuestosController extends Controller
 
                     // Incumplimiento / Entrega no Realizada / Reprogramación van por su propio concepto
                     $conceptoPropio = $this->conceptoIncumplimientoZLO($textoParaBuscar);
-                    if (!$conceptoPropio && $enTerminal && !empty($factura['ruta_xml'])) {
-                        // En TERMINAL la carpeta basta para ser terminal: el XML confirma si es otro cobro
+                    if (!$conceptoPropio && !empty($factura['ruta_xml'])) {
                         $conceptoPropio = $this->conceptoIncumplimientoEnXml($factura['ruta_xml']);
                     }
                     if ($conceptoPropio) {
@@ -8504,7 +8542,7 @@ class AuditoriaImpuestosController extends Controller
  
                     try {
                         $numeroDeContenedores = $this->contarContenedoresUniversal($rutaXml, $rutaPdf);
-                        $montoDividido = round($infoExtraccion['monto'] / $numeroDeContenedores, 2);
+                        $montoDividido = round($infoExtraccion['monto'] / max(1, $numeroDeContenedores), 2);
                     } catch (\Throwable $e) {
                         Log::error("Error contando contenedores (Terminales) pedimento {$pedimentoLimpio}: " . $e->getMessage());
                         $montoDividido = $infoExtraccion['monto'];
@@ -8709,8 +8747,6 @@ class AuditoriaImpuestosController extends Controller
             return $cache[$clave];
         }
 
-        $cantidadVacios = 0;
-
         // 1. XML: descripciones de los conceptos
         if (!empty($rutaXml)) {
             $xml = $this->descargarTextoDocumento($rutaXml);
@@ -8719,16 +8755,7 @@ class AuditoriaImpuestosController extends Controller
                 $descripciones = [];
 
                 foreach ($mConceptos[0] as $etiqueta) {
-                    $descripcion = preg_match('/\sDescripcion=["\']([^"\']*)["\']/i', $etiqueta, $m) ? html_entity_decode($m[1]) : '';
-                    $descripciones[] = $descripcion;
-
-                    // Vacíos sin contenedor escrito: la cantidad del concepto de vacío
-                    if (
-                        str_contains(Str::upper(Str::ascii($descripcion)), 'VACIO')
-                        && preg_match('/\sCantidad=["\']([\d.]+)["\']/i', $etiqueta, $mCant)
-                    ) {
-                        $cantidadVacios = max($cantidadVacios, (int) floor((float) $mCant[1]));
-                    }
+                    $descripciones[] = preg_match('/\sDescripcion=["\']([^"\']*)["\']/i', $etiqueta, $m) ? html_entity_decode($m[1]) : '';
                 }
 
                 $contenedores = $this->contenedoresEnTexto(implode(' ', $descripciones));
@@ -8755,11 +8782,6 @@ class AuditoriaImpuestosController extends Controller
             } catch (\Throwable $th) {
                 Log::warning("Contenedores: no se pudo leer el PDF {$rutaPdf}: " . $th->getMessage());
             }
-        }
-
-        // 3. Vacíos sin contenedor escrito
-        if ($cantidadVacios > 1) {
-            return $cache[$clave] = ['cantidad' => $cantidadVacios, 'contenedores' => [], 'origen' => 'cantidad del concepto de vacío en el XML'];
         }
 
         return $cache[$clave] = ['cantidad' => 1, 'contenedores' => [], 'origen' => 'sin contenedores en la factura'];
