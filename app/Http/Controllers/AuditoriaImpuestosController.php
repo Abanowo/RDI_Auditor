@@ -3976,7 +3976,9 @@ class AuditoriaImpuestosController extends Controller
                     }
  
                     // Anti-duplicados: el mismo monto en el mismo pedimento se envía una sola vez
-                    $montoKey = (string) round($montoMXN, 2);
+                    // (una nota de crédito no se confunde con una factura del mismo monto)
+                    $esNotaCredito = $this->esNotaCredito($factura['ruta_xml'] ?? null);
+                    $montoKey = ($esNotaCredito ? 'NC|' : '') . (string) round($montoMXN, 2);
                     if (in_array($montoKey, $montosRegistrados)) {
                         continue;
                     }
@@ -3996,6 +3998,9 @@ class AuditoriaImpuestosController extends Controller
                         'moneda'     => $moneda,
                         'naviera'    => $proveedor // Emisor del CFDI (columna G del Sheet)
                     ];
+
+                    // Nota de crédito (UsoCFDI G02): monto en negativo y en rojo
+                    $filasTemp[] = $this->ajustarNotaCredito(array_pop($filasTemp), $factura['ruta_xml'] ?? null, (string) $pedimentoLimpio);
                 }
  
                 foreach ($filasTemp as $fila) {
@@ -4233,19 +4238,31 @@ class AuditoriaImpuestosController extends Controller
                         'monto'      => (float) $montoDivididoMXN,
                         'moneda'     => 'MXN'
                     ];
+
+                    // Nota de crédito (UsoCFDI G02): monto en negativo y en rojo
+                    $filasTemp[] = $this->ajustarNotaCredito(array_pop($filasTemp), $rutaXml, (string) $pedimentoLimpio);
                 }
- 
-                if (!empty($filasTemp)) {
+
+                // Las facturas se consolidan en un solo "Almacen";
+                // las notas de crédito van en su propio renglón (en rojo)
+                $filasNormales = array_values(array_filter($filasTemp, function ($f) { return empty($f['nota_credito']); }));
+                $filasNotas = array_values(array_filter($filasTemp, function ($f) { return !empty($f['nota_credito']); }));
+
+                if (!empty($filasNormales)) {
                     $sumaConsolidada = 0;
-                    foreach ($filasTemp as $fila) {
+                    foreach ($filasNormales as $fila) {
                         $sumaConsolidada += $fila['monto'];
                     }
  
-                    $filaFinal = $filasTemp[0];
+                    $filaFinal = $filasNormales[0];
                     $filaFinal['monto'] = round($sumaConsolidada, 2);
                     $filaFinal['concepto'] = 'Almacen';
  
                     $almacenajeParaSheets[] = $filaFinal;
+                }
+
+                foreach ($filasNotas as $filaNota) {
+                    $almacenajeParaSheets[] = $filaNota;
                 }
             }
  
@@ -7744,7 +7761,7 @@ class AuditoriaImpuestosController extends Controller
                 if (empty($candidatos)) {
                     continue;
                 }
- 
+
                 $opId = $datosId['id_operacion'] ?? null;
                 $tipoOp = (($datosId['tipo'] ?? '') === 'Importacion') ? Importacion::class : Exportacion::class;
  
@@ -7839,6 +7856,9 @@ class AuditoriaImpuestosController extends Controller
                         'moneda'     => $datosFactura['moneda'],
                         'naviera'    => $proveedor ?: ''
                     ];
+
+                    // Nota de crédito (UsoCFDI G02): monto en negativo y en rojo
+                    $especialesParaSheets[] = $this->ajustarNotaCredito(array_pop($especialesParaSheets), $candidato['ruta_xml'], (string) $pedimentoLimpio);
                 }
             }
 
@@ -8483,6 +8503,55 @@ class AuditoriaImpuestosController extends Controller
         return [];
     }
 
+    /**
+     * ¿El XML es una nota de crédito? (UsoCFDI="G02" Devoluciones, descuentos o bonificaciones,
+     * o TipoDeComprobante="E" Egreso)
+     */
+    private function esNotaCredito(?string $rutaXml): bool
+    {
+        static $cache = [];
+
+        if (empty($rutaXml)) {
+            return false;
+        }
+        if (array_key_exists($rutaXml, $cache)) {
+            return $cache[$rutaXml];
+        }
+
+        $xml = $this->descargarTextoDocumento($rutaXml);
+        if (!$xml) {
+            return $cache[$rutaXml] = false;
+        }
+
+        $esUsoG02 = (bool) preg_match('/<(?:\w+:)?Receptor\b[^>]*\sUsoCFDI=["\']G02["\']/i', $xml);
+        $esEgreso = (bool) preg_match('/<(?:\w+:)?Comprobante\b[^>]*\sTipoDeComprobante=["\']E["\']/i', $xml);
+
+        return $cache[$rutaXml] = ($esUsoG02 || $esEgreso);
+    }
+
+    /**
+     * Si la factura es nota de crédito: monto en negativo, concepto "Nota de Credito <concepto>"
+     * y la marca nota_credito para que el Apps Script ponga la letra en rojo.
+     * Si no, devuelve la fila tal cual.
+     */
+    private function ajustarNotaCredito(array $fila, ?string $rutaXml, string $pedimento = ''): array
+    {
+        if (!$this->esNotaCredito($rutaXml)) {
+            return $fila;
+        }
+
+        // "Maniobras en Terminal 3" -> "Nota de Credito Maniobras en Terminal"
+        $conceptoBase = preg_replace('/\s+\d+$/', '', trim((string) ($fila['concepto'] ?? '')));
+
+        $fila['monto'] = -abs((float) ($fila['monto'] ?? 0));
+        $fila['concepto'] = 'Nota de Credito ' . $conceptoBase;
+        $fila['nota_credito'] = true;
+
+        Log::info("Nota de crédito: Ped {$pedimento} | {$fila['concepto']} | {$fila['monto']} | {$rutaXml}");
+
+        return $fila;
+    }
+
     public function enviarAGPCTerminales($tareaId)
     {
         gc_collect_cycles();
@@ -8505,28 +8574,28 @@ class AuditoriaImpuestosController extends Controller
             foreach ($mapaPedimentoAId as $pedimentoLimpio => $datosId) {
                 $pedimentoSucio = trim($datosId['num_pedimiento'] ?? '');
                 $listaFacturasManiobra = $indiceManiobras[$pedimentoSucio] ?? $indiceManiobras[$pedimentoLimpio] ?? [];
- 
+
                 if (empty($listaFacturasManiobra)) {
                     continue;
                 }
- 
+
                 $opId = $datosId['id_operacion'];
                 $tipoOp = ($datosId['tipo'] == 'Importacion') ? Importacion::class : Exportacion::class;
- 
+
                 try {
                     $queryOp = ($tipoOp === Importacion::class) ? Importacion::with('cliente')->find($opId) : Exportacion::with('cliente')->find($opId);
                 } catch (\Throwable $e) {
                     Log::error("Error consultando BD (Terminales) para pedimento {$pedimentoLimpio}: " . $e->getMessage());
                     $queryOp = null;
                 }
- 
+
                 $filasTemp = [];
                 $facturasVistas = [];
- 
+
                 foreach ($listaFacturasManiobra as $datosManiobra) {
                     $rutaXml = $datosManiobra['path_xml_man'] ?? null;
                     $rutaPdf = $datosManiobra['path_pdf_man'] ?? null;
- 
+
                     try {
                         $infoExtraccion = $this->extraerMontoYNaviera($rutaXml, $rutaPdf);
                     } catch (\Throwable $e) {
@@ -8535,11 +8604,11 @@ class AuditoriaImpuestosController extends Controller
                         ]);
                         continue;
                     }
- 
+
                     if ($infoExtraccion['monto'] <= 0) {
                         continue;
                     }
- 
+
                     try {
                         $numeroDeContenedores = $this->contarContenedoresUniversal($rutaXml, $rutaPdf);
                         $montoDividido = round($infoExtraccion['monto'] / max(1, $numeroDeContenedores), 2);
@@ -8547,7 +8616,7 @@ class AuditoriaImpuestosController extends Controller
                         Log::error("Error contando contenedores (Terminales) pedimento {$pedimentoLimpio}: " . $e->getMessage());
                         $montoDividido = $infoExtraccion['monto'];
                     }
- 
+
                     // Factura repetida: mismo UUID / folio en el mismo pedimento
                     [$llave, $descripcion] = $this->llaveFactura($rutaXml, $rutaPdf, $montoDividido);
                     if (isset($facturasVistas[$llave])) {
@@ -8555,15 +8624,15 @@ class AuditoriaImpuestosController extends Controller
                         continue;
                     }
                     $facturasVistas[$llave] = true;
- 
+
                     $indexActual = count($filasTemp);
- 
+
                     if ($indexActual === 0 || $indexActual === 1) {
                         $conceptoNombre = 'Maniobras en Terminal';
                     } else {
                         $conceptoNombre = 'Maniobras en Terminal ' . ($indexActual + 1);
                     }
- 
+
                     $filasTemp[] = [
                         'fecha'      => $infoExtraccion['fecha'],
                         'cliente'    => $queryOp ? optional($queryOp->cliente)->nombre : '',
@@ -8575,17 +8644,20 @@ class AuditoriaImpuestosController extends Controller
                         'moneda'     => 'MXN',
                         'naviera'    => $infoExtraccion['naviera']
                     ];
+
+                    // Nota de crédito (UsoCFDI G02): monto en negativo y en rojo
+                    $filasTemp[] = $this->ajustarNotaCredito(array_pop($filasTemp), $rutaXml, (string) $pedimentoLimpio);
                 }
- 
+
                 foreach ($filasTemp as $filaFinal) {
                     $maniobrasParaSheets[] = $filaFinal;
                 }
             }
- 
+
             if (!empty($maniobrasParaSheets)) {
                 Log::info("Terminales encontradas para enviar: " . count($maniobrasParaSheets));
                 $paquetes = array_chunk($maniobrasParaSheets, 50);
- 
+
                 foreach ($paquetes as $idx => $paquete) {
                     $esUltimo = ($idx === count($paquetes) - 1);
                     try {
@@ -8599,7 +8671,7 @@ class AuditoriaImpuestosController extends Controller
             } else {
                 Log::warning("No se encontraron montos de Terminales para enviar.");
             }
- 
+
             return ['code' => 0, 'message' => 'completado'];
         } catch (\Throwable $e) {
             Log::error("Error General en Terminales: " . $e->getMessage());
@@ -8843,61 +8915,61 @@ class AuditoriaImpuestosController extends Controller
     {
         gc_collect_cycles();
         $tarea = ($tareaId instanceof AuditoriaTareas) ? $tareaId : AuditoriaTareas::find($tareaId);
- 
+
         if (!$tarea || $tarea->status !== 'procesando') {
             return ['code' => 1, 'message' => new \Exception("Tarea no válida.")];
         }
- 
+
         Log::info("Tarea #{$tarea->id}: Iniciando extracción de Vacíos...");
- 
+
         try {
             $rutaMapeo = $tarea->mapeo_completo_facturas;
             if (!$rutaMapeo || !Storage::exists($rutaMapeo)) {
                 return ['code' => 1, 'message' => new \Exception("No se encontró el archivo de mapeo universal.")];
             }
- 
+
             $mapeadoFacturas = (array) json_decode(Storage::get($rutaMapeo), true);
             $mapaPedimentoAId = $mapeadoFacturas['pedimentos_totales'] ?? [];
             $indicesOperaciones = ($mapeadoFacturas['indices_importacion'] ?? []) + ($mapeadoFacturas['indices_exportacion'] ?? []);
- 
+
             $indiceVacios = $this->construirIndiceOperacionesVacios($indicesOperaciones);
             Log::info("Vacíos: pedimentos con facturas de vacíos en el expediente: " . count($indiceVacios));
             $vaciosParaSheets = [];
- 
+
             foreach ($mapaPedimentoAId as $pedimentoLimpio => $datosId) {
                 $listaFacturasVacio = $this->facturasDelPedimento($indiceVacios, $pedimentoLimpio, $datosId);
                 if (empty($listaFacturasVacio)) {
                     continue;
                 }
- 
+
                 $opId = $datosId['id_operacion'];
                 $tipoOp = ($datosId['tipo'] == 'Importacion') ? Importacion::class : Exportacion::class;
- 
+
                 try {
                     $queryOp = ($tipoOp === Importacion::class) ? Importacion::with('cliente')->find($opId) : Exportacion::with('cliente')->find($opId);
                 } catch (\Throwable $e) {
                     Log::error("Error consultando BD (Vacíos) pedimento {$pedimentoLimpio}: " . $e->getMessage());
                     $queryOp = null;
                 }
- 
+
                 $filasTemp = [];
                 $facturasVistas = [];
- 
+
                 foreach ($listaFacturasVacio as $datosVacio) {
                     $rutaXml = $datosVacio['ruta_xml'] ?? null;
                     $rutaPdf = $datosVacio['ruta_pdf'] ?? null;
- 
+
                     try {
                         $infoExtraccion = $this->extraerMontoYNaviera($rutaXml, $rutaPdf);
                     } catch (\Throwable $e) {
                         Log::error("Error extracción de proveedor/monto (Vacíos) pedimento {$pedimentoLimpio}: " . $e->getMessage());
                         continue;
                     }
- 
+
                     if ($infoExtraccion['monto'] <= 0) {
                         continue;
                     }
- 
+
                     try {
                         $numeroDeContenedores = $this->contarContenedoresUniversal($rutaXml, $rutaPdf);
                         $montoDividido = round($infoExtraccion['monto'] / $numeroDeContenedores, 2);
@@ -8905,7 +8977,7 @@ class AuditoriaImpuestosController extends Controller
                         Log::error("Error dividiendo monto (Vacíos) pedimento {$pedimentoLimpio}: " . $e->getMessage());
                         $montoDividido = $infoExtraccion['monto'];
                     }
- 
+
                     // Factura repetida: mismo UUID / folio en el mismo pedimento
                     [$llave, $descripcion] = $this->llaveFactura($rutaXml, $rutaPdf, $montoDividido);
                     if (isset($facturasVistas[$llave])) {
@@ -8913,15 +8985,15 @@ class AuditoriaImpuestosController extends Controller
                         continue;
                     }
                     $facturasVistas[$llave] = true;
- 
+
                     $indexActual = count($filasTemp);
- 
+
                     if ($indexActual === 0 || $indexActual === 1) {
                         $conceptoNombre = 'Maniobras de Vacios';
                     } else {
                         $conceptoNombre = 'Maniobras de Vacios ' . ($indexActual + 1);
                     }
- 
+
                     $filasTemp[] = [
                         'fecha'      => $infoExtraccion['fecha'],
                         'cliente'    => $queryOp ? optional($queryOp->cliente)->nombre : '',
@@ -8933,13 +9005,16 @@ class AuditoriaImpuestosController extends Controller
                         'moneda'     => 'MXN',
                         'naviera'    => $infoExtraccion['naviera']
                     ];
+
+                    // Nota de crédito (UsoCFDI G02): monto en negativo y en rojo
+                    $filasTemp[] = $this->ajustarNotaCredito(array_pop($filasTemp), $rutaXml, (string) $pedimentoLimpio);
                 }
- 
+
                 foreach ($filasTemp as $fila) {
                     $vaciosParaSheets[] = $fila;
                 }
             }
- 
+
             if (!empty($vaciosParaSheets)) {
                 Log::info("Vacíos listos para enviar a GPC: " . count($vaciosParaSheets));
                 $paquetes = array_chunk($vaciosParaSheets, 50);
@@ -8956,7 +9031,7 @@ class AuditoriaImpuestosController extends Controller
             } else {
                 Log::info("Vacíos: No se encontraron registros con monto para enviar a Sheets.");
             }
- 
+
             return ['code' => 0, 'message' => 'completado'];
         } catch (\Throwable $e) {
             Log::error("Error General en Vacíos: " . $e->getMessage());
